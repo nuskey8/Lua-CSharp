@@ -133,6 +133,7 @@ assert(string.format("%c",34)..string.format("%c",48)..string.format("%c",90)..s
        string.format("%c%c%c%c", 34, 48, 90, 100))
 assert(string.format("%s\0 is not \0%s", 'not be', 'be') == 'not be\0 is not \0be')
 assert(string.format("%%%d %010d", 10, 23) == "%10 0000000023")
+print("10.3 as string is: " .. string.format("%f", 10.3) .. " and as number: " .. tostring(tonumber(string.format("%f", 10.3))))
 assert(tonumber(string.format("%f", 10.3)) == 10.3)
 x = string.format('"%-50s"', 'a')
 assert(#x == 52)
@@ -280,5 +281,3 @@ assert(os.setlocale(nil, "numeric") == 'C')
 end
 
 print('OK')
-
-

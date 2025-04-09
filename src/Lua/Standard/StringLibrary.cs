@@ -1,5 +1,6 @@
 using System.Text;
 using Lua.Internal;
+using System.Globalization;
 
 namespace Lua.Standard;
 
@@ -148,6 +149,9 @@ public sealed class StringLibrary
 
     public async ValueTask<int> Format(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
     {
+        var currentCulture = CultureInfo.CurrentCulture;
+        CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
+
         var format = context.GetArgument<string>(0);
 
         // TODO: pooling StringBuilder
@@ -419,6 +423,9 @@ public sealed class StringLibrary
 
 
         buffer.Span[0] = builder.ToString();
+
+        CultureInfo.CurrentCulture = currentCulture;
+
         return 1;
     }
 
