@@ -24,7 +24,8 @@ public class Traceback
                 if (lastFunc is Closure closure)
                 {
                     var p = closure.Proto;
-                    return p.SourcePositions[frame.CallerInstructionIndex];
+                    if (frame.CallerInstructionIndex < p.SourcePositions.Length)
+                        return p.SourcePositions[frame.CallerInstructionIndex];
                 }
             }
 
