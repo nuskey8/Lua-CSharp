@@ -41,4 +41,25 @@ public class TableTests
         Assert.That(value, Is.EqualTo(new LuaValue(2)));
         Assert.That(table[2], Is.EqualTo(new LuaValue(3)));
     }
+
+    [Test]
+    public void Test_TableResize()
+    {
+        var table = new LuaTable();
+        int i = 1;
+        int count = 10000;
+        while (count > 0)
+        {
+            var key = i;
+            table[key] = key;
+            table[key * 2 - key / 2] = key;
+            i += key;
+            count--;
+        }
+
+        table[1] = 0;
+        table[int.MaxValue - 1] = 0;
+        Assert.That(table[1], Is.EqualTo(new LuaValue(0)));
+        Assert.That(table[int.MaxValue - 1], Is.EqualTo(new LuaValue(0)));
+    }
 }

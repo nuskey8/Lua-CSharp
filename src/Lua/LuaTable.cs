@@ -19,6 +19,10 @@ public sealed class LuaTable
     readonly LuaValueDictionary dictionary;
     LuaTable? metatable;
 
+    internal LuaValueDictionary Dictionary => dictionary;
+    private const int MaxArraySize = 1 << 24;
+    private const int MaxDistance = 1 << 12;
+
     public LuaValue this[LuaValue key]
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -51,7 +55,15 @@ public sealed class LuaTable
                 if (MathEx.IsInteger(d))
                 {
                     var index = (int)d;
-                    if (0 < index && index <= Math.Max(array.Length * 2, 8))
+                    
+                    var distance = index - array.Length;
+                    if (distance > MaxDistance)
+                    {
+                        dictionary[key] = value;
+                        return;
+                    }
+                    
+                    if (0 < index && index < MaxArraySize && index <= Math.Max(array.Length * 2, 8))
                     {
                         if (array.Length < index)
                             EnsureArrayCapacity(index);
@@ -168,6 +180,12 @@ public sealed class LuaTable
         }
 
         var arrayIndex = index - 1;
+        var distance = index - array.Length;
+        if (distance > MaxDistance)
+        {
+            dictionary[index] = value;
+            return;
+        }
 
         if (index > array.Length || array[^1].Type != LuaValueType.Nil)
         {
@@ -249,11 +267,7 @@ public sealed class LuaTable
         var prevLength = array.Length;
         var newLength = array.Length;
         if (newLength == 0) newLength = 8;
-
-        while (newLength < newCapacity)
-        {
-            newLength *= 2;
-        }
+        newLength = newCapacity <= 8 ? 8 : MathEx.NextPowerOfTwo(newCapacity);
 
         Array.Resize(ref array, newLength);
 
