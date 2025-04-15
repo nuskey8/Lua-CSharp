@@ -23,6 +23,7 @@ public sealed class LuaTable
     private const int MaxArraySize = 1 << 24;
     private const int MaxDistance = 1 << 12;
 
+
     public LuaValue this[LuaValue key]
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
