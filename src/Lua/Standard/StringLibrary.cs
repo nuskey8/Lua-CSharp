@@ -432,7 +432,7 @@ public sealed class StringLibrary
         var regex = StringHelper.ToRegex(pattern);
         var matches = regex.Matches(s);
 
-        buffer.Span[0] = new CSharpCloasure("iterator",[new LuaValue(matches),0],static (context, buffer, cancellationToken) =>
+        buffer.Span[0] = new CSharpClosure("iterator",[new LuaValue(matches),0],static (context, buffer, cancellationToken) =>
         {
             var upValues = context.GetCsClosure()!.UpValues;
             var matches = upValues[0].Read<MatchCollection>();

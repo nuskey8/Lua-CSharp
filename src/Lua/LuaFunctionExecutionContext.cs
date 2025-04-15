@@ -116,9 +116,9 @@ public readonly record struct LuaFunctionExecutionContext
         return argValue;
     }
 
-    public CSharpCloasure? GetCsClosure()
+    public CSharpClosure? GetCsClosure()
     {
-        return Thread.GetCurrentFrame().Function as CSharpCloasure;
+        return Thread.GetCurrentFrame().Function as CSharpClosure;
     }
 
     internal void ThrowBadArgument(int index, string message)

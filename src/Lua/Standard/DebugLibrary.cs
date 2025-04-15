@@ -201,7 +201,7 @@ public class DebugLibrary
         var index = context.GetArgument<int>(1) - 1;
         if (func is not LuaClosure closure)
         {
-            if (func is CSharpCloasure csClosure)
+            if (func is CSharpClosure csClosure)
             {
                 var upValues = csClosure.UpValues;
                 if (index < 0 || index >= upValues.Length)
@@ -239,7 +239,7 @@ public class DebugLibrary
         var value = context.GetArgument(2);
         if (func is not LuaClosure closure)
         {
-            if (func is CSharpCloasure csClosure)
+            if (func is CSharpClosure csClosure)
             {
                 var upValues = csClosure.UpValues;
                 if (index >= 0 && index < upValues.Length)
