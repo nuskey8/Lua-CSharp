@@ -1,4 +1,5 @@
 using Lua.Runtime;
+using Lua.Standard.Internal;
 
 namespace Lua.Standard;
 
@@ -39,16 +40,16 @@ public static class OpenLibsExtensions
 
     public static void OpenIOLibrary(this LuaState state)
     {
+        
         var io = new LuaTable(0, IOLibrary.Instance.Functions.Length);
         foreach (var func in IOLibrary.Instance.Functions)
         {
             io[func.Name] = func;
         }
-
-        io["stdio"] = new LuaValue(new FileHandle(Console.OpenStandardInput()));
-        io["stdout"] = new LuaValue(new FileHandle(Console.OpenStandardOutput()));
-        io["stderr"] = new LuaValue(new FileHandle(Console.OpenStandardError()));
-
+        io["stdio"] = new LuaValue(new FileHandle(ConsoleHelper.OpenStandardInput()));
+        io["stdout"] = new LuaValue(new FileHandle(ConsoleHelper.OpenStandardOutput()));
+        io["stderr"] = new LuaValue(new FileHandle(ConsoleHelper.OpenStandardError()));
+        
         state.Environment["io"] = io;
         state.LoadedModules["io"] = io;
     }
