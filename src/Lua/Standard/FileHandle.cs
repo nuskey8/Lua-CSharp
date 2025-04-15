@@ -177,7 +177,7 @@ public class FileHandle : ILuaUserData
             : "*l";
 
 
-        buffer.Span[0] = new CsClosure("iterator", [new (file),format],static (context, buffer, cancellationToken) =>
+        buffer.Span[0] = new CSharpCloasure("iterator", [new (file),format],static (context, buffer, cancellationToken) =>
         {
             var upValues = context.GetCsClosure()!.UpValues.AsSpan();
             var file = upValues[0].Read<FileHandle>();

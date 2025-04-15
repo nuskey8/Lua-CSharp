@@ -3,12 +3,12 @@ using Lua.Internal;
 
 namespace Lua.Runtime;
 
-public sealed class Closure : LuaFunction
+public sealed class LuaClosure : LuaFunction
 {
     Chunk proto;
     FastListCore<UpValue> upValues;
 
-    public Closure(LuaState state, Chunk proto, LuaTable? environment = null)
+    public LuaClosure(LuaState state, Chunk proto, LuaTable? environment = null)
         : base(proto.Name, (context, buffer, ct) => LuaVirtualMachine.ExecuteClosureAsync(context.State, buffer, ct))
     {
         this.proto = proto;
@@ -56,7 +56,7 @@ public sealed class Closure : LuaFunction
             return envUpValue;
         }
 
-        if (thread.GetCurrentFrame().Function is Closure parentClosure)
+        if (thread.GetCurrentFrame().Function is LuaClosure parentClosure)
         {
             return parentClosure.UpValues[description.Index];
         }

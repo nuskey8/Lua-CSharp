@@ -43,7 +43,7 @@ public static partial class LuaVirtualMachine
                 var frame = new CallStackFrame
                 {
                     Base = funcContext.FrameBase,
-                    VariableArgumentCount = hook is Closure closure ? Math.Max(funcContext.ArgumentCount - closure.Proto.ParameterCount, 0) : 0,
+                    VariableArgumentCount = hook is LuaClosure closure ? Math.Max(funcContext.ArgumentCount - closure.Proto.ParameterCount, 0) : 0,
                     Function = hook,
                     CallerInstructionIndex = context.Pc,
                 };
@@ -86,7 +86,7 @@ public static partial class LuaVirtualMachine
                     var frame = new CallStackFrame
                     {
                         Base = funcContext.FrameBase,
-                        VariableArgumentCount = hook is Closure closure ? Math.Max(funcContext.ArgumentCount - closure.Proto.ParameterCount, 0) : 0,
+                        VariableArgumentCount = hook is LuaClosure closure ? Math.Max(funcContext.ArgumentCount - closure.Proto.ParameterCount, 0) : 0,
                         Function = hook,
                         CallerInstructionIndex = pc,
                     };

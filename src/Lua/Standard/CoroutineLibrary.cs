@@ -59,7 +59,7 @@ public sealed class CoroutineLibrary
         var arg0 = context.GetArgument<LuaFunction>(0);
         var thread = new LuaCoroutine(arg0, false);
 
-        buffer.Span[0] = new CsClosure("wrap", [thread],static async (context, buffer, cancellationToken) =>
+        buffer.Span[0] = new CSharpCloasure("wrap", [thread],static async (context, buffer, cancellationToken) =>
         {
             var thread = context.GetCsClosure()!.UpValues[0].Read<LuaThread>();
             if (thread is not LuaCoroutine coroutine)

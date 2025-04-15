@@ -8,7 +8,7 @@ namespace Lua.Runtime;
 public class Traceback(LuaState state)
 {
     public LuaState State => state;
-    public required Closure RootFunc { get; init; }
+    public required LuaClosure RootFunc { get; init; }
     public required CallStackFrame[] StackFrames { get; init; }
 
     internal string RootChunkName => RootFunc.Proto.Name;
@@ -22,7 +22,7 @@ public class Traceback(LuaState state)
             {
                 LuaFunction lastFunc = index > 0 ? stackFrames[index - 1].Function : RootFunc;
                 var frame = stackFrames[index];
-                if (!frame.IsTailCall && lastFunc is Closure closure)
+                if (!frame.IsTailCall && lastFunc is LuaClosure closure)
                 {
                     var p = closure.Proto;
                     if (frame.CallerInstructionIndex < 0 || p.SourcePositions.Length <= frame.CallerInstructionIndex)
@@ -54,7 +54,7 @@ public class Traceback(LuaState state)
         return GetTracebackString(State, RootFunc, StackFrames[..^skipFrames], LuaValue.Nil);
     }
 
-    internal static string GetTracebackString(LuaState state, Closure rootFunc, ReadOnlySpan<CallStackFrame> stackFrames, LuaValue message, bool skipFirstCsharpCall = false)
+    internal static string GetTracebackString(LuaState state, LuaClosure rootFunc, ReadOnlySpan<CallStackFrame> stackFrames, LuaValue message, bool skipFirstCsharpCall = false)
     {
         using var list = new PooledList<char>(64);
         if (message.Type is not LuaValueType.Nil)
@@ -67,7 +67,7 @@ public class Traceback(LuaState state)
         var intFormatBuffer = (stackalloc char[15]);
         var shortSourceBuffer = (stackalloc char[59]);
         {
-            if (0 < stackFrames.Length && !skipFirstCsharpCall && stackFrames[^1].Function is { } f and not Closure)
+            if (0 < stackFrames.Length && !skipFirstCsharpCall && stackFrames[^1].Function is { } f and not LuaClosure)
             {
                 list.AddRange("\t[C#]: in function '");
                 list.AddRange(f.Name);
@@ -78,13 +78,13 @@ public class Traceback(LuaState state)
         for (var index = stackFrames.Length - 1; index >= 0; index--)
         {
             LuaFunction lastFunc = index > 0 ? stackFrames[index - 1].Function : rootFunc;
-            if (lastFunc is not null and not Closure)
+            if (lastFunc is not null and not LuaClosure)
             {
                 list.AddRange("\t[C#]: in function '");
                 list.AddRange(lastFunc.Name);
                 list.AddRange("'\n");
             }
-            else if (lastFunc is Closure closure)
+            else if (lastFunc is LuaClosure closure)
             {
                 var frame = stackFrames[index];
 
@@ -141,7 +141,7 @@ public class Traceback(LuaState state)
                 }
 
                 var caller = index > 1 ? stackFrames[index - 2].Function : rootFunc;
-                if (index > 0 && caller is Closure callerClosure)
+                if (index > 0 && caller is LuaClosure callerClosure)
                 {
                     var t = LuaDebug.GetFuncName(callerClosure.Proto, stackFrames[index - 1].CallerInstructionIndex, out var name);
                     if (t is not null)

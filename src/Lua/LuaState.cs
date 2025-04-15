@@ -68,7 +68,7 @@ public sealed class LuaState
         Volatile.Write(ref isRunning, true);
         try
         {
-            var closure = new Closure(this, chunk);
+            var closure = new LuaClosure(this, chunk);
             return await closure.InvokeAsync(new()
             {
                 State = this,
@@ -97,7 +97,7 @@ public sealed class LuaState
         {
             return new(this)
             {
-                RootFunc = (Closure)MainThread.GetCallStackFrames()[0].Function,
+                RootFunc = (LuaClosure)MainThread.GetCallStackFrames()[0].Function,
                 StackFrames = MainThread.GetCallStackFrames()[1..]
                     .ToArray()
             };
@@ -120,7 +120,7 @@ public sealed class LuaState
 
         return new(this)
         {
-            RootFunc = (Closure)MainThread.GetCallStackFrames()[0].Function,
+            RootFunc = (LuaClosure)MainThread.GetCallStackFrames()[0].Function,
             StackFrames = list.AsSpan().ToArray()
         };
     }
@@ -132,14 +132,14 @@ public sealed class LuaState
         {
             list.Add(frame);
         }
-        Closure rootFunc;
-        if (thread.GetCallStackFrames()[0].Function is Closure closure)
+        LuaClosure rootFunc;
+        if (thread.GetCallStackFrames()[0].Function is LuaClosure closure)
         {
             rootFunc = closure;
         }
         else
         {
-            rootFunc = (Closure)MainThread.GetCallStackFrames()[0].Function;
+            rootFunc = (LuaClosure)MainThread.GetCallStackFrames()[0].Function;
         }
 
         return new(this)

@@ -22,11 +22,11 @@ public static partial class LuaVirtualMachine
     {
         public readonly LuaState State = state;
         public readonly LuaStack Stack = stack;
-        public Closure Closure = (Closure)frame.Function;
+        public LuaClosure LuaClosure = (LuaClosure)frame.Function;
         public readonly LuaValue[] ResultsBuffer = resultsBuffer;
         public readonly Memory<LuaValue> Buffer = buffer;
         public readonly LuaThread Thread = thread;
-        public Chunk Chunk => Closure.Proto;
+        public Chunk Chunk => LuaClosure.Proto;
         public int FrameBase = frame.Base;
         public int VariableArgumentCount = frame.VariableArgumentCount;
         public readonly CancellationToken CancellationToken = cancellationToken;
@@ -63,7 +63,7 @@ public static partial class LuaVirtualMachine
             Pc = frame.CallerInstructionIndex;
             Thread.LastPc = Pc;
             ref readonly var lastFrame = ref frames[^2];
-            Closure = Unsafe.As<Closure>(lastFrame.Function);
+            LuaClosure = Unsafe.As<LuaClosure>(lastFrame.Function);
             var callInstruction = Chunk.Instructions[Pc];
             FrameBase = lastFrame.Base;
             VariableArgumentCount = lastFrame.VariableArgumentCount;
@@ -146,7 +146,7 @@ public static partial class LuaVirtualMachine
         public void Push(in CallStackFrame frame)
         {
             Pc = -1;
-            Closure = (frame.Function as Closure)!;
+            LuaClosure = (frame.Function as LuaClosure)!;
             FrameBase = frame.Base;
             VariableArgumentCount = frame.VariableArgumentCount;
         }
@@ -341,14 +341,14 @@ public static partial class LuaVirtualMachine
                         continue;
                     case OpCode.GetUpVal:
                         instruction = instructionRef;
-                        stack.GetWithNotifyTop(instruction.A + frameBase) = context.Closure.GetUpValue(instruction.B);
+                        stack.GetWithNotifyTop(instruction.A + frameBase) = context.LuaClosure.GetUpValue(instruction.B);
                         continue;
                     case OpCode.GetTabUp:
                     case OpCode.GetTable:
                         instruction = instructionRef;
                         stackHead = ref stack.FastGet(frameBase);
                         ref readonly var vc = ref RKC(ref stackHead, ref constHead, instruction);
-                        ref readonly var vb = ref (instruction.OpCode == OpCode.GetTable ? ref Unsafe.Add(ref stackHead, instruction.UIntB) : ref context.Closure.GetUpValueRef(instruction.B));
+                        ref readonly var vb = ref (instruction.OpCode == OpCode.GetTable ? ref Unsafe.Add(ref stackHead, instruction.UIntB) : ref context.LuaClosure.GetUpValueRef(instruction.B));
                         var doRestart = false;
                         if (vb.TryReadTable(out var luaTable) && luaTable.TryGetValue(vc, out var resultValue) || GetTableValueSlowPath(vb, vc, ref context, out resultValue, out doRestart))
                         {
@@ -371,7 +371,7 @@ public static partial class LuaVirtualMachine
                             }
                         }
 
-                        var table = context.Closure.GetUpValue(instruction.A);
+                        var table = context.LuaClosure.GetUpValue(instruction.A);
 
                         if (table.TryReadTable(out luaTable))
                         {
@@ -394,7 +394,7 @@ public static partial class LuaVirtualMachine
 
                     case OpCode.SetUpVal:
                         instruction = instructionRef;
-                        context.Closure.SetUpValue(instruction.B, stack.FastGet(instruction.A + frameBase));
+                        context.LuaClosure.SetUpValue(instruction.B, stack.FastGet(instruction.A + frameBase));
                         continue;
                     case OpCode.SetTable:
                         instruction = instructionRef;
@@ -914,7 +914,7 @@ public static partial class LuaVirtualMachine
                         iA = instruction.A;
                         ra1 = iA + frameBase + 1;
                         stack.EnsureCapacity(ra1);
-                        stack.Get(ra1 - 1) = new Closure(context.State, context.Chunk.Functions[instruction.SBx]);
+                        stack.Get(ra1 - 1) = new LuaClosure(context.State, context.Chunk.Functions[instruction.SBx]);
                         stack.NotifyTop(ra1);
                         continue;
                     case OpCode.VarArg:
@@ -1060,7 +1060,7 @@ public static partial class LuaVirtualMachine
             return false;
         }
 
-        if (func is Closure)
+        if (func is LuaClosure)
         {
             context.Push(newFrame);
             doRestart = true;
@@ -1196,7 +1196,7 @@ public static partial class LuaVirtualMachine
         }
 
         context.Push(newFrame);
-        if (func is Closure)
+        if (func is LuaClosure)
         {
             doRestart = true;
             return true;
@@ -1246,7 +1246,7 @@ public static partial class LuaVirtualMachine
         stack.NotifyTop(newBase + 2);
         var newFrame = iterator.CreateNewFrame(ref context, newBase);
         context.Thread.PushCallStackFrame(newFrame);
-        if (iterator is Closure)
+        if (iterator is LuaClosure)
         {
             context.Push(newFrame);
             doRestart = true;
@@ -1399,7 +1399,7 @@ public static partial class LuaVirtualMachine
             return false;
         }
 
-        if (indexTable is Closure)
+        if (indexTable is LuaClosure)
         {
             context.Push(newFrame);
             doRestart = true;
@@ -1499,7 +1499,7 @@ public static partial class LuaVirtualMachine
             return false;
         }
 
-        if (newIndexFunction is Closure)
+        if (newIndexFunction is LuaClosure)
         {
             context.Push(newFrame);
             doRestart = true;
@@ -1553,7 +1553,7 @@ public static partial class LuaVirtualMachine
                 return false;
             }
 
-            if (func is Closure)
+            if (func is LuaClosure)
             {
                 context.Push(newFrame);
                 doRestart = true;
@@ -1607,7 +1607,7 @@ public static partial class LuaVirtualMachine
                 return false;
             }
 
-            if (func is Closure)
+            if (func is LuaClosure)
             {
                 context.Push(newFrame);
                 doRestart = true;
@@ -1671,7 +1671,7 @@ public static partial class LuaVirtualMachine
                 doRestart = false;
                 return false;
             }
-            if (func is Closure)
+            if (func is LuaClosure)
             {
                 context.Push(newFrame);
                 doRestart = true;

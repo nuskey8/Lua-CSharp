@@ -214,7 +214,7 @@ public sealed class LuaCoroutine : LuaThread, IValueTaskSource<LuaCoroutine.Yiel
             throw new LuaRuntimeException(context.State.GetTraceback(), "cannot call yield on a coroutine that is not currently running");
         }
 
-        if (context.Thread.GetCallStackFrames()[^2].Function is not Closure)
+        if (context.Thread.GetCallStackFrames()[^2].Function is not LuaClosure)
         {
             throw new LuaRuntimeException(context.State.GetTraceback(), "attempt to yield across a C#-call boundary");
         }

@@ -163,7 +163,7 @@ public sealed class TableLibrary
         var arg0 = context.GetArgument<LuaTable>(0);
         var arg1 = context.HasArgument(1)
             ? context.GetArgument<LuaFunction>(1)
-            : new Closure(context.State, defaultComparer);
+            : new LuaClosure(context.State, defaultComparer);
         
         context.Thread.PushCallStackFrame(new ()
         {
