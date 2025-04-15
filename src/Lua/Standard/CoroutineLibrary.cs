@@ -56,7 +56,7 @@ public sealed class CoroutineLibrary
     {
         var arg0 = context.GetArgument<LuaFunction>(0);
         var thread = new LuaCoroutine(arg0, false);
-        return new(context.Return(new CsClosure("wrap", [thread],
+        return new(context.Return(new CSharpClosure("wrap", [thread],
             static async (context, cancellationToken) =>
             {
                 var thread = context.GetCsClosure()!.UpValues[0].Read<LuaThread>();

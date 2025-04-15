@@ -24,7 +24,7 @@ public sealed class ModuleLibrary
         {
             var module = await context.State.ModuleLoader.LoadAsync(arg0, cancellationToken);
             var chunk = LuaCompiler.Default.Compile(module.ReadText(), module.Name);
-            await new Closure(context.State, chunk).InvokeAsync(context, cancellationToken);
+            await new LuaClosure(context.State, chunk).InvokeAsync(context, cancellationToken);
 
             loadedTable = context.Thread.Stack.Get(context.ReturnFrameBase);
             loaded[arg0] = loadedTable;

@@ -93,7 +93,7 @@ public sealed class BasicLibrary
         var fileName = "@" + Path.GetFileName(arg0);
         var chunk = LuaCompiler.Default.Compile(text, fileName);
 
-        return await new Closure(context.State, chunk).InvokeAsync(context, cancellationToken);
+        return await new LuaClosure(context.State, chunk).InvokeAsync(context, cancellationToken);
     }
 
     public ValueTask<int> Error(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
@@ -170,7 +170,7 @@ public sealed class BasicLibrary
             var text = await File.ReadAllTextAsync(arg0, cancellationToken);
             var fileName = "@" + Path.GetFileName(arg0);
             var chunk = LuaCompiler.Default.Compile(text, fileName);
-            return context.Return(new Closure(context.State, chunk, arg2));
+            return context.Return(new LuaClosure(context.State, chunk, arg2));
         }
         catch (Exception ex)
         {
@@ -197,7 +197,7 @@ public sealed class BasicLibrary
             if (arg0.TryRead<string>(out var str))
             {
                 var chunk = LuaCompiler.Default.Compile(str, arg1 ?? str);
-                return new(context.Return(new Closure(context.State, chunk, arg3)));
+                return new(context.Return(new LuaClosure(context.State, chunk, arg3)));
             }
             else if (arg0.TryRead<LuaFunction>(out var function))
             {

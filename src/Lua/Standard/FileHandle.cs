@@ -168,7 +168,7 @@ public class FileHandle : ILuaUserData
             : "*l";
 
 
-        return new (context.Return(new CsClosure("iterator", [new (file),format],static (context, cancellationToken) =>
+        return new (context.Return(new CSharpClosure("iterator", [new (file),format],static (context, cancellationToken) =>
         {
             var upValues = context.GetCsClosure()!.UpValues.AsSpan();
             var file = upValues[0].Read<FileHandle>();

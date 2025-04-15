@@ -198,7 +198,7 @@ internal readonly struct LuaDebug : IDisposable
 
         internal bool GetInfo(CallStackFrame? prevFrame, CallStackFrame? frame, LuaFunction function, int pc, ReadOnlySpan<char> what)
         {
-            Closure? closure = function as Closure;
+            LuaClosure? closure = function as LuaClosure;
             int status = 1;
             foreach (var c in what)
             {
@@ -238,7 +238,7 @@ internal readonly struct LuaDebug : IDisposable
                     case 'n':
                         {
                             /* calling function is a known Lua function? */
-                            if (prevFrame is { Function: Closure prevFrameClosure })
+                            if (prevFrame is { Function: LuaClosure prevFrameClosure })
                                 NameWhat = GetFuncName(prevFrameClosure.Proto, frame?.CallerInstructionIndex ?? 0, out Name);
                             else
                                 NameWhat = null;
@@ -268,7 +268,7 @@ internal readonly struct LuaDebug : IDisposable
 
         void GetFuncInfo(LuaFunction f)
         {
-            if (f is not Closure cl)
+            if (f is not LuaClosure cl)
             {
                 Source = "=[C#]";
                 LineDefined = -1;

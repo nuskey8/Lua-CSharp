@@ -82,7 +82,7 @@ public class DebugLibrary
         var frameBase = frame.Base;
 
 
-        if (frame.Function is Closure closure)
+        if (frame.Function is LuaClosure closure)
         {
             var locals = closure.Proto.Locals;
             var nextFrame = callStack[^level];
@@ -128,7 +128,7 @@ public class DebugLibrary
     {
         static LuaValue GetParam(LuaFunction function, int index)
         {
-            if (function is Closure closure)
+            if (function is LuaClosure closure)
             {
                 var paramCount = closure.Proto.ParameterCount;
                 if (0 <= index && index < paramCount)
@@ -193,9 +193,9 @@ public class DebugLibrary
     {
         var func = context.GetArgument<LuaFunction>(0);
         var index = context.GetArgument<int>(1) - 1;
-        if (func is not Closure closure)
+        if (func is not LuaClosure closure)
         {
-            if (func is CsClosure csClosure)
+            if (func is CSharpClosure csClosure)
             {
                 var upValues = csClosure.UpValues;
                 if (index < 0 || index >= upValues.Length)
@@ -227,9 +227,9 @@ public class DebugLibrary
         var func = context.GetArgument<LuaFunction>(0);
         var index = context.GetArgument<int>(1) - 1;
         var value = context.GetArgument(2);
-        if (func is not Closure closure)
+        if (func is not LuaClosure closure)
         {
-            if (func is CsClosure csClosure)
+            if (func is CSharpClosure csClosure)
             {
                 var upValues = csClosure.UpValues;
                 if (index >= 0 && index < upValues.Length)
@@ -355,7 +355,7 @@ public class DebugLibrary
 
         var skipCount = Math.Min(Math.Max(level - 1, 0), callStack.Length - 1);
         var frames = callStack[1..^skipCount];
-        return new(context.Return(Runtime.Traceback.GetTracebackString(context.State, (Closure)callStack[0].Function, frames, message, level == 1)));
+        return new(context.Return(Runtime.Traceback.GetTracebackString(context.State, (LuaClosure)callStack[0].Function, frames, message, level == 1)));
     }
 
     public ValueTask<int> GetRegistry(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
@@ -368,7 +368,7 @@ public class DebugLibrary
         var n1 = context.GetArgument<int>(1);
         var f1 = context.GetArgument<LuaFunction>(0);
 
-        if (f1 is not Closure closure)
+        if (f1 is not LuaClosure closure)
         {
             return new(context.Return(LuaValue.Nil));
         }
@@ -389,7 +389,7 @@ public class DebugLibrary
         var n1 = context.GetArgument<int>(1);
         var f1 = context.GetArgument<LuaFunction>(0);
 
-        if (f1 is not Closure closure1 || f2 is not Closure closure2)
+        if (f1 is not LuaClosure closure1 || f2 is not LuaClosure closure2)
         {
             return new(context.Return(LuaValue.Nil));
         }
@@ -597,7 +597,7 @@ public class DebugLibrary
 
         if (what.Contains('L'))
         {
-            if (functionToInspect is Closure closure)
+            if (functionToInspect is LuaClosure closure)
             {
                 var activeLines = new LuaTable(0, 8);
                 foreach (var pos in closure.Proto.SourcePositions)

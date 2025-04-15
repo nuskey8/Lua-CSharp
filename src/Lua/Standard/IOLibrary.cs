@@ -87,7 +87,7 @@ public sealed class IOLibrary
         if (context.ArgumentCount == 0)
         {
             var file = context.State.Environment["io"].Read<LuaTable>()["stdio"].Read<FileHandle>();
-            return new(context.Return(new CsClosure("iterator", [new(file)], static (context, ct) =>
+            return new(context.Return(new CSharpClosure("iterator", [new(file)], static (context, ct) =>
             {
                 var file = context.GetCsClosure()!.UpValues[0].Read<FileHandle>();
                 context.Return();
@@ -113,7 +113,7 @@ public sealed class IOLibrary
             upValues[0] = new(file);
             context.Arguments[1..].CopyTo(upValues[1..]);
 
-            return new(context.Return(new CsClosure("iterator", upValues, static (context, ct) =>
+            return new(context.Return(new CSharpClosure("iterator", upValues, static (context, ct) =>
             {
                 var upValues = context.GetCsClosure()!.UpValues;
                 var file = upValues[0].Read<FileHandle>();
