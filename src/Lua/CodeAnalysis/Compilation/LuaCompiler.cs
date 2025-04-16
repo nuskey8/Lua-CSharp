@@ -146,7 +146,13 @@ public sealed class LuaCompiler : ISyntaxNodeVisitor<ScopeCompilationContext, bo
                 a = context.StackTopPosition;
             }
 
-            context.PushInstruction(Instruction.Test(a, (byte)(node.OperatorType is BinaryOperator.And ? 0 : 1)), node.Position);
+            context.PushInstruction(Instruction.Test(a, 0), node.Position);
+            if (node.OperatorType is BinaryOperator.Or)
+            {
+                context.PushInstruction(Instruction.Jmp(0, 2), node.Position);
+                context.PushInstruction(Instruction.Move(r, a), node.Position);
+            }
+
             var testJmpIndex = context.Function.Instructions.Length;
             context.PushInstruction(Instruction.Jmp(0, 0), node.Position);
 

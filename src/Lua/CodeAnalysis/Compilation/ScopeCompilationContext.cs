@@ -33,7 +33,7 @@ public class ScopeCompilationContext : IDisposable
     readonly Dictionary<ReadOnlyMemory<char>, LocalVariableDescription> localVariables = new(256, Utf16StringMemoryComparer.Default);
     readonly Dictionary<ReadOnlyMemory<char>, LabelDescription> labels = new(32, Utf16StringMemoryComparer.Default);
 
-    byte lastLocalVariableIndex;
+    internal BitFlags256 ActiveLocalVariables = default;
 
     public byte StackStartPosition { get; private set; }
     public byte StackPosition { get; set; }
@@ -74,7 +74,7 @@ public class ScopeCompilationContext : IDisposable
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void PushInstruction(in Instruction instruction, SourcePosition position, bool incrementStackPosition = false)
     {
-        Function.PushOrMergeInstruction(lastLocalVariableIndex, instruction, position, ref incrementStackPosition);
+        Function.PushOrMergeInstruction(instruction, position, ref incrementStackPosition);
         if (incrementStackPosition)
         {
             StackPosition++;
@@ -98,7 +98,7 @@ public class ScopeCompilationContext : IDisposable
     public void AddLocalVariable(ReadOnlyMemory<char> name, LocalVariableDescription description, bool markAsLastLocalVariable = true)
     {
         localVariables[name] = description;
-        lastLocalVariableIndex = description.RegisterIndex;
+        ActiveLocalVariables.Set(description.RegisterIndex);
     }
 
 
@@ -173,7 +173,7 @@ public class ScopeCompilationContext : IDisposable
         HasCapturedLocalVariables = false;
         localVariables.Clear();
         labels.Clear();
-        lastLocalVariableIndex = 0;
+        ActiveLocalVariables = default;
     }
 
     /// <summary>
