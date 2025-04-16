@@ -159,9 +159,6 @@ public class FunctionCompilationContext : IDisposable
                         case OpCode.GetUpVal:
                         case OpCode.GetTabUp:
                         case OpCode.GetTable  when !activeLocals[lastInstruction.B]:
-                        case OpCode.SetTabUp:
-                        case OpCode.SetUpVal:
-                        case OpCode.SetTable:
                         case OpCode.NewTable:
                         case OpCode.Self:
                         case OpCode.Add:
@@ -266,17 +263,6 @@ public class FunctionCompilationContext : IDisposable
                 if (lastInstruction.OpCode == OpCode.Move && !activeLocals[lastInstruction.A] && lastInstruction.A == instruction.B)
                 {
                     lastInstruction = instruction with { B = lastInstruction.B };
-                    instructionPositions[^1] = position;
-                    incrementStackPosition = false;
-                    return;
-                }
-
-                break;
-            case OpCode.Return:
-                if (lastInstruction.OpCode == OpCode.Move && instruction.B == 2 && lastInstruction.B < 256)
-                {
-                    lastInstruction = instruction with { A = (byte)lastInstruction.B };
-
                     instructionPositions[^1] = position;
                     incrementStackPosition = false;
                     return;
