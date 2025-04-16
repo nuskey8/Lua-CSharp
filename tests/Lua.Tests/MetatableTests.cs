@@ -10,7 +10,7 @@ public class MetatableTests
     public void SetUp()
     {
         state = LuaState.Create();
-        state.OpenBasicLibrary();
+        state.OpenStandardLibraries();
     }
 
     [Test]
@@ -85,5 +85,71 @@ assert(a.x == nil)
 assert(metatable.__newindex.x == 2)
 ";
         await state.DoStringAsync(source);
+    }
+
+    [Test]
+    public async Task Test_Metamethod_Call()
+    {
+        var source = @"
+metatable = {
+    __call = function(a, b)
+        return a.x + b
+    end
+}
+
+local a = {}
+a.x = 1
+setmetatable(a, metatable)
+assert(a(2) == 3)
+function tail(a, b)
+    return a(b)
+end
+tail(a, 3)
+assert(tail(a, 3) == 4)
+";
+        await state.DoStringAsync(source);
+    }
+    
+    [Test]
+    public async Task Test_Metamethod_TForCall()
+    {
+        var source = @"
+local i =3
+function a(...)
+  local v ={...}
+   assert(v[1] ==t)
+   assert(v[2] == nil)
+   if i ==3 then
+       assert(v[3] == nil)
+    else
+      assert(v[3] == i)
+    end
+   
+   i  =i -1
+   if i ==0 then return nil end
+   return i
+end
+
+t =setmetatable({},{__call = a})
+
+for i in t do 
+end
+";
+        await state.DoStringAsync(source);
+    }
+    [Test]
+    public async Task Test_Hook_Metamethods()
+    {
+        var source = """ 
+                     local t = {}
+                     local a =setmetatable({},{__add =function (a,b) return a end})
+
+                     debug.sethook(function () table.insert(t,debug.traceback()) end,"c")
+                     a =a+a
+                     return t
+                     """;
+        var r = await state.DoStringAsync(source);
+        Assert.That(r, Has.Length.EqualTo(1));
+        Assert.That(r[0].Read<LuaTable>()[1].Read<string>(), Does.Contain("stack traceback:"));
     }
 }

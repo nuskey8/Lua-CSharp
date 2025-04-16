@@ -60,6 +60,7 @@ public class FunctionCompilationContext : IDisposable
 
     // upvalues
     FastListCore<UpValueInfo> upvalues;
+    FastListCore<LocalValueInfo> localVariables;
 
     // loop
     FastListCore<BreakDescription> breakQueue;
@@ -89,6 +90,16 @@ public class FunctionCompilationContext : IDisposable
     /// Weather the function has variable arguments
     /// </summary>
     public bool HasVariableArguments { get; set; }
+
+    /// <summary>
+    /// Line number where the function is defined
+    /// </summary>
+    public int LineDefined { get; set; }
+
+    /// <summary>
+    /// Last line number where the function is defined
+    /// </summary>
+    public int LastLineDefined { get; set; }
 
     /// <summary>
     /// Parent scope context
@@ -261,6 +272,17 @@ public class FunctionCompilationContext : IDisposable
                 }
 
                 break;
+            case OpCode.Return:
+                if (lastInstruction.OpCode == OpCode.Move && instruction.B == 2 && lastInstruction.B < 256)
+                {
+                    lastInstruction = instruction with { A = (byte)lastInstruction.B };
+
+                    instructionPositions[^1] = position;
+                    incrementStackPosition = false;
+                    return;
+                }
+
+                break;
         }
 
         instructions.Add(instruction);
@@ -308,6 +330,17 @@ public class FunctionCompilationContext : IDisposable
             proto = null;
             return false;
         }
+    }
+
+    public void AddLocalVariable(ReadOnlyMemory<char> name, LocalVariableDescription description)
+    {
+        localVariables.Add(new LocalValueInfo()
+        {
+            Name = name,
+            Index = description.RegisterIndex,
+            StartPc = description.StartPc,
+            EndPc = Instructions.Length,
+        });
     }
 
     public void AddUpValue(UpValueInfo upValue)
@@ -418,8 +451,10 @@ public class FunctionCompilationContext : IDisposable
     {
         // add return
         instructions.Add(Instruction.Return(0, 1));
-        instructionPositions.Add(instructionPositions.Length == 0 ? default : instructionPositions[^1]);
-
+        instructionPositions.Add( new (LastLineDefined, 0));
+        Scope.RegisterLocalsToFunction();
+        var locals = localVariables.AsSpan().ToArray();
+        Array.Sort(locals, (x, y) => x.Index.CompareTo(y.Index));
         var chunk = new Chunk()
         {
             Name = ChunkName ?? "chunk",
@@ -427,9 +462,13 @@ public class FunctionCompilationContext : IDisposable
             SourcePositions = instructionPositions.AsSpan().ToArray(),
             Constants = constants.AsSpan().ToArray(),
             UpValues = upvalues.AsSpan().ToArray(),
+            Locals = locals,
             Functions = functions.AsSpan().ToArray(),
             ParameterCount = ParameterCount,
+            HasVariableArguments = HasVariableArguments,
             MaxStackPosition = MaxStackPosition,
+            LineDefined = LineDefined,
+            LastLineDefined = LastLineDefined,
         };
 
         foreach (var function in functions.AsSpan())
@@ -451,6 +490,7 @@ public class FunctionCompilationContext : IDisposable
         constantIndexMap.Clear();
         constants.Clear();
         upvalues.Clear();
+        localVariables.Clear();
         functionMap.Clear();
         functions.Clear();
         breakQueue.Clear();

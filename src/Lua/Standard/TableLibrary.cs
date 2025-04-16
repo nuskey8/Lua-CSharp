@@ -41,7 +41,11 @@ public sealed class TableLibrary
         ],
         ParameterCount = 2,
         UpValues = [],
+        Locals = [new LocalValueInfo(){Name = "a".AsMemory(),StartPc = 0,Index = 0,EndPc = 4}, new LocalValueInfo(){Name = "b".AsMemory(),StartPc = 0,Index = 1,EndPc = 4}],
         MaxStackPosition = 2,
+        HasVariableArguments = false,
+        LineDefined = 0,
+        LastLineDefined = 0,
     };
 
     public ValueTask<int> Concat(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
@@ -159,7 +163,7 @@ public sealed class TableLibrary
         var arg0 = context.GetArgument<LuaTable>(0);
         var arg1 = context.HasArgument(1)
             ? context.GetArgument<LuaFunction>(1)
-            : new Closure(context.State, defaultComparer);
+            : new LuaClosure(context.State, defaultComparer);
         
         context.Thread.PushCallStackFrame(new ()
         {
