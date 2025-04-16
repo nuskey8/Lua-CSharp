@@ -88,6 +88,56 @@ assert(metatable.__newindex.x == 2)
     }
 
     [Test]
+    public async Task Test_Metamethod_Call()
+    {
+        var source = @"
+metatable = {
+    __call = function(a, b)
+        return a.x + b
+    end
+}
+
+local a = {}
+a.x = 1
+setmetatable(a, metatable)
+assert(a(2) == 3)
+function tail(a, b)
+    return a(b)
+end
+tail(a, 3)
+assert(tail(a, 3) == 4)
+";
+        await state.DoStringAsync(source);
+    }
+    
+    [Test]
+    public async Task Test_Metamethod_TForCall()
+    {
+        var source = @"
+local i =3
+function a(...)
+  local v ={...}
+   assert(v[1] ==t)
+   assert(v[2] == nil)
+   if i ==3 then
+       assert(v[3] == nil)
+    else
+      assert(v[3] == i)
+    end
+   
+   i  =i -1
+   if i ==0 then return nil end
+   return i
+end
+
+t =setmetatable({},{__call = a})
+
+for i in t do 
+end
+";
+        await state.DoStringAsync(source);
+    }
+    [Test]
     public async Task Test_Hook_Metamethods()
     {
         var source = """ 
