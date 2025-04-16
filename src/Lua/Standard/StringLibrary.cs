@@ -2,6 +2,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using Lua.Internal;
 using Lua.Runtime;
+using System.Globalization;
 
 namespace Lua.Standard;
 
@@ -259,23 +260,23 @@ public sealed class StringLibrary
                         {
                             case 'f':
                                 formattedValue = precision < 0
-                                    ? f.ToString()
-                                    : f.ToString($"F{precision}");
+                                    ? f.ToString(CultureInfo.InvariantCulture)
+                                    : f.ToString($"F{precision}",CultureInfo.InvariantCulture);
                                 break;
                             case 'e':
                                 formattedValue = precision < 0
-                                    ? f.ToString()
-                                    : f.ToString($"E{precision}");
+                                    ? f.ToString(CultureInfo.InvariantCulture)
+                                    : f.ToString($"E{precision}",CultureInfo.InvariantCulture);
                                 break;
                             case 'g':
                                 formattedValue = precision < 0
-                                    ? f.ToString()
-                                    : f.ToString($"G{precision}");
+                                    ? f.ToString(CultureInfo.InvariantCulture)
+                                    : f.ToString($"G{precision}",CultureInfo.InvariantCulture);
                                 break;
                             case 'G':
                                 formattedValue = precision < 0
-                                    ? f.ToString().ToUpper()
-                                    : f.ToString($"G{precision}").ToUpper();
+                                    ? f.ToString(CultureInfo.InvariantCulture).ToUpper()
+                                    : f.ToString($"G{precision}",CultureInfo.InvariantCulture).ToUpper();
                                 break;
                         }
 
@@ -310,7 +311,7 @@ public sealed class StringLibrary
                                 break;
                             case LuaValueType.Number:
                                 // TODO: floating point numbers must be in hexadecimal notation
-                                formattedValue = parameter.Read<double>().ToString();
+                                formattedValue = parameter.Read<double>().ToString(CultureInfo.InvariantCulture);
                                 break;
                             default:
                                 using (var strBuffer = new PooledArray<LuaValue>(1))
