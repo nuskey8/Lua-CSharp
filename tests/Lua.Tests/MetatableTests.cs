@@ -109,4 +109,32 @@ assert(tail(a, 3) == 4)
 ";
         await state.DoStringAsync(source);
     }
+    
+    [Test]
+    public async Task Test_Metamethod_TForCall()
+    {
+        var source = @"
+local i =3
+function a(...)
+  local v ={...}
+   assert(v[1] ==t)
+   assert(v[2] == nil)
+   if i ==3 then
+       assert(v[3] == nil)
+    else
+      assert(v[3] == i)
+    end
+   
+   i  =i -1
+   if i ==0 then return nil end
+   return i
+end
+
+t =setmetatable({},{__call = a})
+
+for i in t do 
+end
+";
+        await state.DoStringAsync(source);
+    }
 }

@@ -925,7 +925,7 @@ public static partial class LuaVirtualMachine
                 }
             }
 
-        End:
+            End:
             postOperation = PostOperationType.None;
             LuaValueArrayPool.Return1024(context.ResultsBuffer);
             return false;
@@ -1201,18 +1201,46 @@ public static partial class LuaVirtualMachine
         var instruction = context.Instruction;
         var stack = context.Stack;
         var RA = instruction.A + context.FrameBase;
-
+        bool isMetamethod = false;
         var iteratorRaw = stack.Get(RA);
         if (!iteratorRaw.TryReadFunction(out var iterator))
         {
-            LuaRuntimeException.AttemptInvalidOperation(GetTracebacks(ref context), "call", iteratorRaw);
+            if (iteratorRaw.TryGetMetamethod(context.State, Metamethods.Call, out var metamethod) &&
+                metamethod.TryReadFunction(out iterator))
+            {
+                isMetamethod = true;
+            }
+            else
+            {
+                LuaRuntimeException.AttemptInvalidOperation(GetTracebacks(ref context), "call", metamethod);
+            }
         }
 
         var newBase = RA + 3 + instruction.C;
-        stack.Get(newBase) = stack.Get(RA + 1);
-        stack.Get(newBase + 1) = stack.Get(RA + 2);
-        stack.NotifyTop(newBase + 2);
-        var newFrame = iterator.CreateNewFrame(ref context, newBase);
+
+        if (isMetamethod)
+        {
+            stack.Get(newBase) = iteratorRaw;
+            stack.Get(newBase + 1) = stack.Get(RA + 1);
+            stack.Get(newBase + 2) = stack.Get(RA + 2);
+            stack.NotifyTop(newBase + 3);
+        }
+        else
+        {
+            stack.Get(newBase) = stack.Get(RA + 1);
+            stack.Get(newBase + 1) = stack.Get(RA + 2);
+            stack.NotifyTop(newBase + 2);
+        }
+
+        var argumentCount = isMetamethod ? 3 : 2;
+        var variableArgumentCount = iterator.GetVariableArgumentCount(argumentCount);
+        if (variableArgumentCount != 0)
+        {
+            PrepareVariableArgument(stack, newBase, argumentCount, variableArgumentCount);
+            newBase += variableArgumentCount;
+        }
+
+        var newFrame = iterator.CreateNewFrame(ref context, newBase, variableArgumentCount);
         context.Thread.PushCallStackFrame(newFrame);
         if (iterator is Closure)
         {
@@ -1336,7 +1364,7 @@ public static partial class LuaVirtualMachine
             }
 
             table = metatableValue;
-        Function:
+            Function:
             if (table.TryReadFunction(out var function))
             {
                 return CallGetTableFunc(targetTable, function, key, ref context, out value, out doRestart);
@@ -1425,7 +1453,7 @@ public static partial class LuaVirtualMachine
 
             table = metatableValue;
 
-        Function:
+            Function:
             if (table.TryReadFunction(out var function))
             {
                 return CallSetTableFunc(targetTable, function, key, value, ref context, out doRestart);
