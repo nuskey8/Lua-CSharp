@@ -26,7 +26,7 @@ public sealed class ModuleLibrary
             var chunk = LuaCompiler.Default.Compile(module.ReadText(), module.Name);
 
             using var methodBuffer = new PooledArray<LuaValue>(1);
-            await new Closure(context.State, chunk).InvokeAsync(context, methodBuffer.AsMemory(), cancellationToken);
+            await new LuaClosure(context.State, chunk).InvokeAsync(context, methodBuffer.AsMemory(), cancellationToken);
 
             loadedTable = methodBuffer[0];
             loaded[arg0] = loadedTable;

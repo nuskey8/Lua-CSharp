@@ -1,4 +1,5 @@
 using Lua.Runtime;
+using Lua.Standard.Internal;
 
 namespace Lua.Standard;
 
@@ -39,16 +40,16 @@ public static class OpenLibsExtensions
 
     public static void OpenIOLibrary(this LuaState state)
     {
+        
         var io = new LuaTable(0, IOLibrary.Instance.Functions.Length);
         foreach (var func in IOLibrary.Instance.Functions)
         {
             io[func.Name] = func;
         }
-
-        io["stdio"] = new LuaValue(new FileHandle(Console.OpenStandardInput()));
-        io["stdout"] = new LuaValue(new FileHandle(Console.OpenStandardOutput()));
-        io["stderr"] = new LuaValue(new FileHandle(Console.OpenStandardError()));
-
+        io["stdio"] = new LuaValue(new FileHandle(ConsoleHelper.OpenStandardInput()));
+        io["stdout"] = new LuaValue(new FileHandle(ConsoleHelper.OpenStandardOutput()));
+        io["stderr"] = new LuaValue(new FileHandle(ConsoleHelper.OpenStandardError()));
+        
         state.Environment["io"] = io;
         state.LoadedModules["io"] = io;
     }
@@ -130,6 +131,18 @@ public static class OpenLibsExtensions
         state.Environment["table"] = table;
         state.LoadedModules["table"] = table;
     }
+    
+    public static void OpenDebugLibrary(this LuaState state)
+    {
+        var debug = new LuaTable(0, DebugLibrary.Instance.Functions.Length);
+        foreach (var func in DebugLibrary.Instance.Functions)
+        {
+            debug[func.Name] = func;
+        }
+
+        state.Environment["debug"] = debug;
+        state.LoadedModules["debug"] = debug;
+    }
 
     public static void OpenStandardLibraries(this LuaState state)
     {
@@ -142,5 +155,6 @@ public static class OpenLibsExtensions
         state.OpenOperatingSystemLibrary();
         state.OpenStringLibrary();
         state.OpenTableLibrary();
+        state.OpenDebugLibrary();
     }
 }
