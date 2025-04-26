@@ -19,7 +19,7 @@ internal struct BitFlags2
             }
         }
     }
-    
+
     public bool Flag1
     {
         get => (Value & 2) == 2;

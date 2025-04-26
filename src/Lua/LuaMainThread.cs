@@ -12,14 +12,12 @@ public sealed class LuaMainThread : LuaThread
         // Do nothing
     }
 
-    public override ValueTask<int> ResumeAsync(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken = default)
+    public override ValueTask<int> ResumeAsync(LuaFunctionExecutionContext context, CancellationToken cancellationToken = default)
     {
-        buffer.Span[0] = false;
-        buffer.Span[1] = "cannot resume non-suspended coroutine";
-        return new(2);
+        return new(context.Return(false, "cannot resume non-suspended coroutine"));
     }
 
-    public override ValueTask<int> YieldAsync(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken = default)
+    public override ValueTask<int> YieldAsync(LuaFunctionExecutionContext context, CancellationToken cancellationToken = default)
     {
         throw new LuaRuntimeException(context.State.GetTraceback(), "attempt to yield from outside a coroutine");
     }

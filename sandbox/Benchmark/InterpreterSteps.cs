@@ -92,6 +92,8 @@ public class InterpreterSteps
     [Benchmark]
     public async ValueTask RunAsync()
     {
-        await state.RunAsync(chunk, results);
+        using (await state.RunAsync(chunk))
+        {
+        }
     }
 }

@@ -7,14 +7,14 @@ namespace Lua.Standard;
 
 public class FileHandle : ILuaUserData
 {
-    public static readonly LuaFunction IndexMetamethod = new("index", (context, buffer, ct) =>
+    public static readonly LuaFunction IndexMetamethod = new("index", (context, ct) =>
     {
         context.GetArgument<FileHandle>(0);
         var key = context.GetArgument(1);
 
         if (key.TryRead<string>(out var name))
         {
-            buffer.Span[0] = name switch
+            return new(context.Return(name switch
             {
                 "close" => CloseFunction!,
                 "flush" => FlushFunction!,
@@ -24,14 +24,12 @@ public class FileHandle : ILuaUserData
                 "setvbuf" => SetVBufFunction!,
                 "write" => WriteFunction!,
                 _ => LuaValue.Nil,
-            };
+            }));
         }
         else
         {
-            buffer.Span[0] = LuaValue.Nil;
+            return new(context.Return(LuaValue.Nil));
         }
-
-        return new(1);
     });
 
     Stream stream;
@@ -131,45 +129,37 @@ public class FileHandle : ILuaUserData
         }
     }
 
-    static readonly LuaFunction CloseFunction = new("close", (context, buffer, cancellationToken) =>
+    static readonly LuaFunction CloseFunction = new("close", (context, cancellationToken) =>
     {
         var file = context.GetArgument<FileHandle>(0);
 
         try
         {
             file.Close();
-            buffer.Span[0] = true;
-            return new(1);
+            return new(context.Return(true));
         }
         catch (IOException ex)
         {
-            buffer.Span[0] = LuaValue.Nil;
-            buffer.Span[1] = ex.Message;
-            buffer.Span[2] = ex.HResult;
-            return new(3);
+            return new(context.Return(LuaValue.Nil, ex.Message, ex.HResult));
         }
     });
 
-    static readonly LuaFunction FlushFunction = new("flush", (context, buffer, cancellationToken) =>
+    static readonly LuaFunction FlushFunction = new("flush", (context, cancellationToken) =>
     {
         var file = context.GetArgument<FileHandle>(0);
 
         try
         {
             file.Flush();
-            buffer.Span[0] = true;
-            return new(1);
+            return new(context.Return(true));
         }
         catch (IOException ex)
         {
-            buffer.Span[0] = LuaValue.Nil;
-            buffer.Span[1] = ex.Message;
-            buffer.Span[2] = ex.HResult;
-            return new(3);
+            return new(context.Return(LuaValue.Nil, ex.Message, ex.HResult));
         }
     });
 
-    static readonly LuaFunction LinesFunction = new("lines", (context, buffer, cancellationToken) =>
+    static readonly LuaFunction LinesFunction = new("lines", (context, cancellationToken) =>
     {
         var file = context.GetArgument<FileHandle>(0);
         var format = context.HasArgument(1)
@@ -177,25 +167,25 @@ public class FileHandle : ILuaUserData
             : "*l";
 
 
-        buffer.Span[0] = new CSharpClosure("iterator", [new (file),format],static (context, buffer, cancellationToken) =>
+        return new(context.Return(new CSharpClosure("iterator", [new(file), format], static (context, cancellationToken) =>
         {
             var upValues = context.GetCsClosure()!.UpValues.AsSpan();
             var file = upValues[0].Read<FileHandle>();
-            var resultCount = IOHelper.Read(context.State, file, "lines", 0, upValues[1..], buffer, true);
+            context.Return();
+            var resultCount = IOHelper.Read(context.State, file, "lines", 0, upValues[1..], context.Thread.Stack, true);
             return new(resultCount);
-        });
-
-        return new(1);
+        })));
     });
 
-    static readonly LuaFunction ReadFunction = new("read", (context, buffer, cancellationToken) =>
+    static readonly LuaFunction ReadFunction = new("read", (context, cancellationToken) =>
     {
         var file = context.GetArgument<FileHandle>(0);
-        var resultCount = IOHelper.Read(context.State, file, "read", 1, context.Arguments[1..], buffer, false);
+        context.Return();
+        var resultCount = IOHelper.Read(context.State, file, "read", 1, context.Arguments[1..], context.Thread.Stack, false);
         return new(resultCount);
     });
 
-    static readonly LuaFunction SeekFunction = new("seek", (context, buffer, cancellationToken) =>
+    static readonly LuaFunction SeekFunction = new("seek", (context, cancellationToken) =>
     {
         var file = context.GetArgument<FileHandle>(0);
         var whence = context.HasArgument(1)
@@ -212,19 +202,15 @@ public class FileHandle : ILuaUserData
 
         try
         {
-            buffer.Span[0] = file.Seek(whence, (long)offset);
-            return new(1);
+            return new(context.Return(file.Seek(whence, (long)offset)));
         }
         catch (IOException ex)
         {
-            buffer.Span[0] = LuaValue.Nil;
-            buffer.Span[1] = ex.Message;
-            buffer.Span[2] = ex.HResult;
-            return new(3);
+            return new(context.Return(LuaValue.Nil, ex.Message, ex.HResult));
         }
     });
 
-    static readonly LuaFunction SetVBufFunction = new("setvbuf", (context, buffer, cancellationToken) =>
+    static readonly LuaFunction SetVBufFunction = new("setvbuf", (context, cancellationToken) =>
     {
         var file = context.GetArgument<FileHandle>(0);
         var mode = context.GetArgument<string>(1);
@@ -234,14 +220,14 @@ public class FileHandle : ILuaUserData
 
         file.SetVBuf(mode, size);
 
-        buffer.Span[0] = true;
-        return new(1);
+        return new(context.Return(true));
     });
 
-    static readonly LuaFunction WriteFunction = new("write", (context, buffer, cancellationToken) =>
+    static readonly LuaFunction WriteFunction = new("write", (context, cancellationToken) =>
     {
         var file = context.GetArgument<FileHandle>(0);
-        var resultCount = IOHelper.Write(file, "write", context, buffer);
+        context.Return();
+        var resultCount = IOHelper.Write(file, "write", context);
         return new(resultCount);
     });
 }

@@ -27,6 +27,11 @@ public sealed class LuaStack(int initialSize = 256)
                 size *= 2;
             }
 
+            if (1000000 < size)
+            {
+                throw new LuaException("Lua Stack overflow");
+            }
+
             Array.Resize(ref array, size);
         }
     }
@@ -133,5 +138,12 @@ public sealed class LuaStack(int initialSize = 256)
     static void ThrowEmptyStack()
     {
         throw new InvalidOperationException("Empty stack");
+    }
+
+    internal void SetTop(int top)
+    {
+        EnsureCapacity(top);
+        NotifyTop(top);
+        PopUntil(top);
     }
 }

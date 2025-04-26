@@ -8,7 +8,8 @@ public sealed class BitwiseLibrary
 
     public BitwiseLibrary()
     {
-        Functions = [
+        Functions =
+        [
             new("arshift", ArShift),
             new("band", BAnd),
             new("bnot", BNot),
@@ -26,7 +27,7 @@ public sealed class BitwiseLibrary
 
     public readonly LuaFunction[] Functions;
 
-    public ValueTask<int> ArShift(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public ValueTask<int> ArShift(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
         var x = context.GetArgument<double>(0);
         var disp = context.GetArgument<double>(1);
@@ -46,16 +47,15 @@ public sealed class BitwiseLibrary
             v >>= a;
         }
 
-        buffer.Span[0] = (uint)v;
-        return new(1);
+        return new(context.Return((uint)v));
     }
 
-    public ValueTask<int> BAnd(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public ValueTask<int> BAnd(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
         if (context.ArgumentCount == 0)
         {
-            buffer.Span[0] = uint.MaxValue;
-            return new(1);
+            context.Return(uint.MaxValue);
+            return default;
         }
 
         var arg0 = context.GetArgument<double>(0);
@@ -72,26 +72,24 @@ public sealed class BitwiseLibrary
             value &= v;
         }
 
-        buffer.Span[0] = value;
-        return new(1);
+
+        return new(context.Return(value));
     }
 
-    public ValueTask<int> BNot(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public ValueTask<int> BNot(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
         var arg0 = context.GetArgument<double>(0);
         LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.State, "bnot", 1, arg0);
 
         var value = Bit32Helper.ToUInt32(arg0);
-        buffer.Span[0] = ~value;
-        return new(1);
+        return new(context.Return(~value));
     }
 
-    public ValueTask<int> BOr(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public ValueTask<int> BOr(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
         if (context.ArgumentCount == 0)
         {
-            buffer.Span[0] = 0;
-            return new(1);
+            return new(context.Return(0));
         }
 
         var arg0 = context.GetArgument<double>(0);
@@ -108,16 +106,15 @@ public sealed class BitwiseLibrary
             value |= v;
         }
 
-        buffer.Span[0] = value;
-        return new(1);
+        return new(context.Return(value));
     }
 
-    public ValueTask<int> BTest(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public ValueTask<int> BTest(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
         if (context.ArgumentCount == 0)
         {
-            buffer.Span[0] = true;
-            return new(1);
+            ;
+            return new(context.Return(true));
         }
 
         var arg0 = context.GetArgument<double>(0);
@@ -134,16 +131,14 @@ public sealed class BitwiseLibrary
             value &= v;
         }
 
-        buffer.Span[0] = value != 0;
-        return new(1);
+        return new(context.Return(value != 0));
     }
 
-    public ValueTask<int> BXor(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public ValueTask<int> BXor(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
         if (context.ArgumentCount == 0)
         {
-            buffer.Span[0] = 0;
-            return new(1);
+            return new(context.Return(0));
         }
 
         var arg0 = context.GetArgument<double>(0);
@@ -160,11 +155,10 @@ public sealed class BitwiseLibrary
             value ^= v;
         }
 
-        buffer.Span[0] = value;
-        return new(1);
+        return new(context.Return(value));
     }
 
-    public ValueTask<int> Extract(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public ValueTask<int> Extract(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
         var arg0 = context.GetArgument<double>(0);
         var arg1 = context.GetArgument<double>(1);
@@ -184,18 +178,16 @@ public sealed class BitwiseLibrary
 
         if (field == 0 && width == 32)
         {
-            buffer.Span[0] = n;
+            return new(context.Return(n));
         }
         else
         {
             var mask = (uint)((1 << width) - 1);
-            buffer.Span[0] = (n >> field) & mask;
+            return new(context.Return((n >> field) & mask));
         }
-
-        return new(1);
     }
 
-    public ValueTask<int> LRotate(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public ValueTask<int> LRotate(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
         var x = context.GetArgument<double>(0);
         var disp = context.GetArgument<double>(1);
@@ -215,11 +207,11 @@ public sealed class BitwiseLibrary
             v = (v << a) | (v >> (32 - a));
         }
 
-        buffer.Span[0] = v;
-        return new(1);
+        ;
+        return new(context.Return(v));
     }
 
-    public ValueTask<int> LShift(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public ValueTask<int> LShift(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
         var x = context.GetArgument<double>(0);
         var disp = context.GetArgument<double>(1);
@@ -243,11 +235,10 @@ public sealed class BitwiseLibrary
             v <<= a;
         }
 
-        buffer.Span[0] = v;
-        return new(1);
+        return new(context.Return(v));
     }
 
-    public ValueTask<int> Replace(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public ValueTask<int> Replace(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
         var arg0 = context.GetArgument<double>(0);
         var arg1 = context.GetArgument<double>(1);
@@ -279,11 +270,10 @@ public sealed class BitwiseLibrary
 
         v = v & mask;
         n = (n & ~(mask << field)) | (v << field);
-        buffer.Span[0] = n;
-        return new(1);
+        return new(context.Return(n));
     }
 
-    public ValueTask<int> RRotate(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public ValueTask<int> RRotate(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
         var x = context.GetArgument<double>(0);
         var disp = context.GetArgument<double>(1);
@@ -303,11 +293,10 @@ public sealed class BitwiseLibrary
             v = (v >> a) | (v << (32 - a));
         }
 
-        buffer.Span[0] = v;
-        return new(1);
+        return new(context.Return(v));
     }
 
-    public ValueTask<int> RShift(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public ValueTask<int> RShift(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
         var x = context.GetArgument<double>(0);
         var disp = context.GetArgument<double>(1);
@@ -331,7 +320,6 @@ public sealed class BitwiseLibrary
             v >>= a;
         }
 
-        buffer.Span[0] = v;
-        return new(1);
+        return new(context.Return(v));
     }
 }

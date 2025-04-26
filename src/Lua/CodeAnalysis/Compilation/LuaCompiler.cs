@@ -26,10 +26,7 @@ public sealed class LuaCompiler : ISyntaxNodeVisitor<ScopeCompilationContext, bo
         // set global enviroment upvalue
         context.AddUpValue(new()
         {
-            Name = "_ENV".AsMemory(),
-            Id = 0,
-            Index = -1,
-            IsInRegister = false,
+            Name = "_ENV".AsMemory(), Id = 0, Index = -1, IsInRegister = false,
         });
 
         context.ChunkName = chunkName;
@@ -471,11 +468,7 @@ public sealed class LuaCompiler : ISyntaxNodeVisitor<ScopeCompilationContext, bo
             else
             {
                 // register local variable
-                context.AddLocalVariable(identifier.Name, new()
-                {
-                    RegisterIndex = (byte)(context.StackPosition - 1),
-                    StartPc = context.Function.Instructions.Length,
-                });
+                context.AddLocalVariable(identifier.Name, new() { RegisterIndex = (byte)(context.StackPosition - 1), StartPc = context.Function.Instructions.Length, });
             }
         }
 
@@ -605,11 +598,7 @@ public sealed class LuaCompiler : ISyntaxNodeVisitor<ScopeCompilationContext, bo
     public bool VisitLocalFunctionDeclarationStatementNode(LocalFunctionDeclarationStatementNode node, ScopeCompilationContext context)
     {
         // assign local variable
-        context.AddLocalVariable(node.Name, new()
-        {
-            RegisterIndex = context.StackPosition,
-            StartPc = context.Function.Instructions.Length,
-        });
+        context.AddLocalVariable(node.Name, new() { RegisterIndex = context.StackPosition, StartPc = context.Function.Instructions.Length, });
 
         // compile function
         var funcIndex = CompileFunctionProto(node.Name, context, node.ParameterNodes, node.Nodes, node.ParameterNodes.Length, node.HasVariableArguments, false, node.LineDefined, node.EndPosition.Line);
@@ -688,11 +677,7 @@ public sealed class LuaCompiler : ISyntaxNodeVisitor<ScopeCompilationContext, bo
 
         if (hasSelfParameter)
         {
-            funcContext.Scope.AddLocalVariable("self".AsMemory(), new()
-            {
-                RegisterIndex = 0,
-                StartPc = 0,
-            });
+            funcContext.Scope.AddLocalVariable("self".AsMemory(), new() { RegisterIndex = 0, StartPc = 0, });
 
             funcContext.Scope.StackPosition++;
         }
@@ -701,11 +686,7 @@ public sealed class LuaCompiler : ISyntaxNodeVisitor<ScopeCompilationContext, bo
         for (int i = 0; i < parameters.Length; i++)
         {
             var parameter = parameters[i];
-            funcContext.Scope.AddLocalVariable(parameter.Name, new()
-            {
-                RegisterIndex = (byte)(i + (hasSelfParameter ? 1 : 0)),
-                StartPc = 0,
-            });
+            funcContext.Scope.AddLocalVariable(parameter.Name, new() { RegisterIndex = (byte)(i + (hasSelfParameter ? 1 : 0)), StartPc = 0, });
 
             funcContext.Scope.StackPosition++;
         }
@@ -749,10 +730,7 @@ public sealed class LuaCompiler : ISyntaxNodeVisitor<ScopeCompilationContext, bo
 
     public bool VisitBreakStatementNode(BreakStatementNode node, ScopeCompilationContext context)
     {
-        context.Function.AddUnresolvedBreak(new()
-        {
-            Index = context.Function.Instructions.Length
-        }, node.Position);
+        context.Function.AddUnresolvedBreak(new() { Index = context.Function.Instructions.Length }, node.Position);
         context.PushInstruction(Instruction.Jmp(0, 0), node.Position);
 
         return true;
@@ -921,30 +899,14 @@ public sealed class LuaCompiler : ISyntaxNodeVisitor<ScopeCompilationContext, bo
         context.Function.LoopLevel++;
         using var scopeContext = context.CreateChildScope();
         {
-            scopeContext.AddLocalVariable("(for index)".AsMemory(), new()
-            {
-                RegisterIndex = startPosition,
-                StartPc = context.Function.Instructions.Length,
-            });
+            scopeContext.AddLocalVariable("(for index)".AsMemory(), new() { RegisterIndex = startPosition, StartPc = context.Function.Instructions.Length, });
 
-            scopeContext.AddLocalVariable("(for limit)".AsMemory(), new()
-            {
-                RegisterIndex = (byte)(startPosition + 1),
-                StartPc = context.Function.Instructions.Length,
-            });
+            scopeContext.AddLocalVariable("(for limit)".AsMemory(), new() { RegisterIndex = (byte)(startPosition + 1), StartPc = context.Function.Instructions.Length, });
 
-            scopeContext.AddLocalVariable("(for step)".AsMemory(), new()
-            {
-                RegisterIndex = (byte)(startPosition + 2),
-                StartPc = context.Function.Instructions.Length,
-            });
+            scopeContext.AddLocalVariable("(for step)".AsMemory(), new() { RegisterIndex = (byte)(startPosition + 2), StartPc = context.Function.Instructions.Length, });
 
             // add local variable
-            scopeContext.AddLocalVariable(node.VariableName, new()
-            {
-                RegisterIndex = (byte)(startPosition + 3),
-                StartPc = context.Function.Instructions.Length,
-            });
+            scopeContext.AddLocalVariable(node.VariableName, new() { RegisterIndex = (byte)(startPosition + 3), StartPc = context.Function.Instructions.Length, });
 
             foreach (var childNode in node.StatementNodes)
             {
@@ -984,33 +946,17 @@ public sealed class LuaCompiler : ISyntaxNodeVisitor<ScopeCompilationContext, bo
         {
             scopeContext.StackPosition = (byte)(startPosition + 3 + node.Names.Length);
 
-            scopeContext.AddLocalVariable("(for generator)".AsMemory(), new()
-            {
-                RegisterIndex = (byte)(startPosition),
-                StartPc = context.Function.Instructions.Length,
-            });
+            scopeContext.AddLocalVariable("(for generator)".AsMemory(), new() { RegisterIndex = (byte)(startPosition), StartPc = context.Function.Instructions.Length, });
 
-            scopeContext.AddLocalVariable("(for state)".AsMemory(), new()
-            {
-                RegisterIndex = (byte)(startPosition + 1),
-                StartPc = context.Function.Instructions.Length,
-            });
+            scopeContext.AddLocalVariable("(for state)".AsMemory(), new() { RegisterIndex = (byte)(startPosition + 1), StartPc = context.Function.Instructions.Length, });
 
-            scopeContext.AddLocalVariable("(for control)".AsMemory(), new()
-            {
-                RegisterIndex = (byte)(startPosition + 2),
-                StartPc = context.Function.Instructions.Length,
-            });
+            scopeContext.AddLocalVariable("(for control)".AsMemory(), new() { RegisterIndex = (byte)(startPosition + 2), StartPc = context.Function.Instructions.Length, });
 
             // add local variables
             for (int i = 0; i < node.Names.Length; i++)
             {
                 var name = node.Names[i];
-                scopeContext.AddLocalVariable(name.Name, new()
-                {
-                    RegisterIndex = (byte)(startPosition + 3 + i),
-                    StartPc = context.Function.Instructions.Length,
-                });
+                scopeContext.AddLocalVariable(name.Name, new() { RegisterIndex = (byte)(startPosition + 3 + i), StartPc = context.Function.Instructions.Length, });
             }
 
             foreach (var childNode in node.StatementNodes)
@@ -1037,12 +983,7 @@ public sealed class LuaCompiler : ISyntaxNodeVisitor<ScopeCompilationContext, bo
 
     public bool VisitLabelStatementNode(LabelStatementNode node, ScopeCompilationContext context)
     {
-        var desc = new LabelDescription()
-        {
-            Name = node.Name,
-            Index = context.Function.Instructions.Length,
-            RegisterIndex = context.StackPosition
-        };
+        var desc = new LabelDescription() { Name = node.Name, Index = context.Function.Instructions.Length, RegisterIndex = context.StackPosition };
 
         context.AddLabel(desc);
         context.Function.ResolveGoto(desc);
@@ -1058,11 +999,7 @@ public sealed class LuaCompiler : ISyntaxNodeVisitor<ScopeCompilationContext, bo
         }
         else
         {
-            context.Function.AddUnresolvedGoto(new()
-            {
-                Name = node.Name,
-                JumpInstructionIndex = context.Function.Instructions.Length
-            });
+            context.Function.AddUnresolvedGoto(new() { Name = node.Name, JumpInstructionIndex = context.Function.Instructions.Length });
 
             // add uninitialized jmp instruction
             context.PushInstruction(Instruction.Jmp(0, 0), node.Position);

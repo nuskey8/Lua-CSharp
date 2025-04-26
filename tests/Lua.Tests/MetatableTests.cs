@@ -32,7 +32,7 @@ local b = { 4, 5, 6 }
 
 setmetatable(a, metatable)
 
-return a + b
+return a +b
 ";
 
         var result = await state.DoStringAsync(source);
@@ -109,7 +109,7 @@ assert(tail(a, 3) == 4)
 ";
         await state.DoStringAsync(source);
     }
-    
+
     [Test]
     public async Task Test_Metamethod_TForCall()
     {
@@ -137,6 +137,7 @@ end
 ";
         await state.DoStringAsync(source);
     }
+
     [Test]
     public async Task Test_Hook_Metamethods()
     {
@@ -146,6 +147,7 @@ end
 
                      debug.sethook(function () table.insert(t,debug.traceback()) end,"c")
                      a =a+a
+                     debug.sethook()
                      return t
                      """;
         var r = await state.DoStringAsync(source);

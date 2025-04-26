@@ -1,11 +1,12 @@
 using System.Text;
 using Lua.Internal;
+using Lua.Runtime;
 
 namespace Lua.Standard.Internal;
 
 internal static class IOHelper
 {
-    public static int Open(LuaState state, string fileName, string mode, Memory<LuaValue> buffer, bool throwError)
+    public static int Open(LuaState state, string fileName, string mode, LuaStack stack, bool throwError)
     {
         var fileMode = mode switch
         {
@@ -25,7 +26,7 @@ internal static class IOHelper
         try
         {
             var stream = File.Open(fileName, fileMode, fileAccess);
-            buffer.Span[0] = new LuaValue(new FileHandle(stream));
+            stack.Push(new LuaValue(new FileHandle(stream)));
             return 1;
         }
         catch (IOException ex)
@@ -35,16 +36,16 @@ internal static class IOHelper
                 throw;
             }
 
-            buffer.Span[0] = LuaValue.Nil;
-            buffer.Span[1] = ex.Message;
-            buffer.Span[2] = ex.HResult;
+            stack.Push(LuaValue.Nil);
+            stack.Push(ex.Message);
+            stack.Push(ex.HResult);
             return 3;
         }
     }
 
     // TODO: optimize (use IBuffertWrite<byte>, async)
 
-    public static int Write(FileHandle file, string name, LuaFunctionExecutionContext context, Memory<LuaValue> buffer)
+    public static int Write(FileHandle file, string name, LuaFunctionExecutionContext context)
     {
         try
         {
@@ -70,24 +71,27 @@ internal static class IOHelper
         }
         catch (IOException ex)
         {
-            buffer.Span[0] = LuaValue.Nil;
-            buffer.Span[1] = ex.Message;
-            buffer.Span[2] = ex.HResult;
+            var stack = context.Thread.Stack;
+            stack.Push(LuaValue.Nil);
+            stack.Push(ex.Message);
+            stack.Push(ex.HResult);
             return 3;
         }
 
-        buffer.Span[0] = new(file);
+        context.Thread.Stack.Push(new(file));
         return 1;
     }
 
     static readonly LuaValue[] defaultReadFormat = ["*l"];
 
-    public static int Read(LuaState state, FileHandle file, string name, int startArgumentIndex, ReadOnlySpan<LuaValue> formats, Memory<LuaValue> buffer, bool throwError)
+    public static int Read(LuaState state, FileHandle file, string name, int startArgumentIndex, ReadOnlySpan<LuaValue> formats, LuaStack stack, bool throwError)
     {
         if (formats.Length == 0)
         {
             formats = defaultReadFormat;
         }
+
+        var top = stack.Count;
 
         try
         {
@@ -104,16 +108,16 @@ internal static class IOHelper
                             throw new NotImplementedException();
                         case "*a":
                         case "*all":
-                            buffer.Span[i] = file.ReadToEnd();
+                            stack.Push(file.ReadToEnd());
                             break;
                         case "*l":
                         case "*line":
-                            buffer.Span[i] = file.ReadLine() ?? LuaValue.Nil;
+                            stack.Push(file.ReadLine() ?? LuaValue.Nil);
                             break;
                         case "L":
                         case "*L":
                             var text = file.ReadLine();
-                            buffer.Span[i] = text == null ? LuaValue.Nil : text + Environment.NewLine;
+                            stack.Push(text == null ? LuaValue.Nil : text + Environment.NewLine);
                             break;
                     }
                 }
@@ -126,14 +130,15 @@ internal static class IOHelper
                         var b = file.ReadByte();
                         if (b == -1)
                         {
-                            buffer.Span[0] = LuaValue.Nil;
+                            stack.PopUntil(top);
+                            stack.Push(LuaValue.Nil);
                             return 1;
                         }
 
                         byteBuffer[j] = (byte)b;
                     }
 
-                    buffer.Span[i] = Encoding.UTF8.GetString(byteBuffer.AsSpan());
+                    stack.Push(Encoding.UTF8.GetString(byteBuffer.AsSpan()));
                 }
                 else
                 {
@@ -150,9 +155,10 @@ internal static class IOHelper
                 throw;
             }
 
-            buffer.Span[0] = LuaValue.Nil;
-            buffer.Span[1] = ex.Message;
-            buffer.Span[2] = ex.HResult;
+            stack.PopUntil(top);
+            stack.Push(LuaValue.Nil);
+            stack.Push(ex.Message);
+            stack.Push(ex.HResult);
             return 3;
         }
     }
