@@ -23,8 +23,7 @@ public sealed class ModuleLibrary
         if (!loaded.TryGetValue(arg0, out var loadedTable))
         {
             var module = await context.State.ModuleLoader.LoadAsync(arg0, cancellationToken);
-            var chunk = LuaCompiler.Default.Compile(module.ReadText(), module.Name);
-            await new LuaClosure(context.State, chunk).InvokeAsync(context, cancellationToken);
+            await context.State.Compile(module.ReadText(), module.Name).InvokeAsync(context, cancellationToken);
 
             loadedTable = context.Thread.Stack.Get(context.ReturnFrameBase);
             loaded[arg0] = loadedTable;

@@ -1,3 +1,4 @@
+using Lua.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Text;
 using Lua.Internal;
@@ -26,30 +27,17 @@ public sealed class TableLibrary
     public readonly LuaFunction[] Functions;
 
     // TODO: optimize
-    static readonly Chunk defaultComparer = new()
-    {
-        Name = "comp",
-        Functions = [],
-        Constants = [],
-        Instructions =
+    private static readonly Prototype defaultComparer = new Prototype(
+        "comp", 0,0,2,2,false,
+        [],
         [
             Instruction.Le(1, 0, 1),
             Instruction.LoadBool(2, 1, 1),
             Instruction.LoadBool(2, 0, 0),
             Instruction.Return(2, 2),
-        ],
-        SourcePositions =
-        [
-            default, default, default, default,
-        ],
-        ParameterCount = 2,
-        UpValues = [],
-        Locals = [new LocalValueInfo() { Name = "a".AsMemory(), StartPc = 0, Index = 0, EndPc = 4 }, new LocalValueInfo() { Name = "b".AsMemory(), StartPc = 0, Index = 1, EndPc = 4 }],
-        MaxStackPosition = 2,
-        HasVariableArguments = false,
-        LineDefined = 0,
-        LastLineDefined = 0,
-    };
+        ],[],[0,0,0,0],[new LocalVariable(){Name = "a",StartPc = 0,EndPc = 4}, new LocalVariable(){Name = "b",StartPc = 0,EndPc = 4}],
+        []
+    );
 
     public ValueTask<int> Concat(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {

@@ -1,4 +1,5 @@
 using Lua.Standard;
+using System.Globalization;
 
 namespace Lua.Tests;
 
@@ -12,58 +13,32 @@ public class LuaTests
         state = LuaState.Create();
         state.OpenStandardLibraries();
     }
+    
 
     [Test]
-    public async Task Test_Closure()
+    [TestCase("tests-lua/calls.lua")]
+    [TestCase("tests-lua/closure.lua")]
+    [TestCase("tests-lua/vararg.lua")]
+    [TestCase("tests-lua/nextvar.lua")]
+    [TestCase("tests-lua/math.lua")]
+    [TestCase("tests-lua/bitwise.lua")]
+    [TestCase("tests-lua/strings.lua")]
+    [TestCase("tests-lua/coroutine.lua")]
+    [TestCase("tests-lua/db.lua")]
+    [TestCase("tests-lua/verybig.lua")]
+    
+    public async Task Test_Lua(string file)
     {
-        await state.DoFileAsync(FileHelper.GetAbsolutePath("tests-lua/closure.lua"));
-    }
-
-    [Test]
-    public async Task Test_Vararg()
-    {
-        await state.DoFileAsync(FileHelper.GetAbsolutePath("tests-lua/vararg.lua"));
-    }
-
-    [Test]
-    public async Task Test_NextVar()
-    {
-        await state.DoFileAsync(FileHelper.GetAbsolutePath("tests-lua/nextvar.lua"));
-    }
-
-    [Test]
-    public async Task Test_Math()
-    {
-        await state.DoFileAsync(FileHelper.GetAbsolutePath("tests-lua/math.lua"));
-    }
-
-    [Test]
-    public async Task Test_Bitwise()
-    {
-        await state.DoFileAsync(FileHelper.GetAbsolutePath("tests-lua/bitwise.lua"));
-    }
-
-    [Test]
-    public async Task Test_Strings()
-    {
-        await state.DoFileAsync(FileHelper.GetAbsolutePath("tests-lua/strings.lua"));
-    }
-
-    [Test]
-    public async Task Test_Coroutine()
-    {
-        await state.DoFileAsync(FileHelper.GetAbsolutePath("tests-lua/coroutine.lua"));
-    }
-
-    [Test]
-    public async Task Test_Debug_Mini()
-    {
-        await state.DoFileAsync(FileHelper.GetAbsolutePath("tests-lua/db.lua"));
-    }
-
-    [Test]
-    public async Task Test_VeryBig()
-    {
-        await state.DoFileAsync(FileHelper.GetAbsolutePath("tests-lua/verybig.lua"));
+        var path = FileHelper.GetAbsolutePath(file);
+        try
+        {
+            await state.DoFileAsync(FileHelper.GetAbsolutePath(file));
+        }
+        catch (LuaRuntimeException e)
+        {
+            var traceback = e.LuaTraceback;
+            var line = traceback.LastLine;
+            throw new Exception($"{path}:line {line}\n{e.InnerException} {e} ");
+        }
     }
 }

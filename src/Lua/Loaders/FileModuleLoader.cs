@@ -1,4 +1,3 @@
-
 namespace Lua.Loaders;
 
 public sealed class FileModuleLoader : ILuaModuleLoader

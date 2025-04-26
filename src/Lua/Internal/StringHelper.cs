@@ -43,6 +43,7 @@ internal static class StringHelper
                         {
                             i++;
                         }
+
                         break;
                     case 'a':
                         builder.Append('\a');
@@ -108,6 +109,7 @@ internal static class StringHelper
                             result = null;
                             return false;
                         }
+
                         break;
                     default:
                         if (IsNumber(c))
@@ -129,6 +131,7 @@ internal static class StringHelper
                             result = null;
                             return false;
                         }
+
                         break;
                 }
             }

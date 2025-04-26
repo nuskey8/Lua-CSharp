@@ -34,9 +34,15 @@ public struct FastListCore<T>
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void RemoveAtSwapback(int index)
+    public void Pop()
     {
-        if (array == null) throw new IndexOutOfRangeException();
+        CheckIndex(tailIndex - 1);
+        array![tailIndex - 1] = default!;
+        tailIndex--;
+    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void RemoveAtSwapBack(int index)
+    {
         CheckIndex(index);
 
         array![index] = array[tailIndex - 1];
@@ -102,6 +108,8 @@ public struct FastListCore<T>
 
     readonly void CheckIndex(int index)
     {
-        if (index < 0 || index > tailIndex) throw new IndexOutOfRangeException();
+        if (array == null||index < 0 || index > tailIndex) ThrowIndexOutOfRange();
     }
+    
+    static void ThrowIndexOutOfRange() => throw new IndexOutOfRangeException();
 }

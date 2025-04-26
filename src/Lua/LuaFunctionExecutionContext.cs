@@ -1,6 +1,5 @@
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using Lua.CodeAnalysis;
 using Lua.Runtime;
 
 namespace Lua;
@@ -13,7 +12,7 @@ public readonly record struct LuaFunctionExecutionContext
     public required int ArgumentCount { get; init; }
     public required int FrameBase { get; init; }
     public required int ReturnFrameBase { get; init; }
-    public SourcePosition? SourcePosition { get; init; }
+    public int? SourceLine { get; init; }
     public string? RootChunkName { get; init; }
     public string? ChunkName { get; init; }
     public int? CallerInstructionIndex { get; init; }

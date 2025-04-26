@@ -211,7 +211,7 @@ internal readonly struct LuaDebug : IDisposable
                         }
                     case 'l':
                         {
-                            CurrentLine = (pc >= 0 && closure is not null) ? closure.Proto.SourcePositions[pc].Line : -1;
+                            CurrentLine = (pc >= 0 && closure is not null) ? closure.Proto.LineInfo[pc] : -1;
                             break;
                         }
                     case 'u':
@@ -278,10 +278,10 @@ internal readonly struct LuaDebug : IDisposable
             else
             {
                 var p = cl.Proto;
-                Source = p.GetRoot().Name;
+                Source = p.Source;
                 LineDefined = p.LineDefined;
                 LastLineDefined = p.LastLineDefined;
-                What = (p.GetRoot() == p) ? "main" : "Lua";
+                What = (LineDefined==0) ? "main" : "Lua";
             }
 
             ShortSourceLength = WriteShortSource(Source, ShortSource);
@@ -289,19 +289,18 @@ internal readonly struct LuaDebug : IDisposable
     }
 
 
-    internal static string? GetLocalName(Chunk chunk, int register, int pc)
+    internal static string? GetLocalName(Prototype prototype, int register, int pc)
     {
-        var locals = chunk.Locals;
-        foreach (var local in locals)
+        var locals = prototype.LocalVariables;
+        var localId = register+1;
+        foreach (var l in locals)
         {
-            if (local.Index == register && pc >= local.StartPc && pc < local.EndPc)
+            if(pc<l.StartPc)break;
+            if(l.EndPc<=pc)continue;
+            localId--;
+            if (localId == 0)
             {
-                return local.Name.ToString();
-            }
-
-            if (local.Index > register)
-            {
-                break;
+                return l.Name;
             }
         }
 
@@ -315,12 +314,12 @@ internal readonly struct LuaDebug : IDisposable
         else return pc; /* current position sets that register */
     }
 
-    internal static int FindSetRegister(Chunk chunk, int lastPc, int reg)
+    internal static int FindSetRegister(Prototype prototype, int lastPc, int reg)
     {
         int pc;
         int setReg = -1; /* keep last instruction that changed 'reg' */
         int jmpTarget = 0; /* any code before this address is conditional */
-        var instructions = chunk.Instructions;
+        var instructions = prototype.Code;
         for (pc = 0; pc < lastPc; pc++)
         {
             Instruction i = instructions[pc];
@@ -377,12 +376,12 @@ internal readonly struct LuaDebug : IDisposable
         return setReg;
     }
 
-    static void GetConstantName(Chunk p, int pc, int c, out string name)
+    static void GetConstantName(Prototype p, int pc, int c, out string name)
     {
         if (c >= 256)
         {
             /* is 'c' a constant? */
-            ref var kvalue = ref p.Constants[c - 256];
+             var kvalue =  p.Constants[c - 256];
             if (kvalue.TryReadString(out name))
             {
                 /* literal constant? */
@@ -407,19 +406,19 @@ internal readonly struct LuaDebug : IDisposable
     }
 
 
-    internal static string? GetName(Chunk chunk, int lastPc, int reg, out string? name)
+    internal static string? GetName(Prototype prototype, int lastPc, int reg, out string? name)
     {
-        name = GetLocalName(chunk, reg, lastPc);
+        name = GetLocalName(prototype, reg, lastPc);
         if (name != null)
         {
             return "local";
         }
 
-        var pc = FindSetRegister(chunk, lastPc, reg);
+        var pc = FindSetRegister(prototype, lastPc, reg);
         if (pc != -1)
         {
             /* could find instruction? */
-            Instruction i = chunk.Instructions[pc];
+            Instruction i = prototype.Code[pc];
             OpCode op = i.OpCode;
             switch (op)
             {
@@ -427,7 +426,7 @@ internal readonly struct LuaDebug : IDisposable
                     {
                         int b = i.B; /* move from 'b' to 'a' */
                         if (b < i.A)
-                            return GetName(chunk, pc, b, out name); /* get name for 'b' */
+                            return GetName(prototype, pc, b, out name); /* get name for 'b' */
                         break;
                     }
                 case OpCode.GetTabUp:
@@ -437,23 +436,23 @@ internal readonly struct LuaDebug : IDisposable
                         int t = i.B; /* table index */
 
                         var vn = (op == OpCode.GetTable) /* name of indexed variable */
-                            ? GetLocalName(chunk, t + 1, pc)
-                            : chunk.UpValues[t].Name.ToString();
-                        GetConstantName(chunk, pc, k, out name);
+                            ? GetLocalName(prototype, t + 1, pc)
+                            : prototype.UpValues[t].Name.ToString();
+                        GetConstantName(prototype, pc, k, out name);
                         return vn is "_ENV" ? "global" : "field";
                     }
                 case OpCode.GetUpVal:
                     {
-                        name = chunk.UpValues[i.B].Name.ToString();
+                        name = prototype.UpValues[i.B].Name.ToString();
                         return "upvalue";
                     }
                 case OpCode.LoadK:
                 case OpCode.LoadKX:
                     {
-                        uint b = (op == OpCode.LoadKX)
+                        int b = (op == OpCode.LoadKX)
                             ? i.Bx
-                            : (chunk.Instructions[pc + 1].Ax);
-                        if (chunk.Constants[b].TryReadString(out name))
+                            : (prototype.Code[pc + 1].Ax);
+                        if (prototype.Constants[b].TryReadString(out name))
                         {
                             return "constant";
                         }
@@ -463,7 +462,7 @@ internal readonly struct LuaDebug : IDisposable
                 case OpCode.Self:
                     {
                         int k = i.C; /* key index */
-                        GetConstantName(chunk, pc, k, out name);
+                        GetConstantName(prototype, pc, k, out name);
                         return "method";
                     }
                 default: break; /* go through to return NULL */
@@ -473,14 +472,14 @@ internal readonly struct LuaDebug : IDisposable
         return null; /* could not find reasonable name */
     }
 
-    internal static string? GetFuncName(Chunk chunk, int pc, out string? name)
+    internal static string? GetFuncName(Prototype prototype, int pc, out string? name)
     {
-        Instruction i = chunk.Instructions[pc]; /* calling instruction */
+        Instruction i = prototype.Code[pc]; /* calling instruction */
         switch (i.OpCode)
         {
             case OpCode.Call:
             case OpCode.TailCall: /* get function name */
-                return GetName(chunk, pc, i.A, out name);
+                return GetName(prototype, pc, i.A, out name);
             case OpCode.TForCall:
                 {
                     /* for iterator */

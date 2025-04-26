@@ -51,7 +51,7 @@ internal ref struct PooledList<T>
             {
                 newSize *= 2;
             }
-            
+
             var newArray = ArrayPool<T>.Shared.Rent(newSize);
             buffer.AsSpan().CopyTo(newArray);
             ArrayPool<T>.Shared.Return(buffer);
@@ -61,7 +61,7 @@ internal ref struct PooledList<T>
         items.CopyTo(buffer.AsSpan()[tail..]);
         tail += items.Length;
     }
-    
+
     public void Clear()
     {
         ThrowIfDisposed();
@@ -106,10 +106,9 @@ internal ref struct PooledList<T>
     {
         if (tail == -1) ThrowDisposedException();
     }
-    
+
     void ThrowDisposedException()
     {
         throw new ObjectDisposedException(nameof(PooledList<T>));
     }
-    
 }

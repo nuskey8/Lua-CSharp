@@ -80,7 +80,7 @@ public class OperatorTests
     [TestCase(false, false)]
     public async Task Test_Or(bool a, bool b)
     {
-        string strA = a.ToString().ToLower(), strB =  b.ToString().ToLower();
+        string strA = a.ToString().ToLower(), strB = b.ToString().ToLower();
         var result = await LuaState.Create().DoStringAsync($"return {strA} or {strB}");
         Assert.That(result, Has.Length.EqualTo(1));
         Assert.That(result[0], Is.EqualTo(new LuaValue(a || b)));

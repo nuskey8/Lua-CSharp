@@ -13,6 +13,7 @@ public class ConsoleHelper
         {
             return Console.OpenStandardInput();
         }
+
         _inputStream ??= new MemoryStream();
         _inputReader ??= new StreamReader(_inputStream);
         return _inputStream;
@@ -24,14 +25,15 @@ public class ConsoleHelper
         {
             return Console.Read();
         }
+
         return _inputReader?.Read() ?? 0;
     }
-    
+
     public static Stream OpenStandardOutput()
     {
         return Console.OpenStandardOutput();
     }
-    
+
     public static Stream OpenStandardError()
     {
         return Console.OpenStandardError();

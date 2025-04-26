@@ -1,8 +1,11 @@
+using Lua.CodeAnalysis.Compilation;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Lua.Internal;
 using Lua.Loaders;
 using Lua.Runtime;
+using System.Buffers;
+using System.Text;
 
 namespace Lua;
 
@@ -22,6 +25,7 @@ public sealed class LuaState
 
     FastStackCore<LuaDebug.LuaDebugBuffer> debugBufferPool;
 
+    internal int CallCount;
     internal UpValue EnvUpValue => envUpValue;
     internal ref FastStackCore<LuaThread> ThreadStack => ref threadStack;
     internal ref FastListCore<UpValue> OpenUpValues => ref openUpValues;
@@ -62,7 +66,7 @@ public sealed class LuaState
         envUpValue = UpValue.Closed(environment);
     }
 
-    public async ValueTask<LuaResult> RunAsync(Chunk chunk, CancellationToken cancellationToken = default)
+    public async ValueTask<LuaResult> RunAsync(LuaClosure closure, CancellationToken cancellationToken = default)
     {
         ThrowIfResultNotDisposed();
         ThrowIfRunning();
@@ -70,7 +74,6 @@ public sealed class LuaState
         Volatile.Write(ref isRunning, true);
         try
         {
-            var closure = new LuaClosure(this, chunk);
             await closure.InvokeAsync(new()
             {
                 State = this,
@@ -78,9 +81,9 @@ public sealed class LuaState
                 ArgumentCount = 0,
                 FrameBase = 0,
                 ReturnFrameBase = 0,
-                SourcePosition = null,
-                RootChunkName = chunk.Name,
-                ChunkName = chunk.Name,
+                SourceLine = null,
+                RootChunkName = closure.Proto.Source,
+                ChunkName = closure.Proto.Source,
             }, cancellationToken);
 
             return new LuaResult(CurrentThread.Stack, 0);
@@ -202,7 +205,7 @@ public sealed class LuaState
             if (upValue.RegisterIndex >= frameBase)
             {
                 upValue.Close();
-                openUpValues.RemoveAtSwapback(i);
+                openUpValues.RemoveAtSwapBack(i);
                 i--;
             }
         }
@@ -223,4 +226,40 @@ public sealed class LuaState
             throw new InvalidOperationException("the lua state is currently running");
         }
     }
+
+
+    public unsafe LuaClosure Compile(ReadOnlySpan<char> sourceCode, string source,LuaTable? environment = null)
+    {
+        Prototype prototype;
+        fixed (char* ptr = sourceCode)
+        {
+            prototype= Parser.Parse(this, new (ptr,sourceCode.Length), source);
+        }
+        
+        return new LuaClosure(this, prototype, environment);
+    }
+    
+    public LuaClosure Compile(ReadOnlySpan<byte> code, string source , string mode = "bt", LuaTable? environment = null)
+    {
+        if (code.Length > 4)
+        {
+            if (code[0] == '\e')
+            {
+                return new LuaClosure(this,Parser.UnDump(code,source),environment);
+            }
+        }
+        var charCount = Encoding.UTF8.GetCharCount(code);
+        var pooled = ArrayPool<char>.Shared.Rent(charCount);
+        try
+        {
+            var chars = pooled.AsSpan(0, charCount);
+            Encoding.UTF8.GetChars(code, chars);
+            return Compile(chars, source,environment);
+        }
+        finally
+        {
+            ArrayPool<char>.Shared.Return(pooled);
+        }
+    }
+    
 }

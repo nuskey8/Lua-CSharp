@@ -5,7 +5,7 @@ namespace Lua.Runtime;
 public static partial class LuaVirtualMachine
 {
     [MethodImpl(MethodImplOptions.NoInlining)]
-    static bool ExecutePerInstructionHook(ref VirtualMachineExecutionContext context)
+    static bool ExecutePerInstructionHook(VirtualMachineExecutionContext context)
     {
         var r = Impl(context);
         if (r.IsCompleted)
@@ -25,6 +25,8 @@ public static partial class LuaVirtualMachine
         static async ValueTask<int> Impl(VirtualMachineExecutionContext context)
         {
             bool countHookIsDone = false;
+            var pc = context.Pc;
+            var prototype = context.Prototype;
             if (context.Thread.IsCountHookEnabled && --context.Thread.HookCount == 0)
             {
                 context.Thread.HookCount = context.Thread.BaseHookCount;
@@ -62,11 +64,10 @@ public static partial class LuaVirtualMachine
 
             if (context.Thread.IsLineHookEnabled)
             {
-                var pc = context.Pc;
-                var sourcePositions = context.Chunk.SourcePositions;
-                var line = sourcePositions[pc].Line;
+                var sourcePositions = prototype.LineInfo;
+                var line = sourcePositions[pc];
 
-                if (countHookIsDone || pc == 0 || context.Thread.LastPc < 0 || pc <= context.Thread.LastPc || sourcePositions[context.Thread.LastPc].Line != line)
+                if (countHookIsDone || pc == 0 || context.Thread.LastPc < 0 || pc <= context.Thread.LastPc || sourcePositions[context.Thread.LastPc] != line)
                 {
                     if (countHookIsDone)
                     {
@@ -99,7 +100,6 @@ public static partial class LuaVirtualMachine
                     context.Thread.PushCallStackFrame(frame);
                     await hook.Func(funcContext, context.CancellationToken);
                     context.Thread.IsInHook = false;
-                    context.Pc--;
                     context.Thread.LastPc = pc;
                     return 0;
                 }
@@ -109,7 +109,6 @@ public static partial class LuaVirtualMachine
 
             if (countHookIsDone)
             {
-                context.Pc--;
                 return 0;
             }
 
@@ -118,7 +117,7 @@ public static partial class LuaVirtualMachine
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
-    static ValueTask<int> ExecuteCallHook(ref VirtualMachineExecutionContext context, in CallStackFrame frame, int arguments, bool isTailCall = false)
+    static ValueTask<int> ExecuteCallHook(VirtualMachineExecutionContext context, in CallStackFrame frame, int arguments, bool isTailCall = false)
     {
         return ExecuteCallHook(new()
         {

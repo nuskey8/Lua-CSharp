@@ -71,6 +71,7 @@ public struct FastStackCore<T>
         {
             return false;
         }
+
         array[--tail] = default;
 
         return true;

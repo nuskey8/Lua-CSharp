@@ -4,14 +4,14 @@ public class LuaPlatformUtility
 {
     public static bool IsSandBox => SupportStdio;
     public static bool SupportStdio => _supportStdioTryLazy.Value;
-    
+
     private static Lazy<bool> _supportStdioTryLazy = new Lazy<bool>(() =>
     {
         try
         {
 #if NET6_0_OR_GREATER
-            var isDesktop = System.OperatingSystem.IsWindows() || 
-                            System.OperatingSystem.IsLinux() || 
+            var isDesktop = System.OperatingSystem.IsWindows() ||
+                            System.OperatingSystem.IsLinux() ||
                             System.OperatingSystem.IsMacOS();
             if (!isDesktop)
             {
@@ -27,5 +27,4 @@ public class LuaPlatformUtility
             return false;
         }
     });
-
 }

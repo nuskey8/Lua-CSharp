@@ -84,28 +84,28 @@ public class DebugLibrary
 
         if (frame.Function is LuaClosure closure)
         {
-            var locals = closure.Proto.Locals;
+            var locals = closure.Proto.LocalVariables;
             var nextFrame = callStack[^level];
             var currentPc = nextFrame.CallerInstructionIndex;
             {
-                int nextFrameBase = (closure.Proto.Instructions[currentPc].OpCode is OpCode.Call or OpCode.TailCall) ? nextFrame.Base - 1 : nextFrame.Base;
+                int nextFrameBase = (closure.Proto.Code[currentPc].OpCode is OpCode.Call or OpCode.TailCall) ? nextFrame.Base - 1 : nextFrame.Base;
                 if (nextFrameBase - 1 < frameBase + index)
                 {
                     name = null;
                     return ref Unsafe.NullRef<LuaValue>();
                 }
             }
-            foreach (var local in locals)
-            {
-                if (local.Index == index && currentPc >= local.StartPc && currentPc < local.EndPc)
-                {
-                    name = local.Name.ToString();
-                    return ref thread.Stack.Get(frameBase + local.Index);
-                }
 
-                if (local.Index > index)
+            var localId = index+1;
+            foreach (var l in locals)
+            {
+                if(currentPc<l.StartPc)break;
+                if(l.EndPc<=currentPc)continue;
+                localId--;
+                if (localId == 0)
                 {
-                    break;
+                    name = l.Name;
+                    return ref thread.Stack.Get(frameBase + index);
                 }
             }
         }
@@ -133,7 +133,7 @@ public class DebugLibrary
                 var paramCount = closure.Proto.ParameterCount;
                 if (0 <= index && index < paramCount)
                 {
-                    return closure.Proto.Locals[index].Name.ToString();
+                    return closure.Proto.LocalVariables[index].Name;
                 }
             }
 
@@ -596,9 +596,9 @@ public class DebugLibrary
             if (functionToInspect is LuaClosure closure)
             {
                 var activeLines = new LuaTable(0, 8);
-                foreach (var pos in closure.Proto.SourcePositions)
+                foreach (var line in closure.Proto.LineInfo)
                 {
-                    activeLines[pos.Line] = true;
+                    activeLines[line] = true;
                 }
 
                 table["activelines"] = activeLines;

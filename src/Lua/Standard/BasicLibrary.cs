@@ -1,5 +1,4 @@
 using System.Globalization;
-using Lua.CodeAnalysis.Compilation;
 using Lua.Internal;
 using Lua.Runtime;
 
@@ -89,11 +88,10 @@ public sealed class BasicLibrary
         var arg0 = context.GetArgument<string>(0);
 
         // do not use LuaState.DoFileAsync as it uses the newExecutionContext
-        var text = await File.ReadAllTextAsync(arg0, cancellationToken);
+        var bytes = await File.ReadAllBytesAsync(arg0, cancellationToken);
         var fileName = "@" + Path.GetFileName(arg0);
-        var chunk = LuaCompiler.Default.Compile(text, fileName);
 
-        return await new LuaClosure(context.State, chunk).InvokeAsync(context, cancellationToken);
+        return await context.State.Compile(bytes, fileName).InvokeAsync(context, cancellationToken);
     }
 
     public ValueTask<int> Error(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
@@ -103,11 +101,6 @@ public sealed class BasicLibrary
             : context.Arguments[0];
 
         var traceback = context.State.GetTraceback();
-        if (value.TryReadString(out var str))
-        {
-            value = $"{traceback.RootChunkName}:{traceback.LastPosition.Line}: {str}";
-        }
-
         throw new LuaRuntimeException(traceback, value);
     }
 
@@ -160,6 +153,9 @@ public sealed class BasicLibrary
     {
         // Lua-CSharp does not support binary chunks, the mode argument is ignored.
         var arg0 = context.GetArgument<string>(0);
+        var mode  = context.HasArgument(1)
+            ? context.GetArgument<string>(1)
+            : "bt";
         var arg2 = context.HasArgument(2)
             ? context.GetArgument<LuaTable>(2)
             : null;
@@ -167,10 +163,9 @@ public sealed class BasicLibrary
         // do not use LuaState.DoFileAsync as it uses the newExecutionContext
         try
         {
-            var text = await File.ReadAllTextAsync(arg0, cancellationToken);
+            var bytes = await File.ReadAllBytesAsync(arg0, cancellationToken);
             var fileName = "@" + Path.GetFileName(arg0);
-            var chunk = LuaCompiler.Default.Compile(text, fileName);
-            return context.Return(new LuaClosure(context.State, chunk, arg2));
+            return context.Return(context.State.Compile(bytes, fileName,mode,arg2));
         }
         catch (Exception ex)
         {
@@ -183,21 +178,24 @@ public sealed class BasicLibrary
         // Lua-CSharp does not support binary chunks, the mode argument is ignored.
         var arg0 = context.GetArgument(0);
 
-        var arg1 = context.HasArgument(1)
+        var name = context.HasArgument(1)
             ? context.GetArgument<string>(1)
             : null;
+        
+        var mode = context.HasArgument(2)
+            ? context.GetArgument<string>(2)
+            : "bt";
 
         var arg3 = context.HasArgument(3)
             ? context.GetArgument<LuaTable>(3)
-            : null;
+            : context.State.Environment;
 
         // do not use LuaState.DoFileAsync as it uses the newExecutionContext
         try
         {
             if (arg0.TryRead<string>(out var str))
             {
-                var chunk = LuaCompiler.Default.Compile(str, arg1 ?? str);
-                return new(context.Return(new LuaClosure(context.State, chunk, arg3)));
+                return new(context.Return(context.State.Compile(str, name ?? str, arg3)));
             }
             else if (arg0.TryRead<LuaFunction>(out var function))
             {
@@ -261,9 +259,9 @@ public sealed class BasicLibrary
         }
         catch (Exception ex)
         {
-            if (ex is LuaRuntimeException { ErrorObject: not null } luaEx)
+            if (ex is LuaRuntimeException  luaEx)
             {
-                return context.Return(false, luaEx.ErrorObject.Value);
+                return context.Return(false, luaEx.ErrorObject);
             }
             else
             {
@@ -562,7 +560,7 @@ public sealed class BasicLibrary
         }
         catch (Exception ex)
         {
-            var error = ex is LuaRuntimeException { ErrorObject: not null } luaEx ? luaEx.ErrorObject.Value : ex.Message;
+            var error = ex is LuaRuntimeException luaEx ? luaEx.ErrorObject : ex.Message;
 
             context.State.Push(error);
 

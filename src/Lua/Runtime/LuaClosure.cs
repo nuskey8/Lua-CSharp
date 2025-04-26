@@ -1,3 +1,4 @@
+using Lua.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Lua.Internal;
 
@@ -5,24 +6,37 @@ namespace Lua.Runtime;
 
 public sealed class LuaClosure : LuaFunction
 {
-    Chunk proto;
     FastListCore<UpValue> upValues;
 
-    public LuaClosure(LuaState state, Chunk proto, LuaTable? environment = null)
-        : base(proto.Name, (context, ct) => LuaVirtualMachine.ExecuteClosureAsync(context.State, ct))
+    public LuaClosure(LuaState state, Prototype proto, LuaTable? environment = null)
+        : base(proto.Source, static (context, ct) => LuaVirtualMachine.ExecuteClosureAsync(context.State, ct))
     {
-        this.proto = proto;
+        Proto = proto;
+        if (environment != null)
+        {
+            upValues.Add(UpValue.Closed(environment));
+            return;
+        }
+
+        if (state.CurrentThread.CallStack.Count == 0)
+        {
+            upValues.Add(state.EnvUpValue);
+            return;
+        }
+
+        var baseIndex = state.CurrentThread.CallStack.Peek().Base;
 
         // add upvalues
         for (int i = 0; i < proto.UpValues.Length; i++)
         {
             var description = proto.UpValues[i];
-            var upValue = GetUpValueFromDescription(state, state.CurrentThread, environment == null ? state.EnvUpValue : UpValue.Closed(environment), description);
+            var upValue = GetUpValueFromDescription(state, state.CurrentThread, description, baseIndex);
             upValues.Add(upValue);
         }
     }
 
-    public Chunk Proto => proto;
+    public Prototype Proto { get; }
+
     public ReadOnlySpan<UpValue> UpValues => upValues.AsSpan();
     internal Span<UpValue> GetUpValuesSpan() => upValues.AsSpan();
 
@@ -44,17 +58,13 @@ public sealed class LuaClosure : LuaFunction
         upValues[index].SetValue(value);
     }
 
-    static UpValue GetUpValueFromDescription(LuaState state, LuaThread thread, UpValue envUpValue, UpValueInfo description)
+    static UpValue GetUpValueFromDescription(LuaState state, LuaThread thread, UpValueDesc description, int baseIndex = 0)
     {
-        if (description.IsInRegister)
+        if (description.IsLocal)
         {
-            return state.GetOrAddUpValue(thread, thread.GetCurrentFrame().Base + description.Index);
+            return state.GetOrAddUpValue(thread, baseIndex + description.Index);
         }
 
-        if (description.Index == -1) // -1 is global environment
-        {
-            return envUpValue;
-        }
 
         if (thread.GetCurrentFrame().Function is LuaClosure parentClosure)
         {

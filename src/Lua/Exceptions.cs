@@ -1,5 +1,4 @@
-using Lua.CodeAnalysis;
-using Lua.CodeAnalysis.Syntax;
+using Lua.Internal;
 using Lua.Runtime;
 
 namespace Lua;
@@ -13,45 +12,13 @@ public class LuaException : Exception
     public LuaException(string message) : base(message)
     {
     }
+
+    protected LuaException()
+    {
+    }
 }
 
-public class LuaParseException(string? chunkName, SourcePosition position, string message) : LuaException(message)
-{
-    public string? ChunkName { get; } = chunkName;
-    public SourcePosition? Position { get; } = position;
-
-    public static void UnexpectedToken(string? chunkName, SourcePosition position, SyntaxToken token)
-    {
-        throw new LuaParseException(chunkName, position, $"unexpected symbol <{token.Type}> near '{token.Text}'");
-    }
-
-    public static void ExpectedToken(string? chunkName, SourcePosition position, SyntaxTokenType token)
-    {
-        throw new LuaParseException(chunkName, position, $"'{token}' expected");
-    }
-
-    public static void UnfinishedLongComment(string? chunkName, SourcePosition position)
-    {
-        throw new LuaParseException(chunkName, position, $"unfinished long comment (starting at line {position.Line})");
-    }
-
-    public static void SyntaxError(string? chunkName, SourcePosition position, SyntaxToken? token)
-    {
-        throw new LuaParseException(chunkName, position, $"syntax error {(token == null ? "" : $"near '{token.Value.Text}'")}");
-    }
-
-    public static void NoVisibleLabel(string label, string? chunkName, SourcePosition position)
-    {
-        throw new LuaParseException(chunkName, position, $"no visible label '{label}' for <goto>");
-    }
-
-    public static void BreakNotInsideALoop(string? chunkName, SourcePosition position)
-    {
-        throw new LuaParseException(chunkName, position, "<break> not inside a loop");
-    }
-
-    public override string Message => $"{ChunkName}:{(Position == null ? "" : $"{Position.Value}:")} {base.Message}";
-}
+public class LuaParseException(string message) : LuaException(message);
 
 public class LuaRuntimeException : LuaException
 {
@@ -60,20 +27,14 @@ public class LuaRuntimeException : LuaException
         LuaTraceback = traceback;
     }
 
-    public LuaRuntimeException(Traceback traceback, string message) : base(message)
-    {
-        LuaTraceback = traceback;
-    }
-
-    public LuaRuntimeException(Traceback traceback, LuaValue errorObject): base(errorObject.ToString())
+    public LuaRuntimeException(Traceback traceback, LuaValue errorObject) : base(CreateMessage(traceback, errorObject))
     {
         LuaTraceback = traceback;
         ErrorObject = errorObject;
     }
 
     public Traceback LuaTraceback { get; }
-
-    public LuaValue? ErrorObject { get; }
+    public LuaValue ErrorObject { get; }
 
     public static void AttemptInvalidOperation(Traceback traceback, string op, LuaValue a, LuaValue b)
     {
@@ -118,20 +79,52 @@ public class LuaRuntimeException : LuaException
         }
     }
 
-    public override string Message => $"{LuaTraceback.RootChunkName}:{LuaTraceback.LastPosition.Line}: {base.Message}";
+    static string CreateMessage(Traceback traceback, LuaValue errorObject)
+    {
+        var pooledList = new PooledList<char>(64);
+        pooledList.Clear();
+        try
+        {
+            pooledList.AddRange("Lua-CSharp: ");
+            traceback.WriteLastLuaTrace(ref pooledList);
+            pooledList.AddRange(": ");
+            pooledList.AddRange($"{errorObject}");
+            return pooledList.AsSpan().ToString();
+        }
+        finally
+        {
+            pooledList.Dispose();
+        }
+    }
+
 
     public override string ToString()
     {
-        return $"{Message}\n{(LuaTraceback.StackFrames.Length > 0 ? $"{LuaTraceback}\n" : "")}{StackTrace}";
+        var pooledList = new PooledList<char>(64);
+        pooledList.Clear();
+        try
+        {
+            pooledList.AddRange(base.Message);
+            pooledList.Add('\n');
+            pooledList.AddRange(LuaTraceback.ToString());
+            pooledList.Add('\n');
+            pooledList.AddRange(StackTrace);
+            return pooledList.AsSpan().ToString();
+        }
+        finally
+        {
+            pooledList.Dispose();
+        }
+        //return $"{Message} {StackTrace}";
     }
 }
 
 public class LuaAssertionException(Traceback traceback, string message) : LuaRuntimeException(traceback, message)
 {
-    public override string ToString()
-    {
-        return $"{Message}\n{StackTrace}";
-    }
+    // public override string ToString()
+    // {
+    //     return $"{Message}\n{StackTrace}";
+    // }
 }
 
 public class LuaModuleNotFoundException(string moduleName) : LuaException($"module '{moduleName}' not found");

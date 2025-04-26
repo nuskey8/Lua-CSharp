@@ -11,7 +11,7 @@ public sealed class LuaTable
 
     public LuaTable(int arrayCapacity, int dictionaryCapacity)
     {
-        array = new LuaValue[arrayCapacity];
+        array = new LuaValue[Math.Max(arrayCapacity, 8)];
         dictionary = new(dictionaryCapacity);
     }
 
@@ -56,14 +56,14 @@ public sealed class LuaTable
                 if (MathEx.IsInteger(d))
                 {
                     var index = (int)d;
-                    
+
                     var distance = index - array.Length;
                     if (distance > MaxDistance)
                     {
                         dictionary[key] = value;
                         return;
                     }
-                    
+
                     if (0 < index && index < MaxArraySize && index <= Math.Max(array.Length * 2, 8))
                     {
                         if (array.Length < index)
