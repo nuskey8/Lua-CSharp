@@ -106,10 +106,11 @@ internal class Parser : IPoolNode<Parser>, IDisposable
     public void LeaveLevel() => Scanner.L.CallCount--;
 
 
-    public void EnterLevel()
+    public TempBlock EnterLevel()
     {
         Scanner.L.CallCount++;
         CheckLimit(Scanner.L.CallCount, MaxCallCount, "Go levels");
+        return new TempBlock(Scanner.L);
     }
 
 
@@ -399,7 +400,7 @@ internal class Parser : IPoolNode<Parser>, IDisposable
 
     public (ExprDesc, int ) SubExpression(int limit)
     {
-        EnterLevel();
+        using var b = EnterLevel();
         ExprDesc e = default;
         int u = UnaryOp(T);
         if (u != OprNoUnary)
@@ -425,7 +426,6 @@ internal class Parser : IPoolNode<Parser>, IDisposable
             op = next;
         }
 
-        LeaveLevel();
         return (e, op);
     }
 
@@ -905,7 +905,7 @@ internal class Parser : IPoolNode<Parser>, IDisposable
     public void Statement()
     {
         var line = Scanner.LineNumber;
-        EnterLevel();
+        using var _ = EnterLevel();
         switch (T)
         {
             case ';':
@@ -962,7 +962,6 @@ internal class Parser : IPoolNode<Parser>, IDisposable
 
         Assert(Function.Proto.MaxStackSize >= Function.FreeRegisterCount && Function.FreeRegisterCount >= Function.ActiveVariableCount);
         Function.FreeRegisterCount = Function.ActiveVariableCount;
-        LeaveLevel();
     }
 
 

@@ -26,32 +26,9 @@ internal struct Scanner
 
     static string ChunkID(string source)
     {
-        const int IdSize = 60;
-        switch (source[0])
-        {
-            case '=': // "literal" source
-                if (source.Length <= IdSize)
-                {
-                    return source[1..];
-                }
-
-                return source[1..IdSize];
-            case '@': // file name
-                if (source.Length <= IdSize)
-                {
-                    return source[1..];
-                }
-
-                return "..." + source[1..(IdSize - 3)];
-        }
-
-        source = source.Split('\n')[0];
-        if (source.Length > IdSize - 12)
-        {
-            return "[string \"" + source + "...\"]";
-        }
-
-        return "[string \"" + source + "\"]";
+        var shortSourceBuffer = (stackalloc char[59]);
+        var len = LuaDebug.WriteShortSource(source, shortSourceBuffer);
+        return shortSourceBuffer[..len].ToString();
     }
 
 
@@ -223,11 +200,11 @@ internal struct Scanner
                 case EndOfStream:
                     if (comment)
                     {
-                        ScanError("unfinished long comment", 0);
+                        ScanError("unfinished long comment", TkEOS);
                     }
                     else
                     {
-                        ScanError("unfinished long string", 0);
+                        ScanError("unfinished long string", TkEOS);
                     }
 
                     break;
@@ -237,7 +214,7 @@ internal struct Scanner
                         SaveAndAdvance();
                         if (!comment)
                         {
-                            var s = Buffer.ToString(2 + sep, Buffer.Length - (4 + sep));
+                            var s = Buffer.ToString(2 + sep, Buffer.Length - (4 + 2*sep));
                             Buffer.Clear();
                             return s;
                         }
@@ -436,6 +413,7 @@ internal struct Scanner
     public void EscapeError(ReadOnlySpan<int> c, string message)
     {
         Buffer.Clear();
+        Save('\'');
         Save('\\');
         foreach (var r in c)
         {
@@ -446,7 +424,9 @@ internal struct Scanner
 
             Save(r);
         }
-
+        Save('\'');
+        Token.S = Buffer.ToString();
+        Buffer.Clear();
         ScanError(message, TkString);
     }
 
@@ -825,11 +805,11 @@ internal struct Scanner
         }
     }
 
-    static bool IsWhiteSpace(int c) => c == ' ' || c == '\t' || c == '\n' || c == '\r';
+    static bool IsWhiteSpace(int c) => c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\f' || c == '\v';
     static bool IsDigit(int c) => c is >= '0' and <= '9';
 
     static bool IsLetter(int c)
     {
-        return c < ushort.MaxValue && (char.IsLetter((char)c));
+        return c < ushort.MaxValue && c is '_' or >= 'a' and <= 'z' or >= 'A' and <= 'Z';
     }
 }
