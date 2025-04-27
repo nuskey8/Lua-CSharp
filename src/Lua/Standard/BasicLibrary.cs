@@ -108,19 +108,15 @@ public sealed class BasicLibrary
     {
         var arg0 = context.GetArgument(0);
 
-        if (arg0.TryRead<LuaTable>(out var table))
+        if (context.State.TryGetMetatable(arg0, out var metatable))
         {
-            if (table.Metatable == null)
+            if (metatable.TryGetValue(Metamethods.Metatable, out var metaMetatable))
             {
-                context.Return(LuaValue.Nil);
-            }
-            else if (table.Metatable.TryGetValue(Metamethods.Metatable, out var metatable))
-            {
-                context.Return(metatable);
+                context.Return(metaMetatable);
             }
             else
             {
-                context.Return(table.Metatable);
+                context.Return(metatable);
             }
         }
         else
@@ -153,7 +149,7 @@ public sealed class BasicLibrary
     {
         // Lua-CSharp does not support binary chunks, the mode argument is ignored.
         var arg0 = context.GetArgument<string>(0);
-        var mode  = context.HasArgument(1)
+        var mode = context.HasArgument(1)
             ? context.GetArgument<string>(1)
             : "bt";
         var arg2 = context.HasArgument(2)
@@ -165,7 +161,7 @@ public sealed class BasicLibrary
         {
             var bytes = await File.ReadAllBytesAsync(arg0, cancellationToken);
             var fileName = "@" + Path.GetFileName(arg0);
-            return context.Return(context.State.Compile(bytes, fileName,mode,arg2));
+            return context.Return(context.State.Compile(bytes, fileName, mode, arg2));
         }
         catch (Exception ex)
         {
@@ -181,7 +177,7 @@ public sealed class BasicLibrary
         var name = context.HasArgument(1)
             ? context.GetArgument<string>(1)
             : null;
-        
+
         var mode = context.HasArgument(2)
             ? context.GetArgument<string>(2)
             : "bt";
@@ -259,7 +255,7 @@ public sealed class BasicLibrary
         }
         catch (Exception ex)
         {
-            if (ex is LuaRuntimeException  luaEx)
+            if (ex is LuaRuntimeException luaEx)
             {
                 return context.Return(false, luaEx.ErrorObject);
             }
