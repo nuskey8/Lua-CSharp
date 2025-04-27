@@ -1,7 +1,6 @@
 using Lua.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Text;
-using Lua.Internal;
 using Lua.Runtime;
 
 namespace Lua.Standard;
@@ -214,16 +213,17 @@ public sealed class TableLibrary
     {
         var arg0 = context.GetArgument<LuaTable>(0);
         var arg1 = context.HasArgument(1)
-            ? (int)context.GetArgument<double>(1)
+            ? (long)context.GetArgument<double>(1)
             : 1;
         var arg2 = context.HasArgument(2)
-            ? (int)context.GetArgument<double>(2)
+            ? (long)context.GetArgument<double>(2)
             : arg0.ArrayLength;
 
         var index = 0;
-        var count = arg2 - arg1 + 1;
+        arg1 = Math.Min(arg1, arg2+1);
+        var count = (int)(arg2 - arg1 + 1);
         var buffer = context.GetReturnBuffer(count);
-        for (int i = arg1; i <= arg2; i++)
+        for (long i = arg1; i <= arg2; i++)
         {
             buffer[index] = arg0[i];
             index++;
