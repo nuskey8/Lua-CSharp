@@ -151,6 +151,10 @@ public sealed class TableLibrary
         var arg1 = context.HasArgument(1)
             ? context.GetArgument<LuaFunction>(1)
             : new LuaClosure(context.State, defaultComparer);
+        
+        // discard extra  arguments
+        context = context with { ArgumentCount = 2 };
+        context.Thread.Stack.PopUntil(context.FrameBase+2);
 
         context.Thread.PushCallStackFrame(new() { Base = context.FrameBase, ReturnBase = context.ReturnFrameBase, VariableArgumentCount = 0, Function = arg1 });
         try
