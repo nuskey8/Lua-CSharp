@@ -295,6 +295,12 @@ public readonly struct LuaValue : IEquatable<LuaValue>
     {
         return value;
     }
+    
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal string UnsafeReadString()
+    {
+        return Unsafe.As<string>(referenceValue!);
+    }
 
     bool TryParseToDouble(out double result)
     {

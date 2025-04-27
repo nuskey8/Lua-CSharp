@@ -259,7 +259,7 @@ public static partial class LuaVirtualMachine
                 {
                     await Task;
                     Task = default;
-                    if (PostOperation != PostOperationType.TailCall)
+                    if (PostOperation is not (PostOperationType.TailCall or PostOperationType.DontPop))
                     {
                         Thread.PopCallStackFrame();
                     }
@@ -289,6 +289,7 @@ public static partial class LuaVirtualMachine
         TailCall,
         Self,
         Compare,
+        DontPop,
     }
 
     internal static ValueTask<int> ExecuteClosureAsync(LuaState luaState, CancellationToken cancellationToken)
@@ -539,9 +540,9 @@ public static partial class LuaVirtualMachine
 
                         return true;
                     case OpCode.Concat:
-                        if (Concat(context, out doRestart))
+                        if (Concat(context))
                         {
-                            if (doRestart) goto Restart;
+                            //if (doRestart) goto Restart;
                             continue;
                         }
 
@@ -808,43 +809,134 @@ public static partial class LuaVirtualMachine
         stack.NotifyTop(RA + 2);
     }
 
-    static bool Concat(VirtualMachineExecutionContext context, out bool doRestart)
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    static bool Concat(VirtualMachineExecutionContext context)
     {
         var instruction = context.Instruction;
         var stack = context.Stack;
-        var RA = instruction.A + context.FrameBase;
-        stack.EnsureCapacity(RA + 1);
-        ref var stackHead = ref stack.Get(context.FrameBase);
-        ref var constHead = ref MemoryMarshalEx.UnsafeElementAt(context.Prototype.Constants, 0);
+        var top = stack.Count - 1;
         var b = instruction.B;
-        int i = b;
         var c = instruction.C;
-        string str = "";
-        for (; i <= c; i++)
+        stack.NotifyTop(context.FrameBase+c+1);
+        var a = instruction.A;
+        var task =Concat(context,context.FrameBase+a,c-b+1);
+        if (task.IsCompleted)
         {
-            var v = Unsafe.Add(ref stackHead, i);
-            if (v.TryReadString(out var strV))
+            return true;
+        }
+        context.Task = task;
+        context.PostOperation = PostOperationType.None;
+        return false;
+    }
+
+    static async ValueTask<int> Concat(VirtualMachineExecutionContext context,int target, int total)
+    {
+        static bool ToString(ref LuaValue v)
+        {
+            if (v.Type == LuaValueType.String) return true;
+            if (v.Type == LuaValueType.Number)
             {
-                str += strV;
+                v = v.ToString();
+                return true;
             }
-            else if (v.TryReadDouble(out var numV))
+
+            return false;
+        }
+        var stack = context.Stack;
+        do
+        {
+            var top = context.Thread.Stack.Count;
+            var n = 2;
+            ref var lhs = ref stack.Get(top - 2);
+            ref var rhs = ref stack.Get(top - 1);
+            if (!(lhs.Type is LuaValueType.String or LuaValueType.Number )|| !ToString(ref rhs))
             {
-                str += numV.ToString(CultureInfo.InvariantCulture);
+                await ExecuteBinaryOperationMetaMethod(top - 2,lhs, rhs, context, OpCode.Concat);
+            }
+            else if (rhs.UnsafeReadString().Length == 0)
+            {
+                ToString(ref lhs);
+            }
+            else if (lhs.TryReadString(out var str) && str.Length == 0)
+            {
+                lhs = rhs;
             }
             else
             {
-                goto meta;
+                var tl = rhs.UnsafeReadString().Length;
+
+                int i = 1;
+                for (; i < total; i++)
+                {
+                    ref var v = ref stack.Get(top - i - 1);
+                    if (!ToString(ref v))
+                    {
+                        break;
+                    }
+
+                    tl += v.UnsafeReadString().Length;
+                }
+
+                n = i;
+                stack.Get(top - n) = string.Create(tl, (stack, top - n), static (span, pair) =>
+                {
+                    var (stack, index) = pair;
+                    foreach (var v in stack.AsSpan().Slice(index))
+                    {
+                        var s = v.UnsafeReadString();
+                        if (s.Length == 0) continue;
+                        s.AsSpan().CopyTo(span);
+                        span = span[s.Length..];
+                    }
+                });
             }
+
+            total -= n - 1;
+            stack.PopUntil(top - (n - 1));
+        } while (total > 1);
+
+        stack.Get(target) = stack.AsSpan()[^1];
+        
+        return 1;
+    }
+    static async ValueTask ExecuteBinaryOperationMetaMethod(int target,LuaValue vb, LuaValue vc,
+        VirtualMachineExecutionContext context, OpCode opCode)
+    {
+        var (name, description) = opCode.GetNameAndDescription();
+        if (vb.TryGetMetamethod(context.State, name, out var metamethod) ||
+            vc.TryGetMetamethod(context.State, name, out metamethod))
+        {
+            if (!metamethod.TryReadFunction(out var func))
+            {
+                LuaRuntimeException.AttemptInvalidOperation(GetTracebacks(context), "call", metamethod);
+            }
+
+            var stack = context.Stack;
+            stack.Push(vb);
+            stack.Push(vc);
+            var varArgCount = func.GetVariableArgumentCount(2);
+
+            var newFrame = func.CreateNewFrame(context, stack.Count - 2 + varArgCount, target, varArgCount);
+
+            context.Thread.PushCallStackFrame(newFrame);
+            if (context.Thread.CallOrReturnHookMask.Value != 0 && !context.Thread.IsInHook)
+            {
+                await ExecuteCallHook(context, newFrame, 2);
+            }
+
+
+            await func.Invoke(context, newFrame, 2);
+            stack.PopUntil(target+1);
+            context.Thread.PopCallStackFrame();
+            context.PostOperation = PostOperationType.DontPop;
+            return;
         }
 
-        stack.Get(RA) = str;
-        stack.NotifyTop(RA + 1);
-        stack.PopUntil(RA + 1);
-        doRestart = false;
-        return true;
-    meta: ;
-        return ExecuteBinaryOperationMetaMethod(RKB(ref stackHead, ref constHead, instruction), RKC(ref stackHead, ref constHead, instruction), context, OpCode.Concat, out doRestart);
+        LuaRuntimeException.AttemptInvalidOperation(GetTracebacks(context), description, vb, vc);
+        return;
     }
+
+
 
     static bool Call(VirtualMachineExecutionContext context, out bool doRestart)
     {
