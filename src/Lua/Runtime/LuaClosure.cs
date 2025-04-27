@@ -9,7 +9,7 @@ public sealed class LuaClosure : LuaFunction
     FastListCore<UpValue> upValues;
 
     public LuaClosure(LuaState state, Prototype proto, LuaTable? environment = null)
-        : base(proto.Source, static (context, ct) => LuaVirtualMachine.ExecuteClosureAsync(context.State, ct))
+        : base(proto.ChunkName, static (context, ct) => LuaVirtualMachine.ExecuteClosureAsync(context.State, ct))
     {
         Proto = proto;
         if (environment != null)

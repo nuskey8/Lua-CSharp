@@ -82,8 +82,8 @@ public sealed class LuaState
                 FrameBase = 0,
                 ReturnFrameBase = 0,
                 SourceLine = null,
-                RootChunkName = closure.Proto.Source,
-                ChunkName = closure.Proto.Source,
+                RootChunkName = closure.Proto.ChunkName,
+                ChunkName = closure.Proto.ChunkName,
             }, cancellationToken);
 
             return new LuaResult(CurrentThread.Stack, 0);
@@ -228,33 +228,33 @@ public sealed class LuaState
     }
 
 
-    public unsafe LuaClosure Compile(ReadOnlySpan<char> sourceCode, string source,LuaTable? environment = null)
+    public unsafe LuaClosure Compile(ReadOnlySpan<char> chunk, string chunkName,LuaTable? environment = null)
     {
         Prototype prototype;
-        fixed (char* ptr = sourceCode)
+        fixed (char* ptr = chunk)
         {
-            prototype= Parser.Parse(this, new (ptr,sourceCode.Length), source);
+            prototype= Parser.Parse(this, new (ptr,chunk.Length), chunkName);
         }
         
         return new LuaClosure(this, prototype, environment);
     }
     
-    public LuaClosure Compile(ReadOnlySpan<byte> code, string source , string mode = "bt", LuaTable? environment = null)
+    public LuaClosure Compile(ReadOnlySpan<byte> chunk, string chunkName , string mode = "bt", LuaTable? environment = null)
     {
-        if (code.Length > 4)
+        if (chunk.Length > 4)
         {
-            if (code[0] == '\e')
+            if (chunk[0] == '\e')
             {
-                return new LuaClosure(this,Parser.UnDump(code,source),environment);
+                return new LuaClosure(this,Parser.UnDump(chunk,chunkName),environment);
             }
         }
-        var charCount = Encoding.UTF8.GetCharCount(code);
+        var charCount = Encoding.UTF8.GetCharCount(chunk);
         var pooled = ArrayPool<char>.Shared.Rent(charCount);
         try
         {
             var chars = pooled.AsSpan(0, charCount);
-            Encoding.UTF8.GetChars(code, chars);
-            return Compile(chars, source,environment);
+            Encoding.UTF8.GetChars(chunk, chars);
+            return Compile(chars, chunkName,environment);
         }
         finally
         {

@@ -136,7 +136,7 @@ internal unsafe ref struct DumpState(IBufferWriter<byte> writer, bool reversedEn
         WriteUpValues(prototype.UpValues); //4
 
         //Debug
-        WriteString(prototype.Source);
+        WriteString(prototype.ChunkName);
         WriteIntSpanWithLength(prototype.LineInfo);
         WriteLocalVariables(prototype.LocalVariables);
         WriteInt(prototype.UpValues.Length);

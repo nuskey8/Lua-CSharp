@@ -11,7 +11,7 @@ public class Traceback(LuaState state)
     public required LuaClosure RootFunc { get; init; }
     public required CallStackFrame[] StackFrames { get; init; }
 
-    internal string RootChunkName => RootFunc.Proto.Source;
+    internal string RootChunkName => RootFunc.Proto.ChunkName;
     
     internal void WriteLastLuaTrace(ref PooledList<char> list )
     {
@@ -25,7 +25,7 @@ public class Traceback(LuaState state)
             if (!frame.IsTailCall && lastFunc is LuaClosure closure)
             {
                 var p = closure.Proto;
-                var len = LuaDebug.WriteShortSource(p.Source, shortSourceBuffer);
+                var len = LuaDebug.WriteShortSource(p.ChunkName, shortSourceBuffer);
                 list.AddRange(shortSourceBuffer[..len]);
                 list.AddRange(":");
                 if (p.LineInfo.Length <= frame.CallerInstructionIndex)
@@ -125,7 +125,7 @@ public class Traceback(LuaState state)
 
                 var p = closure.Proto;
                 list.AddRange("\t");
-                var len = LuaDebug.WriteShortSource(p.Source, shortSourceBuffer);
+                var len = LuaDebug.WriteShortSource(p.ChunkName, shortSourceBuffer);
                 list.AddRange(shortSourceBuffer[..len]);
                 list.AddRange(":");
                 if (p.LineInfo.Length <= frame.CallerInstructionIndex)

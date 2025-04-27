@@ -278,7 +278,7 @@ internal readonly struct LuaDebug : IDisposable
             else
             {
                 var p = cl.Proto;
-                Source = p.Source;
+                Source = p.ChunkName;
                 LineDefined = p.LineDefined;
                 LastLineDefined = p.LastLineDefined;
                 What = (LineDefined==0) ? "main" : "Lua";
