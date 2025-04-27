@@ -86,9 +86,7 @@ public sealed class StringLibrary
         var init = context.HasArgument(2)
             ? context.GetArgument<double>(2)
             : 1;
-        var plain = context.HasArgument(3)
-            ? context.GetArgument(3).ToBoolean()
-            : false;
+        var plain = context.HasArgument(3) && context.GetArgument(3).ToBoolean();
 
         LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.State, "find", 3, init);
 
@@ -107,7 +105,7 @@ public sealed class StringLibrary
         // empty pattern
         if (pattern.Length == 0)
         {
-            return new(context.Return(1, 1));
+            return new(context.Return(1, 0));
         }
 
         var source = s.AsSpan()[(int)(init - 1)..];
