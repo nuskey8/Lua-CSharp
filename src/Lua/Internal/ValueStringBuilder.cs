@@ -75,6 +75,7 @@ namespace System.Text
                 EnsureCapacity(Length + 1);
                 _chars[Length] = '\0';
             }
+
             return ref MemoryMarshal.GetReference(_chars);
         }
 
@@ -108,6 +109,7 @@ namespace System.Text
                 EnsureCapacity(Length + 1);
                 _chars[Length] = '\0';
             }
+
             return _chars.Slice(0, _pos);
         }
 
@@ -232,6 +234,7 @@ namespace System.Text
             {
                 dst[i] = c;
             }
+
             _pos += count;
         }
 
@@ -248,6 +251,7 @@ namespace System.Text
             {
                 dst[i] = *value++;
             }
+
             _pos += length;
         }
 

@@ -100,6 +100,7 @@ public static class HexConverter
                     return (c - 'a' + 10);
             }
         }
+
         return 0;
     }
 }

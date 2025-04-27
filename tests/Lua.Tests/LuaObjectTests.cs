@@ -47,10 +47,7 @@ public class LuaObjectTests
     [Test]
     public async Task Test_Property()
     {
-        var userData = new TestUserData()
-        {
-            Property = 1
-        };
+        var userData = new TestUserData() { Property = 1 };
 
         var state = LuaState.Create();
         state.Environment["test"] = userData;
@@ -63,10 +60,7 @@ public class LuaObjectTests
     [Test]
     public async Task Test_PropertyWithName()
     {
-        var userData = new TestUserData()
-        {
-            PropertyWithName = "foo",
-        };
+        var userData = new TestUserData() { PropertyWithName = "foo", };
 
         var state = LuaState.Create();
         state.Environment["test"] = userData;
@@ -116,10 +110,7 @@ public class LuaObjectTests
     [Test]
     public async Task Test_InstanceMethodWithReturnValue()
     {
-        var userData = new TestUserData()
-        {
-            Property = 1
-        };
+        var userData = new TestUserData() { Property = 1 };
 
         var state = LuaState.Create();
         state.Environment["test"] = userData;

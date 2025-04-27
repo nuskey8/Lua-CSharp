@@ -125,6 +125,7 @@ internal static class ValueTaskEx
                 TryInvokeContinuation();
                 return;
             }
+
             TryInvokeContinuationWithIncrement(0);
         }
 
@@ -140,6 +141,7 @@ internal static class ValueTaskEx
                 TryInvokeContinuation();
                 return;
             }
+
             TryInvokeContinuationWithIncrement(1);
         }
 
@@ -187,6 +189,7 @@ internal static class ValueTaskEx
             {
                 exception.Throw();
             }
+
             var i = winArgumentIndex;
             return (winArgumentIndex, t0, t1);
         }
@@ -221,10 +224,12 @@ internal static class ValueTaskEx
             {
                 execContext = ExecutionContext.Capture();
             }
+
             if ((flags & ValueTaskSourceOnCompletedFlags.UseSchedulingContext) == ValueTaskSourceOnCompletedFlags.UseSchedulingContext)
             {
                 syncContext = SynchronizationContext.Current;
             }
+
             this.state = state;
 
             if (GetStatus(token) != ValueTaskSourceStatus.Pending)

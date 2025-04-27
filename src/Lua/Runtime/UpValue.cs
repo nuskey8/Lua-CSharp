@@ -1,4 +1,3 @@
-
 using System.Runtime.CompilerServices;
 
 namespace Lua.Runtime;
@@ -18,19 +17,12 @@ public sealed class UpValue
 
     public static UpValue Open(LuaThread thread, int registerIndex)
     {
-        return new(thread)
-        {
-            RegisterIndex = registerIndex
-        };
+        return new(thread) { RegisterIndex = registerIndex };
     }
 
     public static UpValue Closed(LuaValue value)
     {
-        return new(null)
-        {
-            IsClosed = true,
-            value = value
-        };
+        return new(null) { IsClosed = true, value = value };
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -45,7 +37,7 @@ public sealed class UpValue
             return Thread!.Stack.Get(RegisterIndex);
         }
     }
-    
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal ref readonly LuaValue GetValueRef()
     {

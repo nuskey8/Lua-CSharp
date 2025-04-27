@@ -2,6 +2,7 @@ using System.Runtime.CompilerServices;
 #if NET6_0_OR_GREATER
 using System.Numerics;
 #endif
+
 namespace Lua;
 
 internal static class MathEx
@@ -77,6 +78,7 @@ internal static class MathEx
                 exp = (int)((bits & DBL_EXP_MASK) >> DBL_MANT_BITS);
                 e = exp - 1022 - 54;
             }
+
             // Set exponent to -1 so that d is in [0.5, 1).
             d = BitConverter.Int64BitsToDouble((bits & DBL_EXP_CLR_MASK) | 0x3fe0000000000000L);
         }
@@ -88,7 +90,7 @@ internal static class MathEx
     {
         return ((int)Math.Truncate(d), d % 1.0);
     }
-    
+
     /// <summary>Returns the smallest power of two greater than or equal to the input.</summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static int NextPowerOfTwo(int x)

@@ -366,13 +366,13 @@ namespace Lua.Internal
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool TryGetNext(LuaValue key, out KeyValuePair<LuaValue,LuaValue> pair)
+        public bool TryGetNext(LuaValue key, out KeyValuePair<LuaValue, LuaValue> pair)
         {
             ref LuaValue valRef = ref FindValue(key, out var index);
             if (!Unsafe.IsNullRef(ref valRef))
             {
                 Entry[] entries = _entries!;
-                while (++index  < _count)
+                while (++index < _count)
                 {
                     ref Entry entry = ref entries[index];
                     if (entry is { next: >= -1, value.Type: not LuaValueType.Nil })
