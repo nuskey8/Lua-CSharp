@@ -163,6 +163,7 @@ public static partial class LuaVirtualMachine
                     Thread.PopCallStackFrameWithStackPop(target + 2);
                     return true;
                 case OpCode.SetTable or OpCode.SetTabUp:
+                    target = frame.Base;
                     targetCount = 0;
                     break;
                 // Other opcodes has one result

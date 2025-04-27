@@ -1,6 +1,7 @@
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Lua.Internal;
+using System.Diagnostics;
 
 namespace Lua.Runtime;
 
@@ -139,6 +140,9 @@ public sealed class LuaStack(int initialSize = 256)
     {
         throw new InvalidOperationException("Empty stack");
     }
+    
+    [DebuggerBrowsable(DebuggerBrowsableState.RootHidden)]
+    private  Span<LuaValue> Span => AsSpan();
 
     internal void SetTop(int top)
     {
