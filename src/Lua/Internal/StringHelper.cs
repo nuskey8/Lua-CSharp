@@ -156,25 +156,25 @@ internal static class StringHelper
             switch (c)
             {
                 case '\a':
-                    builder.Append("\\\a");
+                    builder.Append("\\7");
                     break;
                 case '\b':
-                    builder.Append("\\\b");
+                    builder.Append("\\8");
                     break;
                 case '\f':
-                    builder.Append("\\\f");
+                    builder.Append("\\12");
                     break;
                 case '\n':
                     builder.Append("\\\n");
                     break;
                 case '\r':
-                    builder.Append("\\\r");
+                    builder.Append("\\13");
                     break;
                 case '\t':
-                    builder.Append("\\\t");
+                    builder.Append("\\9");
                     break;
                 case '\v':
-                    builder.Append("\\\v");
+                    builder.Append("\\11");
                     break;
                 case '\\':
                     builder.Append("\\\\");
