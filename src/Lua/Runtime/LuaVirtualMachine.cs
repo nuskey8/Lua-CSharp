@@ -1338,6 +1338,7 @@ public static partial class LuaVirtualMachine
         {
             if (table.TryReadTable(out var luaTable))
             {
+                targetTable = luaTable;
                 ref var valueRef = ref (skip ? ref Unsafe.NullRef<LuaValue>() : ref luaTable.FindValue(key));
                 skip = false;
                 if (!Unsafe.IsNullRef(ref valueRef) && valueRef.Type != LuaValueType.Nil)
@@ -1366,7 +1367,7 @@ public static partial class LuaVirtualMachine
             {
                 LuaRuntimeException.AttemptInvalidOperation(GetTracebacks(context), "index", table);
             }
-
+            
             table = metatableValue;
 
         Function:

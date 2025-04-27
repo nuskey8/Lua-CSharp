@@ -991,6 +991,7 @@ internal class Parser : IPoolNode<Parser>, IDisposable
         p.Function = f;
         p.MainFunction();
         f.Proto.IsVarArg = true;
+        f.Proto.LineDefined = 0;
         return f.Proto.CreatePrototypeAndRelease();
     }
 
