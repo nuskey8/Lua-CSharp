@@ -481,8 +481,8 @@ public sealed class StringLibrary
         var builder = new StringBuilder();
         var lastIndex = 0;
         var replaceCount = 0;
-
-        for (int i = 0; i < matches.Count; i++)
+        int i = 0;
+        for (; i < matches.Count; i++)
         {
             if (replaceCount > n) break;
 
@@ -547,7 +547,7 @@ public sealed class StringLibrary
 
         builder.Append(s.AsSpan()[lastIndex..s.Length]);
 
-        return context.Return(builder.ToString());
+        return context.Return(builder.ToString(), i);
     }
 
     public ValueTask<int> Len(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
