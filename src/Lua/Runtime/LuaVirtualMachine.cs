@@ -1132,13 +1132,13 @@ public static partial class LuaVirtualMachine
             stack.Get(newBase) = iteratorRaw;
             stack.Get(newBase + 1) = stack.Get(RA + 1);
             stack.Get(newBase + 2) = stack.Get(RA + 2);
-            stack.NotifyTop(newBase + 3);
+            stack.SetTop(newBase + 3);
         }
         else
         {
             stack.Get(newBase) = stack.Get(RA + 1);
             stack.Get(newBase + 1) = stack.Get(RA + 2);
-            stack.NotifyTop(newBase + 2);
+            stack.SetTop(newBase + 2);
         }
 
         var argumentCount = isMetamethod ? 3 : 2;
@@ -1670,7 +1670,7 @@ public static partial class LuaVirtualMachine
                 argumentCount += 1;
             }
 
-            thread.Stack.NotifyTop(newBase + argumentCount);
+            thread.Stack.SetTop(newBase + argumentCount);
         }
 
         var variableArgumentCount = function.GetVariableArgumentCount(argumentCount);
@@ -1701,7 +1701,7 @@ public static partial class LuaVirtualMachine
                 argumentCount += 1;
             }
 
-            thread.Stack.NotifyTop(newBase + argumentCount);
+            thread.Stack.SetTop(newBase + argumentCount);
         }
 
 
