@@ -13,7 +13,13 @@ public class LuaFunction(string name, Func<LuaFunctionExecutionContext, Cancella
 
     public async ValueTask<int> InvokeAsync(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
-        var frame = new CallStackFrame { Base = context.FrameBase, VariableArgumentCount = this.GetVariableArgumentCount(context.ArgumentCount), Function = this, ReturnBase = context.ReturnFrameBase };
+        var varArgumentCount = this.GetVariableArgumentCount(context.ArgumentCount);
+        if (varArgumentCount != 0)
+        {
+           LuaVirtualMachine.PrepareVariableArgument(context.Thread.Stack,context.ArgumentCount, varArgumentCount);
+           context =context with{ArgumentCount = context.ArgumentCount- varArgumentCount};
+        }
+        var frame = new CallStackFrame { Base = context.FrameBase , VariableArgumentCount = varArgumentCount, Function = this, ReturnBase = context.ReturnFrameBase };
         context.Thread.PushCallStackFrame(frame);
         try
         {

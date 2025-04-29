@@ -248,7 +248,7 @@ public sealed class BasicLibrary
         var arg0 = context.GetArgument<LuaFunction>(0);
         try
         {
-            var count = await arg0.InvokeAsync(context with { State = context.State, ArgumentCount = context.ArgumentCount - 1, FrameBase = context.FrameBase + 1, ReturnFrameBase = context.ReturnFrameBase + 1 }, cancellationToken);
+            var count = await arg0.InvokeAsync(context with { ArgumentCount = context.ArgumentCount - 1, ReturnFrameBase = context.ReturnFrameBase + 1 }, cancellationToken);
 
             context.Thread.Stack.Get(context.ReturnFrameBase) = true;
             return count + 1;
@@ -270,9 +270,8 @@ public sealed class BasicLibrary
     {
         for (int i = 0; i < context.ArgumentCount; i++)
         {
-            var top = context.Thread.Stack.Count;
             await context.Arguments[i].CallToStringAsync(context, cancellationToken);
-            Console.Write(context.Thread.Stack.Get(top).ToString());
+            Console.Write(context.Thread.Stack.Pop().Read<string>());
             Console.Write('\t');
         }
 
@@ -549,7 +548,7 @@ public sealed class BasicLibrary
 
         try
         {
-            var count = await arg0.InvokeAsync(context with { State = context.State, ArgumentCount = context.ArgumentCount - 2, FrameBase = context.FrameBase + 2, ReturnFrameBase = context.ReturnFrameBase + 1 }, cancellationToken);
+            var count = await arg0.InvokeAsync(context with { ArgumentCount = context.ArgumentCount - 2, ReturnFrameBase = context.ReturnFrameBase + 1 }, cancellationToken);
 
             context.Thread.Stack.Get(context.ReturnFrameBase) = true;
             return count + 1;
@@ -561,7 +560,7 @@ public sealed class BasicLibrary
             context.State.Push(error);
 
             // invoke error handler
-            var count = await arg1.InvokeAsync(context with { State = context.State, ArgumentCount = 1, FrameBase = context.Thread.Stack.Count - 1, ReturnFrameBase = context.ReturnFrameBase + 1 }, cancellationToken);
+            var count = await arg1.InvokeAsync(context with { ArgumentCount = 1, ReturnFrameBase = context.ReturnFrameBase + 1 }, cancellationToken);
             context.Thread.Stack.Get(context.ReturnFrameBase) = false;
             return count + 1;
         }

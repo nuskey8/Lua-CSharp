@@ -27,14 +27,14 @@ public sealed class TableLibrary
 
     // TODO: optimize
     private static readonly Prototype defaultComparer = new Prototype(
-        "comp", 0,0,2,2,false,
+        "comp", 0, 0, 2, 2, false,
         [],
         [
             Instruction.Le(1, 0, 1),
             Instruction.LoadBool(2, 1, 1),
             Instruction.LoadBool(2, 0, 0),
             Instruction.Return(2, 2),
-        ],[],[0,0,0,0],[new LocalVariable(){Name = "a",StartPc = 0,EndPc = 4}, new LocalVariable(){Name = "b",StartPc = 0,EndPc = 4}],
+        ], [], [0, 0, 0, 0], [new LocalVariable() { Name = "a", StartPc = 0, EndPc = 4 }, new LocalVariable() { Name = "b", StartPc = 0, EndPc = 4 }],
         []
     );
 
@@ -150,10 +150,10 @@ public sealed class TableLibrary
         var arg1 = context.HasArgument(1)
             ? context.GetArgument<LuaFunction>(1)
             : new LuaClosure(context.State, defaultComparer);
-        
+
         // discard extra  arguments
         context = context with { ArgumentCount = 2 };
-        context.Thread.Stack.PopUntil(context.FrameBase+2);
+        context.Thread.Stack.PopUntil(context.FrameBase + 2);
 
         context.Thread.PushCallStackFrame(new() { Base = context.FrameBase, ReturnBase = context.ReturnFrameBase, VariableArgumentCount = 0, Function = arg1 });
         try
@@ -188,7 +188,7 @@ public sealed class TableLibrary
             var top = stack.Count;
             stack.Push(memory.Span[j]);
             stack.Push(pivot);
-            await comparer.InvokeAsync(context with { ArgumentCount = 2, FrameBase = stack.Count - context.ArgumentCount, ReturnFrameBase = top }, cancellationToken);
+            await comparer.InvokeAsync(context with { ArgumentCount = 2, ReturnFrameBase = top }, cancellationToken);
 
             if (context.Thread.Stack.Get(top).ToBoolean())
             {
@@ -220,7 +220,7 @@ public sealed class TableLibrary
             : arg0.ArrayLength;
 
         var index = 0;
-        arg1 = Math.Min(arg1, arg2+1);
+        arg1 = Math.Min(arg1, arg2 + 1);
         var count = (int)(arg2 - arg1 + 1);
         var buffer = context.GetReturnBuffer(count);
         for (long i = arg1; i <= arg2; i++)

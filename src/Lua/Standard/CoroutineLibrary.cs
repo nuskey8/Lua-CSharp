@@ -30,7 +30,7 @@ public sealed class CoroutineLibrary
     public ValueTask<int> Resume(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
         var thread = context.GetArgument<LuaThread>(0);
-        return thread.ResumeAsync(context, cancellationToken);
+        return thread.ResumeAsync(context with{ArgumentCount = context.ArgumentCount-1}, cancellationToken);
     }
 
     public ValueTask<int> Running(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
@@ -67,13 +67,10 @@ public sealed class CoroutineLibrary
 
                 var stack = context.Thread.Stack;
                 var frameBase = stack.Count;
-
-                stack.Push(thread);
-                stack.PushRange(context.Arguments);
                 context.Thread.PushCallStackFrame(new() { Base = frameBase, ReturnBase = context.ReturnFrameBase, VariableArgumentCount = 0, Function = coroutine.Function });
                 try
                 {
-                    await thread.ResumeAsync(context with { ArgumentCount = context.ArgumentCount + 1, FrameBase = frameBase, ReturnFrameBase = context.ReturnFrameBase, }, cancellationToken);
+                    await thread.ResumeAsync(context, cancellationToken);
                     var result = context.GetReturnBuffer(context.Thread.Stack.Count - context.ReturnFrameBase);
                     result[1..].CopyTo(result);
                     context.Thread.Stack.Pop();

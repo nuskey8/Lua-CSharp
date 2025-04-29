@@ -11,9 +11,7 @@ public class Traceback(LuaState state)
     public required LuaClosure RootFunc { get; init; }
     public required CallStackFrame[] StackFrames { get; init; }
 
-    internal string RootChunkName => RootFunc.Proto.ChunkName;
-    
-    internal void WriteLastLuaTrace(ref PooledList<char> list )
+    internal void WriteLastLuaTrace(ref PooledList<char> list)
     {
         var intFormatBuffer = (stackalloc char[15]);
         var shortSourceBuffer = (stackalloc char[59]);
@@ -37,10 +35,10 @@ public class Traceback(LuaState state)
                     p.LineInfo[frame.CallerInstructionIndex].TryFormat(intFormatBuffer, out var charsWritten, provider: CultureInfo.InvariantCulture);
                     list.AddRange(intFormatBuffer[..charsWritten]);
                 }
+
                 return;
             }
         }
-        
     }
 
     public int LastLine
@@ -74,13 +72,14 @@ public class Traceback(LuaState state)
     {
         return GetTracebackString(State, RootFunc, StackFrames, LuaValue.Nil);
     }
-    
+
     public string ToString(int skipFrames)
     {
-        if(skipFrames < 0 || skipFrames >= StackFrames.Length)
+        if (skipFrames < 0 || skipFrames >= StackFrames.Length)
         {
             return "stack traceback:\n";
         }
+
         return GetTracebackString(State, RootFunc, StackFrames[..^skipFrames], LuaValue.Nil);
     }
 

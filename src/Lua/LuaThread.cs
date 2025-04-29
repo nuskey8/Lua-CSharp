@@ -4,79 +4,148 @@ using Lua.Runtime;
 
 namespace Lua;
 
-public abstract class LuaThread
+public class LuaThread : IPoolNode<LuaThread>
 {
-    public abstract LuaThreadStatus GetStatus();
-    public abstract void UnsafeSetStatus(LuaThreadStatus status);
-    public abstract ValueTask<int> ResumeAsync(LuaFunctionExecutionContext context, CancellationToken cancellationToken = default);
-    public abstract ValueTask<int> YieldAsync(LuaFunctionExecutionContext context, CancellationToken cancellationToken = default);
+    static LinkedPool<LuaThread> pool;
+    LuaThread? parent;
+    ref LuaThread? IPoolNode<LuaThread>.NextNode => ref parent;
+    public static LuaThread Create(LuaState state)
+    {
+        var thread = new LuaThread { CoreData = { State = state } };
+        return thread;
+    }
+    public virtual LuaThreadStatus GetStatus()
+    {
+        return LuaThreadStatus.Running;
+    }
 
-    LuaStack stack = new();
-    FastStackCore<CallStackFrame> callStack;
+    public virtual void UnsafeSetStatus(LuaThreadStatus status){}
+    public virtual ValueTask<int> ResumeAsync(LuaFunctionExecutionContext context, CancellationToken cancellationToken = default)
+    {
+        return new(context.Return(false, "cannot resume non-suspended coroutine"));
+    }
 
-    internal LuaStack Stack => stack;
-    internal ref FastStackCore<CallStackFrame> CallStack => ref callStack;
+    public virtual ValueTask<int> YieldAsync(LuaFunctionExecutionContext context, CancellationToken cancellationToken = default)
+    {
+        throw new LuaRuntimeException(context.State.GetTraceback(), "attempt to yield from outside a coroutine");
+    }
+
+    internal class ThreadCoreData
+    {
+        internal LuaState State;
+        //internal  LuaCoroutineData? coroutineData;
+        internal LuaStack Stack = new();
+        internal FastStackCore<CallStackFrame> CallStack;
+        internal BitFlags2 LineAndCountHookMask;
+        internal BitFlags2 CallOrReturnHookMask;
+        internal bool IsInHook;
+        internal int HookCount;
+        internal int BaseHookCount;
+        internal int LastPc;
+        internal LuaFunction? Hook { get; set; }
+    }
+
+    internal ThreadCoreData CoreData = new();
+    
+    public LuaState State=> CoreData.State;
+
+    internal LuaStack Stack => CoreData.Stack;
+    internal ref FastStackCore<CallStackFrame> CallStack => ref CoreData.CallStack;
 
     internal bool IsLineHookEnabled
     {
-        get => LineAndCountHookMask.Flag0;
-        set => LineAndCountHookMask.Flag0 = value;
+        get => CoreData.LineAndCountHookMask.Flag0;
+        set => CoreData.LineAndCountHookMask.Flag0 = value;
     }
 
     internal bool IsCountHookEnabled
     {
-        get => LineAndCountHookMask.Flag1;
-        set => LineAndCountHookMask.Flag1 = value;
+        get => CoreData.LineAndCountHookMask.Flag1;
+        set => CoreData.LineAndCountHookMask.Flag1 = value;
     }
 
-    internal BitFlags2 LineAndCountHookMask;
 
     internal bool IsCallHookEnabled
     {
-        get => CallOrReturnHookMask.Flag0;
-        set => CallOrReturnHookMask.Flag0 = value;
+        get => CoreData.CallOrReturnHookMask.Flag0;
+        set => CoreData.CallOrReturnHookMask.Flag0 = value;
     }
 
     internal bool IsReturnHookEnabled
     {
-        get => CallOrReturnHookMask.Flag1;
-        set => CallOrReturnHookMask.Flag1 = value;
+        get => CoreData.CallOrReturnHookMask.Flag1;
+        set => CoreData.CallOrReturnHookMask.Flag1 = value;
     }
 
-    internal BitFlags2 CallOrReturnHookMask;
-    internal bool IsInHook;
-    internal int HookCount;
-    internal int BaseHookCount;
-    internal int LastPc;
-    internal LuaFunction? Hook { get; set; }
+    internal BitFlags2 LineAndCountHookMask
+    {
+        get => CoreData.LineAndCountHookMask;
+        set => CoreData.LineAndCountHookMask = value;
+    }
+
+    internal BitFlags2 CallOrReturnHookMask
+    {
+        get => CoreData.CallOrReturnHookMask;
+        set => CoreData.CallOrReturnHookMask = value;
+    }
+
+    internal bool IsInHook
+    {
+        get => CoreData.IsInHook;
+        set => CoreData.IsInHook = value;
+    }
+
+    internal int HookCount
+    {
+        get => CoreData.HookCount;
+        set => CoreData.HookCount = value;
+    }
+
+    internal int BaseHookCount
+    {
+        get => CoreData.BaseHookCount;
+        set => CoreData.BaseHookCount = value;
+    }
+
+    internal int LastPc
+    {
+        get => CoreData.LastPc;
+        set => CoreData.LastPc = value;
+    }
+
+    internal LuaFunction? Hook
+    {
+        get => CoreData.Hook;
+        set => CoreData.Hook = value;
+    }
 
     public ref readonly CallStackFrame GetCurrentFrame()
     {
-        return ref callStack.PeekRef();
+        return ref CoreData.CallStack.PeekRef();
     }
 
     public ReadOnlySpan<LuaValue> GetStackValues()
     {
-        return stack.AsSpan();
+        return CoreData.Stack.AsSpan();
     }
 
     public ReadOnlySpan<CallStackFrame> GetCallStackFrames()
     {
-        return callStack.AsSpan();
+        return CoreData.CallStack.AsSpan();
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal void PushCallStackFrame(in CallStackFrame frame)
     {
-        callStack.Push(frame);
+        CoreData.CallStack.Push(frame);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal void PopCallStackFrameWithStackPop()
     {
-        if (callStack.TryPop(out var frame))
+        if (CoreData.CallStack.TryPop(out var frame))
         {
-            stack.PopUntil(frame.Base);
+            CoreData.Stack.PopUntil(frame.Base);
         }
         else
         {
@@ -87,9 +156,9 @@ public abstract class LuaThread
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal void PopCallStackFrameWithStackPop(int frameBase)
     {
-        if (callStack.TryPop())
+        if (CoreData.CallStack.TryPop())
         {
-            stack.PopUntil(frameBase);
+            CoreData.Stack.PopUntil(frameBase);
         }
         else
         {
@@ -100,7 +169,7 @@ public abstract class LuaThread
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal void PopCallStackFrame()
     {
-        if (!callStack.TryPop())
+        if (!CoreData.CallStack.TryPop())
         {
             ThrowForEmptyStack();
         }
@@ -112,6 +181,14 @@ public abstract class LuaThread
         for (int i = 0; i < span.Length; i++)
         {
             Console.WriteLine($"LuaStack [{i}]\t{span[i]}");
+        }
+    }
+
+    public void Release()
+    {
+        if (CoreData.CallStack.Count != 0)
+        {
+            throw new InvalidOperationException("This thread is running! Call stack is not empty!!");
         }
     }
 

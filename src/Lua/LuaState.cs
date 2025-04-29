@@ -79,11 +79,8 @@ public sealed class LuaState
                 State = this,
                 Thread = CurrentThread,
                 ArgumentCount = 0,
-                FrameBase = 0,
                 ReturnFrameBase = 0,
                 SourceLine = null,
-                RootChunkName = closure.Proto.ChunkName,
-                ChunkName = closure.Proto.ChunkName,
             }, cancellationToken);
 
             return new LuaResult(CurrentThread.Stack, 0);

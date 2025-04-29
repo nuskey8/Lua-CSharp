@@ -314,7 +314,7 @@ public static partial class LuaVirtualMachine
             var stack = context.Stack;
             stack.EnsureCapacity(frameBase + context.Prototype.MaxStackSize);
             ref var constHead = ref MemoryMarshalEx.UnsafeElementAt(context.Prototype.Constants, 0);
-            ref var lineAndCountHookMask = ref context.Thread.LineAndCountHookMask;
+            ref var lineAndCountHookMask = ref context.Thread.CoreData.LineAndCountHookMask;
             goto Loop;
         LineHook:
 
@@ -962,6 +962,8 @@ public static partial class LuaVirtualMachine
         var thread = context.Thread;
         var (argumentCount, variableArgumentCount) = PrepareForFunctionCall(thread, func, instruction, newBase, isMetamethod);
         newBase += variableArgumentCount;
+        thread.Stack.PopUntil(newBase+argumentCount);
+
         var newFrame = func.CreateNewFrame(context, newBase, RA, variableArgumentCount);
 
         thread.PushCallStackFrame(newFrame);
@@ -1059,7 +1061,7 @@ public static partial class LuaVirtualMachine
 
         var (argumentCount, variableArgumentCount) = PrepareForFunctionTailCall(thread, func, instruction, newBase, isMetamethod);
         newBase = context.FrameBase + variableArgumentCount;
-
+        stack.PopUntil(newBase+argumentCount);
         var lastPc = thread.GetCurrentFrame().CallerInstructionIndex;
         context.Thread.PopCallStackFrame();
         var newFrame = func.CreateNewTailCallFrame(context, newBase, context.CurrentReturnFrameBase, variableArgumentCount);
@@ -1148,6 +1150,7 @@ public static partial class LuaVirtualMachine
             PrepareVariableArgument(stack, newBase, argumentCount, variableArgumentCount);
             newBase += variableArgumentCount;
         }
+        stack.PopUntil(newBase+argumentCount);
 
         var newFrame = iterator.CreateNewFrame(context, newBase, RA + 3, variableArgumentCount);
         context.Thread.PushCallStackFrame(newFrame);
@@ -1639,6 +1642,23 @@ public static partial class LuaVirtualMachine
     // If there are variable arguments, the base of the stack is moved by that number and the values of the variable arguments are placed in front of it.
     // see: https://wubingzheng.github.io/build-lua-in-rust/en/ch08-02.arguments.html
     [MethodImpl(MethodImplOptions.NoInlining)]
+    internal static void PrepareVariableArgument(LuaStack stack, int argumentCount,
+        int variableArgumentCount)
+    {
+        var top = stack.Count;
+        var newBase=stack.Count-argumentCount;
+        var temp = newBase;
+        newBase += variableArgumentCount;
+        stack.EnsureCapacity(newBase + argumentCount);
+        stack.NotifyTop(newBase + argumentCount);
+        var stackBuffer = stack.GetBuffer()[temp..];
+        stackBuffer[..argumentCount].CopyTo(stackBuffer[variableArgumentCount..]);
+        stackBuffer.Slice(argumentCount, variableArgumentCount).CopyTo(stackBuffer);;
+        stack.PopUntil(top);
+    }
+    // If there are variable arguments, the base of the stack is moved by that number and the values of the variable arguments are placed in front of it.
+    // see: https://wubingzheng.github.io/build-lua-in-rust/en/ch08-02.arguments.html
+    [MethodImpl(MethodImplOptions.NoInlining)]
     static (int ArgumentCount, int VariableArgumentCount) PrepareVariableArgument(LuaStack stack, int newBase, int argumentCount,
         int variableArgumentCount)
     {
@@ -1788,7 +1808,6 @@ public static partial class LuaVirtualMachine
             State = context.State,
             Thread = context.Thread,
             ArgumentCount = arguments,
-            FrameBase = frame.Base,
             ReturnFrameBase = frame.ReturnBase,
             CallerInstructionIndex = frame.CallerInstructionIndex,
         }, context.CancellationToken);

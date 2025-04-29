@@ -463,7 +463,6 @@ public class DebugLibrary
                 State = context.State,
                 Thread = context.Thread,
                 ArgumentCount = 2,
-                FrameBase = stack.Count - 2,
                 ReturnFrameBase = stack.Count - 2,
             };
             var frame = new CallStackFrame

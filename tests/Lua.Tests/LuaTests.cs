@@ -13,7 +13,7 @@ public class LuaTests
         state = LuaState.Create();
         state.OpenStandardLibraries();
     }
-    
+
 
     [Test]
     [TestCase("tests-lua/code.lua")]
@@ -34,19 +34,17 @@ public class LuaTests
     [TestCase("tests-lua/coroutine.lua")]
     [TestCase("tests-lua/db.lua")]
     [TestCase("tests-lua/verybig.lua")]
-    
     public async Task Test_Lua(string file)
     {
         var path = FileHelper.GetAbsolutePath(file);
         try
         {
-            await state.DoFileAsync(FileHelper.GetAbsolutePath(file));
+            await state.DoFileAsync(path);
         }
         catch (LuaRuntimeException e)
         {
-            var traceback = e.LuaTraceback;
-            var line = traceback.LastLine;
-            throw new Exception($"{path}:line {line}\n{e.InnerException}\n{e} ");
+            var line = e.LuaTraceback.LastLine;
+            throw new Exception($"{path}:line {line}\n{e.InnerException}\n {e}");
         }
     }
 }

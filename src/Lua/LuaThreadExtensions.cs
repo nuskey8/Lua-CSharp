@@ -14,7 +14,6 @@ public static class LuaThreadExtensions
             State = state,
             Thread = state.CurrentThread,
             ArgumentCount = 1,
-            FrameBase = frameBase,
             ReturnFrameBase = frameBase,
         }, cancellationToken);
         var returnBase = ((LuaCoroutine)thread).ReturnFrameBase;
@@ -37,7 +36,6 @@ public static class LuaThreadExtensions
             State = state,
             Thread = state.CurrentThread,
             ArgumentCount = 1 + arguments.Length,
-            FrameBase = frameBase,
             ReturnFrameBase = frameBase,
         }, cancellationToken);
         var returnBase = ((LuaCoroutine)thread).ReturnFrameBase;

@@ -10,17 +10,19 @@ public readonly record struct LuaFunctionExecutionContext
     public required LuaState State { get; init; }
     public required LuaThread Thread { get; init; }
     public required int ArgumentCount { get; init; }
-    public required int FrameBase { get; init; }
+    public  int FrameBase => Thread.Stack.Count-ArgumentCount;
     public required int ReturnFrameBase { get; init; }
     public int? SourceLine { get; init; }
-    public string? RootChunkName { get; init; }
-    public string? ChunkName { get; init; }
     public int? CallerInstructionIndex { get; init; }
-    public object? AdditionalContext { get; init; }
+    //public object? AdditionalContext { get; init; }
 
     public ReadOnlySpan<LuaValue> Arguments
     {
-        get { return Thread.GetStackValues().Slice(FrameBase, ArgumentCount); }
+        get
+        {
+           var stack = Thread.Stack.AsSpan(); 
+            return stack.Slice(stack.Length-ArgumentCount);
+        }
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

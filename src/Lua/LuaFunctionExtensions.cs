@@ -19,7 +19,6 @@ public static class LuaFunctionExtensions
             State = state,
             Thread = thread,
             ArgumentCount = arguments.Length,
-            FrameBase = frameBase,
             ReturnFrameBase = frameBase,
         }, cancellationToken);
         var r = thread.Stack.GetBuffer()[frameBase..(frameBase + resultCount)].ToArray();

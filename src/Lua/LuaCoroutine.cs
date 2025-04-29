@@ -57,21 +57,13 @@ public sealed class LuaCoroutine : LuaThread, IValueTaskSource<LuaCoroutine.Yiel
                 case LuaThreadStatus.Suspended:
                     Volatile.Write(ref status, (byte)LuaThreadStatus.Running);
 
-                    if (isFirstCall)
-                    {
-                        // copy stack value
-                        var argCount = context.ArgumentCount;
-                        Stack.EnsureCapacity(argCount);
-                        baseThread.Stack.AsSpan()[^argCount..].CopyTo(Stack.GetBuffer());
-                        Stack.NotifyTop(argCount);
-                    }
-                    else
+                    if (!isFirstCall)
                     {
                         yield.SetResult(new()
                         {
-                            Results = context.ArgumentCount == 1
+                            Results = context.ArgumentCount == 0
                                 ? []
-                                : context.Arguments[1..].ToArray()
+                                : context.Arguments.ToArray()
                         });
                     }
 
@@ -114,32 +106,12 @@ public sealed class LuaCoroutine : LuaThread, IValueTaskSource<LuaCoroutine.Yiel
                 if (isFirstCall)
                 {
                     returnFrameBase = Stack.Count;
-                    int frameBase;
-                    var variableArgumentCount = Function.GetVariableArgumentCount(context.ArgumentCount - 1);
-
-                    if (variableArgumentCount > 0)
-                    {
-                        var fixedArgumentCount = context.ArgumentCount - 1 - variableArgumentCount;
-                        var args = context.Arguments;
-                        Stack.PushRange(args.Slice(1 + fixedArgumentCount, variableArgumentCount));
-
-                        frameBase = Stack.Count;
-
-                        Stack.PushRange(args.Slice(1, fixedArgumentCount));
-                    }
-                    else
-                    {
-                        frameBase = Stack.Count;
-
-                        Stack.PushRange(context.Arguments[1..]);
-                    }
-
+                    Stack.PushRange(context.Arguments);
                     functionTask = Function.InvokeAsync(new()
                     {
                         State = context.State,
                         Thread = this,
-                        ArgumentCount = context.ArgumentCount - 1,
-                        FrameBase = frameBase,
+                        ArgumentCount = Stack.Count-returnFrameBase,
                         ReturnFrameBase = returnFrameBase
                     }, cancellationToken).Preserve();
 

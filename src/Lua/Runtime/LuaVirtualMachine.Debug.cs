@@ -40,7 +40,6 @@ public static partial class LuaVirtualMachine
                     State = context.State,
                     Thread = context.Thread,
                     ArgumentCount = 2,
-                    FrameBase = context.Thread.Stack.Count - 2,
                     ReturnFrameBase = context.Thread.Stack.Count - 2,
                 };
                 var frame = new CallStackFrame
@@ -84,7 +83,6 @@ public static partial class LuaVirtualMachine
                         State = context.State,
                         Thread = context.Thread,
                         ArgumentCount = 2,
-                        FrameBase = context.Thread.Stack.Count - 2,
                         ReturnFrameBase = context.Thread.Stack.Count - 2,
                     };
                     var frame = new CallStackFrame
@@ -124,7 +122,6 @@ public static partial class LuaVirtualMachine
             State = context.State,
             Thread = context.Thread,
             ArgumentCount = arguments,
-            FrameBase = frame.Base,
             ReturnFrameBase = frame.ReturnBase,
             CallerInstructionIndex = frame.CallerInstructionIndex,
         }, context.CancellationToken, isTailCall);
@@ -145,7 +142,6 @@ public static partial class LuaVirtualMachine
                 State = context.State,
                 Thread = context.Thread,
                 ArgumentCount = 2,
-                FrameBase = context.Thread.Stack.Count - 2,
                 ReturnFrameBase = context.Thread.Stack.Count - 2,
             };
             CallStackFrame frame = new()
@@ -178,7 +174,6 @@ public static partial class LuaVirtualMachine
                 State = context.State,
                 Thread = context.Thread,
                 ArgumentCount = argCount,
-                FrameBase = frame.Base,
                 ReturnFrameBase = frame.ReturnBase,
             }, cancellationToken);
             var r = await task;
@@ -194,7 +189,6 @@ public static partial class LuaVirtualMachine
                 State = context.State,
                 Thread = context.Thread,
                 ArgumentCount = 2,
-                FrameBase = context.Thread.Stack.Count - 2,
                 ReturnFrameBase = context.Thread.Stack.Count - 2,
             };
 

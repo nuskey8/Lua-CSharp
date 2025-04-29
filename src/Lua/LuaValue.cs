@@ -602,7 +602,7 @@ public readonly struct LuaValue : IEquatable<LuaValue>
             var stack = context.Thread.Stack;
             stack.Push(this);
 
-            return func.InvokeAsync(context with { ArgumentCount = 1, FrameBase = stack.Count - 1, ReturnFrameBase = stack.Count - 1, }, cancellationToken);
+            return func.InvokeAsync(context with { ArgumentCount = 1, ReturnFrameBase = stack.Count - 1, }, cancellationToken);
         }
         else
         {

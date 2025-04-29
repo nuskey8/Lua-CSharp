@@ -278,9 +278,7 @@ public sealed class StringLibrary
                         break;
                     case 's':
                         {
-                            var top = stack.Count;
-                            stack.Push(default);
-                            await parameter.CallToStringAsync(context with { ReturnFrameBase = top }, cancellationToken);
+                            await parameter.CallToStringAsync(context, cancellationToken);
                             formattedValue = stack.Pop().Read<string>();
                         }
 
@@ -515,7 +513,7 @@ public sealed class StringLibrary
                 }
 
 
-                await func.InvokeAsync(context with { ArgumentCount = match.Groups.Count, FrameBase = context.Thread.Stack.Count - context.ArgumentCount, }, cancellationToken);
+                await func.InvokeAsync(context with { ArgumentCount = match.Groups.Count }, cancellationToken);
 
                 result = context.Thread.Stack.Get(context.ReturnFrameBase);
             }
