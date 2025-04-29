@@ -12,6 +12,9 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Lua.Tests", "tests\Lua.Tests\Lua.Tests.csproj", "{7572B7BC-FC73-42F0-B4F7-DA291B4EDB36}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "sandbox", "sandbox", "{33883F28-679F-48AD-8E64-3515C7BDAF5A}"
+	ProjectSection(SolutionItems) = preProject
+		sandbox\ConsoleApp2\.gitignore = sandbox\ConsoleApp2\.gitignore
+	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ConsoleApp1", "sandbox\ConsoleApp1\ConsoleApp1.csproj", "{718A361C-AAF3-45A4-84D4-8C4FB6BB374E}"
 EndProject
@@ -19,7 +22,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Benchmark", "sandbox\Benchm
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Lua.SourceGenerator", "src\Lua.SourceGenerator\Lua.SourceGenerator.csproj", "{C4BB264C-4D37-4E2D-99FD-4918CE22D7E4}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ConsoleApp2", "sanbox\ConsoleApp2\ConsoleApp2.csproj", "{EAEC81EE-2443-4209-AD43-767875280BA1}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ConsoleApp2", "sandbox\ConsoleApp2\ConsoleApp2.csproj", "{474D977A-946F-49F1-9293-F7F78E0F6A01}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -50,10 +53,10 @@ Global
 		{C4BB264C-4D37-4E2D-99FD-4918CE22D7E4}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C4BB264C-4D37-4E2D-99FD-4918CE22D7E4}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{C4BB264C-4D37-4E2D-99FD-4918CE22D7E4}.Release|Any CPU.Build.0 = Release|Any CPU
-		{EAEC81EE-2443-4209-AD43-767875280BA1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{EAEC81EE-2443-4209-AD43-767875280BA1}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{EAEC81EE-2443-4209-AD43-767875280BA1}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{EAEC81EE-2443-4209-AD43-767875280BA1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{474D977A-946F-49F1-9293-F7F78E0F6A01}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{474D977A-946F-49F1-9293-F7F78E0F6A01}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{474D977A-946F-49F1-9293-F7F78E0F6A01}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{474D977A-946F-49F1-9293-F7F78E0F6A01}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{6E33BFBC-E51F-493E-9AF0-30C1100F5B5D} = {18A64E25-9557-457B-80AE-A6EFE853118D}
@@ -61,6 +64,6 @@ Global
 		{718A361C-AAF3-45A4-84D4-8C4FB6BB374E} = {33883F28-679F-48AD-8E64-3515C7BDAF5A}
 		{FC157C29-8AAE-49C8-9536-208E3F0698DA} = {33883F28-679F-48AD-8E64-3515C7BDAF5A}
 		{C4BB264C-4D37-4E2D-99FD-4918CE22D7E4} = {18A64E25-9557-457B-80AE-A6EFE853118D}
-		{EAEC81EE-2443-4209-AD43-767875280BA1} = {33883F28-679F-48AD-8E64-3515C7BDAF5A}
+		{474D977A-946F-49F1-9293-F7F78E0F6A01} = {33883F28-679F-48AD-8E64-3515C7BDAF5A}
 	EndGlobalSection
 EndGlobal
