@@ -91,7 +91,7 @@ public sealed class IOLibrary
             {
                 var file = context.GetCsClosure()!.UpValues[0].Read<FileHandle>();
                 context.Return();
-                var resultCount = IOHelper.Read(context.State, file, "lines", 0, [], context.Thread.Stack, true);
+                var resultCount = IOHelper.Read(context.Thread, file, "lines", 0, [], true);
                 if (resultCount > 0 && context.Thread.Stack.Get(context.ReturnFrameBase).Type is LuaValueType.Nil)
                 {
                     file.Close();
@@ -106,7 +106,7 @@ public sealed class IOLibrary
             var stack = context.Thread.Stack;
             context.Return();
 
-            IOHelper.Open(context.State, fileName, "r", stack, true);
+            IOHelper.Open(context.Thread, fileName, "r", true);
 
             var file = stack.Get(context.ReturnFrameBase).Read<FileHandle>();
             var upValues = new LuaValue[context.Arguments.Length];
@@ -120,7 +120,7 @@ public sealed class IOLibrary
                 var formats = upValues.AsSpan(1);
                 var stack = context.Thread.Stack;
                 context.Return();
-                var resultCount = IOHelper.Read(context.State, file, "lines", 0, formats, stack, true);
+                var resultCount = IOHelper.Read(context.Thread, file, "lines", 0, formats, true);
                 if (resultCount > 0 && stack.Get(context.ReturnFrameBase).Type is LuaValueType.Nil)
                 {
                     file.Close();
@@ -138,7 +138,7 @@ public sealed class IOLibrary
             ? context.GetArgument<string>(1)
             : "r";
         context.Return();
-        var resultCount = IOHelper.Open(context.State, fileName, mode, context.Thread.Stack, false);
+        var resultCount = IOHelper.Open(context.Thread, fileName, mode, false);
         return new(resultCount);
     }
 
@@ -172,7 +172,7 @@ public sealed class IOLibrary
         context.Return();
         var stack = context.Thread.Stack;
 
-        var resultCount = IOHelper.Read(context.State, file, "read", 0, context.Arguments, stack, false);
+        var resultCount = IOHelper.Read(context.Thread, file, "read", 0, context.Arguments, false);
         return new(resultCount);
     }
 

@@ -70,6 +70,16 @@ public sealed class LuaStack(int initialSize = 256)
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void Pop(int count)
+    {
+        var newSize = top - count;
+        if (newSize >= top) return;
+
+        array.AsSpan(newSize, top - newSize).Clear();
+        top = newSize;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void PopUntil(int newSize)
     {
         if (newSize >= top) return;
@@ -140,9 +150,9 @@ public sealed class LuaStack(int initialSize = 256)
     {
         throw new InvalidOperationException("Empty stack");
     }
-    
+
     [DebuggerBrowsable(DebuggerBrowsableState.RootHidden)]
-    private  Span<LuaValue> Span => AsSpan();
+    private Span<LuaValue> Span => AsSpan();
 
     internal void SetTop(int top)
     {

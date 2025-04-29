@@ -3,8 +3,7 @@ using System.Runtime.CompilerServices;
 
 namespace Lua.CodeAnalysis.Compilation;
 
-
-unsafe struct TextReader (char* Ptr, int Length)
+unsafe struct TextReader(char* Ptr, int Length)
 {
     public int Position;
 
@@ -29,10 +28,10 @@ unsafe struct TextReader (char* Ptr, int Length)
     public char Current => Ptr[Position];
 }
 
-internal  unsafe struct AssignmentTarget (ref AssignmentTarget previous, ExprDesc exprDesc)
+internal unsafe struct AssignmentTarget(ref AssignmentTarget previous, ExprDesc exprDesc)
 {
     public readonly AssignmentTarget* Previous = (AssignmentTarget*)Unsafe.AsPointer(ref previous);
-    public  ExprDesc Description = exprDesc;
+    public ExprDesc Description = exprDesc;
 }
 
 internal struct Label
@@ -42,14 +41,13 @@ internal struct Label
     public int ActiveVariableCount;
 }
 
-
 internal class Block : IPoolNode<Block>
 {
     public Block? Previous;
     public int FirstLabel, FirstGoto;
     public int ActiveVariableCount;
     public bool HasUpValue, IsLoop;
-    Block(){}
+    Block() { }
     ref Block? IPoolNode<Block>.NextNode => ref Previous;
 
     static LinkedPool<Block> pool;
@@ -67,7 +65,7 @@ internal class Block : IPoolNode<Block>
         block.ActiveVariableCount = activeVariableCount;
         block.HasUpValue = hasUpValue;
         block.IsLoop = isLoop;
-        
+
 
         return block;
     }
@@ -79,8 +77,7 @@ internal class Block : IPoolNode<Block>
     }
 }
 
-
-internal  struct ExprDesc
+internal struct ExprDesc
 {
     public Kind Kind;
     public int Index;
@@ -97,8 +94,6 @@ internal  struct ExprDesc
 
     public readonly bool HasMultipleReturns() => Kind == Kind.Call || Kind == Kind.VarArg;
 }
-
-
 
 internal enum Kind
 {
@@ -117,4 +112,3 @@ internal enum Kind
     Call = 12,
     VarArg = 13
 }
-

@@ -26,6 +26,7 @@ public partial class TestUserData
     [LuaMember]
     public static double StaticMethodWithReturnValue(double a, double b)
     {
+        Console.WriteLine($"HEY! {a} {b}");
         return a + b;
     }
 

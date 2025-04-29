@@ -71,11 +71,11 @@ public class LuaRuntimeException : LuaException
         throw new LuaRuntimeException(traceback, $"bad argument #{argumentId} to '{functionName}' (number has no integer representation)");
     }
 
-    public static void ThrowBadArgumentIfNumberIsNotInteger(LuaState state, string functionName, int argumentId, double value)
+    public static void ThrowBadArgumentIfNumberIsNotInteger(LuaThread thread, string functionName, int argumentId, double value)
     {
         if (!MathEx.IsInteger(value))
         {
-            BadArgumentNumberIsNotInteger(state.GetTraceback(), argumentId, functionName);
+            BadArgumentNumberIsNotInteger(thread.GetTraceback(), argumentId, functionName);
         }
     }
 

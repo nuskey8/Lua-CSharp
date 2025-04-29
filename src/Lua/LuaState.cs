@@ -11,10 +11,8 @@ namespace Lua;
 
 public sealed class LuaState
 {
-    public const string DefaultChunkName = "chunk";
-
     // states
-    readonly LuaMainThread mainThread = new();
+    readonly LuaMainThread mainThread;
     FastListCore<UpValue> openUpValues;
     FastStackCore<LuaThread> threadStack;
     readonly LuaTable packages = new();
@@ -35,15 +33,7 @@ public sealed class LuaState
     public LuaTable Registry => registry;
     public LuaTable LoadedModules => packages;
     public LuaMainThread MainThread => mainThread;
-
-    public LuaThread CurrentThread
-    {
-        get
-        {
-            if (threadStack.TryPeek(out var thread)) return thread;
-            return mainThread;
-        }
-    }
+    
 
     public ILuaModuleLoader ModuleLoader { get; set; } = FileModuleLoader.Instance;
 
@@ -62,69 +52,31 @@ public sealed class LuaState
 
     LuaState()
     {
+        mainThread = new(this);
         environment = new();
         envUpValue = UpValue.Closed(environment);
     }
 
     public async ValueTask<LuaResult> RunAsync(LuaClosure closure, CancellationToken cancellationToken = default)
     {
-        ThrowIfResultNotDisposed();
         ThrowIfRunning();
 
-        Volatile.Write(ref isRunning, true);
+        isRunning = true;
         try
         {
             await closure.InvokeAsync(new()
             {
-                State = this,
-                Thread = CurrentThread,
-                ArgumentCount = 0,
-                ReturnFrameBase = 0,
-                SourceLine = null,
+                Thread = MainThread, ArgumentCount = 0, ReturnFrameBase = 0, SourceLine = null,
             }, cancellationToken);
 
-            return new LuaResult(CurrentThread.Stack, 0);
+            return new LuaResult(MainThread.Stack, 0);
         }
         finally
         {
-            Volatile.Write(ref isRunning, false);
+            isRunning = false;
         }
     }
 
-    public void Push(LuaValue value)
-    {
-        CurrentThread.Stack.Push(value);
-    }
-
-    public Traceback GetTraceback()
-    {
-        return GetTraceback(CurrentThread);
-    }
-
-    internal Traceback GetTraceback(LuaThread thread)
-    {
-        using var list = new PooledList<CallStackFrame>(8);
-        foreach (var frame in thread.GetCallStackFrames()[1..])
-        {
-            list.Add(frame);
-        }
-
-        LuaClosure rootFunc;
-        if (thread.GetCallStackFrames()[0].Function is LuaClosure closure)
-        {
-            rootFunc = closure;
-        }
-        else
-        {
-            rootFunc = (LuaClosure)MainThread.GetCallStackFrames()[0].Function;
-        }
-
-        return new(this)
-        {
-            RootFunc = rootFunc,
-            StackFrames = list.AsSpan().ToArray()
-        };
-    }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal bool TryGetMetatable(LuaValue value, [NotNullWhen(true)] out LuaTable? result)
@@ -225,38 +177,38 @@ public sealed class LuaState
     }
 
 
-    public unsafe LuaClosure Compile(ReadOnlySpan<char> chunk, string chunkName,LuaTable? environment = null)
+    public unsafe LuaClosure Compile(ReadOnlySpan<char> chunk, string chunkName, LuaTable? environment = null)
     {
         Prototype prototype;
         fixed (char* ptr = chunk)
         {
-            prototype= Parser.Parse(this, new (ptr,chunk.Length), chunkName);
+            prototype = Parser.Parse(this, new(ptr, chunk.Length), chunkName);
         }
-        
-        return new LuaClosure(this, prototype, environment);
+
+        return new LuaClosure(MainThread, prototype, environment);
     }
-    
-    public LuaClosure Compile(ReadOnlySpan<byte> chunk, string chunkName , string mode = "bt", LuaTable? environment = null)
+
+    public LuaClosure Compile(ReadOnlySpan<byte> chunk, string chunkName, string mode = "bt", LuaTable? environment = null)
     {
         if (chunk.Length > 4)
         {
             if (chunk[0] == '\e')
             {
-                return new LuaClosure(this,Parser.UnDump(chunk,chunkName),environment);
+                return new LuaClosure(MainThread, Parser.UnDump(chunk, chunkName), environment);
             }
         }
+
         var charCount = Encoding.UTF8.GetCharCount(chunk);
         var pooled = ArrayPool<char>.Shared.Rent(charCount);
         try
         {
             var chars = pooled.AsSpan(0, charCount);
             Encoding.UTF8.GetChars(chunk, chars);
-            return Compile(chars, chunkName,environment);
+            return Compile(chars, chunkName, environment);
         }
         finally
         {
             ArrayPool<char>.Shared.Return(pooled);
         }
     }
-    
 }

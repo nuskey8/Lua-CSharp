@@ -172,7 +172,7 @@ public class FileHandle : ILuaUserData
             var upValues = context.GetCsClosure()!.UpValues.AsSpan();
             var file = upValues[0].Read<FileHandle>();
             context.Return();
-            var resultCount = IOHelper.Read(context.State, file, "lines", 0, upValues[1..], context.Thread.Stack, true);
+            var resultCount = IOHelper.Read(context.Thread, file, "lines", 0, upValues[1..], true);
             return new(resultCount);
         })));
     });
@@ -181,7 +181,7 @@ public class FileHandle : ILuaUserData
     {
         var file = context.GetArgument<FileHandle>(0);
         context.Return();
-        var resultCount = IOHelper.Read(context.State, file, "read", 1, context.Arguments[1..], context.Thread.Stack, false);
+        var resultCount = IOHelper.Read(context.Thread, file, "read", 1, context.Arguments[1..], false);
         return new(resultCount);
     });
 
@@ -197,7 +197,7 @@ public class FileHandle : ILuaUserData
 
         if (whence is not ("set" or "cur" or "end"))
         {
-            throw new LuaRuntimeException(context.State.GetTraceback(), $"bad argument #2 to 'seek' (invalid option '{whence}')");
+            throw new LuaRuntimeException(context.Thread.GetTraceback(), $"bad argument #2 to 'seek' (invalid option '{whence}')");
         }
 
         try

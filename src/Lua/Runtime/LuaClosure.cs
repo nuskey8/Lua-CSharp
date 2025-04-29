@@ -8,8 +8,8 @@ public sealed class LuaClosure : LuaFunction
 {
     FastListCore<UpValue> upValues;
 
-    public LuaClosure(LuaState state, Prototype proto, LuaTable? environment = null)
-        : base(proto.ChunkName, static (context, ct) => LuaVirtualMachine.ExecuteClosureAsync(context.State, ct))
+    public LuaClosure(LuaThread thread, Prototype proto, LuaTable? environment = null)
+        : base(proto.ChunkName, static (context, ct) => LuaVirtualMachine.ExecuteClosureAsync(context.Thread, ct))
     {
         Proto = proto;
         if (environment != null)
@@ -18,19 +18,19 @@ public sealed class LuaClosure : LuaFunction
             return;
         }
 
-        if (state.CurrentThread.CallStack.Count == 0)
+        if (thread.CallStack.Count == 0)
         {
-            upValues.Add(state.EnvUpValue);
+            upValues.Add(thread.State.EnvUpValue);
             return;
         }
 
-        var baseIndex = state.CurrentThread.CallStack.Peek().Base;
+        var baseIndex = thread.CallStack.Peek().Base;
 
         // add upvalues
         for (int i = 0; i < proto.UpValues.Length; i++)
         {
             var description = proto.UpValues[i];
-            var upValue = GetUpValueFromDescription(state, state.CurrentThread, description, baseIndex);
+            var upValue = GetUpValueFromDescription(thread.State, thread, description, baseIndex);
             upValues.Add(upValue);
         }
     }

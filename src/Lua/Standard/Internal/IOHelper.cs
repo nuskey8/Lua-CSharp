@@ -6,14 +6,14 @@ namespace Lua.Standard.Internal;
 
 internal static class IOHelper
 {
-    public static int Open(LuaState state, string fileName, string mode, LuaStack stack, bool throwError)
+    public static int Open(LuaThread thread, string fileName, string mode, bool throwError)
     {
         var fileMode = mode switch
         {
             "r" or "rb" or "r+" or "r+b" => FileMode.Open,
             "w" or "wb" or "w+" or "w+b" => FileMode.Create,
             "a" or "ab" or "a+" or "a+b" => FileMode.Append,
-            _ => throw new LuaRuntimeException(state.GetTraceback(), "bad argument #2 to 'open' (invalid mode)"),
+            _ => throw new LuaRuntimeException(thread.GetTraceback(), "bad argument #2 to 'open' (invalid mode)"),
         };
 
         var fileAccess = mode switch
@@ -26,7 +26,7 @@ internal static class IOHelper
         try
         {
             var stream = File.Open(fileName, fileMode, fileAccess);
-            stack.Push(new LuaValue(new FileHandle(stream)));
+            thread.Push(new LuaValue(new FileHandle(stream)));
             return 1;
         }
         catch (IOException ex)
@@ -36,9 +36,9 @@ internal static class IOHelper
                 throw;
             }
 
-            stack.Push(LuaValue.Nil);
-            stack.Push(ex.Message);
-            stack.Push(ex.HResult);
+            thread.Push(LuaValue.Nil);
+            thread.Push(ex.Message);
+            thread.Push(ex.HResult);
             return 3;
         }
     }
@@ -65,7 +65,7 @@ internal static class IOHelper
                 }
                 else
                 {
-                    LuaRuntimeException.BadArgument(context.State.GetTraceback(), i + 1, name);
+                    LuaRuntimeException.BadArgument(context.Thread.GetTraceback(), i + 1, name);
                 }
             }
         }
@@ -84,13 +84,14 @@ internal static class IOHelper
 
     static readonly LuaValue[] defaultReadFormat = ["*l"];
 
-    public static int Read(LuaState state, FileHandle file, string name, int startArgumentIndex, ReadOnlySpan<LuaValue> formats, LuaStack stack, bool throwError)
+    public static int Read(LuaThread thread, FileHandle file, string name, int startArgumentIndex, ReadOnlySpan<LuaValue> formats, bool throwError)
     {
         if (formats.Length == 0)
         {
             formats = defaultReadFormat;
         }
 
+        var stack = thread.Stack;
         var top = stack.Count;
 
         try
@@ -142,7 +143,7 @@ internal static class IOHelper
                 }
                 else
                 {
-                    LuaRuntimeException.BadArgument(state.GetTraceback(), i + 1, name);
+                    LuaRuntimeException.BadArgument(thread.GetTraceback(), i + 1, name);
                 }
             }
 

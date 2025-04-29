@@ -35,13 +35,7 @@ public static partial class LuaVirtualMachine
                 var stack = context.Thread.Stack;
                 stack.Push("count");
                 stack.Push(LuaValue.Nil);
-                var funcContext = new LuaFunctionExecutionContext
-                {
-                    State = context.State,
-                    Thread = context.Thread,
-                    ArgumentCount = 2,
-                    ReturnFrameBase = context.Thread.Stack.Count - 2,
-                };
+                var funcContext = new LuaFunctionExecutionContext { Thread = context.Thread, ArgumentCount = 2, ReturnFrameBase = context.Thread.Stack.Count - 2, };
                 var frame = new CallStackFrame
                 {
                     Base = funcContext.FrameBase,
@@ -78,13 +72,7 @@ public static partial class LuaVirtualMachine
                     var stack = context.Thread.Stack;
                     stack.Push("line");
                     stack.Push(line);
-                    var funcContext = new LuaFunctionExecutionContext
-                    {
-                        State = context.State,
-                        Thread = context.Thread,
-                        ArgumentCount = 2,
-                        ReturnFrameBase = context.Thread.Stack.Count - 2,
-                    };
+                    var funcContext = new LuaFunctionExecutionContext { Thread = context.Thread, ArgumentCount = 2, ReturnFrameBase = context.Thread.Stack.Count - 2, };
                     var frame = new CallStackFrame
                     {
                         Base = funcContext.FrameBase,
@@ -119,11 +107,7 @@ public static partial class LuaVirtualMachine
     {
         return ExecuteCallHook(new()
         {
-            State = context.State,
-            Thread = context.Thread,
-            ArgumentCount = arguments,
-            ReturnFrameBase = frame.ReturnBase,
-            CallerInstructionIndex = frame.CallerInstructionIndex,
+            Thread = context.Thread, ArgumentCount = arguments, ReturnFrameBase = frame.ReturnBase, CallerInstructionIndex = frame.CallerInstructionIndex,
         }, context.CancellationToken, isTailCall);
     }
 
@@ -137,13 +121,7 @@ public static partial class LuaVirtualMachine
             stack.Push((isTailCall ? "tail call" : "call"));
 
             stack.Push(LuaValue.Nil);
-            var funcContext = new LuaFunctionExecutionContext
-            {
-                State = context.State,
-                Thread = context.Thread,
-                ArgumentCount = 2,
-                ReturnFrameBase = context.Thread.Stack.Count - 2,
-            };
+            var funcContext = new LuaFunctionExecutionContext { Thread = context.Thread, ArgumentCount = 2, ReturnFrameBase = context.Thread.Stack.Count - 2, };
             CallStackFrame frame = new()
             {
                 Base = funcContext.FrameBase,
@@ -169,13 +147,7 @@ public static partial class LuaVirtualMachine
 
         {
             ref readonly var frame = ref context.Thread.GetCurrentFrame();
-            var task = frame.Function.Func(new()
-            {
-                State = context.State,
-                Thread = context.Thread,
-                ArgumentCount = argCount,
-                ReturnFrameBase = frame.ReturnBase,
-            }, cancellationToken);
+            var task = frame.Function.Func(new() { Thread = context.Thread, ArgumentCount = argCount, ReturnFrameBase = frame.ReturnBase, }, cancellationToken);
             var r = await task;
             if (isTailCall || !context.Thread.IsReturnHookEnabled)
             {
@@ -184,13 +156,7 @@ public static partial class LuaVirtualMachine
 
             stack.Push("return");
             stack.Push(LuaValue.Nil);
-            var funcContext = new LuaFunctionExecutionContext
-            {
-                State = context.State,
-                Thread = context.Thread,
-                ArgumentCount = 2,
-                ReturnFrameBase = context.Thread.Stack.Count - 2,
-            };
+            var funcContext = new LuaFunctionExecutionContext { Thread = context.Thread, ArgumentCount = 2, ReturnFrameBase = context.Thread.Stack.Count - 2, };
 
 
             context.Thread.PushCallStackFrame(new()

@@ -46,6 +46,7 @@ return a + b
             Assert.That(table[3].Read<double>(), Is.EqualTo(9));
         });
     }
+
     [Test]
     public async Task Test_Metamethod_Concat()
     {
@@ -79,6 +80,7 @@ return a .. b
             Assert.That(table[3].Read<double>(), Is.EqualTo(9));
         });
     }
+
     [Test]
     public async Task Test_Metamethod_Index()
     {

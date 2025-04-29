@@ -281,7 +281,7 @@ internal readonly struct LuaDebug : IDisposable
                 Source = p.ChunkName;
                 LineDefined = p.LineDefined;
                 LastLineDefined = p.LastLineDefined;
-                What = (LineDefined==0) ? "main" : "Lua";
+                What = (LineDefined == 0) ? "main" : "Lua";
             }
 
             ShortSourceLength = WriteShortSource(Source, ShortSource);
@@ -292,11 +292,11 @@ internal readonly struct LuaDebug : IDisposable
     internal static string? GetLocalName(Prototype prototype, int register, int pc)
     {
         var locals = prototype.LocalVariables;
-        var localId = register+1;
+        var localId = register + 1;
         foreach (var l in locals)
         {
-            if(pc<l.StartPc)break;
-            if(l.EndPc<=pc)continue;
+            if (pc < l.StartPc) break;
+            if (l.EndPc <= pc) continue;
             localId--;
             if (localId == 0)
             {
@@ -381,7 +381,7 @@ internal readonly struct LuaDebug : IDisposable
         if (c >= 256)
         {
             /* is 'c' a constant? */
-             var kvalue =  p.Constants[c - 256];
+            var kvalue = p.Constants[c - 256];
             if (kvalue.TryReadString(out name))
             {
                 /* literal constant? */

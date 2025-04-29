@@ -214,7 +214,7 @@ internal struct Scanner
                         SaveAndAdvance();
                         if (!comment)
                         {
-                            var s = Buffer.ToString(2 + sep, Buffer.Length - (4 + 2*sep));
+                            var s = Buffer.ToString(2 + sep, Buffer.Length - (4 + 2 * sep));
                             Buffer.Clear();
                             return s;
                         }
@@ -424,6 +424,7 @@ internal struct Scanner
 
             Save(r);
         }
+
         Save('\'');
         Token.S = Buffer.ToString();
         Buffer.Clear();

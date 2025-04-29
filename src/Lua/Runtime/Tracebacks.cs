@@ -1,6 +1,4 @@
 using System.Globalization;
-using System.Runtime.CompilerServices;
-using Lua.CodeAnalysis;
 using Lua.Internal;
 
 namespace Lua.Runtime;
@@ -8,7 +6,7 @@ namespace Lua.Runtime;
 public class Traceback(LuaState state)
 {
     public LuaState State => state;
-    public required LuaClosure RootFunc { get; init; }
+    public required LuaFunction RootFunc { get; init; }
     public required CallStackFrame[] StackFrames { get; init; }
 
     internal void WriteLastLuaTrace(ref PooledList<char> list)
@@ -83,7 +81,7 @@ public class Traceback(LuaState state)
         return GetTracebackString(State, RootFunc, StackFrames[..^skipFrames], LuaValue.Nil);
     }
 
-    internal static string GetTracebackString(LuaState state, LuaClosure rootFunc, ReadOnlySpan<CallStackFrame> stackFrames, LuaValue message, bool skipFirstCsharpCall = false)
+    internal static string GetTracebackString(LuaState state, LuaFunction rootFunc, ReadOnlySpan<CallStackFrame> stackFrames, LuaValue message, bool skipFirstCsharpCall = false)
     {
         using var list = new PooledList<char>(64);
         if (message.Type is not LuaValueType.Nil)

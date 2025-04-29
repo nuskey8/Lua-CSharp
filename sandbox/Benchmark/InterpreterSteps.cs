@@ -17,7 +17,7 @@ public class InterpreterSteps
         sourceText = File.ReadAllText(filePath);
         state = LuaState.Create();
         state.OpenStandardLibraries();
-        closure = state.Compile(sourceText,sourceText);
+        closure = state.Compile(sourceText, sourceText);
     }
 
     [IterationSetup]

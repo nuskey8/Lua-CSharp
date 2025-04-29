@@ -15,8 +15,7 @@ public static partial class LuaVirtualMachine
         : IPoolNode<VirtualMachineExecutionContext>
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static VirtualMachineExecutionContext Get(LuaState state,
-            LuaStack stack,
+        public static VirtualMachineExecutionContext Get(
             LuaThread thread,
             in CallStackFrame frame,
             CancellationToken cancellationToken)
@@ -26,18 +25,16 @@ public static partial class LuaVirtualMachine
                 executionContext = new VirtualMachineExecutionContext();
             }
 
-            executionContext.Init(state, stack, thread, frame, cancellationToken);
+            executionContext.Init(thread, frame, cancellationToken);
             return executionContext;
         }
 
-        void Init(LuaState state,
-            LuaStack stack,
+        void Init(
             LuaThread thread,
             in CallStackFrame frame,
             CancellationToken cancellationToken)
         {
-            State = state;
-            Stack = stack;
+            Stack = thread.Stack;
             Thread = thread;
             LuaClosure = (LuaClosure)frame.Function;
             FrameBase = frame.Base;
@@ -51,9 +48,7 @@ public static partial class LuaVirtualMachine
             LastHookPc = -1;
             Task = default;
         }
-
-
-        public LuaState State = default!;
+        public LuaState State => Thread.State;
         public LuaStack Stack = default!;
         public LuaClosure LuaClosure = default!;
         public LuaThread Thread = default!;
@@ -292,12 +287,11 @@ public static partial class LuaVirtualMachine
         DontPop,
     }
 
-    internal static ValueTask<int> ExecuteClosureAsync(LuaState luaState, CancellationToken cancellationToken)
+    internal static ValueTask<int> ExecuteClosureAsync(LuaThread thread, CancellationToken cancellationToken)
     {
-        var thread = luaState.CurrentThread;
         ref readonly var frame = ref thread.GetCurrentFrame();
 
-        var context = VirtualMachineExecutionContext.Get(luaState, thread.Stack, thread, in frame,
+        var context = VirtualMachineExecutionContext.Get(thread, in frame,
             cancellationToken);
 
         return context.ExecuteClosureAsyncImpl();
@@ -314,7 +308,7 @@ public static partial class LuaVirtualMachine
             var stack = context.Stack;
             stack.EnsureCapacity(frameBase + context.Prototype.MaxStackSize);
             ref var constHead = ref MemoryMarshalEx.UnsafeElementAt(context.Prototype.Constants, 0);
-            ref var lineAndCountHookMask = ref context.Thread.CoreData.LineAndCountHookMask;
+            ref var lineAndCountHookMask = ref context.Thread.LineAndCountHookMask;
             goto Loop;
         LineHook:
 
@@ -552,7 +546,7 @@ public static partial class LuaVirtualMachine
 
                         if (iA != 0)
                         {
-                            context.State.CloseUpValues(context.Thread, frameBase + iA - 1);
+                            context.Thread.State.CloseUpValues(context.Thread, frameBase + iA - 1);
                         }
 
                         continue;
@@ -728,7 +722,7 @@ public static partial class LuaVirtualMachine
                     case OpCode.Closure:
                         ra1 = iA + frameBase + 1;
                         stack.EnsureCapacity(ra1);
-                        stack.Get(ra1 - 1) = new LuaClosure(context.State, context.Prototype.ChildPrototypes[instruction.Bx]);
+                        stack.Get(ra1 - 1) = new LuaClosure(context.Thread, context.Prototype.ChildPrototypes[instruction.Bx]);
                         stack.NotifyTop(ra1);
                         continue;
                     case OpCode.VarArg:
@@ -774,7 +768,7 @@ public static partial class LuaVirtualMachine
             context.State.CloseUpValues(context.Thread, context.FrameBase);
             if (e is not LuaRuntimeException)
             {
-                var newException = new LuaRuntimeException(context.State.GetTraceback(), e);
+                var newException = new LuaRuntimeException(context.Thread.GetTraceback(), e);
                 context.PopOnTopCallStackFrames();
                 throw newException;
             }
@@ -787,12 +781,12 @@ public static partial class LuaVirtualMachine
 
     static void ThrowLuaRuntimeException(VirtualMachineExecutionContext context, string message)
     {
-        throw new LuaRuntimeException(context.State.GetTraceback(), message);
+        throw new LuaRuntimeException(context.Thread.GetTraceback(), message);
     }
 
     static void ThrowLuaNotImplementedException(VirtualMachineExecutionContext context, OpCode opcode)
     {
-        throw new LuaRuntimeException(context.State.GetTraceback(), $"OpCode {opcode} is not implemented");
+        throw new LuaRuntimeException(context.Thread.GetTraceback(), $"OpCode {opcode} is not implemented");
     }
 
 
@@ -817,19 +811,20 @@ public static partial class LuaVirtualMachine
         var top = stack.Count - 1;
         var b = instruction.B;
         var c = instruction.C;
-        stack.NotifyTop(context.FrameBase+c+1);
+        stack.NotifyTop(context.FrameBase + c + 1);
         var a = instruction.A;
-        var task =Concat(context,context.FrameBase+a,c-b+1);
+        var task = Concat(context, context.FrameBase + a, c - b + 1);
         if (task.IsCompleted)
         {
             return true;
         }
+
         context.Task = task;
         context.PostOperation = PostOperationType.None;
         return false;
     }
 
-    static async ValueTask<int> Concat(VirtualMachineExecutionContext context,int target, int total)
+    static async ValueTask<int> Concat(VirtualMachineExecutionContext context, int target, int total)
     {
         static bool ToString(ref LuaValue v)
         {
@@ -842,6 +837,7 @@ public static partial class LuaVirtualMachine
 
             return false;
         }
+
         var stack = context.Stack;
         do
         {
@@ -849,9 +845,9 @@ public static partial class LuaVirtualMachine
             var n = 2;
             ref var lhs = ref stack.Get(top - 2);
             ref var rhs = ref stack.Get(top - 1);
-            if (!(lhs.Type is LuaValueType.String or LuaValueType.Number )|| !ToString(ref rhs))
+            if (!(lhs.Type is LuaValueType.String or LuaValueType.Number) || !ToString(ref rhs))
             {
-                await ExecuteBinaryOperationMetaMethod(top - 2,lhs, rhs, context, OpCode.Concat);
+                await ExecuteBinaryOperationMetaMethod(top - 2, lhs, rhs, context, OpCode.Concat);
             }
             else if (rhs.UnsafeReadString().Length == 0)
             {
@@ -896,10 +892,11 @@ public static partial class LuaVirtualMachine
         } while (total > 1);
 
         stack.Get(target) = stack.AsSpan()[^1];
-        
+
         return 1;
     }
-    static async ValueTask ExecuteBinaryOperationMetaMethod(int target,LuaValue vb, LuaValue vc,
+
+    static async ValueTask ExecuteBinaryOperationMetaMethod(int target, LuaValue vb, LuaValue vc,
         VirtualMachineExecutionContext context, OpCode opCode)
     {
         var (name, description) = opCode.GetNameAndDescription();
@@ -926,7 +923,7 @@ public static partial class LuaVirtualMachine
 
 
             await func.Invoke(context, newFrame, 2);
-            stack.PopUntil(target+1);
+            stack.PopUntil(target + 1);
             context.Thread.PopCallStackFrame();
             context.PostOperation = PostOperationType.DontPop;
             return;
@@ -935,7 +932,6 @@ public static partial class LuaVirtualMachine
         LuaRuntimeException.AttemptInvalidOperation(GetTracebacks(context), description, vb, vc);
         return;
     }
-
 
 
     static bool Call(VirtualMachineExecutionContext context, out bool doRestart)
@@ -962,7 +958,7 @@ public static partial class LuaVirtualMachine
         var thread = context.Thread;
         var (argumentCount, variableArgumentCount) = PrepareForFunctionCall(thread, func, instruction, newBase, isMetamethod);
         newBase += variableArgumentCount;
-        thread.Stack.PopUntil(newBase+argumentCount);
+        thread.Stack.PopUntil(newBase + argumentCount);
 
         var newFrame = func.CreateNewFrame(context, newBase, RA, variableArgumentCount);
 
@@ -1061,7 +1057,7 @@ public static partial class LuaVirtualMachine
 
         var (argumentCount, variableArgumentCount) = PrepareForFunctionTailCall(thread, func, instruction, newBase, isMetamethod);
         newBase = context.FrameBase + variableArgumentCount;
-        stack.PopUntil(newBase+argumentCount);
+        stack.PopUntil(newBase + argumentCount);
         var lastPc = thread.GetCurrentFrame().CallerInstructionIndex;
         context.Thread.PopCallStackFrame();
         var newFrame = func.CreateNewTailCallFrame(context, newBase, context.CurrentReturnFrameBase, variableArgumentCount);
@@ -1150,7 +1146,8 @@ public static partial class LuaVirtualMachine
             PrepareVariableArgument(stack, newBase, argumentCount, variableArgumentCount);
             newBase += variableArgumentCount;
         }
-        stack.PopUntil(newBase+argumentCount);
+
+        stack.PopUntil(newBase + argumentCount);
 
         var newFrame = iterator.CreateNewFrame(context, newBase, RA + 3, variableArgumentCount);
         context.Thread.PushCallStackFrame(newFrame);
@@ -1370,7 +1367,7 @@ public static partial class LuaVirtualMachine
             {
                 LuaRuntimeException.AttemptInvalidOperation(GetTracebacks(context), "index", table);
             }
-            
+
             table = metatableValue;
 
         Function:
@@ -1646,16 +1643,18 @@ public static partial class LuaVirtualMachine
         int variableArgumentCount)
     {
         var top = stack.Count;
-        var newBase=stack.Count-argumentCount;
+        var newBase = stack.Count - argumentCount;
         var temp = newBase;
         newBase += variableArgumentCount;
         stack.EnsureCapacity(newBase + argumentCount);
         stack.NotifyTop(newBase + argumentCount);
         var stackBuffer = stack.GetBuffer()[temp..];
         stackBuffer[..argumentCount].CopyTo(stackBuffer[variableArgumentCount..]);
-        stackBuffer.Slice(argumentCount, variableArgumentCount).CopyTo(stackBuffer);;
+        stackBuffer.Slice(argumentCount, variableArgumentCount).CopyTo(stackBuffer);
+        ;
         stack.PopUntil(top);
     }
+
     // If there are variable arguments, the base of the stack is moved by that number and the values of the variable arguments are placed in front of it.
     // see: https://wubingzheng.github.io/build-lua-in-rust/en/ch08-02.arguments.html
     [MethodImpl(MethodImplOptions.NoInlining)]
@@ -1747,15 +1746,15 @@ public static partial class LuaVirtualMachine
 
     static Traceback GetTracebacks(VirtualMachineExecutionContext context)
     {
-        return GetTracebacks(context.State, context.Pc);
+        return GetTracebacks(context.Thread, context.Pc);
     }
 
-    static Traceback GetTracebacks(LuaState state, int pc)
+    static Traceback GetTracebacks(LuaThread thread, int pc)
     {
-        var frame = state.CurrentThread.GetCurrentFrame();
-        state.CurrentThread.PushCallStackFrame(frame with { CallerInstructionIndex = pc });
-        var tracebacks = state.GetTraceback();
-        state.CurrentThread.PopCallStackFrameWithStackPop();
+        var frame = thread.GetCurrentFrame();
+        thread.PushCallStackFrame(frame with { CallerInstructionIndex = pc });
+        var tracebacks = thread.GetTraceback();
+        thread.PopCallStackFrameWithStackPop();
         return tracebacks;
     }
 
@@ -1805,11 +1804,7 @@ public static partial class LuaVirtualMachine
     {
         return function.Func(new()
         {
-            State = context.State,
-            Thread = context.Thread,
-            ArgumentCount = arguments,
-            ReturnFrameBase = frame.ReturnBase,
-            CallerInstructionIndex = frame.CallerInstructionIndex,
+            Thread = context.Thread, ArgumentCount = arguments, ReturnFrameBase = frame.ReturnBase, CallerInstructionIndex = frame.CallerInstructionIndex,
         }, context.CancellationToken);
     }
 }

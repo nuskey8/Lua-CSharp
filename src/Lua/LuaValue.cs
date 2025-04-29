@@ -295,7 +295,7 @@ public readonly struct LuaValue : IEquatable<LuaValue>
     {
         return value;
     }
-    
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal string UnsafeReadString()
     {
@@ -596,7 +596,7 @@ public readonly struct LuaValue : IEquatable<LuaValue>
         {
             if (!metamethod.TryReadFunction(out var func))
             {
-                LuaRuntimeException.AttemptInvalidOperation(context.State.GetTraceback(), "call", metamethod);
+                LuaRuntimeException.AttemptInvalidOperation(context.Thread.GetTraceback(), "call", metamethod);
             }
 
             var stack = context.Thread.Stack;

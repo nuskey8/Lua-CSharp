@@ -26,15 +26,15 @@ internal static class DateTimeHelper
         return DateTime.UnixEpoch + ts;
     }
 
-    public static DateTime ParseTimeTable(LuaState state, LuaTable table)
+    public static DateTime ParseTimeTable(LuaThread thread, LuaTable table)
     {
-        static int GetTimeField(LuaState state, LuaTable table, string key, bool required = true, int defaultValue = 0)
+        static int GetTimeField(LuaThread thread, LuaTable table, string key, bool required = true, int defaultValue = 0)
         {
             if (!table.TryGetValue(key, out var value))
             {
                 if (required)
                 {
-                    throw new LuaRuntimeException(state.GetTraceback(), $"field '{key}' missing in date table");
+                    throw new LuaRuntimeException(thread.GetTraceback(), $"field '{key}' missing in date table");
                 }
                 else
                 {
@@ -47,20 +47,20 @@ internal static class DateTimeHelper
                 return (int)d;
             }
 
-            throw new LuaRuntimeException(state.GetTraceback(), $"field '{key}' is not an integer");
+            throw new LuaRuntimeException(thread.GetTraceback(), $"field '{key}' is not an integer");
         }
 
-        var day = GetTimeField(state, table, "day");
-        var month = GetTimeField(state, table, "month");
-        var year = GetTimeField(state, table, "year");
-        var sec = GetTimeField(state, table, "sec", false, 0);
-        var min = GetTimeField(state, table, "min", false, 0);
-        var hour = GetTimeField(state, table, "hour", false, 12);
+        var day = GetTimeField(thread, table, "day");
+        var month = GetTimeField(thread, table, "month");
+        var year = GetTimeField(thread, table, "year");
+        var sec = GetTimeField(thread, table, "sec", false, 0);
+        var min = GetTimeField(thread, table, "min", false, 0);
+        var hour = GetTimeField(thread, table, "hour", false, 12);
 
         return new DateTime(year, month, day, hour, min, sec);
     }
 
-    public static string StrFTime(LuaState state, ReadOnlySpan<char> format, DateTime d)
+    public static string StrFTime(LuaThread thread, ReadOnlySpan<char> format, DateTime d)
     {
         // reference: http://www.cplusplus.com/reference/ctime/strftime/
 
@@ -186,7 +186,7 @@ internal static class DateTimeHelper
             }
             else
             {
-                throw new LuaRuntimeException(state.GetTraceback(), $"bad argument #1 to 'date' (invalid conversion specifier '{format.ToString()}')");
+                throw new LuaRuntimeException(thread.GetTraceback(), $"bad argument #1 to 'date' (invalid conversion specifier '{format.ToString()}')");
             }
         }
 

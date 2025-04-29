@@ -96,11 +96,11 @@ public class DebugLibrary
                 }
             }
 
-            var localId = index+1;
+            var localId = index + 1;
             foreach (var l in locals)
             {
-                if(currentPc<l.StartPc)break;
-                if(l.EndPc<=currentPc)continue;
+                if (currentPc < l.StartPc) break;
+                if (l.EndPc <= currentPc) continue;
                 localId--;
                 if (localId == 0)
                 {
@@ -277,7 +277,7 @@ public class DebugLibrary
 
         if (arg1.Type is not (LuaValueType.Nil or LuaValueType.Table))
         {
-            LuaRuntimeException.BadArgument(context.State.GetTraceback(), 2, "setmetatable", [LuaValueType.Nil, LuaValueType.Table]);
+            LuaRuntimeException.BadArgument(context.Thread.GetTraceback(), 2, "setmetatable", [LuaValueType.Nil, LuaValueType.Table]);
         }
 
         context.State.SetMetatable(arg0, arg1.UnsafeRead<LuaTable>());
@@ -354,7 +354,7 @@ public class DebugLibrary
 
         var skipCount = Math.Min(Math.Max(level - 1, 0), callStack.Length - 1);
         var frames = callStack[1..^skipCount];
-        return new(context.Return(Runtime.Traceback.GetTracebackString(context.State, (LuaClosure)callStack[0].Function, frames, message, level == 1)));
+        return new(context.Return(Runtime.Traceback.GetTracebackString(context.State, callStack[0].Function, frames, message, level == 1)));
     }
 
     public ValueTask<int> GetRegistry(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
@@ -458,13 +458,7 @@ public class DebugLibrary
             var stack = thread.Stack;
             stack.Push("return");
             stack.Push(LuaValue.Nil);
-            var funcContext = new LuaFunctionExecutionContext
-            {
-                State = context.State,
-                Thread = context.Thread,
-                ArgumentCount = 2,
-                ReturnFrameBase = stack.Count - 2,
-            };
+            var funcContext = new LuaFunctionExecutionContext { Thread = context.Thread, ArgumentCount = 2, ReturnFrameBase = stack.Count - 2, };
             var frame = new CallStackFrame
             {
                 Base = funcContext.FrameBase, ReturnBase = funcContext.ReturnFrameBase, VariableArgumentCount = hook.GetVariableArgumentCount(2), Function = hook,

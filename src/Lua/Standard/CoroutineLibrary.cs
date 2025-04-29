@@ -24,13 +24,13 @@ public sealed class CoroutineLibrary
     public ValueTask<int> Create(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
         var arg0 = context.GetArgument<LuaFunction>(0);
-        return new(context.Return(new LuaCoroutine(arg0, true)));
+        return new(context.Return(LuaCoroutine.Create(context.Thread, arg0, true)));
     }
 
     public ValueTask<int> Resume(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
         var thread = context.GetArgument<LuaThread>(0);
-        return thread.ResumeAsync(context with{ArgumentCount = context.ArgumentCount-1}, cancellationToken);
+        return thread.ResumeAsync(context with { ArgumentCount = context.ArgumentCount - 1 }, cancellationToken);
     }
 
     public ValueTask<int> Running(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
@@ -55,7 +55,7 @@ public sealed class CoroutineLibrary
     public ValueTask<int> Wrap(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
         var arg0 = context.GetArgument<LuaFunction>(0);
-        var thread = new LuaCoroutine(arg0, false);
+        var thread = LuaCoroutine.Create(context.Thread, arg0, false);
         return new(context.Return(new CSharpClosure("wrap", [thread],
             static async (context, cancellationToken) =>
             {

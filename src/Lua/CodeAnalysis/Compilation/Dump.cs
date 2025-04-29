@@ -267,7 +267,7 @@ internal unsafe ref struct DumpState(IBufferWriter<byte> writer, bool reversedEn
     }
 }
 
-internal unsafe ref struct UnDumpState(ReadOnlySpan<byte> span,ReadOnlySpan<char> name)
+internal unsafe ref struct UnDumpState(ReadOnlySpan<byte> span, ReadOnlySpan<char> name)
 {
     public ReadOnlySpan<byte> Unread = span;
     bool otherEndian;
@@ -320,7 +320,7 @@ internal unsafe ref struct UnDumpState(ReadOnlySpan<byte> span,ReadOnlySpan<char
         Read(span);
 
         if (otherEndian) i = BinaryPrimitives.ReverseEndianness(i);
-        
+
         return i;
     }
 

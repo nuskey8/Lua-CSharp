@@ -78,7 +78,7 @@ public sealed class OperatingSystemLibrary
         }
         else
         {
-            return new(context.Return(DateTimeHelper.StrFTime(context.State, format, now)));
+            return new(context.Return(DateTimeHelper.StrFTime(context.Thread, format, now)));
         }
     }
 
@@ -121,7 +121,7 @@ public sealed class OperatingSystemLibrary
             }
             else
             {
-                LuaRuntimeException.BadArgument(context.State.GetTraceback(), 1, "exit", LuaValueType.Nil.ToString(), code.Type.ToString());
+                LuaRuntimeException.BadArgument(context.Thread.GetTraceback(), 1, "exit", LuaValueType.Nil.ToString(), code.Type.ToString());
             }
         }
         else
@@ -179,7 +179,7 @@ public sealed class OperatingSystemLibrary
         if (context.HasArgument(0))
         {
             var table = context.GetArgument<LuaTable>(0);
-            var date = DateTimeHelper.ParseTimeTable(context.State, table);
+            var date = DateTimeHelper.ParseTimeTable(context.Thread, table);
             return new(context.Return(DateTimeHelper.GetUnixTime(date)));
         }
         else
