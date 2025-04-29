@@ -3,11 +3,17 @@ using Lua.CodeAnalysis.Compilation;
 using Lua.Runtime;
 using Lua;
 using Lua.Standard;
+using System.Text.RegularExpressions;
 
 var state = LuaState.Create();
 state.OpenStandardLibraries();
 
-state.Environment["vec3"] = new LVec3();
+state.Environment["escape"] = new LuaFunction("escape",
+    (c, _) =>
+    {
+        var arg = c.HasArgument(0) ? c.GetArgument<string>(0) : "";
+        return new(c.Return(Regex.Escape(arg)));
+    });
 
 try
 {
@@ -18,17 +24,17 @@ try
 
     Console.WriteLine(source);
 
-    var closure = state.Compile(source, "test.lua");
+    var closure = state.Load(source, "test.lua");
 
     DebugChunk(closure.Proto, 0);
 
     Console.WriteLine("Output " + new string('-', 50));
 
-    using var results = await state.RunAsync(closure);
+    var count = await state.MainThread.RunAsync(closure);
 
     Console.WriteLine("Result " + new string('-', 50));
-
-    for (int i = 0; i < results.Count; i++)
+    using var results = state.MainThread.ReadReturnValues(count);
+    for (int i = 0; i < count; i++)
     {
         Console.WriteLine(results[i]);
     }
@@ -40,6 +46,7 @@ catch (Exception ex)
     Console.WriteLine(ex);
     if (ex is LuaRuntimeException { InnerException: not null } luaEx)
     {
+        Console.WriteLine("Inner Exception " + new string('-', 50));
         Console.WriteLine(luaEx.InnerException);
     }
 }
@@ -74,7 +81,7 @@ static void DebugChunk(Prototype chunk, int id)
     index = 0;
     foreach (var constant in chunk.Constants.ToArray())
     {
-        Console.WriteLine($"[{index}]\t{constant}");
+        Console.WriteLine($"[{index}]\t{Regex.Escape(constant.ToString())}");
         index++;
     }
 

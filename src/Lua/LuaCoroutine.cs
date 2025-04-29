@@ -14,7 +14,7 @@ public sealed class LuaCoroutine : LuaThread, IValueTaskSource<LuaCoroutine.Yiel
     {
         if (!pool.TryPop(out LuaCoroutine result))
         {
-            result = new ();
+            result = new();
         }
 
         result.Init(parent, function, isProtectedMode);
@@ -56,6 +56,7 @@ public sealed class LuaCoroutine : LuaThread, IValueTaskSource<LuaCoroutine.Yiel
         State = parent.State;
         IsProtectedMode = isProtectedMode;
         Function = function;
+        IsRunning = false;
     }
 
     public override LuaThreadStatus GetStatus() => (LuaThreadStatus)status;
@@ -66,7 +67,7 @@ public sealed class LuaCoroutine : LuaThread, IValueTaskSource<LuaCoroutine.Yiel
     }
 
     public bool IsProtectedMode { get; private set; }
-    public LuaFunction Function { get; private set; }
+    public  LuaFunction Function { get; private set; } = null!;
     internal Traceback? LuaTraceback => traceback;
 
     public bool CanResume => status == (byte)LuaThreadStatus.Suspended;
@@ -82,8 +83,14 @@ public sealed class LuaCoroutine : LuaThread, IValueTaskSource<LuaCoroutine.Yiel
         return stackForDead;
     }
 
-    public async ValueTask<LuaResult> ResumeAsync(CancellationToken cancellationToken = default)
+    public async ValueTask<int> ResumeAsync(CancellationToken cancellationToken = default)
     {
+        if (isFirstCall)
+        {
+            ThrowIfRunning();
+            IsRunning = true;
+        }
+
         switch ((LuaThreadStatus)Volatile.Read(ref status))
         {
             case LuaThreadStatus.Suspended:
@@ -107,7 +114,7 @@ public sealed class LuaCoroutine : LuaThread, IValueTaskSource<LuaCoroutine.Yiel
                 {
                     Stack.PopUntil(lastBase);
                     Stack.Push("cannot resume non-suspended coroutine");
-                    return new LuaResult(Stack, lastBase);
+                    return 1;
                 }
                 else
                 {
@@ -118,7 +125,7 @@ public sealed class LuaCoroutine : LuaThread, IValueTaskSource<LuaCoroutine.Yiel
                 {
                     var stack = GetStackForDead(1);
                     stack.Push("cannot resume dead coroutine");
-                    return new LuaResult(stack, 0);
+                    return 1;
                 }
                 else
                 {
@@ -154,8 +161,7 @@ public sealed class LuaCoroutine : LuaThread, IValueTaskSource<LuaCoroutine.Yiel
                 var results = result0.Results;
                 Stack.PushRange(results.AsSpan());
                 lastBase = Stack.Count - results.Length;
-                return new LuaResult(Stack, Stack.Count - results.Length);
-                ;
+                return results.Length;
             }
             else
             {
@@ -164,7 +170,7 @@ public sealed class LuaCoroutine : LuaThread, IValueTaskSource<LuaCoroutine.Yiel
                 var stack = GetStackForDead(Math.Max(1, results.Length));
                 stack.PushRange(results);
                 ReleaseCore();
-                return new LuaResult(stack, 0);
+                return results.Length;
             }
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
@@ -176,7 +182,7 @@ public sealed class LuaCoroutine : LuaThread, IValueTaskSource<LuaCoroutine.Yiel
                 ReleaseCore();
                 var stack = GetStackForDead(1);
                 stack.Push(ex is LuaRuntimeException luaEx ? luaEx.ErrorObject : ex.Message);
-                return new LuaResult(stack, 0);
+                return 1;
             }
             else
             {

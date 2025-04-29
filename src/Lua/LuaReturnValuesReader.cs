@@ -1,13 +1,13 @@
 ﻿using Lua.Runtime;
 
-namespace Lua.Internal;
+namespace Lua;
 
-public readonly struct LuaResult : IDisposable
+public readonly struct LuaReturnValuesReader : IDisposable
 {
     readonly LuaStack stack;
     readonly int returnBase;
 
-    internal LuaResult(LuaStack stack, int returnBase)
+    internal LuaReturnValuesReader(LuaStack stack, int returnBase)
     {
         this.stack = stack;
         this.returnBase = returnBase;

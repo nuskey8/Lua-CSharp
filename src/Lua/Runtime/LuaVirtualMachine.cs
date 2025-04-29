@@ -1,7 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
-using System.Globalization;
 using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using Lua.Internal;
 
 // ReSharper disable InconsistentNaming
@@ -48,6 +46,7 @@ public static partial class LuaVirtualMachine
             LastHookPc = -1;
             Task = default;
         }
+
         public LuaState State => Thread.State;
         public LuaStack Stack = default!;
         public LuaClosure LuaClosure = default!;

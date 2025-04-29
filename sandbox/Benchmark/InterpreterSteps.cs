@@ -17,7 +17,7 @@ public class InterpreterSteps
         sourceText = File.ReadAllText(filePath);
         state = LuaState.Create();
         state.OpenStandardLibraries();
-        closure = state.Compile(sourceText, sourceText);
+        closure = state.Load(sourceText, sourceText);
     }
 
     [IterationSetup]
@@ -40,14 +40,13 @@ public class InterpreterSteps
     [Benchmark]
     public LuaClosure Compile()
     {
-        return state.Compile(sourceText, sourceText);
+        return state.Load(sourceText, sourceText);
     }
 
     [Benchmark]
     public async ValueTask RunAsync()
     {
-        using (await state.RunAsync(closure))
-        {
-        }
+        await state.MainThread.RunAsync(closure);
+        state.MainThread.Stack.Clear();
     }
 }

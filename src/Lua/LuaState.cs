@@ -19,7 +19,7 @@ public sealed class LuaState
     readonly LuaTable environment;
     readonly LuaTable registry = new();
     readonly UpValue envUpValue;
-    bool isRunning;
+
 
     FastStackCore<LuaDebug.LuaDebugBuffer> debugBufferPool;
 
@@ -33,7 +33,7 @@ public sealed class LuaState
     public LuaTable Registry => registry;
     public LuaTable LoadedModules => packages;
     public LuaMainThread MainThread => mainThread;
-    
+
 
     public ILuaModuleLoader ModuleLoader { get; set; } = FileModuleLoader.Instance;
 
@@ -55,26 +55,6 @@ public sealed class LuaState
         mainThread = new(this);
         environment = new();
         envUpValue = UpValue.Closed(environment);
-    }
-
-    public async ValueTask<LuaResult> RunAsync(LuaClosure closure, CancellationToken cancellationToken = default)
-    {
-        ThrowIfRunning();
-
-        isRunning = true;
-        try
-        {
-            await closure.InvokeAsync(new()
-            {
-                Thread = MainThread, ArgumentCount = 0, ReturnFrameBase = 0, SourceLine = null,
-            }, cancellationToken);
-
-            return new LuaResult(MainThread.Stack, 0);
-        }
-        finally
-        {
-            isRunning = false;
-        }
     }
 
 
@@ -160,24 +140,8 @@ public sealed class LuaState
         }
     }
 
-    void ThrowIfResultNotDisposed()
-    {
-        if (MainThread.Stack.Count != 0)
-        {
-            throw new InvalidOperationException("LuaResult is not disposed");
-        }
-    }
 
-    void ThrowIfRunning()
-    {
-        if (Volatile.Read(ref isRunning))
-        {
-            throw new InvalidOperationException("the lua state is currently running");
-        }
-    }
-
-
-    public unsafe LuaClosure Compile(ReadOnlySpan<char> chunk, string chunkName, LuaTable? environment = null)
+    public unsafe LuaClosure Load(ReadOnlySpan<char> chunk, string chunkName, LuaTable? environment = null)
     {
         Prototype prototype;
         fixed (char* ptr = chunk)
@@ -188,7 +152,7 @@ public sealed class LuaState
         return new LuaClosure(MainThread, prototype, environment);
     }
 
-    public LuaClosure Compile(ReadOnlySpan<byte> chunk, string chunkName, string mode = "bt", LuaTable? environment = null)
+    public LuaClosure Load(ReadOnlySpan<byte> chunk, string chunkName, string mode = "bt", LuaTable? environment = null)
     {
         if (chunk.Length > 4)
         {
@@ -204,7 +168,7 @@ public sealed class LuaState
         {
             var chars = pooled.AsSpan(0, charCount);
             Encoding.UTF8.GetChars(chunk, chars);
-            return Compile(chars, chunkName, environment);
+            return Load(chars, chunkName, environment);
         }
         finally
         {

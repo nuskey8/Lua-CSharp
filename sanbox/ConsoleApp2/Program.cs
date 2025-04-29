@@ -5,11 +5,12 @@ using Lua.Standard;
 var state = LuaState.Create();
 state.OpenStandardLibraries();
 {
-    var closure = state.Compile("return function (a,b,...)  print('a : '..a..' b :'..'args : ',...) end", "simple");
+    var closure = state.Load("return function (a,b,...)  print('a : '..a..' b :'..'args : ',...) end", "simple");
     using var threadLease = state.MainThread.RentUseThread();
     var thread = threadLease.Thread;
     {
-        var results = await thread.RunAsync(closure, 0);
+        var count = await thread.RunAsync(closure);
+        var results = thread.ReadReturnValues(count);
         for (int i = 0; i < results.Length; i++)
         {
             Console.WriteLine(results[i]);
@@ -18,13 +19,14 @@ state.OpenStandardLibraries();
         var f = results[0].Read<LuaClosure>();
         results.Dispose();
         thread.Push("hello", "world", 1, 2, 3);
-        var result2 = await thread.RunAsync(f, 5);
-        for (int i = 0; i < result2.Length; i++)
+        count = await thread.RunAsync(f);
+        results = thread.ReadReturnValues(count);
+        for (int i = 0; i < results.Length; i++)
         {
-            Console.WriteLine(result2[i]);
+            Console.WriteLine(results[i]);
         }
 
-        result2.Dispose();
+        results.Dispose();
     }
 }
 
@@ -48,7 +50,8 @@ state.OpenStandardLibraries();
         for (int i = 0; coroutine.CanResume; i++)
         {
             if (i != 0) coroutine.Push($"from C# {i}");
-            using var resumeResult = await coroutine.ResumeAsync();
+            var count = await coroutine.ResumeAsync();
+            using var resumeResult = coroutine.ReadReturnValues(count);
             Console.Write("To C#:\t");
             for (int j = 0; j < resumeResult.Length; j++)
             {
