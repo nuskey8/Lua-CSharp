@@ -37,7 +37,7 @@ state.OpenStandardLibraries();
             local args = {...}
             for i = 1, #args do
                 local v = args[i]
-                print('To Lua:\t' .. coroutine.yield('from C# ' .. i ..' '..v))
+                print('In Lua:', coroutine.yield('from lua', i,v))
             end
         end
         """, "coroutine");
@@ -45,21 +45,26 @@ state.OpenStandardLibraries();
     using var coroutineLease = state.MainThread.RentCoroutine(f);
     var coroutine = coroutineLease.Thread;
     {
-        coroutine.Push("a", "b", "c", "d", "e");
+        var stack =new LuaStack();
+        stack.PushRange("a", "b", "c", "d", "e");
 
         for (int i = 0; coroutine.CanResume; i++)
         {
-            if (i != 0) coroutine.Push($"from C# {i}");
-            var count = await coroutine.ResumeAsync();
-            using var resumeResult = coroutine.ReadReturnValues(count);
-            Console.Write("To C#:\t");
-            for (int j = 0; j < resumeResult.Length; j++)
+            if (i != 0)
             {
-                Console.Write(resumeResult[j]);
+                stack.Push("from C# ");
+                stack.Push(i);
+            }
+            await coroutine.ResumeAsync(stack);
+            Console.Write("In C#:\t");
+            for (int j = 1; j < stack.Count; j++)
+            {
+                Console.Write(stack[j]);
                 Console.Write('\t');
             }
 
             Console.WriteLine();
+            stack.Clear();
         }
     }
 }

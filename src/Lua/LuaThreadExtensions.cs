@@ -128,10 +128,4 @@ public static class LuaThreadExtensions
         coreData!.CallStack.Pop();
     }
     
-    public static Traceback GetTraceback(this LuaThread thread)
-    {
-        var frames = thread.GetCallStackFrames();
-
-        return new(thread.State) { RootFunc = frames[0].Function, StackFrames = thread.GetCallStackFrames()[1..].ToArray() };
-    }
 }

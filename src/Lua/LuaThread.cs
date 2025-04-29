@@ -105,7 +105,7 @@ public abstract class LuaThread
         {
             await closure.InvokeAsync(new()
             {
-                Thread = this, ArgumentCount = 0, ReturnFrameBase = 0, SourceLine = null,
+                Thread = this, ArgumentCount = Stack.Count, ReturnFrameBase = 0, SourceLine = null,
             }, cancellationToken);
 
             return Stack.Count;
@@ -124,6 +124,13 @@ public abstract class LuaThread
         {
             Console.WriteLine($"LuaStack [{i}]\t{span[i]}");
         }
+    }
+
+    public Traceback GetTraceback()
+    {
+        var frames = this.GetCallStackFrames();
+
+        return new(State) { RootFunc = frames[0].Function, StackFrames = this.GetCallStackFrames()[1..].ToArray() };
     }
 
     protected void ThrowIfRunning()

@@ -1,12 +1,10 @@
 ﻿using Lua.Internal;
 using Lua.Runtime;
 using System.Buffers;
-
+using System.Runtime.CompilerServices;
+using static System.Diagnostics.Debug;
 namespace Lua.CodeAnalysis.Compilation;
 
-using System.Runtime.CompilerServices;
-using static Lua.Runtime.Instruction;
-using static System.Diagnostics.Debug;
 using static Function;
 using static Scanner;
 using static Constants;

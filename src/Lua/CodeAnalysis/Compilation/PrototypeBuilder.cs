@@ -1,5 +1,4 @@
 ﻿using Lua.Internal;
-using System;
 using Lua.Runtime;
 
 namespace Lua.CodeAnalysis.Compilation;

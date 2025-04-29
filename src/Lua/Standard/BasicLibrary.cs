@@ -91,7 +91,7 @@ public sealed class BasicLibrary
         var bytes = await File.ReadAllBytesAsync(arg0, cancellationToken);
         var fileName = "@" + Path.GetFileName(arg0);
 
-        return await context.State.Compile(bytes, fileName).InvokeAsync(context, cancellationToken);
+        return await context.State.Load(bytes, fileName).InvokeAsync(context, cancellationToken);
     }
 
     public ValueTask<int> Error(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
@@ -161,7 +161,7 @@ public sealed class BasicLibrary
         {
             var bytes = await File.ReadAllBytesAsync(arg0, cancellationToken);
             var fileName = "@" + Path.GetFileName(arg0);
-            return context.Return(context.State.Compile(bytes, fileName, mode, arg2));
+            return context.Return(context.State.Load(bytes, fileName, mode, arg2));
         }
         catch (Exception ex)
         {
@@ -191,7 +191,7 @@ public sealed class BasicLibrary
         {
             if (arg0.TryRead<string>(out var str))
             {
-                return new(context.Return(context.State.Compile(str, name ?? str, arg3)));
+                return new(context.Return(context.State.Load(str, name ?? str, arg3)));
             }
             else if (arg0.TryRead<LuaFunction>(out var function))
             {
