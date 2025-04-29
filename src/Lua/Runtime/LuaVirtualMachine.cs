@@ -1693,7 +1693,14 @@ public static partial class LuaVirtualMachine
 
         var variableArgumentCount = function.GetVariableArgumentCount(argumentCount);
 
-        if (variableArgumentCount <= 0)
+        if (variableArgumentCount < 0)
+        {
+            thread.Stack.SetTop(thread.Stack.Count - variableArgumentCount);
+            argumentCount -= variableArgumentCount;
+            variableArgumentCount = 0;
+        }
+        
+        if (variableArgumentCount == 0)
         {
             return (argumentCount, 0);
         }

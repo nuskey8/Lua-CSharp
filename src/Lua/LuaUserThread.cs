@@ -14,8 +14,9 @@ public sealed class LuaUserThread : LuaThread, IPoolNode<LuaUserThread>
         {
             result = new LuaUserThread();
         }
+
         result.State = parent.State;
-        result.CoreData =ThreadCoreData.Create();
+        result.CoreData = ThreadCoreData.Create();
 
         return result;
     }

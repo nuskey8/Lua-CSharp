@@ -89,11 +89,13 @@ public static class LuaThreadExtensions
 
     public static ReadOnlySpan<LuaValue> GetStackValues(this LuaThread thread)
     {
+        if (thread.CoreData == null) return default;
         return thread.CoreData!.Stack.AsSpan();
     }
 
     public static ReadOnlySpan<CallStackFrame> GetCallStackFrames(this LuaThread thread)
     {
+        if (thread.CoreData == null) return default;
         return thread.CoreData!.CallStack.AsSpan();
     }
 

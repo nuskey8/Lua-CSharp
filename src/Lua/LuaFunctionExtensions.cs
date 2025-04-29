@@ -9,7 +9,16 @@ public static class LuaFunctionExtensions
         var varArgumentCount = function.GetVariableArgumentCount(argumentCount);
         if (varArgumentCount != 0)
         {
-            LuaVirtualMachine.PrepareVariableArgument(thread.Stack, argumentCount, varArgumentCount);
+            if (varArgumentCount < 0)
+            {
+                thread.Stack.SetTop(thread.Stack.Count - varArgumentCount);
+                argumentCount -= varArgumentCount;
+                varArgumentCount = 0;
+            }
+            else
+            {
+                LuaVirtualMachine.PrepareVariableArgument(thread.Stack, argumentCount, varArgumentCount);
+            }
         }
 
         LuaFunctionExecutionContext context = new() { Thread = thread, ArgumentCount = argumentCount - varArgumentCount, ReturnFrameBase = thread.Stack.Count, };
