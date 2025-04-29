@@ -1,4 +1,3 @@
-using Lua.Internal;
 using Lua.Runtime;
 using Lua.Standard.Internal;
 
