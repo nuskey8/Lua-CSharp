@@ -1,11 +1,14 @@
+using System.Buffers;
+
 namespace Lua;
 
 public enum LuaModuleType
 {
     Text,
+    Bytes
 }
 
-public readonly struct LuaModule
+public readonly struct LuaModule : IDisposable
 {
     public string Name => name;
     public LuaModuleType Type => type;
@@ -21,9 +24,54 @@ public readonly struct LuaModule
         referenceValue = text;
     }
 
-    public string ReadText()
+    public LuaModule(string name, byte[] bytes)
+    {
+        this.name = name;
+        type = LuaModuleType.Bytes;
+        referenceValue = bytes;
+    }
+
+    public LuaModule(string name, IMemoryOwner<char> bytes)
+    {
+        this.name = name;
+        type = LuaModuleType.Text;
+        referenceValue = bytes;
+    }
+
+    public LuaModule(string name, IMemoryOwner<byte> bytes)
+    {
+        this.name = name;
+        type = LuaModuleType.Bytes;
+        referenceValue = bytes;
+    }
+
+    public ReadOnlySpan<char> ReadText()
     {
         if (type != LuaModuleType.Text) throw new Exception(); // TODO: add message
-        return (string)referenceValue;
+        if (referenceValue is IMemoryOwner<char> mem)
+        {
+            return mem.Memory.Span;
+        }
+
+        return ((string)referenceValue);
+    }
+
+    public ReadOnlySpan<byte> ReadBytes()
+    {
+        if (type != LuaModuleType.Bytes) throw new Exception(); // TODO: add message
+        if (referenceValue is IMemoryOwner<byte> mem)
+        {
+            return mem.Memory.Span;
+        }
+
+        return (byte[])referenceValue;
+    }
+
+    public void Dispose()
+    {
+        if (referenceValue is IDisposable memoryOwner)
+        {
+            memoryOwner.Dispose();
+        }
     }
 }

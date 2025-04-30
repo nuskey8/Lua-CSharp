@@ -13,7 +13,7 @@ public sealed class FileModuleLoader : ILuaModuleLoader
     {
         var path = moduleName;
         if (!Path.HasExtension(path)) path += ".lua";
-        var text = await File.ReadAllTextAsync(path, cancellationToken);
+        var text = await File.ReadAllBytesAsync(path, cancellationToken);
         return new LuaModule(moduleName, text);
     }
 }
