@@ -51,7 +51,7 @@ internal unsafe struct Header
         {
             if (!LuaSignature.SequenceEqual(new(signature, 4)))
             {
-                throw new LuaParseException($"{name.ToString()}: is not a precompiled chunk");
+                throw new LuaUnDumpException($"{name.ToString()}: is not a precompiled chunk");
             }
         }
 
@@ -59,7 +59,7 @@ internal unsafe struct Header
         var minor = Version & 0xF;
         if (major != Constants.VersionMajor || minor != Constants.VersionMinor)
         {
-            throw new LuaParseException($"{name.ToString()}: version mismatch in precompiled chunk {major}.{minor} != {Constants.VersionMajor}.{Constants.VersionMinor}");
+            throw new LuaUnDumpException($"{name.ToString()}: version mismatch in precompiled chunk {major}.{minor} != {Constants.VersionMajor}.{Constants.VersionMinor}");
         }
 
         if (IntSize != 4 || Format != 0 || IntegralNumber != 0 || PointerSize is not (4 or 8) || InstructionSize != 4 || NumberSize != 8)
@@ -77,7 +77,7 @@ internal unsafe struct Header
 
         return;
     ErrIncompatible:
-        throw new LuaParseException($"{name.ToString()}: incompatible precompiled chunk");
+        throw new LuaUnDumpException($"{name.ToString()}: incompatible precompiled chunk");
     }
 }
 
@@ -274,7 +274,7 @@ internal unsafe ref struct UnDumpState(ReadOnlySpan<byte> span, ReadOnlySpan<cha
     int pointerSize;
     readonly ReadOnlySpan<char> name = name;
 
-    void Throw(string why) => throw new LuaParseException($"{name.ToString()}: {why} precompiled chunk");
+    void Throw(string why) => throw new LuaUnDumpException($"{name.ToString()}: {why} precompiled chunk");
     void ThrowTooShort() => Throw("truncate");
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

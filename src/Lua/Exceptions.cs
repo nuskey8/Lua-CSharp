@@ -1,3 +1,5 @@
+using Lua.CodeAnalysis;
+using Lua.CodeAnalysis.Syntax;
 using Lua.Internal;
 using Lua.Runtime;
 
@@ -18,7 +20,47 @@ public class LuaException : Exception
     }
 }
 
-public class LuaParseException(string message) : LuaException(message);
+public class LuaParseException(string? chunkName, SourcePosition position, string message) : LuaException(message)
+{
+    public string? ChunkName { get; } = chunkName;
+    public SourcePosition? Position { get; } = position;
+
+    public static void UnexpectedToken(string? chunkName, SourcePosition position, SyntaxToken token)
+    {
+        throw new LuaParseException(chunkName, position, $"unexpected symbol <{token.Type}> near '{token.Text}'");
+    }
+
+    public static void ExpectedToken(string? chunkName, SourcePosition position, SyntaxTokenType token)
+    {
+        throw new LuaParseException(chunkName, position, $"'{token}' expected");
+    }
+
+    public static void UnfinishedLongComment(string? chunkName, SourcePosition position)
+    {
+        throw new LuaParseException(chunkName, position, $"unfinished long comment (starting at line {position.Line})");
+    }
+
+    public static void SyntaxError(string? chunkName, SourcePosition position, SyntaxToken? token)
+    {
+        throw new LuaParseException(chunkName, position, $"syntax error {(token == null ? "" : $"near '{token.Value.Text}'")}");
+    }
+
+    public static void NoVisibleLabel(string label, string? chunkName, SourcePosition position)
+    {
+        throw new LuaParseException(chunkName, position, $"no visible label '{label}' for <goto>");
+    }
+
+    public static void BreakNotInsideALoop(string? chunkName, SourcePosition position)
+    {
+        throw new LuaParseException(chunkName, position, "<break> not inside a loop");
+    }
+
+    public override string Message => $"{ChunkName}:{(Position == null ? "" : $"{Position.Value}:")} {base.Message}";
+}
+
+public class LuaScanException(string message) : LuaException(message);
+
+public class LuaUnDumpException(string message) : LuaException(message);
 
 public class LuaRuntimeException : LuaException
 {

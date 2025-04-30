@@ -127,7 +127,7 @@ internal struct Scanner
         var buff = ChunkID(Source);
         if (token != 0) message = $"{buff}:{LineNumber}: {message} near {TokenToString(token)}";
         else message = $"{buff}:{LineNumber}: {message}";
-        throw new(message);
+        throw new LuaScanException(message);
     }
 
 
