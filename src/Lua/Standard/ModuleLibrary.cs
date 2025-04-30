@@ -1,3 +1,5 @@
+using Lua.Runtime;
+
 namespace Lua.Standard;
 
 public sealed class ModuleLibrary
@@ -18,16 +20,12 @@ public sealed class ModuleLibrary
 
         if (!loaded.TryGetValue(arg0, out var loadedTable))
         {
-            using var module = await context.State.ModuleLoader.LoadAsync(arg0, cancellationToken);
-            if (module.Type == LuaModuleType.Bytes)
+            LuaClosure closure;
             {
-                await context.State.Load(module.ReadBytes(), module.Name).InvokeAsync(context, cancellationToken);
+                using var module = await context.State.ModuleLoader.LoadAsync(arg0, cancellationToken);
+                closure = module.Type == LuaModuleType.Bytes ? context.State.Load(module.ReadBytes(), module.Name) : context.State.Load(module.ReadText(), module.Name);
             }
-            else
-            {
-                await context.State.Load(module.ReadText(), module.Name).InvokeAsync(context, cancellationToken);
-            }
-
+            await closure.InvokeAsync(context, cancellationToken);
             loadedTable = context.Thread.Stack.Get(context.ReturnFrameBase);
             loaded[arg0] = loadedTable;
         }
