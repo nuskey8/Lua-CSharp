@@ -1,5 +1,6 @@
 using System.Threading.Tasks.Sources;
 using Lua.Internal;
+using Lua.Internal.CompilerServices;
 using Lua.Runtime;
 using System.Runtime.CompilerServices;
 
@@ -38,9 +39,10 @@ public sealed class LuaCoroutine : LuaThread, IValueTaskSource<LuaCoroutine.Yiel
         public ReadOnlySpan<LuaValue> Results => stack.AsSpan()[^argCount..];
     }
 
-    readonly struct ResumeContext(LuaStack stack, int argCount)
+    readonly struct ResumeContext(LuaStack? stack, int argCount)
     {
-        public ReadOnlySpan<LuaValue> Results => stack.AsSpan()[^argCount..];
+        public ReadOnlySpan<LuaValue> Results => stack!.AsSpan()[^argCount..];
+        public bool IsDead => stack == null;
     }
 
     byte status;
@@ -154,29 +156,34 @@ public sealed class LuaCoroutine : LuaThread, IValueTaskSource<LuaCoroutine.Yiel
                 if (isFirstCall)
                 {
                     Stack.PushRange(stack.AsSpan()[^argCount..]);
-                    functionTask = Function.InvokeAsync(new() { Thread = this, ArgumentCount = Stack.Count, ReturnFrameBase = 0 }, cancellationToken).Preserve();
+                    functionTask = Function.InvokeAsync(new() { Thread = this, ArgumentCount = Stack.Count, ReturnFrameBase = 0 }, cancellationToken);
 
                     Volatile.Write(ref isFirstCall, false);
+                    if (!functionTask.IsCompleted)
+                    {
+                        functionTask.GetAwaiter().OnCompleted(() => this.resume.SetResult(default));
+                    }
                 }
 
-                var (index, result0, _, promise) = await ValueTaskEx.WhenAnyPooled(resumeTask, functionTask!);
-                promise.Dispose();
-                if (index == 0)
+                ResumeContext result0;
+                if (functionTask.IsCompleted || (result0 = await resumeTask).IsDead)
                 {
-                    var results = result0.Results;
-                    stack.PopUntil(returnBase);
-                    stack.Push(true);
-                    stack.PushRange(results);
-                    return results.Length + 1;
-                }
-                else
-                {
+                    _ = functionTask.Result;
                     Volatile.Write(ref status, (byte)LuaThreadStatus.Dead);
                     stack.PopUntil(returnBase);
                     stack.Push(true);
                     stack.PushRange(Stack.AsSpan());
                     ReleaseCore();
                     return stack.Count - returnBase;
+                }
+                else
+                {
+                    Volatile.Write(ref status, (byte)LuaThreadStatus.Suspended);
+                    var results = result0.Results;
+                    stack.PopUntil(returnBase);
+                    stack.Push(true);
+                    stack.PushRange(results);
+                    return results.Length + 1;
                 }
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
@@ -247,7 +254,6 @@ public sealed class LuaCoroutine : LuaThread, IValueTaskSource<LuaCoroutine.Yiel
 
         resume.SetResult(new(stack, argCount));
 
-        Volatile.Write(ref status, (byte)LuaThreadStatus.Suspended);
 
         CancellationTokenRegistration registration = default;
         if (cancellationToken.CanBeCanceled)
