@@ -37,7 +37,7 @@ public sealed class LuaCoroutine : LuaThread, IValueTaskSource<LuaCoroutine.Yiel
         public ReadOnlySpan<LuaValue> Results => stack.AsSpan()[^argCount..];
     }
 
-    struct ResumeContext(LuaStack stack, int argCount)
+    readonly struct ResumeContext(LuaStack stack, int argCount)
     {
         public ReadOnlySpan<LuaValue> Results => stack.AsSpan()[^argCount..];
     }

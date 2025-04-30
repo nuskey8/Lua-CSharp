@@ -23,7 +23,9 @@ public sealed class ModuleLibrary
             LuaClosure closure;
             {
                 using var module = await context.State.ModuleLoader.LoadAsync(arg0, cancellationToken);
-                closure = module.Type == LuaModuleType.Bytes ? context.State.Load(module.ReadBytes(), module.Name) : context.State.Load(module.ReadText(), module.Name);
+                closure = module.Type == LuaModuleType.Bytes
+                    ? context.State.Load(module.ReadBytes(), module.Name)
+                    : context.State.Load(module.ReadText(), module.Name);
             }
             await closure.InvokeAsync(context, cancellationToken);
             loadedTable = context.Thread.Stack.Get(context.ReturnFrameBase);

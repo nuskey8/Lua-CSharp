@@ -34,7 +34,6 @@ public sealed class LuaState
     public LuaTable LoadedModules => packages;
     public LuaMainThread MainThread => mainThread;
 
-
     public ILuaModuleLoader ModuleLoader { get; set; } = FileModuleLoader.Instance;
 
     // metatables
