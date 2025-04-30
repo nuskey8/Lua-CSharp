@@ -32,14 +32,14 @@ public sealed class LuaCoroutine : LuaThread, IValueTaskSource<LuaCoroutine.Yiel
         pool.TryPush(this);
     }
 
-    struct YieldContext
+    readonly struct YieldContext(LuaStack stack, int argCount)
     {
-        public required LuaValue[] Results;
+        public ReadOnlySpan<LuaValue> Results => stack.AsSpan()[^argCount..];
     }
 
-    struct ResumeContext
+    struct ResumeContext(LuaStack stack, int argCount)
     {
-        public required LuaValue[] Results;
+        public ReadOnlySpan<LuaValue> Results => stack.AsSpan()[^argCount..];
     }
 
     byte status;
@@ -67,17 +67,17 @@ public sealed class LuaCoroutine : LuaThread, IValueTaskSource<LuaCoroutine.Yiel
     }
 
     public bool IsProtectedMode { get; private set; }
-    public  LuaFunction Function { get; private set; } = null!;
+    public LuaFunction Function { get; private set; } = null!;
     internal Traceback? LuaTraceback => traceback;
 
     public bool CanResume => status == (byte)LuaThreadStatus.Suspended;
 
-    public  ValueTask<int> ResumeAsync(LuaStack stack, CancellationToken cancellationToken = default)
+    public ValueTask<int> ResumeAsync(LuaStack stack, CancellationToken cancellationToken = default)
     {
-        return ResumeAsync(stack,stack.Count,0, cancellationToken);
+        return ResumeAsync(stack, stack.Count, 0, cancellationToken);
     }
 
-    public async ValueTask<int> ResumeAsync(LuaStack stack, int argCount, int returnBase,CancellationToken cancellationToken = default)
+    public async ValueTask<int> ResumeAsync(LuaStack stack, int argCount, int returnBase, CancellationToken cancellationToken = default)
     {
         if (isFirstCall)
         {
@@ -86,112 +86,107 @@ public sealed class LuaCoroutine : LuaThread, IValueTaskSource<LuaCoroutine.Yiel
         }
 
         switch ((LuaThreadStatus)Volatile.Read(ref status))
-            {
-                case LuaThreadStatus.Suspended:
-                    Volatile.Write(ref status, (byte)LuaThreadStatus.Running);
+        {
+            case LuaThreadStatus.Suspended:
+                Volatile.Write(ref status, (byte)LuaThreadStatus.Running);
 
-                    if (!isFirstCall)
-                    {
-                        yield.SetResult(new()
-                        {
-                            Results = argCount == 0
-                                ? []
-                                : stack.AsSpan()[^argCount..].ToArray()
-                        });
-                    }
-
-                    break;
-                case LuaThreadStatus.Normal:
-                case LuaThreadStatus.Running:
-                    if (IsProtectedMode)
-                    {
-                        stack.PopUntil(returnBase);
-                        stack.Push(false);
-                        stack.Push( "cannot resume non-suspended coroutine");
-                        return 2;
-                    }
-                    else
-                    {
-                        throw new LuaException( "cannot resume non-suspended coroutine");
-                    }
-                case LuaThreadStatus.Dead:
-                    if (IsProtectedMode)
-                    {
-                        stack.PopUntil(returnBase);
-                        stack.Push(false);
-                        stack.Push( "cannot resume non-suspended coroutine");
-                        return 2;
-                    }
-                    else
-                    {
-                        throw new LuaException("cannot resume dead coroutine");
-                    }
-            }
-
-            var resumeTask = new ValueTask<ResumeContext>(this, resume.Version);
-
-            CancellationTokenRegistration registration = default;
-            if (cancellationToken.CanBeCanceled)
-            {
-                registration = cancellationToken.UnsafeRegister(static x =>
+                if (!isFirstCall)
                 {
-                    var coroutine = (LuaCoroutine)x!;
-                    coroutine.yield.SetException(new OperationCanceledException());
-                }, this);
-            }
-
-            try
-            {
-                if (isFirstCall)
-                {
-                    Stack.PushRange(stack.AsSpan()[^argCount..]);
-                    functionTask = Function.InvokeAsync(new() { Thread = this, ArgumentCount = Stack.Count, ReturnFrameBase = 0 }, cancellationToken).Preserve();
-
-                    Volatile.Write(ref isFirstCall, false);
+                    yield.SetResult(new(stack, argCount));
                 }
 
-                var (index, result0, result1) = await ValueTaskEx.WhenAny(resumeTask, functionTask!);
-
-                if (index == 0)
-                {
-                    var results = result0.Results;
-                    stack.PopUntil(returnBase);
-                    stack.Push(true);
-                    stack.PushRange(results.AsSpan());
-                    return results.Length+1;
-                }
-                else
-                {
-                    Volatile.Write(ref status, (byte)LuaThreadStatus.Dead);
-                    stack.PopUntil(returnBase);
-                    stack.Push(true);
-                    stack.PushRange(Stack.AsSpan());
-                    ReleaseCore();
-                    return stack.Count-returnBase;
-                }
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
+                break;
+            case LuaThreadStatus.Normal:
+            case LuaThreadStatus.Running:
                 if (IsProtectedMode)
                 {
-                    traceback = (ex as LuaRuntimeException)?.LuaTraceback;
-                    Volatile.Write(ref status, (byte)LuaThreadStatus.Dead);
-                    ReleaseCore();
                     stack.PopUntil(returnBase);
                     stack.Push(false);
-                    stack.Push( ex is LuaRuntimeException luaEx ? luaEx.ErrorObject : ex.Message);
+                    stack.Push("cannot resume non-suspended coroutine");
                     return 2;
                 }
                 else
                 {
-                    throw;
+                    throw new LuaException("cannot resume non-suspended coroutine");
                 }
-            }
-            finally
+            case LuaThreadStatus.Dead:
+                if (IsProtectedMode)
+                {
+                    stack.PopUntil(returnBase);
+                    stack.Push(false);
+                    stack.Push("cannot resume non-suspended coroutine");
+                    return 2;
+                }
+                else
+                {
+                    throw new LuaException("cannot resume dead coroutine");
+                }
+        }
+
+        var resumeTask = new ValueTask<ResumeContext>(this, resume.Version);
+
+        CancellationTokenRegistration registration = default;
+        if (cancellationToken.CanBeCanceled)
+        {
+            registration = cancellationToken.UnsafeRegister(static x =>
             {
-                registration.Dispose();
-                resume.Reset();
+                var coroutine = (LuaCoroutine)x!;
+                coroutine.yield.SetException(new OperationCanceledException());
+            }, this);
+        }
+
+        try
+        {
+            if (isFirstCall)
+            {
+                Stack.PushRange(stack.AsSpan()[^argCount..]);
+                functionTask = Function.InvokeAsync(new() { Thread = this, ArgumentCount = Stack.Count, ReturnFrameBase = 0 }, cancellationToken).Preserve();
+
+                Volatile.Write(ref isFirstCall, false);
             }
+
+            var (index, result0, result1) = await ValueTaskEx.WhenAny(resumeTask, functionTask!);
+
+            if (index == 0)
+            {
+                var results = result0.Results;
+                stack.PopUntil(returnBase);
+                stack.Push(true);
+                stack.PushRange(results);
+                return results.Length + 1;
+            }
+            else
+            {
+                Volatile.Write(ref status, (byte)LuaThreadStatus.Dead);
+                stack.PopUntil(returnBase);
+                stack.Push(true);
+                stack.PushRange(Stack.AsSpan());
+                ReleaseCore();
+                return stack.Count - returnBase;
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            if (IsProtectedMode)
+            {
+                traceback = (ex as LuaRuntimeException)?.LuaTraceback;
+                Volatile.Write(ref status, (byte)LuaThreadStatus.Dead);
+                ReleaseCore();
+                stack.PopUntil(returnBase);
+                stack.Push(false);
+                stack.Push(ex is LuaRuntimeException luaEx ? luaEx.ErrorObject : ex.Message);
+                return 2;
+            }
+            else
+            {
+                throw;
+            }
+        }
+        finally
+        {
+            registration.Dispose();
+            resume.Reset();
+        }
     }
 
     public override async ValueTask<int> ResumeAsync(LuaFunctionExecutionContext context, CancellationToken cancellationToken = default)
@@ -209,12 +204,7 @@ public sealed class LuaCoroutine : LuaThread, IValueTaskSource<LuaCoroutine.Yiel
 
                     if (!isFirstCall)
                     {
-                        yield.SetResult(new()
-                        {
-                            Results = context.ArgumentCount == 0
-                                ? []
-                                : context.Arguments.ToArray()
-                        });
+                        yield.SetResult(new(context.Thread.Stack, context.ArgumentCount));
                     }
 
                     break;
@@ -266,7 +256,7 @@ public sealed class LuaCoroutine : LuaThread, IValueTaskSource<LuaCoroutine.Yiel
                 if (index == 0)
                 {
                     var results = result0.Results;
-                    return context.Return(true, results.AsSpan());
+                    return context.Return(true, results);
                 }
                 else
                 {
@@ -315,7 +305,7 @@ public sealed class LuaCoroutine : LuaThread, IValueTaskSource<LuaCoroutine.Yiel
             throw new LuaRuntimeException(context.Thread.GetTraceback(), "attempt to yield across a C#-call boundary");
         }
 
-        resume.SetResult(new() { Results = context.Arguments.ToArray(), });
+        resume.SetResult(new(context.Thread.Stack, context.ArgumentCount));
 
         Volatile.Write(ref status, (byte)LuaThreadStatus.Suspended);
 
