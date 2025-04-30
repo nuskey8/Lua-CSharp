@@ -85,9 +85,8 @@ public sealed class LuaCoroutine : LuaThread, IValueTaskSource<LuaCoroutine.Yiel
         return ResumeAsyncCore(context.Thread.Stack, context.ArgumentCount, context.ReturnFrameBase, context.Thread, cancellationToken);
     }
 
-#if NET6_0_OR_GREATER
-    [AsyncMethodBuilder(typeof(PoolingAsyncValueTaskMethodBuilder<>))]
-#endif
+
+    [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder<>))]
     async ValueTask<int> ResumeAsyncCore(LuaStack stack, int argCount, int returnBase, LuaThread? baseThread, CancellationToken cancellationToken = default)
     {
         if (baseThread != null)
@@ -229,9 +228,7 @@ public sealed class LuaCoroutine : LuaThread, IValueTaskSource<LuaCoroutine.Yiel
         return YieldAsyncCore(context.Thread.Stack, context.ArgumentCount, context.ReturnFrameBase, context.Thread, cancellationToken);
     }
 
-#if NET6_0_OR_GREATER
-    [AsyncMethodBuilder(typeof(PoolingAsyncValueTaskMethodBuilder<>))]
-#endif
+    [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder<>))]
     async ValueTask<int> YieldAsyncCore(LuaStack stack, int argCount, int returnBase, LuaThread? baseThread, CancellationToken cancellationToken = default)
     {
         if (Volatile.Read(ref status) != (byte)LuaThreadStatus.Running)
