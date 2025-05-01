@@ -767,12 +767,10 @@ public static partial class LuaVirtualMachine
             context.State.CloseUpValues(context.Thread, context.FrameBase);
             if (e is not LuaRuntimeException)
             {
-                var newException = new LuaRuntimeException(context.Thread.GetTraceback(), e);
-                context.PopOnTopCallStackFrames();
+                var newException = new LuaRuntimeException(context.Thread, e);
                 throw newException;
             }
 
-            context.PopOnTopCallStackFrames();
             throw;
         }
     }
@@ -780,12 +778,12 @@ public static partial class LuaVirtualMachine
 
     static void ThrowLuaRuntimeException(VirtualMachineExecutionContext context, string message)
     {
-        throw new LuaRuntimeException(context.Thread.GetTraceback(), message);
+        throw new LuaRuntimeException(context.Thread, message);
     }
 
     static void ThrowLuaNotImplementedException(VirtualMachineExecutionContext context, OpCode opcode)
     {
-        throw new LuaRuntimeException(context.Thread.GetTraceback(), $"OpCode {opcode} is not implemented");
+        throw new LuaRuntimeException(context.Thread, $"OpCode {opcode} is not implemented");
     }
 
 
@@ -807,7 +805,6 @@ public static partial class LuaVirtualMachine
     {
         var instruction = context.Instruction;
         var stack = context.Stack;
-        var top = stack.Count - 1;
         var b = instruction.B;
         var c = instruction.C;
         stack.NotifyTop(context.FrameBase + c + 1);
@@ -904,7 +901,7 @@ public static partial class LuaVirtualMachine
         {
             if (!metamethod.TryReadFunction(out var func))
             {
-                LuaRuntimeException.AttemptInvalidOperation(GetTracebacks(context), "call", metamethod);
+                LuaRuntimeException.AttemptInvalidOperation(GetThreadWithCurrentPc(context), "call", metamethod);
             }
 
             var stack = context.Stack;
@@ -928,7 +925,7 @@ public static partial class LuaVirtualMachine
             return;
         }
 
-        LuaRuntimeException.AttemptInvalidOperation(GetTracebacks(context), description, vb, vc);
+        LuaRuntimeException.AttemptInvalidOperation(GetThreadWithCurrentPc(context), description, vb, vc);
         return;
     }
 
@@ -950,7 +947,7 @@ public static partial class LuaVirtualMachine
             }
             else
             {
-                LuaRuntimeException.AttemptInvalidOperation(GetTracebacks(context), "call", va);
+                LuaRuntimeException.AttemptInvalidOperation(GetThreadWithCurrentPc(context), "call", va);
             }
         }
 
@@ -1050,7 +1047,7 @@ public static partial class LuaVirtualMachine
             }
             else
             {
-                LuaRuntimeException.AttemptInvalidOperation(GetTracebacks(context), "call", metamethod);
+                LuaRuntimeException.AttemptInvalidOperation(GetThreadWithCurrentPc(context), "call", metamethod);
             }
         }
 
@@ -1118,7 +1115,7 @@ public static partial class LuaVirtualMachine
             }
             else
             {
-                LuaRuntimeException.AttemptInvalidOperation(GetTracebacks(context), "call", metamethod);
+                LuaRuntimeException.AttemptInvalidOperation(GetThreadWithCurrentPc(context), "call", metamethod);
             }
         }
 
@@ -1266,7 +1263,7 @@ public static partial class LuaVirtualMachine
 
             if (!table.TryGetMetamethod(context.State, Metamethods.Index, out var metatableValue))
             {
-                LuaRuntimeException.AttemptInvalidOperation(GetTracebacks(context), "index", table);
+                LuaRuntimeException.AttemptInvalidOperation(GetThreadWithCurrentPc(context), "index", table);
             }
 
             table = metatableValue;
@@ -1277,7 +1274,7 @@ public static partial class LuaVirtualMachine
             }
         }
 
-        throw new LuaRuntimeException(GetTracebacks(context), "loop in gettable");
+        throw new LuaRuntimeException(GetThreadWithCurrentPc(context), "loop in gettable");
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
@@ -1364,7 +1361,7 @@ public static partial class LuaVirtualMachine
 
             if (!table.TryGetMetamethod(context.State, Metamethods.NewIndex, out var metatableValue))
             {
-                LuaRuntimeException.AttemptInvalidOperation(GetTracebacks(context), "index", table);
+                LuaRuntimeException.AttemptInvalidOperation(GetThreadWithCurrentPc(context), "index", table);
             }
 
             table = metatableValue;
@@ -1377,7 +1374,7 @@ public static partial class LuaVirtualMachine
             }
         }
 
-        throw new LuaRuntimeException(GetTracebacks(context), "loop in settable");
+        throw new LuaRuntimeException(GetThreadWithCurrentPc(context), "loop in settable");
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
@@ -1432,7 +1429,7 @@ public static partial class LuaVirtualMachine
         {
             if (!metamethod.TryReadFunction(out var func))
             {
-                LuaRuntimeException.AttemptInvalidOperation(GetTracebacks(context), "call", metamethod);
+                LuaRuntimeException.AttemptInvalidOperation(GetThreadWithCurrentPc(context), "call", metamethod);
             }
 
             var stack = context.Stack;
@@ -1479,7 +1476,7 @@ public static partial class LuaVirtualMachine
             return true;
         }
 
-        LuaRuntimeException.AttemptInvalidOperation(GetTracebacks(context), description, vb, vc);
+        LuaRuntimeException.AttemptInvalidOperation(GetThreadWithCurrentPc(context), description, vb, vc);
         return false;
     }
 
@@ -1494,7 +1491,7 @@ public static partial class LuaVirtualMachine
         {
             if (!metamethod.TryReadFunction(out var func))
             {
-                LuaRuntimeException.AttemptInvalidOperation(GetTracebacks(context), "call", metamethod);
+                LuaRuntimeException.AttemptInvalidOperation(GetThreadWithCurrentPc(context), "call", metamethod);
             }
 
             stack.Push(vb);
@@ -1543,7 +1540,7 @@ public static partial class LuaVirtualMachine
             return true;
         }
 
-        LuaRuntimeException.AttemptInvalidOperation(GetTracebacks(context), description, vb);
+        LuaRuntimeException.AttemptInvalidOperation(GetThreadWithCurrentPc(context), description, vb);
         return true;
     }
 
@@ -1560,7 +1557,7 @@ public static partial class LuaVirtualMachine
         {
             if (!metamethod.TryReadFunction(out var func))
             {
-                LuaRuntimeException.AttemptInvalidOperation(GetTracebacks(context), "call", metamethod);
+                LuaRuntimeException.AttemptInvalidOperation(GetThreadWithCurrentPc(context), "call", metamethod);
             }
 
             var stack = context.Stack;
@@ -1622,7 +1619,7 @@ public static partial class LuaVirtualMachine
                 (vb, vc) = (vc, vb);
             }
 
-            LuaRuntimeException.AttemptInvalidOperation(GetTracebacks(context), description, vb, vc);
+            LuaRuntimeException.AttemptInvalidOperation(GetThreadWithCurrentPc(context), description, vb, vc);
         }
         else
         {
@@ -1699,7 +1696,7 @@ public static partial class LuaVirtualMachine
             argumentCount -= variableArgumentCount;
             variableArgumentCount = 0;
         }
-        
+
         if (variableArgumentCount == 0)
         {
             return (argumentCount, 0);
@@ -1750,18 +1747,17 @@ public static partial class LuaVirtualMachine
         return PrepareVariableArgument(thread.Stack, newBase, argumentCount, variableArgumentCount);
     }
 
-    static Traceback GetTracebacks(VirtualMachineExecutionContext context)
+    static LuaThread GetThreadWithCurrentPc(VirtualMachineExecutionContext context)
     {
-        return GetTracebacks(context.Thread, context.Pc);
+        GetThreadWithCurrentPc(context.Thread, context.Pc);
+        return context.Thread;
     }
 
-    static Traceback GetTracebacks(LuaThread thread, int pc)
+
+    static void GetThreadWithCurrentPc(LuaThread thread, int pc)
     {
         var frame = thread.GetCurrentFrame();
         thread.PushCallStackFrame(frame with { CallerInstructionIndex = pc });
-        var tracebacks = thread.GetTraceback();
-        thread.PopCallStackFrameWithStackPop();
-        return tracebacks;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

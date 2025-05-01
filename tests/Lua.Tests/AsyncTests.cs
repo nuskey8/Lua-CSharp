@@ -11,7 +11,7 @@ public class AsyncTests
     {
         state = LuaState.Create();
         state.OpenStandardLibraries();
-        var assert = state.Environment["assert"].Read<LuaFunction>() ;
+        var assert = state.Environment["assert"].Read<LuaFunction>();
         state.Environment["assert"] = new LuaFunction("wait",
             async (c, ct) =>
             {
@@ -19,9 +19,9 @@ public class AsyncTests
                 return await assert.InvokeAsync(c, ct);
             });
     }
-    
+
     [Test]
-    public  async Task Test_Async()
+    public async Task Test_Async()
     {
         var path = FileHelper.GetAbsolutePath("tests-lua/coroutine.lua");
         try

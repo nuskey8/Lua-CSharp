@@ -174,23 +174,23 @@ public sealed class StringLibrary
                     switch (c)
                     {
                         case '-':
-                            if (leftJustify) throw new LuaRuntimeException(context.Thread.GetTraceback(), "invalid format (repeated flags)");
+                            if (leftJustify) throw new LuaRuntimeException(context.Thread, "invalid format (repeated flags)");
                             leftJustify = true;
                             break;
                         case '+':
-                            if (plusSign) throw new LuaRuntimeException(context.Thread.GetTraceback(), "invalid format (repeated flags)");
+                            if (plusSign) throw new LuaRuntimeException(context.Thread, "invalid format (repeated flags)");
                             plusSign = true;
                             break;
                         case '0':
-                            if (zeroPadding) throw new LuaRuntimeException(context.Thread.GetTraceback(), "invalid format (repeated flags)");
+                            if (zeroPadding) throw new LuaRuntimeException(context.Thread, "invalid format (repeated flags)");
                             zeroPadding = true;
                             break;
                         case '#':
-                            if (alternateForm) throw new LuaRuntimeException(context.Thread.GetTraceback(), "invalid format (repeated flags)");
+                            if (alternateForm) throw new LuaRuntimeException(context.Thread, "invalid format (repeated flags)");
                             alternateForm = true;
                             break;
                         case ' ':
-                            if (blank) throw new LuaRuntimeException(context.Thread.GetTraceback(), "invalid format (repeated flags)");
+                            if (blank) throw new LuaRuntimeException(context.Thread, "invalid format (repeated flags)");
                             blank = true;
                             break;
                         default:
@@ -208,7 +208,7 @@ public sealed class StringLibrary
                 {
                     i++;
                     if (char.IsDigit(format[i])) i++;
-                    if (char.IsDigit(format[i])) throw new LuaRuntimeException(context.Thread.GetTraceback(), "invalid format (width or precision too long)");
+                    if (char.IsDigit(format[i])) throw new LuaRuntimeException(context.Thread, "invalid format (width or precision too long)");
                     width = int.Parse(format.AsSpan()[start..i]);
                 }
 
@@ -219,7 +219,7 @@ public sealed class StringLibrary
                     start = i;
                     if (char.IsDigit(format[i])) i++;
                     if (char.IsDigit(format[i])) i++;
-                    if (char.IsDigit(format[i])) throw new LuaRuntimeException(context.Thread.GetTraceback(), "invalid format (width or precision too long)");
+                    if (char.IsDigit(format[i])) throw new LuaRuntimeException(context.Thread, "invalid format (width or precision too long)");
                     precision = int.Parse(format.AsSpan()[start..i]);
                 }
 
@@ -228,7 +228,7 @@ public sealed class StringLibrary
 
                 if (context.ArgumentCount <= parameterIndex)
                 {
-                    throw new LuaRuntimeException(context.Thread.GetTraceback(), $"bad argument #{parameterIndex + 1} to 'format' (no value)");
+                    throw new LuaRuntimeException(context.Thread, $"bad argument #{parameterIndex + 1} to 'format' (no value)");
                 }
 
                 var parameter = context.GetArgument(parameterIndex++);
@@ -243,7 +243,7 @@ public sealed class StringLibrary
                     case 'G':
                         if (!parameter.TryRead<double>(out var f))
                         {
-                            LuaRuntimeException.BadArgument(context.Thread.GetTraceback(), parameterIndex + 1, "format", LuaValueType.Number.ToString(), parameter.Type.ToString());
+                            LuaRuntimeException.BadArgument(context.Thread, parameterIndex + 1, "format", LuaValueType.Number.ToString(), parameter.Type.ToString());
                         }
 
                         switch (specifier)
@@ -324,7 +324,7 @@ public sealed class StringLibrary
                     case 'X':
                         if (!parameter.TryRead<double>(out var x))
                         {
-                            LuaRuntimeException.BadArgument(context.Thread.GetTraceback(), parameterIndex + 1, "format", LuaValueType.Number.ToString(), parameter.Type.ToString());
+                            LuaRuntimeException.BadArgument(context.Thread, parameterIndex + 1, "format", LuaValueType.Number.ToString(), parameter.Type.ToString());
                         }
 
                         LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.Thread, "format", parameterIndex + 1, x);
@@ -382,7 +382,7 @@ public sealed class StringLibrary
 
                         break;
                     default:
-                        throw new LuaRuntimeException(context.Thread.GetTraceback(), $"invalid option '%{specifier}' to 'format'");
+                        throw new LuaRuntimeException(context.Thread, $"invalid option '%{specifier}' to 'format'");
                 }
 
                 // Apply blank (' ') flag for positive numbers
@@ -519,7 +519,7 @@ public sealed class StringLibrary
             }
             else
             {
-                throw new LuaRuntimeException(context.Thread.GetTraceback(), "bad argument #3 to 'gsub' (string/function/table expected)");
+                throw new LuaRuntimeException(context.Thread, "bad argument #3 to 'gsub' (string/function/table expected)");
             }
 
             if (result.TryRead<string>(out var rs))
@@ -537,7 +537,7 @@ public sealed class StringLibrary
             }
             else
             {
-                throw new LuaRuntimeException(context.Thread.GetTraceback(), $"invalid replacement value (a {result.Type})");
+                throw new LuaRuntimeException(context.Thread, $"invalid replacement value (a {result.Type})");
             }
 
             lastIndex = match.Index + match.Length;

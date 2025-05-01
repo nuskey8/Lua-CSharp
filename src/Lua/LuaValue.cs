@@ -596,7 +596,7 @@ public readonly struct LuaValue : IEquatable<LuaValue>
         {
             if (!metamethod.TryReadFunction(out var func))
             {
-                LuaRuntimeException.AttemptInvalidOperation(context.Thread.GetTraceback(), "call", metamethod);
+                LuaRuntimeException.AttemptInvalidOperation(context.Thread, "call", metamethod);
             }
 
             var stack = context.Thread.Stack;

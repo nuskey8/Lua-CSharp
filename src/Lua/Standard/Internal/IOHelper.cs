@@ -12,7 +12,7 @@ internal static class IOHelper
             "r" or "rb" or "r+" or "r+b" => FileMode.Open,
             "w" or "wb" or "w+" or "w+b" => FileMode.Create,
             "a" or "ab" or "a+" or "a+b" => FileMode.Append,
-            _ => throw new LuaRuntimeException(thread.GetTraceback(), "bad argument #2 to 'open' (invalid mode)"),
+            _ => throw new LuaRuntimeException(thread, "bad argument #2 to 'open' (invalid mode)"),
         };
 
         var fileAccess = mode switch
@@ -64,7 +64,7 @@ internal static class IOHelper
                 }
                 else
                 {
-                    LuaRuntimeException.BadArgument(context.Thread.GetTraceback(), i + 1, name);
+                    LuaRuntimeException.BadArgument(context.Thread, i + 1, name);
                 }
             }
         }
@@ -142,7 +142,7 @@ internal static class IOHelper
                 }
                 else
                 {
-                    LuaRuntimeException.BadArgument(thread.GetTraceback(), i + 1, name);
+                    LuaRuntimeException.BadArgument(thread, i + 1, name);
                 }
             }
 

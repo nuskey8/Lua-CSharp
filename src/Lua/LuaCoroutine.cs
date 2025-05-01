@@ -120,8 +120,7 @@ public sealed class LuaCoroutine : LuaThread, IValueTaskSource<LuaCoroutine.Yiel
                     }
                     else
                     {
-                        if (baseThread != null) throw new LuaRuntimeException(baseThread.GetTraceback(), "cannot resume non-suspended coroutine");
-                        else throw new LuaException("cannot resume non-suspended coroutine");
+                        throw new LuaRuntimeException(baseThread, "cannot resume non-suspended coroutine");
                     }
                 case LuaThreadStatus.Dead:
                     if (IsProtectedMode)
@@ -133,8 +132,7 @@ public sealed class LuaCoroutine : LuaThread, IValueTaskSource<LuaCoroutine.Yiel
                     }
                     else
                     {
-                        if (baseThread != null) throw new LuaRuntimeException(baseThread.GetTraceback(), "cannot resume dead coroutine");
-                        else throw new LuaException("cannot resume dead coroutine");
+                        throw new LuaRuntimeException(baseThread, "cannot resume dead coroutine");
                     }
             }
 
@@ -189,7 +187,12 @@ public sealed class LuaCoroutine : LuaThread, IValueTaskSource<LuaCoroutine.Yiel
             {
                 if (IsProtectedMode)
                 {
-                    traceback = (ex as LuaRuntimeException)?.LuaTraceback;
+                    if (ex is LuaRuntimeException luaRuntimeException)
+                    {
+                        luaRuntimeException.BuildWithPop(0);
+                        traceback = luaRuntimeException.LuaTraceback;
+                    }
+
                     Volatile.Write(ref status, (byte)LuaThreadStatus.Dead);
                     ReleaseCore();
                     stack.PopUntil(returnBase);
@@ -233,19 +236,14 @@ public sealed class LuaCoroutine : LuaThread, IValueTaskSource<LuaCoroutine.Yiel
     {
         if (Volatile.Read(ref status) != (byte)LuaThreadStatus.Running)
         {
-            if (baseThread != null)
-            {
-                throw new LuaRuntimeException(baseThread.GetTraceback(), "cannot yield from a non-running coroutine");
-            }
-
-            throw new LuaException("cannot call yield on a coroutine that is not currently running");
+            throw new LuaRuntimeException(baseThread, "cannot yield from a non-running coroutine");
         }
 
         if (baseThread != null)
         {
             if (baseThread.GetCallStackFrames()[^2].Function is not LuaClosure)
             {
-                throw new LuaRuntimeException(baseThread.GetTraceback(), "attempt to yield across a C#-call boundary");
+                throw new LuaRuntimeException(baseThread, "attempt to yield across a C#-call boundary");
             }
         }
 

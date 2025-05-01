@@ -71,7 +71,7 @@ public sealed class BasicLibrary
                 message = context.GetArgument<string>(1);
             }
 
-            throw new LuaAssertionException(context.Thread.GetTraceback(), message);
+            throw new LuaAssertionException(context.Thread, message);
         }
 
         return new(context.Return(context.Arguments));
@@ -100,8 +100,7 @@ public sealed class BasicLibrary
             ? LuaValue.Nil
             : context.Arguments[0];
 
-        var traceback = context.Thread.GetTraceback();
-        throw new LuaRuntimeException(traceback, value);
+        throw new LuaRuntimeException(context.Thread, value);
     }
 
     public ValueTask<int> GetMetatable(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
@@ -136,7 +135,7 @@ public sealed class BasicLibrary
         {
             if (!metamethod.TryRead<LuaFunction>(out var function))
             {
-                LuaRuntimeException.AttemptInvalidOperation(context.Thread.GetTraceback(), "call", metamethod);
+                LuaRuntimeException.AttemptInvalidOperation(context.Thread, "call", metamethod);
             }
 
             return function.InvokeAsync(context, cancellationToken);
@@ -200,7 +199,7 @@ public sealed class BasicLibrary
             }
             else
             {
-                LuaRuntimeException.BadArgument(context.Thread.GetTraceback(), 1, "load");
+                LuaRuntimeException.BadArgument(context.Thread, 1, "load");
                 return default; // dummy
             }
         }
@@ -234,7 +233,7 @@ public sealed class BasicLibrary
         {
             if (!metamethod.TryRead<LuaFunction>(out var function))
             {
-                LuaRuntimeException.AttemptInvalidOperation(context.Thread.GetTraceback(), "call", metamethod);
+                LuaRuntimeException.AttemptInvalidOperation(context.Thread, "call", metamethod);
             }
 
             return function.InvokeAsync(context, cancellationToken);
@@ -245,6 +244,7 @@ public sealed class BasicLibrary
 
     public async ValueTask<int> PCall(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
+        var frameCount = context.Thread.CallStack.Count;
         var arg0 = context.GetArgument<LuaFunction>(0);
         try
         {
@@ -255,6 +255,7 @@ public sealed class BasicLibrary
         }
         catch (Exception ex)
         {
+            context.Thread.CallStack.PopUntil(frameCount);
             if (ex is LuaRuntimeException luaEx)
             {
                 return context.Return(false, luaEx.ErrorObject);
@@ -308,7 +309,7 @@ public sealed class BasicLibrary
         }
         else
         {
-            LuaRuntimeException.BadArgument(context.Thread.GetTraceback(), 2, "rawlen", [LuaValueType.String, LuaValueType.Table]);
+            LuaRuntimeException.BadArgument(context.Thread, 2, "rawlen", [LuaValueType.String, LuaValueType.Table]);
             return default;
         }
     }
@@ -331,7 +332,7 @@ public sealed class BasicLibrary
         {
             if (Math.Abs(index) > context.ArgumentCount)
             {
-                throw new LuaRuntimeException(context.Thread.GetTraceback(), "bad argument #1 to 'select' (index out of range)");
+                throw new LuaRuntimeException(context.Thread, "bad argument #1 to 'select' (index out of range)");
             }
 
             var span = index >= 0
@@ -346,7 +347,7 @@ public sealed class BasicLibrary
         }
         else
         {
-            LuaRuntimeException.BadArgument(context.Thread.GetTraceback(), 1, "select", "number", arg0.Type.ToString());
+            LuaRuntimeException.BadArgument(context.Thread, 1, "select", "number", arg0.Type.ToString());
             return default;
         }
     }
@@ -358,12 +359,12 @@ public sealed class BasicLibrary
 
         if (arg1.Type is not (LuaValueType.Nil or LuaValueType.Table))
         {
-            LuaRuntimeException.BadArgument(context.Thread.GetTraceback(), 2, "setmetatable", [LuaValueType.Nil, LuaValueType.Table]);
+            LuaRuntimeException.BadArgument(context.Thread, 2, "setmetatable", [LuaValueType.Nil, LuaValueType.Table]);
         }
 
         if (arg0.Metatable != null && arg0.Metatable.TryGetValue(Metamethods.Metatable, out _))
         {
-            throw new LuaRuntimeException(context.Thread.GetTraceback(), "cannot change a protected metatable");
+            throw new LuaRuntimeException(context.Thread, "cannot change a protected metatable");
         }
         else if (arg1.Type is LuaValueType.Nil)
         {
@@ -387,7 +388,7 @@ public sealed class BasicLibrary
 
         if (toBase != null && (toBase < 2 || toBase > 36))
         {
-            throw new LuaRuntimeException(context.Thread.GetTraceback(), "bad argument #2 to 'tonumber' (base out of range)");
+            throw new LuaRuntimeException(context.Thread, "bad argument #2 to 'tonumber' (base out of range)");
         }
 
         double? value = null;
@@ -543,6 +544,7 @@ public sealed class BasicLibrary
 
     public async ValueTask<int> XPCall(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
+        var frameCount = context.Thread.CallStack.Count;
         var arg0 = context.GetArgument<LuaFunction>(0);
         var arg1 = context.GetArgument<LuaFunction>(1);
 
@@ -555,6 +557,7 @@ public sealed class BasicLibrary
         }
         catch (Exception ex)
         {
+            context.Thread.CallStack.PopUntil(frameCount);
             var error = ex is LuaRuntimeException luaEx ? luaEx.ErrorObject : ex.Message;
 
             context.Thread.Push(error);

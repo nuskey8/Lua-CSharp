@@ -34,7 +34,7 @@ internal static class DateTimeHelper
             {
                 if (required)
                 {
-                    throw new LuaRuntimeException(thread.GetTraceback(), $"field '{key}' missing in date table");
+                    throw new LuaRuntimeException(thread, $"field '{key}' missing in date table");
                 }
                 else
                 {
@@ -47,7 +47,7 @@ internal static class DateTimeHelper
                 return (int)d;
             }
 
-            throw new LuaRuntimeException(thread.GetTraceback(), $"field '{key}' is not an integer");
+            throw new LuaRuntimeException(thread, $"field '{key}' is not an integer");
         }
 
         var day = GetTimeField(thread, table, "day");
@@ -186,7 +186,7 @@ internal static class DateTimeHelper
             }
             else
             {
-                throw new LuaRuntimeException(thread.GetTraceback(), $"bad argument #1 to 'date' (invalid conversion specifier '{format.ToString()}')");
+                throw new LuaRuntimeException(thread, $"bad argument #1 to 'date' (invalid conversion specifier '{format.ToString()}')");
             }
         }
 

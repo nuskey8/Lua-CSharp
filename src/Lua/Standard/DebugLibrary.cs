@@ -277,7 +277,7 @@ public class DebugLibrary
 
         if (arg1.Type is not (LuaValueType.Nil or LuaValueType.Table))
         {
-            LuaRuntimeException.BadArgument(context.Thread.GetTraceback(), 2, "setmetatable", [LuaValueType.Nil, LuaValueType.Table]);
+            LuaRuntimeException.BadArgument(context.Thread, 2, "setmetatable", [LuaValueType.Nil, LuaValueType.Table]);
         }
 
         context.State.SetMetatable(arg0, arg1.UnsafeRead<LuaTable>());

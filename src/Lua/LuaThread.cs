@@ -22,7 +22,7 @@ public abstract class LuaThread
 
     public virtual ValueTask<int> YieldAsync(LuaFunctionExecutionContext context, CancellationToken cancellationToken = default)
     {
-        throw new LuaRuntimeException(context.Thread.GetTraceback(), "attempt to yield from outside a coroutine");
+        throw new LuaRuntimeException(context.Thread, "attempt to yield from outside a coroutine");
     }
 
     internal class ThreadCoreData : IPoolNode<ThreadCoreData>
@@ -109,6 +109,11 @@ public abstract class LuaThread
             }, cancellationToken);
 
             return Stack.Count;
+        }
+        catch (LuaRuntimeException e)
+        {
+            e.BuildWithPop(0);
+            throw;
         }
         finally
         {

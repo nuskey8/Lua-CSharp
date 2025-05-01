@@ -68,7 +68,7 @@ public sealed class TableLibrary
             }
             else
             {
-                throw new LuaRuntimeException(context.Thread.GetTraceback(), $"invalid value ({value.Type}) at index {i} in table for 'concat'");
+                throw new LuaRuntimeException(context.Thread, $"invalid value ({value.Type}) at index {i} in table for 'concat'");
             }
 
             if (i != arg3) builder.Append(arg1);
@@ -95,7 +95,7 @@ public sealed class TableLibrary
 
         if (pos <= 0 || pos > table.ArrayLength + 1)
         {
-            throw new LuaRuntimeException(context.Thread.GetTraceback(), "bad argument #2 to 'insert' (position out of bounds)");
+            throw new LuaRuntimeException(context.Thread, "bad argument #2 to 'insert' (position out of bounds)");
         }
 
         table.Insert(pos, value);
@@ -135,7 +135,7 @@ public sealed class TableLibrary
                 return new(context.Return(LuaValue.Nil));
             }
 
-            throw new LuaRuntimeException(context.Thread.GetTraceback(), "bad argument #2 to 'remove' (position out of bounds)");
+            throw new LuaRuntimeException(context.Thread, "bad argument #2 to 'remove' (position out of bounds)");
         }
         else if (n > table.ArrayLength)
         {

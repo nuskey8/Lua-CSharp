@@ -197,7 +197,7 @@ public class FileHandle : ILuaUserData
 
         if (whence is not ("set" or "cur" or "end"))
         {
-            throw new LuaRuntimeException(context.Thread.GetTraceback(), $"bad argument #2 to 'seek' (invalid option '{whence}')");
+            throw new LuaRuntimeException(context.Thread, $"bad argument #2 to 'seek' (invalid option '{whence}')");
         }
 
         try

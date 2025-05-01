@@ -137,11 +137,11 @@ public static partial class LuaVirtualMachine
             {
                 context.Thread.IsInHook = true;
                 await hook.Func(funcContext, cancellationToken);
+                context.Thread.PopCallStackFrameWithStackPop();
             }
             finally
             {
                 context.Thread.IsInHook = false;
-                context.Thread.PopCallStackFrameWithStackPop();
             }
         }
 

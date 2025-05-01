@@ -22,18 +22,14 @@ public class LuaFunction(string name, Func<LuaFunctionExecutionContext, Cancella
 
         var frame = new CallStackFrame { Base = context.FrameBase, VariableArgumentCount = varArgumentCount, Function = this, ReturnBase = context.ReturnFrameBase };
         context.Thread.PushCallStackFrame(frame);
-        try
-        {
-            if (context.Thread.CallOrReturnHookMask.Value != 0 && !context.Thread.IsInHook)
-            {
-                return await LuaVirtualMachine.ExecuteCallHook(context, cancellationToken);
-            }
 
-            return await Func(context, cancellationToken);
-        }
-        finally
+        if (context.Thread.CallOrReturnHookMask.Value != 0 && !context.Thread.IsInHook)
         {
-            context.Thread.PopCallStackFrame();
+            return await LuaVirtualMachine.ExecuteCallHook(context, cancellationToken);
         }
+
+        var r = await Func(context, cancellationToken);
+        context.Thread.PopCallStackFrame();
+        return r;
     }
 }

@@ -129,5 +129,4 @@ public static class LuaThreadExtensions
         var coreData = thread.CoreData!;
         coreData!.CallStack.Pop();
     }
-    
 }

@@ -262,7 +262,7 @@ partial class LuaObjectGenerator
                     {
                         if (propertyMetadata.IsReadOnly)
                         {
-                            builder.AppendLine($@"throw new global::Lua.LuaRuntimeException(context.Thread.GetTraceback(), $""'{{key}}' cannot overwrite."");");
+                            builder.AppendLine($@"throw new global::Lua.LuaRuntimeException(context.Thread, $""'{{key}}' cannot overwrite."");");
                         }
                         else if (propertyMetadata.IsStatic)
                         {
@@ -284,7 +284,7 @@ partial class LuaObjectGenerator
 
                     using (builder.BeginIndentScope())
                     {
-                        builder.AppendLine($@"throw new global::Lua.LuaRuntimeException(context.Thread.GetTraceback(), $""'{{key}}' cannot overwrite."");");
+                        builder.AppendLine($@"throw new global::Lua.LuaRuntimeException(context.Thread, $""'{{key}}' cannot overwrite."");");
                     }
                 }
 
@@ -292,7 +292,7 @@ partial class LuaObjectGenerator
 
                 using (builder.BeginIndentScope())
                 {
-                    builder.AppendLine(@$"throw new global::Lua.LuaRuntimeException(context.Thread.GetTraceback(), $""'{{key}}' not found."");");
+                    builder.AppendLine(@$"throw new global::Lua.LuaRuntimeException(context.Thread, $""'{{key}}' not found."");");
                 }
             }
 

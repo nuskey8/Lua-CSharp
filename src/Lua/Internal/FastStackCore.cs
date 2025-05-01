@@ -83,6 +83,12 @@ public struct FastStackCore<T>
         return result;
     }
 
+    public void PopUntil(int top)
+    {
+        tail = top;
+        array.AsSpan(top, tail).Clear();
+    }
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool TryPeek(out T value)
     {

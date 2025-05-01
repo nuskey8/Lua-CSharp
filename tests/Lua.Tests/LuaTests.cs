@@ -43,7 +43,7 @@ public class LuaTests
         }
         catch (LuaRuntimeException e)
         {
-            var line = e.LuaTraceback.LastLine;
+            var line = e.LuaTraceback!.LastLine;
             throw new Exception($"{path}:line {line}\n{e.InnerException}\n {e}");
         }
     }
