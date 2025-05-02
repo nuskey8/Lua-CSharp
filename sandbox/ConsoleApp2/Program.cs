@@ -1,6 +1,7 @@
 ﻿using Lua.Runtime;
 using Lua;
 using Lua.Standard;
+using System;
 
 var state = LuaState.Create();
 state.OpenStandardLibraries();
