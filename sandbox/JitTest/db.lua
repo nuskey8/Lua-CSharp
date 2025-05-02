@@ -253,10 +253,10 @@ function foo()
 end; foo()  -- set L
 -- check line counting inside strings and empty lines
 
---_ = 'alo\  -- todo fix compiler bug Lua-CSharp
---alo' .. [[
---
---]]
+_ = 'alo\
+alo' .. [[
+
+]]
 --[[
 ]]
 assert(debug.getinfo(1, "l").currentline == L+11)  -- check count of lines

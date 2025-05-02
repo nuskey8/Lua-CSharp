@@ -82,10 +82,7 @@ repeat
   assert(g.what == "Lua" and g.func == f and g.namewhat == "" and not g.name)
 
   function f (x, name)   -- local!
-    if not name then -- todo fix compiler bug Lua-CSharp
-        name = 'f'
-    end
-
+    name = name or 'f'
     local a = debug.getinfo(1)
     assert(a.name == name and a.namewhat == 'local')
     return x
@@ -256,10 +253,10 @@ function foo()
 end; foo()  -- set L
 -- check line counting inside strings and empty lines
 
---_ = 'alo\  -- todo fix compiler bug Lua-CSharp
---alo' .. [[
---
---]]
+_ = 'alo\
+alo' .. [[
+
+]]
 --[[
 ]]
 assert(debug.getinfo(1, "l").currentline == L+11)  -- check count of lines
