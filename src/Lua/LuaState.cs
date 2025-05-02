@@ -159,6 +159,10 @@ public sealed class LuaState
             {
                 return new LuaClosure(MainThread, Parser.UnDump(chunk, chunkName), environment);
             }
+            if(chunk[0] == 0xef && chunk[1] == 0xbb && chunk[2] == 0xbf)
+            {
+                chunk= chunk[3..];
+            }
         }
 
         var charCount = Encoding.UTF8.GetCharCount(chunk);
