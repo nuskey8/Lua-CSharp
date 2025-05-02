@@ -15,6 +15,7 @@ var  luaState = LuaState.Create();
 luaState.OpenStandardLibraries();
 {
    await luaState.DoFileAsync((GetAbsolutePath("db.lua")));
+   await luaState.DoFileAsync((GetAbsolutePath("events.lua")));
 }
 
 var closure = luaState.Load(File.ReadAllBytes(GetAbsolutePath("test.lua")),"test.lua");

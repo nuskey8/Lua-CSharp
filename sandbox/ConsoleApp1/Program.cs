@@ -1,9 +1,10 @@
 using System.Runtime.CompilerServices;
-using Lua.CodeAnalysis.Compilation;
 using Lua.Runtime;
 using Lua;
 using Lua.Standard;
 using System.Text.RegularExpressions;
+using System;
+using System.IO;
 
 var state = LuaState.Create();
 state.OpenStandardLibraries();
