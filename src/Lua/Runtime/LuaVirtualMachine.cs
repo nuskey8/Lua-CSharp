@@ -340,31 +340,39 @@ public static partial class LuaVirtualMachine
                 switch (opCode)
                 {
                     case OpCode.Move:
+                        Markers.Move();
                         ref var stackHead = ref stack.FastGet(frameBase);
                         Unsafe.Add(ref stackHead, iA) = Unsafe.Add(ref stackHead, instruction.B);
                         stack.NotifyTop(iA + frameBase + 1);
                         continue;
                     case OpCode.LoadK:
+                        Markers.LoadK();
                         stack.GetWithNotifyTop(iA + frameBase) = Unsafe.Add(ref constHead, instruction.Bx);
                         continue;
                     case OpCode.LoadKX:
+                        Markers.LoadKX();
                         stack.GetWithNotifyTop(iA + frameBase) = Unsafe.Add(ref constHead, Unsafe.Add(ref instructionsHead, ++context.Pc).Ax);
                         continue;
                     case OpCode.LoadBool:
+                        Markers.LoadBool();
                         stack.GetWithNotifyTop(iA + frameBase) = instruction.B != 0;
                         if (instruction.C != 0) context.Pc++;
                         continue;
                     case OpCode.LoadNil:
+                        Markers.LoadNil();
                         var ra1 = iA + frameBase + 1;
                         var iB = instruction.B;
                         stack.GetBuffer().Slice(ra1 - 1, iB + 1).Clear();
                         stack.NotifyTop(ra1 + iB);
                         continue;
                     case OpCode.GetUpVal:
+                        Markers.GetUpVal();
                         stack.GetWithNotifyTop(iA + frameBase) = context.LuaClosure.GetUpValue(instruction.B);
                         continue;
                     case OpCode.GetTabUp:
                     case OpCode.GetTable:
+                        Markers.GetTabUp();
+                        Markers.GetTable();
                         stackHead = ref stack.FastGet(frameBase);
                         ref readonly var vc = ref RKC(ref stackHead, ref constHead, instruction);
                         ref readonly var vb = ref (instruction.OpCode == OpCode.GetTable ? ref Unsafe.Add(ref stackHead, instruction.B) : ref context.LuaClosure.GetUpValueRef(instruction.B));
@@ -379,6 +387,8 @@ public static partial class LuaVirtualMachine
                         return true;
                     case OpCode.SetTabUp:
                     case OpCode.SetTable:
+                        Markers.SetTabUp();
+                        Markers.SetTable();
                         stackHead = ref stack.FastGet(frameBase);
                         vb = ref RKB(ref stackHead, ref constHead, instruction);
                         if (vb.TryReadNumber(out var numB))
@@ -411,13 +421,15 @@ public static partial class LuaVirtualMachine
 
                         return true;
                     case OpCode.SetUpVal:
+                        Markers.SetUpVal();
                         context.LuaClosure.SetUpValue(instruction.B, stack.FastGet(iA + frameBase));
                         continue;
                     case OpCode.NewTable:
-
+                        Markers.NewTable();
                         stack.GetWithNotifyTop(iA + frameBase) = new LuaTable(instruction.B, instruction.C);
                         continue;
                     case OpCode.Self:
+                        Markers.Self();
                         stackHead = ref stack.FastGet(frameBase);
                         vc = ref RKC(ref stackHead, ref constHead, instruction);
                         table = Unsafe.Add(ref stackHead, instruction.B);
@@ -439,6 +451,12 @@ public static partial class LuaVirtualMachine
                     case OpCode.Div:
                     case OpCode.Mod:
                     case OpCode.Pow:
+                        Markers.Add();
+                        Markers.Sub();
+                        Markers.Mul();
+                        Markers.Div();
+                        Markers.Mod();
+                        Markers.Pow();
                         stackHead = ref stack.FastGet(frameBase);
                         vb = ref RKB(ref stackHead, ref constHead, instruction);
                         vc = ref RKC(ref stackHead, ref constHead, instruction);
@@ -492,6 +510,7 @@ public static partial class LuaVirtualMachine
 
                         return true;
                     case OpCode.Unm:
+                        Markers.Unm();
                         stackHead = ref stack.FastGet(frameBase);
                         vb = ref Unsafe.Add(ref stackHead, instruction.B);
 
@@ -511,12 +530,14 @@ public static partial class LuaVirtualMachine
 
                         return true;
                     case OpCode.Not:
+                        Markers.Not();
                         stackHead = ref stack.FastGet(frameBase);
                         Unsafe.Add(ref stackHead, iA) = !Unsafe.Add(ref stackHead, instruction.B).ToBoolean();
                         stack.NotifyTop(iA + frameBase + 1);
                         continue;
 
                     case OpCode.Len:
+                        Markers.Len();
                         stackHead = ref stack.FastGet(frameBase);
                         vb = ref Unsafe.Add(ref stackHead, instruction.B);
 
@@ -536,6 +557,7 @@ public static partial class LuaVirtualMachine
 
                         return true;
                     case OpCode.Concat:
+                        Markers.Concat();
                         if (Concat(context))
                         {
                             //if (doRestart) goto Restart;
@@ -544,6 +566,7 @@ public static partial class LuaVirtualMachine
 
                         return true;
                     case OpCode.Jmp:
+                        Markers.Jmp();
                         context.Pc += instruction.SBx;
 
                         if (iA != 0)
@@ -553,6 +576,7 @@ public static partial class LuaVirtualMachine
 
                         continue;
                     case OpCode.Eq:
+                        Markers.Eq();
                         stackHead = ref stack.Get(frameBase);
                         vb = ref RKB(ref stackHead, ref constHead, instruction);
                         vc = ref RKC(ref stackHead, ref constHead, instruction);
@@ -575,6 +599,8 @@ public static partial class LuaVirtualMachine
                         return true;
                     case OpCode.Lt:
                     case OpCode.Le:
+                        Markers.Lt();
+                        Markers.Le();
                         stackHead = ref stack.Get(frameBase);
                         vb = ref RKB(ref stackHead, ref constHead, instruction);
                         vc = ref RKC(ref stackHead, ref constHead, instruction);
@@ -610,6 +636,7 @@ public static partial class LuaVirtualMachine
 
                         return true;
                     case OpCode.Test:
+                        Markers.Test();
                         if (stack.Get(iA + frameBase).ToBoolean() != (instruction.C == 1))
                         {
                             context.Pc++;
@@ -617,6 +644,7 @@ public static partial class LuaVirtualMachine
 
                         continue;
                     case OpCode.TestSet:
+                        Markers.TestSet();
                         vb = ref stack.Get(instruction.B + frameBase);
                         if (vb.ToBoolean() != (instruction.C == 1))
                         {
@@ -630,6 +658,7 @@ public static partial class LuaVirtualMachine
                         continue;
 
                     case OpCode.Call:
+                        Markers.Call();
                         if (Call(context, out doRestart))
                         {
                             if (doRestart)
@@ -642,6 +671,7 @@ public static partial class LuaVirtualMachine
 
                         return true;
                     case OpCode.TailCall:
+                        Markers.TailCall();
                         if (TailCall(context, out doRestart))
                         {
                             if (doRestart) goto Restart;
@@ -651,6 +681,7 @@ public static partial class LuaVirtualMachine
 
                         return true;
                     case OpCode.Return:
+                        Markers.Return();
                         context.State.CloseUpValues(context.Thread, frameBase);
                         if (context.Pop(instruction, frameBase))
                         {
@@ -659,6 +690,7 @@ public static partial class LuaVirtualMachine
 
                         goto End;
                     case OpCode.ForLoop:
+                        Markers.ForLoop();
                         ref var indexRef = ref stack.Get(iA + frameBase);
                         var limit = Unsafe.Add(ref indexRef, 1).UnsafeReadDouble();
                         var step = Unsafe.Add(ref indexRef, 2).UnsafeReadDouble();
@@ -676,6 +708,7 @@ public static partial class LuaVirtualMachine
                         stack.NotifyTop(iA + frameBase + 1);
                         continue;
                     case OpCode.ForPrep:
+                        Markers.ForPrep();
                         indexRef = ref stack.Get(iA + frameBase);
 
                         if (!indexRef.TryReadDouble(out var init))
@@ -701,6 +734,7 @@ public static partial class LuaVirtualMachine
                         context.Pc += instruction.SBx;
                         continue;
                     case OpCode.TForCall:
+                        Markers.TForCall();
                         if (TForCall(context, out doRestart))
                         {
                             if (doRestart) goto Restart;
@@ -709,6 +743,7 @@ public static partial class LuaVirtualMachine
 
                         return true;
                     case OpCode.TForLoop:
+                        Markers.TForLoop();
                         ref var forState = ref stack.Get(iA + frameBase + 1);
 
                         if (forState.Type is not LuaValueType.Nil)
@@ -719,15 +754,18 @@ public static partial class LuaVirtualMachine
 
                         continue;
                     case OpCode.SetList:
+                        Markers.SetList();
                         SetList(context);
                         continue;
                     case OpCode.Closure:
+                        Markers.Closure();
                         ra1 = iA + frameBase + 1;
                         stack.EnsureCapacity(ra1);
                         stack.Get(ra1 - 1) = new LuaClosure(context.Thread, context.Prototype.ChildPrototypes[instruction.Bx]);
                         stack.NotifyTop(ra1);
                         continue;
                     case OpCode.VarArg:
+                        Markers.VarArg();
                         VarArg(context);
 
                         static void VarArg(VirtualMachineExecutionContext context)
