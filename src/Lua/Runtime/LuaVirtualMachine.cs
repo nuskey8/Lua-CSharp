@@ -347,6 +347,9 @@ public static partial class LuaVirtualMachine
                     case OpCode.LoadK:
                         stack.GetWithNotifyTop(iA + frameBase) = Unsafe.Add(ref constHead, instruction.Bx);
                         continue;
+                    case OpCode.LoadKX:
+                        stack.GetWithNotifyTop(iA + frameBase) = Unsafe.Add(ref constHead, Unsafe.Add(ref instructionsHead, ++context.Pc).Ax);
+                        continue;
                     case OpCode.LoadBool:
                         stack.GetWithNotifyTop(iA + frameBase) = instruction.B != 0;
                         if (instruction.C != 0) context.Pc++;
