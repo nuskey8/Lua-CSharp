@@ -1,5 +1,4 @@
 ﻿using Lua.Internal;
-using System.Diagnostics;
 using System.Globalization;
 using System.Text;
 using static System.Diagnostics.Debug;
@@ -178,7 +177,7 @@ internal struct Scanner
     public int SkipSeparator()
     {
         var (i, c) = (0, Current);
-        Debug.Assert(c == '[' || c == ']');
+        Assert(c == '[' || c == ']');
         for (SaveAndAdvance(); Current == '='; i++) SaveAndAdvance();
         if (Current == c) return i;
         return -i - 1;
@@ -289,15 +288,11 @@ internal struct Scanner
 
     public Token ReadNumber()
     {
-        const int bits64 = 64;
-        const int base10 = 10;
         var c = Current;
         Assert(IsDecimal(c));
         SaveAndAdvance();
         if (c == '0' && CheckNext("Xx")) // hexadecimal
         {
-            var prefix = Buffer.ToString();
-            Assert(prefix is "0x" or "0X");
             Buffer.Clear();
             var exponent = 0;
             (var fraction, c, var i) = ReadHexNumber(0);

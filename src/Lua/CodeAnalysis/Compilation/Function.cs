@@ -1,12 +1,12 @@
-﻿using Lua.Runtime;
+﻿using Lua.Internal;
+using Lua.Runtime;
 using System.Diagnostics;
 using Constants = Lua.Internal.Constants;
 
 namespace Lua.CodeAnalysis.Compilation;
 
 using static Debug;
-using static Lua.Runtime.Instruction;
-using Internal;
+using static Instruction;
 using static Constants;
 
 internal class Function : IPoolNode<Function>
@@ -20,7 +20,6 @@ internal class Function : IPoolNode<Function>
     public int FreeRegisterCount;
     public int ActiveVariableCount;
     public int FirstLocal;
-    internal Function() { }
 
     static LinkedPool<Function> pool;
 
@@ -376,12 +375,9 @@ internal class Function : IPoolNode<Function>
     {
         if (constant <= MaxArgBx)
             return EncodeABx(OpCode.LoadK, r, constant);
-        else
-        {
-            var pc = EncodeABx(OpCode.LoadK, r, 0);
-            EncodeExtraArg(constant);
-            return pc;
-        }
+        var pc = EncodeABx(OpCode.LoadK, r, 0);
+        EncodeExtraArg(constant);
+        return pc;
     }
 
 

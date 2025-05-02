@@ -26,7 +26,7 @@ internal unsafe struct Header
 
     public Header(bool isLittleEndian)
     {
-        fixed (byte* signature = this.Signature)
+        fixed (byte* signature = Signature)
         {
             LuaSignature.CopyTo(new(signature, 4));
         }
@@ -39,7 +39,7 @@ internal unsafe struct Header
         InstructionSize = 4;
         NumberSize = 8;
         IntegralNumber = 0;
-        fixed (byte* tail = this.Tail)
+        fixed (byte* tail = Tail)
         {
             LuaTail.CopyTo(new(tail, 6));
         }
@@ -47,7 +47,7 @@ internal unsafe struct Header
 
     public void Validate(ReadOnlySpan<char> name)
     {
-        fixed (byte* signature = this.Signature)
+        fixed (byte* signature = Signature)
         {
             if (!LuaSignature.SequenceEqual(new(signature, 4)))
             {
@@ -67,7 +67,7 @@ internal unsafe struct Header
             goto ErrIncompatible;
         }
 
-        fixed (byte* tail = this.Tail)
+        fixed (byte* tail = Tail)
         {
             if (!LuaTail.SequenceEqual(new(tail, 6)))
             {
@@ -463,7 +463,7 @@ internal unsafe ref struct UnDumpState(ReadOnlySpan<byte> span, ReadOnlySpan<cha
             var name = ReadString();
             var startPc = ReadInt();
             var endPc = ReadInt();
-            localVariables[i] = new LocalVariable() { Name = name, StartPc = startPc, EndPc = endPc };
+            localVariables[i] = new LocalVariable { Name = name, StartPc = startPc, EndPc = endPc };
         }
 
         return localVariables;
@@ -478,7 +478,7 @@ internal unsafe ref struct UnDumpState(ReadOnlySpan<byte> span, ReadOnlySpan<cha
         {
             var isLocal = ReadBool();
             var index = ReadByte();
-            upValues[i] = new UpValueDesc() { IsLocal = isLocal, Index = index };
+            upValues[i] = new UpValueDesc { IsLocal = isLocal, Index = index };
         }
 
         return upValues;
