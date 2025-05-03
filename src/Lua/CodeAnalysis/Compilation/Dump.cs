@@ -84,23 +84,23 @@ internal unsafe struct Header
 internal unsafe ref struct DumpState(IBufferWriter<byte> writer, bool reversedEndian)
 {
     public readonly IBufferWriter<byte> Writer = writer;
-    Span<byte> UnWritten;
+    Span<byte> unWritten;
 
     void Write(ReadOnlySpan<byte> span)
     {
         var toWrite = span;
-        var remaining = UnWritten.Length;
+        var remaining = unWritten.Length;
         if (span.Length > remaining)
         {
-            span[..remaining].CopyTo(UnWritten);
+            span[..remaining].CopyTo(unWritten);
             Writer.Advance(remaining);
             toWrite = span[remaining..];
-            UnWritten = Writer.GetSpan(toWrite.Length);
+            unWritten = Writer.GetSpan(toWrite.Length);
         }
 
-        toWrite.CopyTo(UnWritten);
+        toWrite.CopyTo(unWritten);
         Writer.Advance(toWrite.Length);
-        UnWritten = UnWritten[toWrite.Length..];
+        unWritten = unWritten[toWrite.Length..];
     }
 
     public bool IsReversedEndian => reversedEndian;
@@ -113,9 +113,9 @@ internal unsafe ref struct DumpState(IBufferWriter<byte> writer, bool reversedEn
 
     public void Dump(Prototype prototype)
     {
-        if (UnWritten.Length == 0)
+        if (unWritten.Length == 0)
         {
-            UnWritten = Writer.GetSpan(Header.Size + 32);
+            unWritten = Writer.GetSpan(Header.Size + 32);
         }
 
         DumpHeader();
@@ -230,7 +230,7 @@ internal unsafe ref struct DumpState(IBufferWriter<byte> writer, bool reversedEn
                     WriteDouble(c.UnsafeReadDouble());
                     break;
                 case LuaValueType.String:
-                    WriteString(c.UnsafeRead<string>()!);
+                    WriteString(c.UnsafeRead<string>());
                     break;
             }
         }

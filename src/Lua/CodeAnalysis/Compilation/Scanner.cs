@@ -23,14 +23,6 @@ internal struct Scanner
     public int T => Token.T;
 
 
-    static string ChunkID(string source)
-    {
-        var shortSourceBuffer = (stackalloc char[59]);
-        var len = LuaDebug.WriteShortSource(source, shortSourceBuffer);
-        return shortSourceBuffer[..len].ToString();
-    }
-
-
     public const int FirstReserved = ushort.MaxValue + 257;
     public const int EndOfStream = -1;
 
@@ -62,12 +54,12 @@ internal struct Scanner
     public const int TkConcat = TkWhile + 1;
     public const int TkDots = TkConcat + 1;
     public const int TkEq = TkDots + 1;
-    public const int TkGE = TkEq + 1;
-    public const int TkLE = TkGE + 1;
-    public const int TkNE = TkLE + 1;
-    public const int TkDoubleColon = TkNE + 1;
-    public const int TkEOS = TkDoubleColon + 1;
-    public const int TkNumber = TkEOS + 1;
+    public const int TkGe = TkEq + 1;
+    public const int TkLe = TkGe + 1;
+    public const int TkNe = TkLe + 1;
+    public const int TkDoubleColon = TkNe + 1;
+    public const int TkEos = TkDoubleColon + 1;
+    public const int TkNumber = TkEos + 1;
     public const int TkName = TkNumber + 1;
     public const int TkString = TkName + 1;
 
@@ -90,9 +82,9 @@ internal struct Scanner
     public void SyntaxError(string message) => ScanError(message, Token.T);
     public void ErrorExpected(char t) => SyntaxError(TokenToString(t) + " expected");
     public void NumberError() => ScanError("malformed number", TkNumber);
-    public static bool IsNewLine(int c) => c == '\n' || c == '\r';
+    public static bool IsNewLine(int c) => c is '\n' or '\r';
 
-    public static bool IsDecimal(int c) => '0' <= c && c <= '9';
+    public static bool IsDecimal(int c) => c is >= '0' and <= '9';
 
 
     public static string TokenToString(Token t) => t.T switch
@@ -100,7 +92,7 @@ internal struct Scanner
         TkName or TkString => t.S,
         TkNumber => $"{t.N}",
         < FirstReserved => $"{(char)t.T}", // TODO check for printable rune
-        < TkEOS => $"'{tokens[t.T - FirstReserved]}'",
+        < TkEos => $"'{tokens[t.T - FirstReserved]}'",
         _ => tokens[t.T - FirstReserved]
     };
 
@@ -109,7 +101,7 @@ internal struct Scanner
         TkName or TkString => Token.S,
         TkNumber => $"{Token.N}",
         < FirstReserved => $"{(char)t}", // TODO check for printable rune
-        < TkEOS => $"'{tokens[t - FirstReserved]}'",
+        < TkEos => $"'{tokens[t - FirstReserved]}'",
         _ => tokens[t - FirstReserved]
     };
 
@@ -123,9 +115,10 @@ internal struct Scanner
 
     public void ScanError(string message, int token)
     {
-        var buff = ChunkID(Source);
-        if (token != 0) message = $"{buff}:{LineNumber}: {message} near {TokenToString(token)}";
-        else message = $"{buff}:{LineNumber}: {message}";
+        var shortSourceBuffer = (stackalloc char[59]);
+        var len = LuaDebug.WriteShortSource(Source, shortSourceBuffer);
+        var buff = shortSourceBuffer[..len].ToString();
+        message = token != 0 ? $"{buff}:{LineNumber}: {message} near {TokenToString(token)}" : $"{buff}:{LineNumber}: {message}";
         throw new LuaScanException(message);
     }
 
@@ -177,7 +170,7 @@ internal struct Scanner
     public int SkipSeparator()
     {
         var (i, c) = (0, Current);
-        Assert(c == '[' || c == ']');
+        Assert(c is '[' or ']');
         for (SaveAndAdvance(); Current == '='; i++) SaveAndAdvance();
         if (Current == c) return i;
         return -i - 1;
@@ -197,14 +190,7 @@ internal struct Scanner
             switch (Current)
             {
                 case EndOfStream:
-                    if (comment)
-                    {
-                        ScanError("unfinished long comment", TkEOS);
-                    }
-                    else
-                    {
-                        ScanError("unfinished long string", TkEOS);
-                    }
+                    ScanError(comment ? "unfinished long comment" : "unfinished long string", TkEos);
 
                     break;
                 case ']':
@@ -488,7 +474,7 @@ internal struct Scanner
             switch (Current)
             {
                 case EndOfStream:
-                    ScanError("unfinished string", TkEOS);
+                    ScanError("unfinished string", TkEos);
                     break;
                 case '\n' or '\r':
                     ScanError("unfinished string", TkString);
@@ -660,7 +646,7 @@ internal struct Scanner
                     }
 
                     Advance();
-                    return new() { T = TkLE };
+                    return new() { T = TkLe };
                 case '>':
                     Advance();
                     if (Current != '=')
@@ -669,7 +655,7 @@ internal struct Scanner
                     }
 
                     Advance();
-                    return new() { T = TkGE };
+                    return new() { T = TkGe };
                 case '~':
                     Advance();
                     if (Current != '=')
@@ -678,7 +664,7 @@ internal struct Scanner
                     }
 
                     Advance();
-                    return new() { T = TkNE };
+                    return new() { T = TkNe };
                 case ':':
                     Advance();
                     if (Current != ':')
@@ -692,7 +678,7 @@ internal struct Scanner
                 case '\'':
                     return ReadString();
                 case EndOfStream:
-                    return new() { T = TkEOS };
+                    return new() { T = TkEos };
                 case '.':
                     SaveAndAdvance();
                     if (CheckNext("."))
@@ -745,10 +731,10 @@ internal struct Scanner
     public void Next()
     {
         LastLine = LineNumber;
-        if (LookAheadToken.T != TkEOS)
+        if (LookAheadToken.T != TkEos)
         {
             Token = LookAheadToken;
-            LookAheadToken.T = TkEOS;
+            LookAheadToken.T = TkEos;
         }
         else
         {
@@ -759,7 +745,7 @@ internal struct Scanner
 
     public int LookAhead()
     {
-        Assert(LookAheadToken.T == TkEOS);
+        Assert(LookAheadToken.T == TkEos);
         LookAheadToken = Scan();
         return LookAheadToken.T;
     }
@@ -801,11 +787,11 @@ internal struct Scanner
         }
     }
 
-    static bool IsWhiteSpace(int c) => c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\f' || c == '\v';
+    static bool IsWhiteSpace(int c) => c is ' ' or '\t' or '\n' or '\r' or '\f' or '\v';
     static bool IsDigit(int c) => c is >= '0' and <= '9';
 
     static bool IsLetter(int c)
     {
-        return c < ushort.MaxValue && c is '_' or >= 'a' and <= 'z' or >= 'A' and <= 'Z';
+        return c is < ushort.MaxValue and ('_' or >= 'a' and <= 'z' or >= 'A' and <= 'Z');
     }
 }

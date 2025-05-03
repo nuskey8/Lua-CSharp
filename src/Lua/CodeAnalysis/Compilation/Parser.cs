@@ -360,17 +360,17 @@ internal class Parser : IPoolNode<Parser>, IDisposable
                 return OprPow;
             case TkConcat:
                 return OprConcat;
-            case TkNE:
+            case TkNe:
                 return OprNE;
             case TkEq:
                 return OprEq;
             case '<':
                 return OprLT;
-            case TkLE:
+            case TkLe:
                 return OprLE;
             case '>':
                 return OprGT;
-            case TkGE:
+            case TkGe:
                 return OprGE;
             case TkAnd:
                 return OprAnd;
@@ -440,7 +440,7 @@ internal class Parser : IPoolNode<Parser>, IDisposable
             case TkElse:
             case TkElseif:
             case TkEnd:
-            case TkEOS:
+            case TkEos:
                 return true;
             case TkUntil:
                 return withUntil;
@@ -966,7 +966,7 @@ internal class Parser : IPoolNode<Parser>, IDisposable
         Function.OpenMainFunction();
         Next();
         StatementList();
-        Scanner.Check(TkEOS);
+        Scanner.Check(TkEos);
         Function = Function.CloseMainFunction();
     }
 
@@ -977,7 +977,7 @@ internal class Parser : IPoolNode<Parser>, IDisposable
             R = r,
             LineNumber = 1,
             LastLine = 1,
-            LookAheadToken = new() { T = TkEOS },
+            LookAheadToken = new() { T = TkEos },
             L = l,
             Buffer = new(),
             Source = name

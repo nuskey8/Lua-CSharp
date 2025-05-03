@@ -3,29 +3,29 @@ using System.Runtime.CompilerServices;
 
 namespace Lua.CodeAnalysis.Compilation;
 
-unsafe struct TextReader(char* Ptr, int Length)
+unsafe struct TextReader(char* ptr, int length)
 {
     public int Position;
 
     public (char, bool) Read()
     {
-        if (Position >= Length) return ('\0', false);
-        return (Ptr[Position++], true);
+        if (Position >= length) return ('\0', false);
+        return (ptr[Position++], true);
     }
 
     public bool TryRead(out char c)
     {
-        if (Position >= Length)
+        if (Position >= length)
         {
             c = '\0';
             return false;
         }
 
-        c = Ptr[Position++];
+        c = ptr[Position++];
         return true;
     }
 
-    public char Current => Ptr[Position];
+    public char Current => ptr[Position];
 }
 
 internal unsafe struct AssignmentTarget(ref AssignmentTarget previous, ExprDesc exprDesc)
@@ -50,11 +50,11 @@ internal class Block : IPoolNode<Block>
     Block() { }
     ref Block? IPoolNode<Block>.NextNode => ref Previous;
 
-    static LinkedPool<Block> pool;
+    static LinkedPool<Block> Pool;
 
     public static Block Get(Block? previous, int firstLabel, int firstGoto, int activeVariableCount, bool hasUpValue, bool isLoop)
     {
-        if (!pool.TryPop(out var block))
+        if (!Pool.TryPop(out var block))
         {
             block = new Block();
         }
@@ -73,7 +73,7 @@ internal class Block : IPoolNode<Block>
     public void Release()
     {
         Previous = null;
-        pool.TryPush(this);
+        Pool.TryPush(this);
     }
 }
 

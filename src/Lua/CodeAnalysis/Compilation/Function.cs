@@ -117,7 +117,7 @@ internal class Function : IPoolNode<Function>
 
     public ExprDesc CloseFunction()
     {
-        var e = P.Function!.Previous!.ExpressionToNextRegister(MakeExpression(Kind.Relocatable, Previous!.EncodeABx(OpCode.Closure, 0, Previous!.Proto.PrototypeList.Length - 1)));
+        var e = P.Function.Previous!.ExpressionToNextRegister(MakeExpression(Kind.Relocatable, Previous!.EncodeABx(OpCode.Closure, 0, Previous!.Proto.PrototypeList.Length - 1)));
         P.Function.ReturnNone();
         P.Function.LeaveBlock();
         Assert(P.Function.Block == null);
@@ -238,7 +238,7 @@ internal class Function : IPoolNode<Function>
 
     public void CheckRepeatedLabel(string name)
     {
-        foreach (var l in P.ActiveLabels.AsSpan().Slice(Block!.FirstLabel))
+        foreach (var l in P.ActiveLabels.AsSpan().Slice(Block.FirstLabel))
         {
             if (l.Name == name)
             {
@@ -250,7 +250,7 @@ internal class Function : IPoolNode<Function>
 
     public void FindGotos(int label)
     {
-        for (var i = Block!.FirstGoto; i < P.PendingGotos.Length;)
+        for (var i = Block.FirstGoto; i < P.PendingGotos.Length;)
         {
             var l = P.ActiveLabels[label];
             if (P.PendingGotos[i].Name == l.Name)

@@ -32,7 +32,7 @@ internal class PrototypeBuilder : IPoolNode<PrototypeBuilder>
         Source = source;
     }
 
-    static LinkedPool<PrototypeBuilder> pool;
+    static LinkedPool<PrototypeBuilder> Pool;
 
 
     PrototypeBuilder? nextNode;
@@ -40,7 +40,7 @@ internal class PrototypeBuilder : IPoolNode<PrototypeBuilder>
 
     internal static PrototypeBuilder Get(string source)
     {
-        if (!pool.TryPop(out var f))
+        if (!Pool.TryPop(out var f))
         {
             f = new PrototypeBuilder(source);
         }
@@ -57,7 +57,7 @@ internal class PrototypeBuilder : IPoolNode<PrototypeBuilder>
         LineInfoList.Clear();
         LocalVariablesList.Clear();
         UpValuesList.Clear();
-        pool.TryPush(this);
+        Pool.TryPush(this);
     }
 
 

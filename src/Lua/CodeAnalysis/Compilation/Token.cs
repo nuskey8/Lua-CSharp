@@ -12,6 +12,6 @@ internal struct Token
 
     public static implicit operator Token(int token)
     {
-        return new Token { T = token };
+        return new() { T = token };
     }
 }
