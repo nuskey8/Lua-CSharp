@@ -15,12 +15,8 @@ internal class PrototypeBuilder : IPoolNode<PrototypeBuilder>
     public ReadOnlySpan<int> LineInfo => LineInfoList.AsSpan();
     internal FastListCore<LocalVariable> LocalVariablesList;
     public ReadOnlySpan<LocalVariable> LocalVariables => LocalVariablesList.AsSpan();
-
     internal FastListCore<UpValueDesc> UpValuesList;
-
     public ReadOnlySpan<UpValueDesc> UpValues => UpValuesList.AsSpan();
-
-    //public LuaClosure Cache;
     public string Source;
     public int LineDefined, LastLineDefined;
     public int ParameterCount, MaxStackSize;
@@ -32,7 +28,7 @@ internal class PrototypeBuilder : IPoolNode<PrototypeBuilder>
         Source = source;
     }
 
-    static LinkedPool<PrototypeBuilder> Pool;
+    static LinkedPool<PrototypeBuilder> pool;
 
 
     PrototypeBuilder? nextNode;
@@ -40,7 +36,7 @@ internal class PrototypeBuilder : IPoolNode<PrototypeBuilder>
 
     internal static PrototypeBuilder Get(string source)
     {
-        if (!Pool.TryPop(out var f))
+        if (!pool.TryPop(out var f))
         {
             f = new PrototypeBuilder(source);
         }
@@ -57,9 +53,8 @@ internal class PrototypeBuilder : IPoolNode<PrototypeBuilder>
         LineInfoList.Clear();
         LocalVariablesList.Clear();
         UpValuesList.Clear();
-        Pool.TryPush(this);
+        pool.TryPush(this);
     }
-
 
     public Prototype CreatePrototypeAndRelease()
     {

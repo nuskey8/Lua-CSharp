@@ -51,7 +51,6 @@ public sealed class CoroutineLibrary
         }));
     }
 
-
     public ValueTask<int> Wrap(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
         var arg0 = context.GetArgument<LuaFunction>(0);

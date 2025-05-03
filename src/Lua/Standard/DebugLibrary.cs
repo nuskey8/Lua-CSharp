@@ -481,7 +481,6 @@ public class DebugLibrary
         return 0;
     }
 
-
     public ValueTask<int> GetHook(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
         var thread = GetLuaThread(context, out var argOffset);

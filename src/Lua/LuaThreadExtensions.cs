@@ -15,7 +15,6 @@ public static class LuaThreadExtensions
         return new(LuaCoroutine.Create(thread, function, isProtectedMode));
     }
 
-
     public static async ValueTask<int> DoStringAsync(this LuaThread thread, string source, Memory<LuaValue> buffer, string? chunkName = null, CancellationToken cancellationToken = default)
     {
         var closure = thread.State.Load(source, chunkName ?? source);
@@ -54,7 +53,6 @@ public static class LuaThreadExtensions
         return results.AsSpan().ToArray();
     }
 
-
     public static void Push(this LuaThread thread, LuaValue value)
     {
         thread.CoreData!.Stack.Push(value);
@@ -80,7 +78,6 @@ public static class LuaThreadExtensions
         var stack = thread.CoreData!.Stack;
         return new LuaReturnValuesReader(stack, stack.Count - argumentCount);
     }
-
 
     public static ref readonly CallStackFrame GetCurrentFrame(this LuaThread thread)
     {

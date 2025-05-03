@@ -50,7 +50,6 @@ internal class Function : IPoolNode<Function>
         pool.TryPush(this);
     }
 
-
     public const int OprMinus = 0;
 
     public const int OprNot = 1;
@@ -97,7 +96,6 @@ internal class Function : IPoolNode<Function>
 
     public const int OprNoBinary = 15;
 
-
     public void OpenFunction(int line)
     {
         var newProto = PrototypeBuilder.Get(P.Scanner.Source);
@@ -114,7 +112,6 @@ internal class Function : IPoolNode<Function>
         P.Function.EnterBlock(false);
     }
 
-
     public ExprDesc CloseFunction()
     {
         var e = P.Function.Previous!.ExpressionToNextRegister(MakeExpression(Kind.Relocatable, Previous!.EncodeABx(OpCode.Closure, 0, Previous!.Proto.PrototypeList.Length - 1)));
@@ -127,14 +124,12 @@ internal class Function : IPoolNode<Function>
         return e;
     }
 
-
     public void EnterBlock(bool isLoop)
     {
         var b = Block.Get(Block, P.ActiveLabels.Length, P.PendingGotos.Length, ActiveVariableCount, false, isLoop);
         Block = b;
         Assert(FreeRegisterCount == ActiveVariableCount);
     }
-
 
     public void UndefinedGotoError(Label g)
     {
@@ -148,13 +143,11 @@ internal class Function : IPoolNode<Function>
         }
     }
 
-
     public ref LocalVariable LocalVariable(int i)
     {
         var index = P.ActiveVariables[FirstLocal + i];
         return ref Proto.LocalVariablesList[index];
     }
-
 
     public void AdjustLocalVariables(int n)
     {
@@ -163,7 +156,6 @@ internal class Function : IPoolNode<Function>
             LocalVariable(ActiveVariableCount - n).StartPc = ((Proto.CodeList.Length));
         }
     }
-
 
     public void RemoveLocalVariables(int level)
     {
@@ -176,7 +168,6 @@ internal class Function : IPoolNode<Function>
         ActiveVariableCount = level;
     }
 
-
     public void MakeLocalVariable(string name)
     {
         var r = Proto.LocalVariablesList.Length;
@@ -185,20 +176,17 @@ internal class Function : IPoolNode<Function>
         P.ActiveVariables.Add(r);
     }
 
-
     public void MakeGoto(string name, int line, int pc)
     {
         P.PendingGotos.Add(new() { Name = name, Line = line, Pc = pc, ActiveVariableCount = ActiveVariableCount });
         FindLabel((P.PendingGotos.Length - 1));
     }
 
-
     public int MakeLabel(string name, int line)
     {
         P.ActiveLabels.Add(new() { Name = name, Line = line, Pc = Proto.CodeList.Length, ActiveVariableCount = ActiveVariableCount });
         return (P.ActiveLabels.Length - 1);
     }
-
 
     public void CloseGoto(int i, Label l)
     {
@@ -212,7 +200,6 @@ internal class Function : IPoolNode<Function>
         PatchList(g.Pc, l.Pc);
         P.PendingGotos.RemoveAtSwapBack(i);
     }
-
 
     public int FindLabel(int i)
     {
@@ -235,7 +222,6 @@ internal class Function : IPoolNode<Function>
         return 1;
     }
 
-
     public void CheckRepeatedLabel(string name)
     {
         foreach (var l in P.ActiveLabels.AsSpan().Slice(Block.FirstLabel))
@@ -246,7 +232,6 @@ internal class Function : IPoolNode<Function>
             }
         }
     }
-
 
     public void FindGotos(int label)
     {
@@ -280,7 +265,6 @@ internal class Function : IPoolNode<Function>
         }
     }
 
-
     public void LeaveBlock()
     {
         var b = Block;
@@ -313,7 +297,6 @@ internal class Function : IPoolNode<Function>
         b.Release();
     }
 
-
     public static int Not(int b) => b == 0 ? 1 : 0;
 
 
@@ -325,7 +308,6 @@ internal class Function : IPoolNode<Function>
         P.Scanner.Token.T = default;
         P.Scanner.SyntaxError(message);
     }
-
 
     public void BreakLabel() => FindGotos(MakeLabel("break", 0));
 
@@ -356,12 +338,10 @@ internal class Function : IPoolNode<Function>
         Proto.LineInfoList.Pop();
     }
 
-
     public int EncodeABC(OpCode op, int a, int b, int c)
     {
         return Encode(CreateABC(op, a, b, c));
     }
-
 
     public int EncodeABx(OpCode op, int a, int bx) => Encode(CreateABx(op, a, bx));
 
@@ -379,7 +359,6 @@ internal class Function : IPoolNode<Function>
         EncodeExtraArg(constant);
         return pc;
     }
-
 
     public ExprDesc EncodeString(string s) => MakeExpression(Kind.Constant, StringConstant(s));
 
@@ -408,7 +387,6 @@ internal class Function : IPoolNode<Function>
         EncodeABC(OpCode.LoadNil, from, n - 1, 0);
     }
 
-
     public int Jump()
     {
         Assert(IsJumpListWalkable(JumpPc));
@@ -431,7 +409,6 @@ internal class Function : IPoolNode<Function>
     {
         SetReturns(e, MultipleReturns);
     }
-
 
     public void Return(ExprDesc e, int resultCount)
     {
@@ -456,13 +433,11 @@ internal class Function : IPoolNode<Function>
         }
     }
 
-
     public int ConditionalJump(OpCode op, int a, int b, int c)
     {
         EncodeABC(op, a, b, c);
         return Jump();
     }
-
 
     public void FixJump(int pc, int dest)
     {
@@ -480,7 +455,6 @@ internal class Function : IPoolNode<Function>
         return LastTarget;
     }
 
-
     public int Jump(int pc)
     {
         Assert(IsJumpListWalkable(pc));
@@ -489,7 +463,6 @@ internal class Function : IPoolNode<Function>
             return pc + 1 + offset;
         return NoJump;
     }
-
 
     public bool IsJumpListWalkable(int list)
     {
@@ -501,14 +474,12 @@ internal class Function : IPoolNode<Function>
         return offset == NoJump || IsJumpListWalkable(list + 1 + offset);
     }
 
-
     public ref Instruction JumpControl(int pc)
     {
         if (pc >= 1 && TestTMode(Proto.CodeList[pc - 1].OpCode))
             return ref Proto.CodeList[pc - 1];
         return ref Proto.CodeList[pc];
     }
-
 
     public bool NeedValue(int list)
     {
@@ -521,7 +492,6 @@ internal class Function : IPoolNode<Function>
 
         return false;
     }
-
 
     public bool PatchTestRegister(int node, int register)
     {
@@ -543,7 +513,6 @@ internal class Function : IPoolNode<Function>
             PatchTestRegister(list, NoRegister);
         }
     }
-
 
     public void PatchListHelper(int list, int target, int register, int defaultTarget)
     {
@@ -597,7 +566,6 @@ internal class Function : IPoolNode<Function>
         }
     }
 
-
     public void PatchToHere(int list)
     {
         Assert(IsJumpListWalkable(list));
@@ -640,7 +608,6 @@ internal class Function : IPoolNode<Function>
         return index;
     }
 
-
     public unsafe int NumberConstant(double n)
     {
         if (n == 0.0 || double.IsNaN(n))
@@ -664,13 +631,11 @@ internal class Function : IPoolNode<Function>
         }
     }
 
-
     public void ReserveRegisters(int n)
     {
         CheckStack(n);
         FreeRegisterCount += n;
     }
-
 
     public void FreeRegister(int r)
     {
@@ -688,7 +653,6 @@ internal class Function : IPoolNode<Function>
             FreeRegister(e.Info);
         }
     }
-
 
     public int StringConstant(string s)
     {
@@ -811,7 +775,6 @@ internal class Function : IPoolNode<Function>
         return e;
     }
 
-
     public ExprDesc DischargeToAnyRegister(ExprDesc e)
     {
         if (e.Kind != Kind.NonRelocatable)
@@ -823,13 +786,11 @@ internal class Function : IPoolNode<Function>
         return e;
     }
 
-
     public int EncodeLabel(int a, int b, int jump)
     {
         Label();
         return EncodeABC(OpCode.LoadBool, a, b, jump);
     }
-
 
     public ExprDesc ExpressionToRegister(ExprDesc e, int r)
     {
@@ -863,7 +824,6 @@ internal class Function : IPoolNode<Function>
         return e;
     }
 
-
     public ExprDesc ExpressionToNextRegister(ExprDesc e)
     {
         e = DischargeVariables(e);
@@ -871,7 +831,6 @@ internal class Function : IPoolNode<Function>
         ReserveRegisters(1);
         return ExpressionToRegister(e, FreeRegisterCount - 1);
     }
-
 
     public ExprDesc ExpressionToAnyRegister(ExprDesc e)
     {
@@ -889,7 +848,6 @@ internal class Function : IPoolNode<Function>
         return ExpressionToNextRegister(e);
     }
 
-
     public ExprDesc ExpressionToAnyRegisterOrUpValue(ExprDesc e)
     {
         if (e.Kind != Kind.UpValue || e.HasJumps())
@@ -900,13 +858,11 @@ internal class Function : IPoolNode<Function>
         return e;
     }
 
-
     public ExprDesc ExpressionToValue(ExprDesc e)
     {
         if (e.HasJumps()) return ExpressionToAnyRegister(e);
         return DischargeVariables(e);
     }
-
 
     public (ExprDesc, int) ExpressionToRegisterOrConstant(ExprDesc e)
     {
@@ -949,7 +905,6 @@ internal class Function : IPoolNode<Function>
         return (e, e.Info);
     }
 
-
     public void StoreVariable(ExprDesc v, ExprDesc e)
     {
         switch (v.Kind)
@@ -976,7 +931,6 @@ internal class Function : IPoolNode<Function>
         FreeExpression(e);
     }
 
-
     public ExprDesc Self(ExprDesc e, ExprDesc key)
     {
         e = ExpressionToAnyRegister(e);
@@ -990,14 +944,12 @@ internal class Function : IPoolNode<Function>
         return result;
     }
 
-
     public void InvertJump(int pc)
     {
         ref var i = ref JumpControl(pc);
         Assert(TestTMode(i.OpCode) && i.OpCode is not (OpCode.TestSet or OpCode.Test));
         i.A = Not(i.A);
     }
-
 
     public int JumpOnCondition(ExprDesc e, int cond)
     {
@@ -1015,7 +967,6 @@ internal class Function : IPoolNode<Function>
         FreeExpression(e);
         return ConditionalJump(OpCode.TestSet, NoRegister, e.Info, cond);
     }
-
 
     public ExprDesc GoIfTrue(ExprDesc e)
     {
@@ -1042,7 +993,6 @@ internal class Function : IPoolNode<Function>
         return e;
     }
 
-
     public ExprDesc GoIfFalse(ExprDesc e)
     {
         var pc = NoJump;
@@ -1065,7 +1015,6 @@ internal class Function : IPoolNode<Function>
         e.F = NoJump;
         return e;
     }
-
 
     public ExprDesc EncodeNot(ExprDesc e)
     {
@@ -1101,7 +1050,6 @@ internal class Function : IPoolNode<Function>
         RemoveValues(e.T);
         return e;
     }
-
 
     public ExprDesc Indexed(ExprDesc t, ExprDesc k)
     {
@@ -1155,7 +1103,6 @@ internal class Function : IPoolNode<Function>
         return (e1, true);
     }
 
-
     public ExprDesc EncodeArithmetic(OpCode op, ExprDesc e1, ExprDesc e2, int line)
     {
         var (e, folded) = FoldConstants(op, e1, e2);
@@ -1185,7 +1132,6 @@ internal class Function : IPoolNode<Function>
         return e1;
     }
 
-
     public ExprDesc Prefix(int op, ExprDesc e, int line)
     {
         switch (op)
@@ -1206,7 +1152,6 @@ internal class Function : IPoolNode<Function>
 
         throw new("unreachable");
     }
-
 
     public ExprDesc Infix(int op, ExprDesc e)
     {
@@ -1238,7 +1183,6 @@ internal class Function : IPoolNode<Function>
         return e;
     }
 
-
     public ExprDesc EncodeComparison(OpCode op, int cond, ExprDesc e1, ExprDesc e2)
     {
         (e1, var o1) = ExpressionToRegisterOrConstant(e1);
@@ -1252,7 +1196,6 @@ internal class Function : IPoolNode<Function>
 
         return MakeExpression(Kind.Jump, ConditionalJump(op, cond, o1, o2));
     }
-
 
     public ExprDesc Postfix(int op, ExprDesc e1, ExprDesc e2, int line)
     {
@@ -1299,7 +1242,6 @@ internal class Function : IPoolNode<Function>
         }
     }
 
-
     public void FixLine(int line) => Proto.LineInfoList[Proto.CodeList.Length - 1] = line;
 
 
@@ -1328,7 +1270,6 @@ internal class Function : IPoolNode<Function>
 
         FreeRegisterCount = @base + 1;
     }
-
 
     public unsafe void CheckConflict(AssignmentTarget tv, ExprDesc e)
     {
@@ -1372,7 +1313,6 @@ internal class Function : IPoolNode<Function>
         }
     }
 
-
     public void AdjustAssignment(int variableCount, int expressionCount, ExprDesc e)
     {
         var extra = variableCount - expressionCount;
@@ -1406,14 +1346,12 @@ internal class Function : IPoolNode<Function>
         }
     }
 
-
     public int MakeUpValue(string name, ExprDesc e)
     {
         P.CheckLimit(Proto.UpValuesList.Length + 1, MaxUpValue, "upvalues");
         Proto.UpValuesList.Add(new() { Name = name, IsLocal = e.Kind == Kind.Local, Index = e.Info });
         return Proto.UpValuesList.Length - 1;
     }
-
 
     public static (ExprDesc, bool) SingleVariableHelper(Function? f, string name, bool b)
     {
@@ -1493,7 +1431,6 @@ internal class Function : IPoolNode<Function>
         }
     }
 
-
     public ExprDesc SingleVariable(string name)
     {
         var (e, found) = SingleVariableHelper(this, name, true);
@@ -1507,14 +1444,12 @@ internal class Function : IPoolNode<Function>
         return e;
     }
 
-
     public (int pc, ExprDesc t) OpenConstructor()
     {
         var pc = EncodeABC(OpCode.NewTable, 0, 0, 0);
         var t = ExpressionToNextRegister(MakeExpression(Kind.Relocatable, pc));
         return (pc, t);
     }
-
 
     public void FlushFieldToConstructor(int tableRegister, int freeRegisterCount, ExprDesc k, Func<ExprDesc> v)
     {
@@ -1523,7 +1458,6 @@ internal class Function : IPoolNode<Function>
         EncodeABC(OpCode.SetTable, tableRegister, rk, rv);
         FreeRegisterCount = freeRegisterCount;
     }
-
 
     public int FlushToConstructor(int tableRegister, int pending, int arrayCount, ExprDesc e)
     {
@@ -1536,7 +1470,6 @@ internal class Function : IPoolNode<Function>
 
         return pending;
     }
-
 
     public void CloseConstructor(int pc, int tableRegister, int pending, int arrayCount, int hashCount, ExprDesc e)
     {
@@ -1563,7 +1496,6 @@ internal class Function : IPoolNode<Function>
         Proto.CodeList[pc].C = (((hashCount)));
     }
 
-
     public int OpenForBody(int @base, int n, bool isNumeric)
     {
         var prep = isNumeric ? EncodeAsBx(OpCode.ForPrep, @base, NoJump) : Jump();
@@ -1572,7 +1504,6 @@ internal class Function : IPoolNode<Function>
         ReserveRegisters(n);
         return prep;
     }
-
 
     public void CloseForBody(int prep, int @base, int line, int n, bool isNumeric)
     {
@@ -1594,13 +1525,11 @@ internal class Function : IPoolNode<Function>
         FixLine(line);
     }
 
-
     public void OpenMainFunction()
     {
         EnterBlock(false);
         MakeUpValue("_ENV", MakeExpression(Kind.Local, 0));
     }
-
 
     public Function CloseMainFunction()
     {

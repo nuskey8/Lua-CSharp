@@ -22,12 +22,10 @@ internal struct Scanner
 
     public int T => Token.T;
 
-
     public const int FirstReserved = ushort.MaxValue + 257;
     public const int EndOfStream = -1;
 
     public const int MaxInt = int.MaxValue >> 1 + 1; //9223372036854775807
-
 
     public const int TkAnd = FirstReserved;
     public const int TkBreak = TkAnd + 1;
@@ -65,7 +63,6 @@ internal struct Scanner
 
     public const int ReservedCount = TkWhile - FirstReserved + 1;
 
-
     static readonly string[] tokens =
     [
         "and", "break", "do", "else", "elseif",
@@ -77,7 +74,6 @@ internal struct Scanner
     ];
 
     public static ReadOnlySpan<string> Tokens => tokens;
-
 
     public void SyntaxError(string message) => ScanError(message, Token.T);
     public void ErrorExpected(char t) => SyntaxError(TokenToString(t) + " expected");
@@ -112,7 +108,6 @@ internal struct Scanner
         _ => tokens[t - FirstReserved]
     };
 
-
     public void ScanError(string message, int token)
     {
         var shortSourceBuffer = (stackalloc char[59]);
@@ -121,7 +116,6 @@ internal struct Scanner
         message = token != 0 ? $"{buff}:{LineNumber}: {message} near {TokenToString(token)}" : $"{buff}:{LineNumber}: {message}";
         throw new LuaScanException(message);
     }
-
 
     public void IncrementLineNumber()
     {
@@ -132,12 +126,10 @@ internal struct Scanner
         if (++LineNumber >= MaxLine) SyntaxError("chunk has too many lines");
     }
 
-
     public void Advance()
     {
         Current = R.TryRead(out var c) ? c : EndOfStream;
     }
-
 
     public void SaveAndAdvance()
     {
@@ -145,19 +137,16 @@ internal struct Scanner
         Advance();
     }
 
-
     public void AdvanceAndSave(int c)
     {
         Advance();
         Save(c);
     }
 
-
     public void Save(int c)
     {
         Buffer.Append((char)c);
     }
-
 
     public bool CheckNext(string str)
     {
@@ -165,7 +154,6 @@ internal struct Scanner
         SaveAndAdvance();
         return true;
     }
-
 
     public int SkipSeparator()
     {
@@ -175,7 +163,6 @@ internal struct Scanner
         if (Current == c) return i;
         return -i - 1;
     }
-
 
     public string ReadMultiLine(bool comment, int sep)
     {
@@ -227,7 +214,6 @@ internal struct Scanner
         }
     }
 
-
     public int ReadDigits()
     {
         var c = Current;
@@ -235,9 +221,7 @@ internal struct Scanner
         return c;
     }
 
-
     public static bool IsHexadecimal(int c) => c is >= '0' and <= '9' or >= 'a' and <= 'f' or >= 'A' and <= 'F';
-
 
     public (double n, int c, int i) ReadHexNumber(double x)
     {
@@ -270,7 +254,6 @@ internal struct Scanner
             (c, n, i) = (Current, n * 16.0 + c, i + 1);
         }
     }
-
 
     public Token ReadNumber()
     {
@@ -375,7 +358,6 @@ internal struct Scanner
         return new() { T = TkNumber, N = f };
     }
 
-
     static readonly Dictionary<int, char> escapes = new()
     {
         { 'a', '\a' },
@@ -389,7 +371,6 @@ internal struct Scanner
         { '"', '"' },
         { '\'', '\'' },
     };
-
 
     public void EscapeError(ReadOnlySpan<int> c, string message)
     {
@@ -411,7 +392,6 @@ internal struct Scanner
         Buffer.Clear();
         ScanError(message, TkString);
     }
-
 
     public int ReadHexEscape()
     {
@@ -444,7 +424,6 @@ internal struct Scanner
         return r;
     }
 
-
     public int ReadDecimalEscape()
     {
         var b = (stackalloc int[3] { 0, 0, 0 });
@@ -464,7 +443,6 @@ internal struct Scanner
 
         return r;
     }
-
 
     public Token ReadString()
     {
@@ -539,7 +517,6 @@ internal struct Scanner
         return new() { T = TkString, S = str };
     }
 
-
     public static bool IsReserved(string s)
     {
         foreach (var reserved in Tokens)
@@ -552,7 +529,6 @@ internal struct Scanner
 
         return false;
     }
-
 
     public Token ReservedOrName()
     {
@@ -568,7 +544,6 @@ internal struct Scanner
 
         return new() { T = TkName, S = str };
     }
-
 
     public Token Scan()
     {
@@ -710,9 +685,9 @@ internal struct Scanner
                             return ReadNumber();
                         }
 
-                        if (c == '_' || IsLetter(c))
+                        if (IsLetter(c))
                         {
-                            for (; c == '_' || IsLetter(c) || IsDigit(c); c = Current)
+                            for (; IsLetter(c) || IsDigit(c); c = Current)
                             {
                                 SaveAndAdvance();
                             }
@@ -726,7 +701,6 @@ internal struct Scanner
             }
         }
     }
-
 
     public void Next()
     {
@@ -742,7 +716,6 @@ internal struct Scanner
         }
     }
 
-
     public int LookAhead()
     {
         Assert(LookAheadToken.T == TkEos);
@@ -750,18 +723,15 @@ internal struct Scanner
         return LookAheadToken.T;
     }
 
-
     public bool TestNext(int t)
     {
         var r = Token.T == t;
-        if (r)
-        {
-            Next();
-        }
+        if (!r) return false;
 
-        return r;
+        Next();
+
+        return true;
     }
-
 
     public void Check(int t)
     {
@@ -771,19 +741,17 @@ internal struct Scanner
         }
     }
 
-
     public void CheckMatch(int what, int who, int where)
     {
-        if (!TestNext(what))
+        if (TestNext(what)) return;
+
+        if (where == LineNumber)
         {
-            if (where == LineNumber)
-            {
-                ErrorExpected((char)what);
-            }
-            else
-            {
-                SyntaxError($"{TokenToString(what)} expected (to close {TokenToString(who)} at line {where})");
-            }
+            ErrorExpected((char)what);
+        }
+        else
+        {
+            SyntaxError($"{TokenToString(what)} expected (to close {TokenToString(who)} at line {where})");
         }
     }
 

@@ -341,7 +341,6 @@ internal unsafe ref struct UnDumpState(ReadOnlySpan<byte> span, ReadOnlySpan<cha
         return *(double*)(&i);
     }
 
-
     public Prototype UnDump()
     {
         Header h = default;
@@ -382,7 +381,7 @@ internal unsafe ref struct UnDumpState(ReadOnlySpan<byte> span, ReadOnlySpan<cha
             desc.Name = name;
         }
 
-        return new Prototype(source, lineDefined, lastLineDefined, parameterCount, maxStackSize, isVarArg, constants, code, prototypes, lineInfo, localVariables, upValues);
+        return new(source, lineDefined, lastLineDefined, parameterCount, maxStackSize, isVarArg, constants, code, prototypes, lineInfo, localVariables, upValues);
     }
 
 
@@ -463,7 +462,7 @@ internal unsafe ref struct UnDumpState(ReadOnlySpan<byte> span, ReadOnlySpan<cha
             var name = ReadString();
             var startPc = ReadInt();
             var endPc = ReadInt();
-            localVariables[i] = new LocalVariable { Name = name, StartPc = startPc, EndPc = endPc };
+            localVariables[i] = new() { Name = name, StartPc = startPc, EndPc = endPc };
         }
 
         return localVariables;
@@ -478,7 +477,7 @@ internal unsafe ref struct UnDumpState(ReadOnlySpan<byte> span, ReadOnlySpan<cha
         {
             var isLocal = ReadBool();
             var index = ReadByte();
-            upValues[i] = new UpValueDesc { IsLocal = isLocal, Index = index };
+            upValues[i] = new() { IsLocal = isLocal, Index = index };
         }
 
         return upValues;

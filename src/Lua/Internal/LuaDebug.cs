@@ -123,7 +123,6 @@ internal readonly struct LuaDebug : IDisposable
         }
     }
 
-
     public static LuaDebug Create(LuaState state, CallStackFrame? prevFrame, CallStackFrame? frame, LuaFunction function, int pc, ReadOnlySpan<char> what, out bool isValid)
     {
         if (!state.DebugBufferPool.TryPop(out var buffer))
@@ -140,7 +139,6 @@ internal readonly struct LuaDebug : IDisposable
     {
         if (buffer.version != version) ThrowObjectDisposedException();
     }
-
 
     public void Dispose()
     {

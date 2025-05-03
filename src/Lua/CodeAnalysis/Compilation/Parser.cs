@@ -53,7 +53,6 @@ internal class Parser : IPoolNode<Parser>, IDisposable
         pool.TryPush(this);
     }
 
-
     public void CheckCondition(bool c, string message)
     {
         if (!c)
@@ -62,7 +61,6 @@ internal class Parser : IPoolNode<Parser>, IDisposable
         }
     }
 
-
     public string CheckName()
     {
         Scanner.Check(TkName);
@@ -70,7 +68,6 @@ internal class Parser : IPoolNode<Parser>, IDisposable
         Next();
         return s;
     }
-
 
     public void CheckLimit(int val, int limit, string what)
     {
@@ -87,13 +84,11 @@ internal class Parser : IPoolNode<Parser>, IDisposable
         }
     }
 
-
     public void CheckNext(int t)
     {
         Scanner.Check(t);
         Next();
     }
-
 
     public ExprDesc CheckNameAsExpression() => Function.EncodeString(CheckName());
 
@@ -111,7 +106,6 @@ internal class Parser : IPoolNode<Parser>, IDisposable
         return new TempBlock(Scanner.L);
     }
 
-
     public (ExprDesc e, int n) ExpressionList()
     {
         var n = 1;
@@ -124,26 +118,18 @@ internal class Parser : IPoolNode<Parser>, IDisposable
         return (e, n);
     }
 
-
     public (int, int, int, ExprDesc) Field(int tableRegister, int a, int h, int pending, ExprDesc e)
     {
         var freeRegisterCount = Function.FreeRegisterCount;
 
-        void hashField(ExprDesc k)
-        {
-            h++;
-            CheckNext('=');
-            Function.FlushFieldToConstructor(tableRegister, freeRegisterCount, k, Expression);
-        }
-
         if (T == TkName && Scanner.LookAhead() == '=')
         {
             CheckLimit(h, MaxInt, "items in a constructor");
-            hashField(CheckNameAsExpression());
+            HashField(CheckNameAsExpression());
         }
         else if (T == '[')
         {
-            hashField(Index());
+            HashField(Index());
         }
         else
         {
@@ -154,8 +140,14 @@ internal class Parser : IPoolNode<Parser>, IDisposable
         }
 
         return (a, h, pending, e);
-    }
 
+        void HashField(ExprDesc k)
+        {
+            h++;
+            CheckNext('=');
+            Function.FlushFieldToConstructor(tableRegister, freeRegisterCount, k, Expression);
+        }
+    }
 
     public ExprDesc Constructor()
     {
@@ -182,7 +174,6 @@ internal class Parser : IPoolNode<Parser>, IDisposable
         Function.CloseConstructor(pc, t.Info, pending, a, h, e);
         return t;
     }
-
 
     public ExprDesc FunctionArguments(ExprDesc f, int line)
     {
@@ -232,16 +223,14 @@ internal class Parser : IPoolNode<Parser>, IDisposable
         return e;
     }
 
-
     public ExprDesc PrimaryExpression()
     {
-        ExprDesc e;
         switch (T)
         {
             case '(':
                 var line = Scanner.LineNumber;
                 Next();
-                e = Expression();
+                ExprDesc e = Expression();
                 Scanner.CheckMatch(')', '(', line);
                 e = Function.DischargeVariables(e);
                 return e;
@@ -252,7 +241,6 @@ internal class Parser : IPoolNode<Parser>, IDisposable
                 return default;
         }
     }
-
 
     public ExprDesc SuffixedExpression()
     {
@@ -282,7 +270,6 @@ internal class Parser : IPoolNode<Parser>, IDisposable
             }
         }
     }
-
 
     public ExprDesc SimpleExpression()
     {
@@ -325,60 +312,38 @@ internal class Parser : IPoolNode<Parser>, IDisposable
         return e;
     }
 
-
     public static int UnaryOp(int op)
     {
-        switch (op)
+        return op switch
         {
-            case TkNot:
-                return OprNot;
-            case '-':
-                return OprMinus;
-            case '#':
-                return OprLength;
-        }
-
-        return OprNoUnary;
+            TkNot => OprNot,
+            '-' => OprMinus,
+            '#' => OprLength,
+            _ => OprNoUnary
+        };
     }
-
 
     public static int BinaryOp(int op)
     {
-        switch (op)
+        return op switch
         {
-            case '+':
-                return OprAdd;
-            case '-':
-                return OprSub;
-            case '*':
-                return OprMul;
-            case '/':
-                return OprDiv;
-            case '%':
-                return OprMod;
-            case '^':
-                return OprPow;
-            case TkConcat:
-                return OprConcat;
-            case TkNe:
-                return OprNE;
-            case TkEq:
-                return OprEq;
-            case '<':
-                return OprLT;
-            case TkLe:
-                return OprLE;
-            case '>':
-                return OprGT;
-            case TkGe:
-                return OprGE;
-            case TkAnd:
-                return OprAnd;
-            case TkOr:
-                return OprOr;
-        }
-
-        return OprNoBinary;
+            '+' => OprAdd,
+            '-' => OprSub,
+            '*' => OprMul,
+            '/' => OprDiv,
+            '%' => OprMod,
+            '^' => OprPow,
+            TkConcat => OprConcat,
+            TkNe => OprNE,
+            TkEq => OprEq,
+            '<' => OprLT,
+            TkLe => OprLE,
+            '>' => OprGT,
+            TkGe => OprGE,
+            TkAnd => OprAnd,
+            TkOr => OprOr,
+            _ => OprNoBinary
+        };
     }
 
 
@@ -425,13 +390,11 @@ internal class Parser : IPoolNode<Parser>, IDisposable
         return (e, op);
     }
 
-
     public ExprDesc Expression()
     {
         (ExprDesc e, _) = SubExpression(0);
         return e;
     }
-
 
     public bool BlockFollow(bool withUntil)
     {
@@ -449,7 +412,6 @@ internal class Parser : IPoolNode<Parser>, IDisposable
         return false;
     }
 
-
     public void StatementList()
     {
         while (!BlockFollow(true))
@@ -464,14 +426,12 @@ internal class Parser : IPoolNode<Parser>, IDisposable
         }
     }
 
-
     public ExprDesc FieldSelector(ExprDesc e)
     {
         e = Function.ExpressionToAnyRegisterOrUpValue(e);
         Next(); // skip dot or colon
         return Function.Indexed(e, CheckNameAsExpression());
     }
-
 
     public ExprDesc Index()
     {
@@ -480,7 +440,6 @@ internal class Parser : IPoolNode<Parser>, IDisposable
         CheckNext(']');
         return e;
     }
-
 
     public void Assignment(AssignmentTarget t, int variableCount)
     {
@@ -516,9 +475,7 @@ internal class Parser : IPoolNode<Parser>, IDisposable
         }
 
         Function.StoreVariable(t.Description, MakeExpression(Kind.NonRelocatable, Function.FreeRegisterCount - 1));
-        //t.Release();
     }
-
 
     public void ForBody(int @base, int line, int n, bool isNumeric)
     {
@@ -529,27 +486,20 @@ internal class Parser : IPoolNode<Parser>, IDisposable
         Function.CloseForBody(prep, @base, line, n, isNumeric);
     }
 
-
     public void ForNumeric(string name, int line)
     {
-        void expr()
-        {
-            ExprDesc e = Function.ExpressionToNextRegister(Expression());
-            Assert(e.Kind == Kind.NonRelocatable);
-        }
-
         var @base = Function.FreeRegisterCount;
         Function.MakeLocalVariable("(for index)");
         Function.MakeLocalVariable("(for limit)");
         Function.MakeLocalVariable("(for step)");
         Function.MakeLocalVariable(name);
         CheckNext('=');
-        expr();
+        Expr();
         CheckNext(',');
-        expr();
+        Expr();
         if (TestNext(','))
         {
-            expr();
+            Expr();
         }
         else
         {
@@ -558,8 +508,14 @@ internal class Parser : IPoolNode<Parser>, IDisposable
         }
 
         ForBody(@base, line, 1, true);
-    }
+        return;
 
+        void Expr()
+        {
+            ExprDesc e = Function.ExpressionToNextRegister(Expression());
+            Assert(e.Kind == Kind.NonRelocatable);
+        }
+    }
 
     public void ForList(string name)
     {
@@ -582,7 +538,6 @@ internal class Parser : IPoolNode<Parser>, IDisposable
         Function.CheckStack(3);
         ForBody(@base, line, n - 3, false);
     }
-
 
     public void ForStatement(int line)
     {
@@ -607,14 +562,13 @@ internal class Parser : IPoolNode<Parser>, IDisposable
         Function.LeaveBlock();
     }
 
-
     public int TestThenBlock(int escapes)
     {
         int jumpFalse;
         Next();
         var e = Expression();
         CheckNext(TkThen);
-        if (T == TkGoto || T == TkBreak)
+        if (T is TkGoto or TkBreak)
         {
             e = Function.GoIfFalse(e);
             Function.EnterBlock(false);
@@ -646,7 +600,6 @@ internal class Parser : IPoolNode<Parser>, IDisposable
         return escapes;
     }
 
-
     public void IfStatement(int line)
     {
         var escapes = TestThenBlock(NoJump);
@@ -664,14 +617,12 @@ internal class Parser : IPoolNode<Parser>, IDisposable
         Function.PatchToHere(escapes);
     }
 
-
     public void Block()
     {
         Function.EnterBlock(false);
         StatementList();
         Function.LeaveBlock();
     }
-
 
     public void WhileStatement(int line)
     {
@@ -686,7 +637,6 @@ internal class Parser : IPoolNode<Parser>, IDisposable
         Function.LeaveBlock();
         Function.PatchToHere(conditionExit);
     }
-
 
     public void RepeatStatement(int line)
     {
@@ -707,7 +657,6 @@ internal class Parser : IPoolNode<Parser>, IDisposable
         Function.LeaveBlock(); // finish loop
     }
 
-
     public int Condition()
     {
         var e = Expression();
@@ -718,7 +667,6 @@ internal class Parser : IPoolNode<Parser>, IDisposable
 
         return Function.GoIfTrue(e).F;
     }
-
 
     public void GotoStatement(int pc)
     {
@@ -734,7 +682,6 @@ internal class Parser : IPoolNode<Parser>, IDisposable
         }
     }
 
-
     public void SkipEmptyStatements()
     {
         while (T == ';' || T == TkDoubleColon)
@@ -742,7 +689,6 @@ internal class Parser : IPoolNode<Parser>, IDisposable
             Statement();
         }
     }
-
 
     public void LabelStatement(string label, int line)
     {
@@ -757,7 +703,6 @@ internal class Parser : IPoolNode<Parser>, IDisposable
 
         Function.FindGotos(l);
     }
-
 
     public void ParameterList()
     {
@@ -791,7 +736,6 @@ internal class Parser : IPoolNode<Parser>, IDisposable
         Function.ReserveRegisters(Function.ActiveVariableCount);
     }
 
-
     public ExprDesc Body(bool isMethod, int line)
     {
         Function.OpenFunction(line);
@@ -810,7 +754,6 @@ internal class Parser : IPoolNode<Parser>, IDisposable
         return Function.CloseFunction();
     }
 
-
     public (ExprDesc, bool IsMethod) FunctionName()
     {
         var e = SingleVariable();
@@ -824,7 +767,6 @@ internal class Parser : IPoolNode<Parser>, IDisposable
         return (e, false);
     }
 
-
     public void FunctionStatement(int line)
     {
         Next();
@@ -833,14 +775,12 @@ internal class Parser : IPoolNode<Parser>, IDisposable
         Function.FixLine(line);
     }
 
-
     public void LocalFunction()
     {
         Function.MakeLocalVariable(CheckName());
         Function.AdjustLocalVariables(1);
         Function.LocalVariable(Body(false, Scanner.LineNumber).Info).StartPc = (Function.Proto.CodeList.Length);
     }
-
 
     public void LocalStatement()
     {
@@ -865,7 +805,6 @@ internal class Parser : IPoolNode<Parser>, IDisposable
         Function.AdjustLocalVariables(v);
     }
 
-
     public void ExpressionStatement()
     {
         var e = SuffixedExpression();
@@ -879,7 +818,6 @@ internal class Parser : IPoolNode<Parser>, IDisposable
             Function.Instruction(e).C = (1); // call statement uses no results
         }
     }
-
 
     public void ReturnStatement()
     {
@@ -896,7 +834,6 @@ internal class Parser : IPoolNode<Parser>, IDisposable
 
         TestNext(';');
     }
-
 
     public void Statement()
     {
@@ -989,7 +926,6 @@ internal class Parser : IPoolNode<Parser>, IDisposable
         f.Proto.LineDefined = 0;
         return f.Proto.CreatePrototypeAndRelease();
     }
-
 
     public static void Dump(Prototype prototype, IBufferWriter<byte> writer, bool useLittleEndian = true)
     {

@@ -139,7 +139,6 @@ public sealed class LuaState
         }
     }
 
-
     public unsafe LuaClosure Load(ReadOnlySpan<char> chunk, string chunkName, LuaTable? environment = null)
     {
         Prototype prototype;
