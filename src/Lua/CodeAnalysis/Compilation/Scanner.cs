@@ -16,6 +16,7 @@ internal struct Scanner
     public int LineNumber, LastLine;
     public string Source;
     public Token LookAheadToken;
+    private int lastNewLinePos;
 
     ///inline
     public Token Token;
@@ -113,8 +114,29 @@ internal struct Scanner
         var shortSourceBuffer = (stackalloc char[59]);
         var len = LuaDebug.WriteShortSource(Source, shortSourceBuffer);
         var buff = shortSourceBuffer[..len].ToString();
-        message = token != 0 ? $"{buff}:{LineNumber}: {message} near {TokenToString(token)}" : $"{buff}:{LineNumber}: {message}";
-        throw new LuaScanException(message);
+        var pos = R.Position;
+        if (token != 0)
+        {
+            var t = TokenToString(token);
+            message = $"{message} near {t}";
+            pos = Token.Pos;
+        }
+
+        throw new LuaCompileException(buff, new SourcePosition(LineNumber, pos - lastNewLinePos + 1), pos - 1, message);
+    }
+
+    public void ScanError(int pos, string message, int token)
+    {
+        var shortSourceBuffer = (stackalloc char[59]);
+        var len = LuaDebug.WriteShortSource(Source, shortSourceBuffer);
+        var buff = shortSourceBuffer[..len].ToString();
+        if (token != 0)
+        {
+            var t = TokenToString(token);
+            message = $"{message} near {t}";
+        }
+
+        throw new LuaCompileException(buff, new SourcePosition(LineNumber, pos - lastNewLinePos + 1), pos - 1, message);
     }
 
     public void IncrementLineNumber()
@@ -123,6 +145,7 @@ internal struct Scanner
         Assert(IsNewLine(old));
         Advance();
         if (IsNewLine(Current) && Current != old) Advance();
+        lastNewLinePos = R.Position;
         if (++LineNumber >= MaxLine) SyntaxError("chunk has too many lines");
     }
 
@@ -255,7 +278,7 @@ internal struct Scanner
         }
     }
 
-    public Token ReadNumber()
+    public Token ReadNumber(int pos)
     {
         var c = Current;
         Assert(IsDecimal(c));
@@ -311,7 +334,7 @@ internal struct Scanner
                 Buffer.Clear();
             }
 
-            return new() { T = TkNumber, N = (fraction * Math.Pow(2, exponent)) };
+            return new(pos, fraction * Math.Pow(2, exponent));
         }
 
         c = ReadDigits();
@@ -339,7 +362,7 @@ internal struct Scanner
             if (str.Length == 1)
             {
                 Buffer.Clear();
-                return new() { T = TkNumber, N = 0 };
+                return new(pos, 0d);
             }
 
             str = str.TrimStart('0');
@@ -355,7 +378,7 @@ internal struct Scanner
         }
 
         Buffer.Clear();
-        return new() { T = TkNumber, N = f };
+        return new(pos, f);
     }
 
     static readonly Dictionary<int, char> escapes = new()
@@ -372,7 +395,7 @@ internal struct Scanner
         { '\'', '\'' },
     };
 
-    public void EscapeError(ReadOnlySpan<int> c, string message)
+    public void EscapeError(int pos, ReadOnlySpan<int> c, string message)
     {
         Buffer.Clear();
         Save('\'');
@@ -388,9 +411,10 @@ internal struct Scanner
         }
 
         Save('\'');
-        Token.S = Buffer.ToString();
+
+        Token = new(pos, TkString, Buffer.ToString());
         Buffer.Clear();
-        ScanError(message, TkString);
+        ScanError(pos, message, TkString);
     }
 
     public int ReadHexEscape()
@@ -399,6 +423,7 @@ internal struct Scanner
         var r = 0;
         var b = (stackalloc int[3] { 'x', 0, 0 });
         var (i, c) = (1, Current);
+        var pos = R.Position;
         for (; i < b.Length; (i, c, r) = (i + 1, Current, (r << 4) + c))
         {
             b[i] = c;
@@ -414,11 +439,12 @@ internal struct Scanner
                     c -= ('A' - 10);
                     break;
                 default:
-                    EscapeError(b.Slice(0, i + 1), "hexadecimal digit expected");
+                    EscapeError(pos, b.Slice(0, i + 1), "hexadecimal digit expected");
                     break;
             }
 
             Advance();
+            pos = R.Position;
         }
 
         return r;
@@ -429,16 +455,18 @@ internal struct Scanner
         var b = (stackalloc int[3] { 0, 0, 0 });
         var c = Current;
         var r = 0;
+        var pos = R.Position;
         for (int i = 0; i < b.Length && IsDecimal(c); i++, c = Current)
         {
             b[i] = c;
             r = 10 * r + c - '0';
             Advance();
+            pos = R.Position;
         }
 
         if (r > 255)
         {
-            EscapeError(b, "decimal escape too large");
+            EscapeError(pos, b, "decimal escape too large");
         }
 
         return r;
@@ -446,16 +474,19 @@ internal struct Scanner
 
     public Token ReadString()
     {
+        var pos = R.Position;
         var delimiter = Current;
         for (SaveAndAdvance(); Current != delimiter;)
         {
             switch (Current)
             {
                 case EndOfStream:
-                    ScanError("unfinished string", TkEos);
+                    Token = new(R.Position - Buffer.Length, TkString, Buffer.ToString());
+                    ScanError(R.Position, "unfinished string", TkEos);
                     break;
                 case '\n' or '\r':
-                    ScanError("unfinished string", TkString);
+                    Token = new(R.Position - Buffer.Length, TkString, Buffer.ToString());
+                    ScanError(R.Position, "unfinished string", TkString);
                     break;
                 case '\\':
                     Advance();
@@ -496,7 +527,7 @@ internal struct Scanner
                     }
                     else
                     {
-                        EscapeError([c], "invalid escape sequence");
+                        EscapeError(R.Position - 1, [c], "invalid escape sequence");
                     }
 
                     break;
@@ -514,7 +545,7 @@ internal struct Scanner
         // }
         var str = Buffer.ToString(1, length);
         Buffer.Clear();
-        return new() { T = TkString, S = str };
+        return new(pos, TkString, str);
     }
 
     public static bool IsReserved(string s)
@@ -532,22 +563,24 @@ internal struct Scanner
 
     public Token ReservedOrName()
     {
+        var pos = R.Position - Buffer.Length;
         var str = Buffer.ToString();
         Buffer.Clear();
         for (var i = 0; i < Tokens.Length; i++)
         {
             if (str == Tokens[i])
             {
-                return new() { T = (i + FirstReserved), S = str };
+                return new(pos, (i + FirstReserved), str);
             }
         }
 
-        return new() { T = TkName, S = str };
+        return new(pos, TkName, str);
     }
 
     public Token Scan()
     {
         const bool comment = true, str = false;
+        var pos = R.Position;
         while (true)
         {
             var c = Current;
@@ -562,12 +595,13 @@ internal struct Scanner
                 case '\t':
                 case '\v':
                     Advance();
+                    pos = R.Position;
                     break;
                 case '-':
                     Advance();
                     if (Current != '-')
                     {
-                        return new() { T = '-' };
+                        return new(pos, '-');
                     }
 
                     Advance();
@@ -595,11 +629,11 @@ internal struct Scanner
                         var sep = SkipSeparator();
                         if (sep >= 0)
                         {
-                            return new() { T = TkString, S = ReadMultiLine(str, sep) };
+                            return new(pos, TkString, ReadMultiLine(str, sep));
                         }
 
                         Buffer.Clear();
-                        if (sep == -1) return new() { T = '[' };
+                        if (sep == -1) return new(pos, '[');
 
                         ScanError("invalid long string delimiter", TkString);
                         break;
@@ -608,52 +642,52 @@ internal struct Scanner
                     Advance();
                     if (Current != '=')
                     {
-                        return new() { T = '=' };
+                        return new(pos, '=');
                     }
 
                     Advance();
-                    return new() { T = TkEq };
+                    return new(pos, TkEq);
                 case '<':
                     Advance();
                     if (Current != '=')
                     {
-                        return new() { T = '<' };
+                        return new(pos, '<');
                     }
 
                     Advance();
-                    return new() { T = TkLe };
+                    return new(pos, TkLe);
                 case '>':
                     Advance();
                     if (Current != '=')
                     {
-                        return new() { T = '>' };
+                        return new(pos, '>');
                     }
 
                     Advance();
-                    return new() { T = TkGe };
+                    return new(pos, TkGe);
                 case '~':
                     Advance();
                     if (Current != '=')
                     {
-                        return new() { T = '~' };
+                        return new(pos, '~');
                     }
 
                     Advance();
-                    return new() { T = TkNe };
+                    return new(pos, TkNe);
                 case ':':
                     Advance();
                     if (Current != ':')
                     {
-                        return new() { T = ':' };
+                        return new(pos, ':');
                     }
 
                     Advance();
-                    return new() { T = TkDoubleColon };
+                    return new(pos, TkDoubleColon);
                 case '"':
                 case '\'':
                     return ReadString();
                 case EndOfStream:
-                    return new() { T = TkEos };
+                    return new(pos, TkEos);
                 case '.':
                     SaveAndAdvance();
                     if (CheckNext("."))
@@ -661,28 +695,29 @@ internal struct Scanner
                         if (CheckNext("."))
                         {
                             Buffer.Clear();
-                            return new() { T = TkDots };
+                            return new(pos, TkDots);
                         }
 
                         Buffer.Clear();
-                        return new() { T = TkConcat };
+                        return new(pos, TkConcat);
                     }
 
                     if (!IsDigit(Current))
                     {
                         Buffer.Clear();
-                        return new() { T = '.' };
+                        return new(pos, '.');
                     }
 
-                    return ReadNumber();
+                    return ReadNumber(pos);
                 case 0:
                     Advance();
+                    pos = R.Position;
                     break;
                 default:
                     {
                         if (IsDigit(c))
                         {
-                            return ReadNumber();
+                            return ReadNumber(pos);
                         }
 
                         if (IsLetter(c))
@@ -696,7 +731,7 @@ internal struct Scanner
                         }
 
                         Advance();
-                        return new() { T = c };
+                        return new(pos, c);
                     }
             }
         }
@@ -708,7 +743,7 @@ internal struct Scanner
         if (LookAheadToken.T != TkEos)
         {
             Token = LookAheadToken;
-            LookAheadToken.T = TkEos;
+            LookAheadToken = new(0, TkEos);
         }
         else
         {

@@ -305,7 +305,7 @@ internal class Function : IPoolNode<Function>
 
     public void SemanticError(string message)
     {
-        P.Scanner.Token.T = default;
+        P.Scanner.Token = default;
         P.Scanner.SyntaxError(message);
     }
 

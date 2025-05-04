@@ -23,7 +23,7 @@ public class LuaException : Exception
 public class LuaParseException(string? chunkName, SourcePosition position, string message) : LuaException(message)
 {
     public string? ChunkName { get; } = chunkName;
-    public SourcePosition? Position { get; } = position;
+    public SourcePosition Position { get; } = position;
 
     public static void UnexpectedToken(string? chunkName, SourcePosition position, SyntaxToken token)
     {
@@ -55,10 +55,18 @@ public class LuaParseException(string? chunkName, SourcePosition position, strin
         throw new LuaParseException(chunkName, position, "<break> not inside a loop");
     }
 
-    public override string Message => $"{ChunkName}:{(Position == null ? "" : $"{Position.Value}:")} {base.Message}";
+    public override string Message => $"{ChunkName}:{Position.Line}: {base.Message}";
 }
 
-public class LuaScanException(string message) : LuaException(message);
+public class LuaCompileException(string chunkName, SourcePosition position, int offset, string message) : LuaException(message)
+{
+    public string ChunkName { get; } = chunkName;
+    public int OffSet { get; } = offset;
+    public SourcePosition Position  => position;
+    
+    public string MainMessage => base.Message;
+    public override string Message => $"{ChunkName}:{Position.Line}: {base.Message}";
+}
 
 public class LuaUnDumpException(string message) : LuaException(message);
 

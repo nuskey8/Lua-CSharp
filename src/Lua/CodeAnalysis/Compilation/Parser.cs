@@ -3,6 +3,7 @@ using Lua.Runtime;
 using System.Buffers;
 using System.Runtime.CompilerServices;
 using static System.Diagnostics.Debug;
+
 namespace Lua.CodeAnalysis.Compilation;
 
 using static Function;
@@ -914,7 +915,7 @@ internal class Parser : IPoolNode<Parser>, IDisposable
             R = r,
             LineNumber = 1,
             LastLine = 1,
-            LookAheadToken = new() { T = TkEos },
+            LookAheadToken = new(0, TkEos),
             L = l,
             Buffer = new(),
             Source = name
