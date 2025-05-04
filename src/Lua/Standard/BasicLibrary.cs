@@ -89,7 +89,7 @@ public sealed class BasicLibrary
 
         // do not use LuaState.DoFileAsync as it uses the newExecutionContext
         var bytes = await File.ReadAllBytesAsync(arg0, cancellationToken);
-        var fileName = "@" + Path.GetFileName(arg0);
+        var fileName = "@" + arg0;
 
         return await context.State.Load(bytes, fileName).InvokeAsync(context, cancellationToken);
     }

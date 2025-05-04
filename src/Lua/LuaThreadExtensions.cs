@@ -35,7 +35,7 @@ public static class LuaThreadExtensions
     public static async ValueTask<int> DoFileAsync(this LuaThread thread, string path, Memory<LuaValue> buffer, CancellationToken cancellationToken = default)
     {
         var bytes = await File.ReadAllBytesAsync(path, cancellationToken);
-        var fileName = "@" + Path.GetFileName(path);
+        var fileName = "@" + path;
         var closure = thread.State.Load(bytes, fileName);
         var count = await thread.RunAsync(closure, cancellationToken);
         using var results = thread.ReadReturnValues(count);
@@ -46,7 +46,7 @@ public static class LuaThreadExtensions
     public static async ValueTask<LuaValue[]> DoFileAsync(this LuaThread thread, string path, CancellationToken cancellationToken = default)
     {
         var bytes = await File.ReadAllBytesAsync(path, cancellationToken);
-        var fileName = "@" + Path.GetFileName(path);
+        var fileName = "@" + path;
         var closure = thread.State.Load(bytes, fileName);
         var count = await thread.RunAsync(closure, cancellationToken);
         using var results = thread.ReadReturnValues(count);
