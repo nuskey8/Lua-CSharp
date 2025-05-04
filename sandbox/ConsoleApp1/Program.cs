@@ -15,17 +15,17 @@ state.Environment["escape"] = new LuaFunction("escape",
         var arg = c.HasArgument(0) ? c.GetArgument<string>(0) : "";
         return new(c.Return(Regex.Escape(arg)));
     });
-
+string source = "";
 try
 {
-    var source = File.ReadAllText(GetAbsolutePath("test.lua"));
+    source = File.ReadAllText(GetAbsolutePath("test.lua"));
 
 
     Console.WriteLine("Source Code " + new string('-', 50));
 
     Console.WriteLine(source);
 
-    var closure = state.Load(source, "test.lua");
+    var closure = state.Load(source, "@test.lua");
 
     DebugChunk(closure.Proto, 0);
 
@@ -44,7 +44,33 @@ try
 }
 catch (Exception ex)
 {
+    if (ex is LuaCompileException luaCompileException)
+    {
+        var linOffset = luaCompileException.OffSet - luaCompileException.Position.Column + 1;
+        var length = 0;
+        foreach (var c in source.AsSpan(linOffset))
+        {
+            if (c is '\n' or '\r')
+            {
+                break;
+            }
+
+            length++;
+        }
+        Console.WriteLine("CompileError " + new string('-', 50));
+        Console.WriteLine(luaCompileException.ChunkName + ":"+luaCompileException.Position.Line + ":" + luaCompileException.Position.Column);
+        var line = source.Substring(linOffset, length);
+        var lineNumString = luaCompileException.Position.Line.ToString();
+        Console.WriteLine(new string(' ', lineNumString.Length) + " |");
+        Console.WriteLine(lineNumString + " | " + line);
+        Console.WriteLine(new string(' ', lineNumString.Length) + " | " + 
+                          new string(' ', luaCompileException.Position.Column - 1) + 
+                          "^ " + luaCompileException.MainMessage);
+        Console.WriteLine(new string('-', 55));
+    }
+
     Console.WriteLine(ex);
+
     if (ex is LuaRuntimeException { InnerException: not null } luaEx)
     {
         Console.WriteLine("Inner Exception " + new string('-', 50));
