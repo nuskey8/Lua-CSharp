@@ -126,4 +126,153 @@ public static class LuaThreadExtensions
         var coreData = thread.CoreData!;
         coreData!.CallStack.Pop();
     }
+
+    public static async ValueTask<LuaValue> OpArithmetic(this LuaThread thread, LuaValue left, LuaValue right, OpCode opCode, CancellationToken ct = default)
+    {
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        static double Mod(double a, double b)
+        {
+            var mod = a % b;
+            if ((b > 0 && mod < 0) || (b < 0 && mod > 0))
+            {
+                mod += b;
+            }
+
+            return mod;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        static double ArithmeticOperation(OpCode code, double a, double b)
+        {
+            return code switch
+            {
+                OpCode.Add => a + b,
+                OpCode.Sub => a - b,
+                OpCode.Mul => a * b,
+                OpCode.Div => a / b,
+                OpCode.Mod => Mod(a, b),
+                OpCode.Pow => Math.Pow(a, b),
+                _ => throw new InvalidOperationException($"Unsupported arithmetic operation: {code}"),
+            };
+        }
+
+
+        if (left.TryReadDouble(out var numB) && right.TryReadDouble(out var numC))
+        {
+            return ArithmeticOperation(opCode, numB, numC);
+        }
+
+        return await LuaVirtualMachine.ExecuteBinaryOperationMetaMethod(thread, left, right, opCode, ct);
+    }
+
+    public static async ValueTask<LuaValue> OpUnary(this LuaThread thread, LuaValue left, OpCode opCode, CancellationToken ct = default)
+    {
+        if (opCode == OpCode.Unm)
+        {
+            if (left.TryReadDouble(out var numB))
+            {
+                return -numB;
+            }
+        }
+        else if (opCode == OpCode.Len)
+        {
+            if (left.TryReadString(out var str))
+            {
+                return str.Length;
+            }
+
+            if (left.TryReadTable(out var table))
+            {
+                return table.ArrayLength;
+            }
+        }
+        else
+        {
+            throw new InvalidOperationException($"Unsupported unary operation: {opCode}");
+        }
+
+
+        return await LuaVirtualMachine.ExecuteUnaryOperationMetaMethod(thread, left, opCode, ct);
+    }
+
+
+    public static async ValueTask<bool> OpCompare(this LuaThread thread, LuaValue vb, LuaValue vc, OpCode opCode, CancellationToken ct = default)
+    {
+        if (opCode is not (OpCode.Eq or OpCode.Lt or OpCode.Le))
+        {
+            throw new InvalidOperationException($"Unsupported compare operation: {opCode}");
+        }
+
+        if (opCode == OpCode.Eq)
+        {
+            if (vb == vc)
+            {
+                return true;
+            }
+        }
+        else
+        {
+            if (vb.TryReadNumber(out var numB) && vc.TryReadNumber(out var numC))
+            {
+                return opCode == OpCode.Lt ? numB < numC : numB <= numC;
+            }
+
+            if (vb.TryReadString(out var strB) && vc.TryReadString(out var strC))
+            {
+                var c = StringComparer.Ordinal.Compare(strB, strC);
+                return opCode == OpCode.Lt ? c < 0 : c <= 0;
+            }
+        }
+
+
+        return await LuaVirtualMachine.ExecuteCompareOperationMetaMethod(thread, vb, vc, opCode, ct);
+    }
+
+    public static ValueTask<LuaValue> OpGetTable(this LuaThread thread, LuaValue table, LuaValue key, CancellationToken ct = default)
+    {
+        if (table.TryReadTable(out var luaTable))
+        {
+            if (luaTable.TryGetValue(key, out var value))
+            {
+                return new(value);
+            }
+        }
+
+        return LuaVirtualMachine.ExecuteGetTableSlowPath(thread, table, key, ct);
+    }
+
+    public static ValueTask OpSetTable(this LuaThread thread, LuaValue table, LuaValue key, LuaValue value, CancellationToken ct = default)
+    {
+        if (key.TryReadNumber(out var numB))
+        {
+            if (double.IsNaN(numB))
+            {
+                throw new LuaRuntimeException(thread, "table index is NaN");
+            }
+        }
+
+
+        if (table.TryReadTable(out var luaTable))
+        {
+            ref var valueRef = ref luaTable.FindValue(key);
+            if (!Unsafe.IsNullRef(ref valueRef) && valueRef.Type != LuaValueType.Nil)
+            {
+                valueRef = value;
+                return default;
+            }
+        }
+
+        return LuaVirtualMachine.ExecuteSetTableSlowPath(thread, table, key, value, ct);
+    }
+    
+    public static ValueTask<LuaValue> OpConcat(this LuaThread thread, ReadOnlySpan<LuaValue> values,CancellationToken ct = default)
+    {
+        thread.Stack.PushRange(values);
+        return OpConcat(thread, values.Length, ct);
+    }
+    public static ValueTask<LuaValue> OpConcat(this LuaThread thread, int concatCount,CancellationToken ct = default)
+    {
+        
+        return LuaVirtualMachine.Concat(thread,  concatCount, ct);
+    }
 }

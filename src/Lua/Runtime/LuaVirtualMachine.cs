@@ -933,6 +933,77 @@ public static partial class LuaVirtualMachine
         return 1;
     }
 
+    internal static async ValueTask<LuaValue> Concat(LuaThread thread, int total, CancellationToken ct)
+    {
+        static bool ToString(ref LuaValue v)
+        {
+            if (v.Type == LuaValueType.String) return true;
+            if (v.Type == LuaValueType.Number)
+            {
+                v = v.ToString();
+                return true;
+            }
+
+            return false;
+        }
+
+        var stack = thread.Stack;
+        do
+        {
+            var top = thread.Stack.Count;
+            var n = 2;
+            ref var lhs = ref stack.Get(top - 2);
+            ref var rhs = ref stack.Get(top - 1);
+            if (!(lhs.Type is LuaValueType.String or LuaValueType.Number) || !ToString(ref rhs))
+            {
+                var value = await ExecuteBinaryOperationMetaMethod(thread, lhs, rhs, OpCode.Concat, ct);
+                stack.Get(top - 2) = value;
+            }
+            else if (rhs.UnsafeReadString().Length == 0)
+            {
+                ToString(ref lhs);
+            }
+            else if (lhs.TryReadString(out var str) && str.Length == 0)
+            {
+                lhs = rhs;
+            }
+            else
+            {
+                var tl = rhs.UnsafeReadString().Length;
+
+                int i = 1;
+                for (; i < total; i++)
+                {
+                    ref var v = ref stack.Get(top - i - 1);
+                    if (!ToString(ref v))
+                    {
+                        break;
+                    }
+
+                    tl += v.UnsafeReadString().Length;
+                }
+
+                n = i;
+                stack.Get(top - n) = string.Create(tl, (stack, top - n), static (span, pair) =>
+                {
+                    var (stack, index) = pair;
+                    foreach (var v in stack.AsSpan().Slice(index))
+                    {
+                        var s = v.UnsafeReadString();
+                        if (s.Length == 0) continue;
+                        s.AsSpan().CopyTo(span);
+                        span = span[s.Length..];
+                    }
+                });
+            }
+
+            total -= n - 1;
+            stack.PopUntil(top - (n - 1));
+        } while (total > 1);
+
+        return stack.AsSpan()[^1];
+    }
+
     static async ValueTask ExecuteBinaryOperationMetaMethod(int target, LuaValue vb, LuaValue vc,
         VirtualMachineExecutionContext context, OpCode opCode)
     {
@@ -1364,6 +1435,74 @@ public static partial class LuaVirtualMachine
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
+    internal static ValueTask<LuaValue> ExecuteGetTableSlowPath(LuaThread thread, LuaValue table, LuaValue key, CancellationToken ct)
+    {
+        var targetTable = table;
+        const int MAX_LOOP = 100;
+        var skip = targetTable.Type == LuaValueType.Table;
+        for (int i = 0; i < MAX_LOOP; i++)
+        {
+            if (table.TryReadTable(out var luaTable))
+            {
+                if (!skip && luaTable.TryGetValue(key, out var value))
+                {
+                    return new(value);
+                }
+
+                skip = false;
+
+                var metatable = luaTable.Metatable;
+                if (metatable != null && metatable.TryGetValue(Metamethods.Index, out table))
+                {
+                    goto Function;
+                }
+
+                return default(ValueTask<LuaValue>);
+            }
+
+            if (!table.TryGetMetamethod(thread.State, Metamethods.Index, out var metatableValue))
+            {
+                LuaRuntimeException.AttemptInvalidOperation(thread, "index", table);
+            }
+
+            table = metatableValue;
+        Function:
+            if (table.TryReadFunction(out var function))
+            {
+                return CallGetTableFunc(thread, function, targetTable, key, ct);
+            }
+        }
+
+        throw new LuaRuntimeException(thread, "loop in gettable");
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    static async ValueTask<LuaValue> CallGetTableFunc(LuaThread thread, LuaFunction indexTable, LuaValue table, LuaValue key, CancellationToken ct)
+    {
+        var stack = thread.Stack;
+        var top = stack.Count;
+        stack.Push(table);
+        stack.Push(key);
+        var varArgCount = indexTable.GetVariableArgumentCount(3);
+
+        var newFrame = new CallStackFrame() { Base = thread.Stack.Count - 2 + varArgCount, VariableArgumentCount = varArgCount, Function = indexTable, ReturnBase = top };
+
+        thread.PushCallStackFrame(newFrame);
+        var functionContext = new LuaFunctionExecutionContext() { Thread = thread, ArgumentCount = 3, ReturnFrameBase = top };
+        if (thread.CallOrReturnHookMask.Value != 0 && !thread.IsInHook)
+        {
+            await ExecuteCallHook(functionContext, ct);
+        }
+
+        await indexTable.Func(functionContext, ct);
+        var results = stack.GetBuffer()[newFrame.ReturnBase..];
+        var result = results.Length == 0 ? default : results[0];
+        results.Clear();
+        thread.PopCallStackFrameWithStackPop();
+        return result;
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
     static bool SetTableValueSlowPath(LuaValue table, LuaValue key, LuaValue value,
         VirtualMachineExecutionContext context, out bool doRestart)
     {
@@ -1458,6 +1597,81 @@ public static partial class LuaVirtualMachine
         return true;
     }
 
+    internal static ValueTask ExecuteSetTableSlowPath(LuaThread thread, LuaValue table, LuaValue key, LuaValue value, CancellationToken ct)
+    {
+        var targetTable = table;
+        const int MAX_LOOP = 100;
+        var skip = targetTable.Type == LuaValueType.Table;
+        for (int i = 0; i < MAX_LOOP; i++)
+        {
+            if (table.TryReadTable(out var luaTable))
+            {
+                targetTable = luaTable;
+                ref var valueRef = ref (skip ? ref Unsafe.NullRef<LuaValue>() : ref luaTable.FindValue(key));
+                skip = false;
+                if (!Unsafe.IsNullRef(ref valueRef) && valueRef.Type != LuaValueType.Nil)
+                {
+                    valueRef = value;
+                    return default(ValueTask);
+                }
+
+                var metatable = luaTable.Metatable;
+                if (metatable == null || !metatable.TryGetValue(Metamethods.NewIndex, out table))
+                {
+                    if (Unsafe.IsNullRef(ref valueRef))
+                    {
+                        luaTable[key] = value;
+                        return default(ValueTask);
+                    }
+
+                    valueRef = value;
+                    return default;
+                }
+
+                goto Function;
+            }
+
+            if (!table.TryGetMetamethod(thread.State, Metamethods.NewIndex, out var metatableValue))
+            {
+                LuaRuntimeException.AttemptInvalidOperation(thread, "index", table);
+            }
+
+            table = metatableValue;
+
+        Function:
+            if (table.TryReadFunction(out var function))
+            {
+                return CallSetTableFunc(thread, function, targetTable, key, value, ct);
+            }
+        }
+
+        throw new LuaRuntimeException(thread, "loop in settable");
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    static async ValueTask CallSetTableFunc(LuaThread thread, LuaFunction newIndexFunction, LuaValue table, LuaValue key, LuaValue value, CancellationToken ct)
+    {
+        var stack = thread.Stack;
+        var top = stack.Count;
+        stack.Push(table);
+        stack.Push(key);
+        stack.Push(value);
+        var varArgCount = newIndexFunction.GetVariableArgumentCount(3);
+
+        var newFrame = new CallStackFrame() { Base = thread.Stack.Count - 3 + varArgCount, VariableArgumentCount = varArgCount, Function = newIndexFunction, ReturnBase = top };
+
+        thread.PushCallStackFrame(newFrame);
+        var functionContext = new LuaFunctionExecutionContext() { Thread = thread, ArgumentCount = 3, ReturnFrameBase = top };
+        if (thread.CallOrReturnHookMask.Value != 0 && !thread.IsInHook)
+        {
+            await ExecuteCallHook(functionContext, ct);
+        }
+
+        await newIndexFunction.Func(functionContext, ct);
+        var results = stack.GetBuffer()[newFrame.ReturnBase..];
+        results.Clear();
+        thread.PopCallStackFrameWithStackPop();
+    }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
     static bool ExecuteBinaryOperationMetaMethod(LuaValue vb, LuaValue vc,
@@ -1510,7 +1724,7 @@ public static partial class LuaVirtualMachine
 
             var RA = context.Instruction.A + context.FrameBase;
 
-            var results = stack.GetBuffer()[newFrame.Base..];
+            var results = stack.GetBuffer()[newFrame.ReturnBase..];
             stack.Get(RA) = results.Length == 0 ? default : results[0];
             results.Clear();
             context.Thread.PopCallStackFrameWithStackPop();
@@ -1519,6 +1733,47 @@ public static partial class LuaVirtualMachine
 
         LuaRuntimeException.AttemptInvalidOperation(GetThreadWithCurrentPc(context), description, vb, vc);
         return false;
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    internal static async ValueTask<LuaValue> ExecuteBinaryOperationMetaMethod(LuaThread thread, LuaValue vb, LuaValue vc, OpCode opCode, CancellationToken ct)
+    {
+        var (name, description) = opCode.GetNameAndDescription();
+
+        if (vb.TryGetMetamethod(thread.State, name, out var metamethod) ||
+            vc.TryGetMetamethod(thread.State, name, out metamethod))
+        {
+            if (!metamethod.TryReadFunction(out var func))
+            {
+                LuaRuntimeException.AttemptInvalidOperation(thread, "call", metamethod);
+            }
+
+            var stack = thread.Stack;
+            var top = stack.Count;
+            stack.Push(vb);
+            stack.Push(vc);
+            var varArgCount = func.GetVariableArgumentCount(2);
+
+            var newFrame = new CallStackFrame() { Base = thread.Stack.Count - 2 + varArgCount, VariableArgumentCount = varArgCount, Function = func, ReturnBase = top };
+
+            thread.PushCallStackFrame(newFrame);
+            var functionContext = new LuaFunctionExecutionContext() { Thread = thread, ArgumentCount = 2, ReturnFrameBase = top };
+            if (thread.CallOrReturnHookMask.Value != 0 && !thread.IsInHook)
+            {
+                await ExecuteCallHook(functionContext, ct);
+            }
+
+
+            await func.Func(functionContext, ct);
+            var results = stack.GetBuffer()[newFrame.ReturnBase..];
+            var result = results.Length == 0 ? default : results[0];
+            results.Clear();
+            thread.PopCallStackFrameWithStackPop();
+            return result;
+        }
+
+        LuaRuntimeException.AttemptInvalidOperation(thread, description, vb, vc);
+        return default;
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
@@ -1583,6 +1838,45 @@ public static partial class LuaVirtualMachine
 
         LuaRuntimeException.AttemptInvalidOperation(GetThreadWithCurrentPc(context), description, vb);
         return true;
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    internal static async ValueTask<LuaValue> ExecuteUnaryOperationMetaMethod(LuaThread thread, LuaValue vb, OpCode opCode, CancellationToken ct)
+    {
+        var (name, description) = opCode.GetNameAndDescription();
+
+        if (vb.TryGetMetamethod(thread.State, name, out var metamethod))
+        {
+            if (!metamethod.TryReadFunction(out var func))
+            {
+                LuaRuntimeException.AttemptInvalidOperation(thread, "call", metamethod);
+            }
+
+            var stack = thread.Stack;
+            var top = stack.Count;
+            stack.Push(vb);
+            var varArgCount = func.GetVariableArgumentCount(1);
+
+            var newFrame = new CallStackFrame() { Base = thread.Stack.Count - 1 + varArgCount, VariableArgumentCount = varArgCount, Function = func, ReturnBase = top };
+
+            thread.PushCallStackFrame(newFrame);
+            var functionContext = new LuaFunctionExecutionContext() { Thread = thread, ArgumentCount = 2, ReturnFrameBase = top };
+            if (thread.CallOrReturnHookMask.Value != 0 && !thread.IsInHook)
+            {
+                await ExecuteCallHook(functionContext, ct);
+            }
+
+
+            await func.Func(functionContext, ct);
+            var results = stack.GetBuffer()[newFrame.ReturnBase..];
+            var result = results.Length == 0 ? default : results[0];
+            results.Clear();
+            thread.PopCallStackFrameWithStackPop();
+            return result;
+        }
+
+        LuaRuntimeException.AttemptInvalidOperation(thread, description, vb);
+        return default;
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
@@ -1671,6 +1965,65 @@ public static partial class LuaVirtualMachine
         }
 
         return true;
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    internal static async ValueTask<bool> ExecuteCompareOperationMetaMethod(LuaThread thread, LuaValue vb, LuaValue vc, OpCode opCode, CancellationToken ct)
+    {
+        var (name, description) = opCode.GetNameAndDescription();
+        bool reverseLe = false;
+    ReCheck:
+        if (vb.TryGetMetamethod(thread.State, name, out var metamethod) ||
+            vc.TryGetMetamethod(thread.State, name, out metamethod))
+        {
+            if (!metamethod.TryReadFunction(out var func))
+            {
+                LuaRuntimeException.AttemptInvalidOperation(thread, "call", metamethod);
+            }
+
+            var stack = thread.Stack;
+            var top = stack.Count;
+            stack.Push(vb);
+            stack.Push(vc);
+            var varArgCount = func.GetVariableArgumentCount(2);
+
+            var newFrame = new CallStackFrame() { Base = thread.Stack.Count - 2 + varArgCount, VariableArgumentCount = varArgCount, Function = func, ReturnBase = top };
+
+            thread.PushCallStackFrame(newFrame);
+            var functionContext = new LuaFunctionExecutionContext() { Thread = thread, ArgumentCount = 2, ReturnFrameBase = top };
+            if (thread.CallOrReturnHookMask.Value != 0 && !thread.IsInHook)
+            {
+                await ExecuteCallHook(functionContext, ct);
+            }
+
+
+            await func.Func(functionContext, ct);
+            var results = stack.GetBuffer()[newFrame.ReturnBase..];
+            var result = results.Length == 0 ? default : results[0];
+            results.Clear();
+            thread.PopCallStackFrameWithStackPop();
+            return result.ToBoolean();
+        }
+
+        if (opCode == OpCode.Le)
+        {
+            reverseLe = true;
+            name = Metamethods.Lt;
+            (vb, vc) = (vc, vb);
+            goto ReCheck;
+        }
+
+        if (opCode != OpCode.Eq)
+        {
+            if (reverseLe)
+            {
+                (vb, vc) = (vc, vb);
+            }
+
+            LuaRuntimeException.AttemptInvalidOperation(thread, description, vb, vc);
+        }
+
+        return default;
     }
 
     // If there are variable arguments, the base of the stack is moved by that number and the values of the variable arguments are placed in front of it.
@@ -1845,9 +2198,6 @@ public static partial class LuaVirtualMachine
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     static ValueTask<int> Invoke(this LuaFunction function, VirtualMachineExecutionContext context, in CallStackFrame frame, int arguments)
     {
-        return function.Func(new()
-        {
-            Thread = context.Thread, ArgumentCount = arguments, ReturnFrameBase = frame.ReturnBase,
-        }, context.CancellationToken);
+        return function.Func(new() { Thread = context.Thread, ArgumentCount = arguments, ReturnFrameBase = frame.ReturnBase, }, context.CancellationToken);
     }
 }
