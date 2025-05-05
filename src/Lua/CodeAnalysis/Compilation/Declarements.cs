@@ -26,6 +26,8 @@ unsafe struct TextReader(char* ptr, int length)
     }
 
     public char Current => ptr[Position];
+
+    public ReadOnlySpan<char> Span => new(ptr, length);
 }
 
 internal unsafe struct AssignmentTarget(ref AssignmentTarget previous, ExprDesc exprDesc)

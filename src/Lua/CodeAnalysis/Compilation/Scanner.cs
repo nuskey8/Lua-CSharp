@@ -75,10 +75,17 @@ internal struct Scanner
     ];
 
     public static ReadOnlySpan<string> Tokens => tokens;
+    public void SyntaxError(int position, string message) => ScanError(position, message, Token.T);
+    public void SyntaxError(string message) => ScanError(R.Position, message, Token.T);
+    public void ErrorExpected(int position, char t) => SyntaxError(position, TokenToString(t) + " expected");
 
-    public void SyntaxError(string message) => ScanError(message, Token.T);
-    public void ErrorExpected(char t) => SyntaxError(TokenToString(t) + " expected");
-    public void NumberError() => ScanError("malformed number", TkNumber);
+    public void NumberError(int numberStartPosition, int position)
+    {
+        Buffer.Clear();
+        Token = new Token(numberStartPosition, TkString, R.Span[numberStartPosition..(position - 1)].ToString());
+        ScanError(position, "malformed number", TkString);
+    }
+
     public static bool IsNewLine(int c) => c is '\n' or '\r';
 
     public static bool IsDecimal(int c) => c is >= '0' and <= '9';
@@ -109,34 +116,18 @@ internal struct Scanner
         _ => tokens[t - FirstReserved]
     };
 
-    public void ScanError(string message, int token)
-    {
-        var shortSourceBuffer = (stackalloc char[59]);
-        var len = LuaDebug.WriteShortSource(Source, shortSourceBuffer);
-        var buff = shortSourceBuffer[..len].ToString();
-        var pos = R.Position;
-        if (token != 0)
-        {
-            var t = TokenToString(token);
-            message = $"{message} near {t}";
-            pos = Token.Pos;
-        }
-
-        throw new LuaCompileException(buff, new SourcePosition(LineNumber, pos - lastNewLinePos + 1), pos - 1, message);
-    }
-
     public void ScanError(int pos, string message, int token)
     {
         var shortSourceBuffer = (stackalloc char[59]);
         var len = LuaDebug.WriteShortSource(Source, shortSourceBuffer);
         var buff = shortSourceBuffer[..len].ToString();
+        string? nearToken = null;
         if (token != 0)
         {
-            var t = TokenToString(token);
-            message = $"{message} near {t}";
+            nearToken = TokenToString(token);
         }
 
-        throw new LuaCompileException(buff, new SourcePosition(LineNumber, pos - lastNewLinePos + 1), pos - 1, message);
+        throw new LuaCompileException(buff, new SourcePosition(LineNumber, pos - lastNewLinePos + 1), pos - 1, message, nearToken);
     }
 
     public void IncrementLineNumber()
@@ -146,7 +137,7 @@ internal struct Scanner
         Advance();
         if (IsNewLine(Current) && Current != old) Advance();
         lastNewLinePos = R.Position;
-        if (++LineNumber >= MaxLine) SyntaxError("chunk has too many lines");
+        if (++LineNumber >= MaxLine) SyntaxError(lastNewLinePos, "chunk has too many lines");
     }
 
     public void Advance()
@@ -200,7 +191,7 @@ internal struct Scanner
             switch (Current)
             {
                 case EndOfStream:
-                    ScanError(comment ? "unfinished long comment" : "unfinished long string", TkEos);
+                    ScanError(R.Position, comment ? "unfinished long comment" : "unfinished long string", TkEos);
 
                     break;
                 case ']':
@@ -246,7 +237,7 @@ internal struct Scanner
 
     public static bool IsHexadecimal(int c) => c is >= '0' and <= '9' or >= 'a' and <= 'f' or >= 'A' and <= 'F';
 
-    public (double n, int c, int i) ReadHexNumber(double x)
+    public (double n, int c, int i) ReadHexNumber(double x, ref int position)
     {
         var c = Current;
         var n = x;
@@ -255,6 +246,7 @@ internal struct Scanner
             return (n, c, 0);
         }
 
+        position++;
         var i = 0;
         for (;;)
         {
@@ -269,34 +261,39 @@ internal struct Scanner
                 case >= 'A' and <= 'F':
                     c = c - 'A' + 10;
                     break;
+                case EndOfStream or '}' or ',' or '.' or ')' or 'p' or 'P': return (n, c, i);
                 default:
-                    return (n, c, i);
+                    if (IsWhiteSpace(c)) return (n, c, i);
+                    return (n, 0, 0);
             }
 
             Advance();
+            position++;
             (c, n, i) = (Current, n * 16.0 + c, i + 1);
         }
     }
 
     public Token ReadNumber(int pos)
     {
+        var startPosition = pos - 1;
         var c = Current;
         Assert(IsDecimal(c));
         SaveAndAdvance();
         if (c == '0' && CheckNext("Xx")) // hexadecimal
         {
+            pos++;
             Buffer.Clear();
             var exponent = 0;
-            (var fraction, c, var i) = ReadHexNumber(0);
+            (var fraction, c, var i) = ReadHexNumber(0, ref pos);
             if (c == '.')
             {
                 Advance();
-                (fraction, c, exponent) = ReadHexNumber(fraction);
+                (fraction, c, exponent) = ReadHexNumber(fraction, ref pos);
             }
 
             if (i == 0 && exponent == 0)
             {
-                NumberError();
+                NumberError(startPosition, pos);
             }
 
             exponent *= -4;
@@ -313,14 +310,14 @@ internal struct Scanner
 
                 if (!IsDecimal(Current))
                 {
-                    NumberError();
+                    NumberError(startPosition, pos + 1);
                 }
 
                 _ = ReadDigits();
 
                 if (!long.TryParse(Buffer.ToString(), NumberStyles.Float, CultureInfo.InvariantCulture, out long e))
                 {
-                    NumberError();
+                    NumberError(startPosition, pos + 1);
                 }
                 else if (negativeExponent)
                 {
@@ -374,7 +371,7 @@ internal struct Scanner
 
         if (!double.TryParse(str, NumberStyles.Float, CultureInfo.InvariantCulture, out double f))
         {
-            NumberError();
+            NumberError(startPosition, pos);
         }
 
         Buffer.Clear();
@@ -412,7 +409,7 @@ internal struct Scanner
 
         Save('\'');
 
-        Token = new(pos, TkString, Buffer.ToString());
+        Token = new(pos - Buffer.Length, TkString, Buffer.ToString());
         Buffer.Clear();
         ScanError(pos, message, TkString);
     }
@@ -423,7 +420,6 @@ internal struct Scanner
         var r = 0;
         var b = (stackalloc int[3] { 'x', 0, 0 });
         var (i, c) = (1, Current);
-        var pos = R.Position;
         for (; i < b.Length; (i, c, r) = (i + 1, Current, (r << 4) + c))
         {
             b[i] = c;
@@ -439,12 +435,11 @@ internal struct Scanner
                     c -= ('A' - 10);
                     break;
                 default:
-                    EscapeError(pos, b.Slice(0, i + 1), "hexadecimal digit expected");
+                    EscapeError(R.Position - 1, b.Slice(0, i + 1), "hexadecimal digit expected");
                     break;
             }
 
             Advance();
-            pos = R.Position;
         }
 
         return r;
@@ -466,7 +461,7 @@ internal struct Scanner
 
         if (r > 255)
         {
-            EscapeError(pos, b, "decimal escape too large");
+            EscapeError(pos - 1, b, "decimal escape too large");
         }
 
         return r;
@@ -635,7 +630,7 @@ internal struct Scanner
                         Buffer.Clear();
                         if (sep == -1) return new(pos, '[');
 
-                        ScanError("invalid long string delimiter", TkString);
+                        ScanError(pos, "invalid long string delimiter", TkString);
                         break;
                     }
                 case '=':
@@ -772,7 +767,7 @@ internal struct Scanner
     {
         if (Token.T != t)
         {
-            ErrorExpected((char)t);
+            ErrorExpected(R.Position, (char)t);
         }
     }
 
@@ -782,11 +777,11 @@ internal struct Scanner
 
         if (where == LineNumber)
         {
-            ErrorExpected((char)what);
+            ErrorExpected(R.Position, (char)what);
         }
         else
         {
-            SyntaxError($"{TokenToString(what)} expected (to close {TokenToString(who)} at line {where})");
+            SyntaxError(R.Position, $"{TokenToString(what)} expected (to close {TokenToString(who)} at line {where})");
         }
     }
 

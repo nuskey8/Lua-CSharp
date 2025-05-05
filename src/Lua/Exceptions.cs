@@ -11,6 +11,10 @@ public class LuaException : Exception
     {
     }
 
+    protected LuaException(string message, Exception innerException) : base(message, innerException)
+    {
+    }
+
     public LuaException(string message) : base(message)
     {
     }
@@ -58,14 +62,25 @@ public class LuaParseException(string? chunkName, SourcePosition position, strin
     public override string Message => $"{ChunkName}:{Position.Line}: {base.Message}";
 }
 
-public class LuaCompileException(string chunkName, SourcePosition position, int offset, string message) : LuaException(message)
+public class LuaCompileException(string chunkName, SourcePosition position, int offset, string message, string? nearToken) : LuaException(GetMessageWithNearToken(message, nearToken))
 {
     public string ChunkName { get; } = chunkName;
     public int OffSet { get; } = offset;
-    public SourcePosition Position  => position;
-    
-    public string MainMessage => base.Message;
+    public SourcePosition Position => position;
+    public string MainMessage => message;
+    public string? NearToken => nearToken;
+    public string MessageWithNearToken => base.Message;
     public override string Message => $"{ChunkName}:{Position.Line}: {base.Message}";
+
+    static string GetMessageWithNearToken(string message, string? nearToken)
+    {
+        if (string.IsNullOrEmpty(nearToken))
+        {
+            return message;
+        }
+
+        return $"{message} near {nearToken}";
+    }
 }
 
 public class LuaUnDumpException(string message) : LuaException(message);
