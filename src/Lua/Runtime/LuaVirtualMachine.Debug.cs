@@ -107,11 +107,11 @@ public static partial class LuaVirtualMachine
     {
         return ExecuteCallHook(new()
         {
-            Thread = context.Thread, ArgumentCount = arguments, ReturnFrameBase = frame.ReturnBase, CallerInstructionIndex = frame.CallerInstructionIndex,
-        }, context.CancellationToken, isTailCall);
+            Thread = context.Thread, ArgumentCount = arguments, ReturnFrameBase = frame.ReturnBase
+        },context.CancellationToken, isTailCall);
     }
 
-    internal static async ValueTask<int> ExecuteCallHook(LuaFunctionExecutionContext context, CancellationToken cancellationToken, bool isTailCall = false)
+    internal static async ValueTask<int> ExecuteCallHook(LuaFunctionExecutionContext context,  CancellationToken cancellationToken, bool isTailCall = false)
     {
         var argCount = context.ArgumentCount;
         var hook = context.Thread.Hook!;

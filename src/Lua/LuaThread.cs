@@ -105,7 +105,7 @@ public abstract class LuaThread
         {
             await closure.InvokeAsync(new()
             {
-                Thread = this, ArgumentCount = Stack.Count, ReturnFrameBase = 0, SourceLine = null,
+                Thread = this, ArgumentCount = Stack.Count, ReturnFrameBase = 0,
             }, cancellationToken);
 
             return Stack.Count;

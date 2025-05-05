@@ -1847,7 +1847,7 @@ public static partial class LuaVirtualMachine
     {
         return function.Func(new()
         {
-            Thread = context.Thread, ArgumentCount = arguments, ReturnFrameBase = frame.ReturnBase, CallerInstructionIndex = frame.CallerInstructionIndex,
+            Thread = context.Thread, ArgumentCount = arguments, ReturnFrameBase = frame.ReturnBase,
         }, context.CancellationToken);
     }
 }

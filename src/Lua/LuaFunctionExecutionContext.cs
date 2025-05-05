@@ -12,8 +12,6 @@ public readonly record struct LuaFunctionExecutionContext
     public required int ArgumentCount { get; init; }
     public int FrameBase => Thread.Stack.Count - ArgumentCount;
     public required int ReturnFrameBase { get; init; }
-    public int? SourceLine { get; init; }
-    public int? CallerInstructionIndex { get; init; }
     //public object? AdditionalContext { get; init; }
 
     public ReadOnlySpan<LuaValue> Arguments
