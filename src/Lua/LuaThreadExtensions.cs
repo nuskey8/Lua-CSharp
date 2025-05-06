@@ -264,15 +264,36 @@ public static class LuaThreadExtensions
 
         return LuaVirtualMachine.ExecuteSetTableSlowPath(thread, table, key, value, ct);
     }
-    
-    public static ValueTask<LuaValue> OpConcat(this LuaThread thread, ReadOnlySpan<LuaValue> values,CancellationToken ct = default)
+
+    public static ValueTask<LuaValue> OpConcat(this LuaThread thread, ReadOnlySpan<LuaValue> values, CancellationToken ct = default)
     {
         thread.Stack.PushRange(values);
         return OpConcat(thread, values.Length, ct);
     }
-    public static ValueTask<LuaValue> OpConcat(this LuaThread thread, int concatCount,CancellationToken ct = default)
+
+    public static ValueTask<LuaValue> OpConcat(this LuaThread thread, int concatCount, CancellationToken ct = default)
     {
-        
-        return LuaVirtualMachine.Concat(thread,  concatCount, ct);
+        return LuaVirtualMachine.Concat(thread, concatCount, ct);
+    }
+
+    public static ValueTask<int> OpCall(this LuaThread thread, int funcIndex, CancellationToken ct = default)
+    {
+        return LuaVirtualMachine.Call(thread, funcIndex, ct);
+    }
+
+    public static ValueTask<LuaValue[]> OpCall(this LuaThread thread, LuaValue function, ReadOnlySpan<LuaValue> args, CancellationToken ct = default)
+    {
+        var funcIndex = thread.Stack.Count;
+        thread.Stack.Push(function);
+        thread.Stack.PushRange(args);
+        return Impl(thread, funcIndex, ct);
+
+        static async ValueTask<LuaValue[]> Impl(LuaThread thread, int funcIndex, CancellationToken ct)
+        {
+            await LuaVirtualMachine.Call(thread, funcIndex, ct);
+            var count = thread.Stack.Count - funcIndex;
+            using var results = thread.ReadReturnValues(count);
+            return results.AsSpan().ToArray();
+        }
     }
 }

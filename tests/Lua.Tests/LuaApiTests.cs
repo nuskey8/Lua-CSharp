@@ -222,11 +222,12 @@ return a,b,c
                        
                        })
                      local c ={name ="c"}
-                     return b,c
+                     return a,b,c
                      """;
         var result = await state.DoStringAsync(source);
-        var b = result[0];
-        var c = result[1];
+        var a = result[0];
+        var b = result[1];
+        var c = result[2];
         var d = await state.MainThread.OpArithmetic(b, c, OpCode.Add);
         Assert.True(d.TryRead(out string s));
         Assert.That(s, Is.EqualTo("abc"));
@@ -236,5 +237,50 @@ return a,b,c
         d = await state.MainThread.OpConcat([c, b]);
         Assert.True(d.TryRead(out s));
         Assert.That(s, Is.EqualTo("acb"));
+
+        var aResult = await state.MainThread.OpCall(a, [b, c]);
+        Assert.That(aResult, Has.Length.EqualTo(1));
+        Assert.That(aResult[0].Read<string>(), Is.EqualTo("abc"));
+    }
+    [Test]
+    public async Task Test_Metamethod_MetaCallViaMeta_VarArg()
+    {
+        var source = """
+                     local a = {name ="a"}
+                     setmetatable(a, {
+                         __call = function(a, ...)
+                            local args = {...}
+                            local b,c =args[1],args[2]
+                            return a.name..b.name..c.name
+                         end
+                     })
+
+
+                     local b = setmetatable({name="b"},
+                       {__unm = a,
+                       __add= a,
+                       __concat =a
+                       
+                       })
+                     local c ={name ="c"}
+                     return a,b,c
+                     """;
+        var result = await state.DoStringAsync(source);
+        var a = result[0];
+        var b = result[1];
+        var c = result[2];
+        var d = await state.MainThread.OpArithmetic(b, c, OpCode.Add);
+        Assert.True(d.TryRead(out string s));
+        Assert.That(s, Is.EqualTo("abc"));
+        d = await state.MainThread.OpUnary(b, OpCode.Unm);
+        Assert.True(d.TryRead(out s));
+        Assert.That(s, Is.EqualTo("abb"));
+        d = await state.MainThread.OpConcat([c, b]);
+        Assert.True(d.TryRead(out s));
+        Assert.That(s, Is.EqualTo("acb"));
+
+        var aResult = await state.MainThread.OpCall(a, [b, c]);
+        Assert.That(aResult, Has.Length.EqualTo(1));
+        Assert.That(aResult[0].Read<string>(), Is.EqualTo("abc"));
     }
 }

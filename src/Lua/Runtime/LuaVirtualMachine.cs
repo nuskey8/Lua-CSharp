@@ -1131,6 +1131,41 @@ public static partial class LuaVirtualMachine
         }
     }
 
+    internal static async ValueTask<int> Call(LuaThread thread, int funcIndex, CancellationToken ct)
+    {
+        var stack = thread.Stack;
+        var newBase = funcIndex + 1;
+        var va = stack.Get(funcIndex);
+        if (!va.TryReadFunction(out var func))
+        {
+            if (va.TryGetMetamethod(thread.State, Metamethods.Call, out va) &&
+                va.TryReadFunction(out func))
+            {
+                newBase--;
+            }
+            else
+            {
+                LuaRuntimeException.AttemptInvalidOperation(thread, "call", va);
+            }
+        }
+
+        var (argCount, variableArgumentCount) = PrepareForFunctionCall(thread, func, newBase);
+        newBase += variableArgumentCount;
+        var newFrame = new CallStackFrame() { Base = newBase, VariableArgumentCount = variableArgumentCount, Function = func, ReturnBase = funcIndex };
+
+        thread.PushCallStackFrame(newFrame);
+        var functionContext = new LuaFunctionExecutionContext() { Thread = thread, ArgumentCount = argCount, ReturnFrameBase = funcIndex };
+        if (thread.CallOrReturnHookMask.Value != 0 && !thread.IsInHook)
+        {
+            await ExecuteCallHook(functionContext, ct);
+        }
+
+
+        await func.Func(functionContext, ct);
+        thread.PopCallStackFrame();
+        return thread.Stack.Count - funcIndex;
+    }
+
     static void CallPostOperation(VirtualMachineExecutionContext context)
     {
         var instruction = context.Instruction;
@@ -1494,12 +1529,12 @@ public static partial class LuaVirtualMachine
         var top = stack.Count;
         stack.Push(table);
         stack.Push(key);
-        var varArgCount = indexTable.GetVariableArgumentCount(3);
+        var varArgCount = indexTable.GetVariableArgumentCount(2);
 
         var newFrame = new CallStackFrame() { Base = thread.Stack.Count - 2 + varArgCount, VariableArgumentCount = varArgCount, Function = indexTable, ReturnBase = top };
 
         thread.PushCallStackFrame(newFrame);
-        var functionContext = new LuaFunctionExecutionContext() { Thread = thread, ArgumentCount = 3, ReturnFrameBase = top };
+        var functionContext = new LuaFunctionExecutionContext() { Thread = thread, ArgumentCount = 2, ReturnFrameBase = top };
         if (thread.CallOrReturnHookMask.Value != 0 && !thread.IsInHook)
         {
             await ExecuteCallHook(functionContext, ct);
@@ -1694,7 +1729,7 @@ public static partial class LuaVirtualMachine
             vc.TryGetMetamethod(context.State, name, out metamethod))
         {
             var stack = context.Stack;
-            var argCount = 2;
+            var newBase = stack.Count;
             var callable = metamethod;
             if (!metamethod.TryReadFunction(out var func))
             {
@@ -1702,7 +1737,6 @@ public static partial class LuaVirtualMachine
                     metamethod.TryReadFunction(out func))
                 {
                     stack.Push(callable);
-                    argCount++;
                 }
                 else
                 {
@@ -1712,9 +1746,9 @@ public static partial class LuaVirtualMachine
 
             stack.Push(vb);
             stack.Push(vc);
-            var varArgCount = func.GetVariableArgumentCount(argCount);
-
-            var newFrame = func.CreateNewFrame(context, stack.Count - argCount + varArgCount, context.FrameBase + context.Instruction.A, varArgCount);
+            var (argCount, variableArgumentCount) = PrepareForFunctionCall(context.Thread, func, newBase);
+            newBase += variableArgumentCount;
+            var newFrame = func.CreateNewFrame(context, newBase, context.FrameBase + context.Instruction.A, variableArgumentCount);
 
             context.Thread.PushCallStackFrame(newFrame);
             if (context.Thread.CallOrReturnHookMask.Value != 0 && !context.Thread.IsInHook)
@@ -1766,8 +1800,7 @@ public static partial class LuaVirtualMachine
             vc.TryGetMetamethod(thread.State, name, out metamethod))
         {
             var stack = thread.Stack;
-            var top = stack.Count;
-            var argCount = 2;
+            var newBase = stack.Count;
             var callable = metamethod;
             if (!metamethod.TryReadFunction(out var func))
             {
@@ -1775,7 +1808,6 @@ public static partial class LuaVirtualMachine
                     metamethod.TryReadFunction(out func))
                 {
                     stack.Push(callable);
-                    argCount++;
                 }
                 else
                 {
@@ -1785,12 +1817,13 @@ public static partial class LuaVirtualMachine
 
             stack.Push(vb);
             stack.Push(vc);
-            var varArgCount = func.GetVariableArgumentCount(argCount);
+            var (argCount, variableArgumentCount) = PrepareForFunctionCall(thread, func, newBase);
+            newBase += variableArgumentCount;
 
-            var newFrame = new CallStackFrame() { Base = thread.Stack.Count - argCount + varArgCount, VariableArgumentCount = varArgCount, Function = func, ReturnBase = top };
+            var newFrame = new CallStackFrame() { Base = newBase, VariableArgumentCount = variableArgumentCount, Function = func, ReturnBase = newBase };
 
             thread.PushCallStackFrame(newFrame);
-            var functionContext = new LuaFunctionExecutionContext() { Thread = thread, ArgumentCount = argCount, ReturnFrameBase = top };
+            var functionContext = new LuaFunctionExecutionContext() { Thread = thread, ArgumentCount = argCount, ReturnFrameBase = newBase };
             if (thread.CallOrReturnHookMask.Value != 0 && !thread.IsInHook)
             {
                 await ExecuteCallHook(functionContext, ct);
@@ -1818,7 +1851,7 @@ public static partial class LuaVirtualMachine
         var stack = context.Stack;
         if (vb.TryGetMetamethod(context.State, name, out var metamethod))
         {
-            var argCount = 2;
+            var newBase = stack.Count;
             var callable = metamethod;
             if (!metamethod.TryReadFunction(out var func))
             {
@@ -1826,7 +1859,6 @@ public static partial class LuaVirtualMachine
                     metamethod.TryReadFunction(out func))
                 {
                     stack.Push(callable);
-                    argCount++;
                 }
                 else
                 {
@@ -1837,15 +1869,16 @@ public static partial class LuaVirtualMachine
 
             stack.Push(vb);
             stack.Push(vb);
-            var varArgCount = func.GetVariableArgumentCount(argCount);
+            var (argCount, variableArgumentCount) = PrepareForFunctionCall(context.Thread, func, newBase);
+            newBase += variableArgumentCount;
 
-            var newFrame = func.CreateNewFrame(context, stack.Count - argCount + varArgCount, context.FrameBase + context.Instruction.A, varArgCount);
+            var newFrame = func.CreateNewFrame(context, newBase, context.FrameBase + context.Instruction.A, variableArgumentCount);
 
             context.Thread.PushCallStackFrame(newFrame);
             if (context.Thread.CallOrReturnHookMask.Value != 0 && !context.Thread.IsInHook)
             {
                 context.PostOperation = PostOperationType.SetResult;
-                context.Task = ExecuteCallHook(context, newFrame, 1);
+                context.Task = ExecuteCallHook(context, newFrame, argCount);
                 doRestart = false;
                 return false;
             }
@@ -1858,7 +1891,7 @@ public static partial class LuaVirtualMachine
             }
 
 
-            var task = func.Invoke(context, newFrame, 1);
+            var task = func.Invoke(context, newFrame, argCount);
 
             if (!task.IsCompleted)
             {
@@ -1894,8 +1927,7 @@ public static partial class LuaVirtualMachine
         if (vb.TryGetMetamethod(thread.State, name, out var metamethod))
         {
             var stack = thread.Stack;
-            var top = stack.Count;
-            var argCount = 2;
+            var newBase = stack.Count;
             var callable = metamethod;
             if (!metamethod.TryReadFunction(out var func))
             {
@@ -1903,7 +1935,6 @@ public static partial class LuaVirtualMachine
                     metamethod.TryReadFunction(out func))
                 {
                     stack.Push(callable);
-                    argCount++;
                 }
                 else
                 {
@@ -1913,12 +1944,12 @@ public static partial class LuaVirtualMachine
 
             stack.Push(vb);
             stack.Push(vb);
-            var varArgCount = func.GetVariableArgumentCount(argCount);
-
-            var newFrame = new CallStackFrame() { Base = thread.Stack.Count - argCount + varArgCount, VariableArgumentCount = varArgCount, Function = func, ReturnBase = top };
+            var (argCount, variableArgumentCount) = PrepareForFunctionCall(thread, func, newBase);
+            newBase += variableArgumentCount;
+            var newFrame = new CallStackFrame() { Base = newBase, VariableArgumentCount = variableArgumentCount, Function = func, ReturnBase = newBase };
 
             thread.PushCallStackFrame(newFrame);
-            var functionContext = new LuaFunctionExecutionContext() { Thread = thread, ArgumentCount = argCount, ReturnFrameBase = top };
+            var functionContext = new LuaFunctionExecutionContext() { Thread = thread, ArgumentCount = argCount, ReturnFrameBase = newBase };
             if (thread.CallOrReturnHookMask.Value != 0 && !thread.IsInHook)
             {
                 await ExecuteCallHook(functionContext, ct);
@@ -2047,8 +2078,7 @@ public static partial class LuaVirtualMachine
             vc.TryGetMetamethod(thread.State, name, out metamethod))
         {
             var stack = thread.Stack;
-            var top = stack.Count;
-            var argCount = 2;
+            var newBase = stack.Count;
             var callable = metamethod;
             if (!metamethod.TryReadFunction(out var func))
             {
@@ -2056,7 +2086,6 @@ public static partial class LuaVirtualMachine
                     metamethod.TryReadFunction(out func))
                 {
                     stack.Push(callable);
-                    argCount++;
                 }
                 else
                 {
@@ -2066,12 +2095,12 @@ public static partial class LuaVirtualMachine
 
             stack.Push(vb);
             stack.Push(vc);
-            var varArgCount = func.GetVariableArgumentCount(argCount);
-
-            var newFrame = new CallStackFrame() { Base = thread.Stack.Count - argCount + varArgCount, VariableArgumentCount = varArgCount, Function = func, ReturnBase = top };
+            var (argCount, variableArgumentCount) = PrepareForFunctionCall(thread, func, newBase);
+            newBase += variableArgumentCount;
+            var newFrame = new CallStackFrame() { Base = newBase, VariableArgumentCount = variableArgumentCount, Function = func, ReturnBase = newBase };
 
             thread.PushCallStackFrame(newFrame);
-            var functionContext = new LuaFunctionExecutionContext() { Thread = thread, ArgumentCount = argCount, ReturnFrameBase = top };
+            var functionContext = new LuaFunctionExecutionContext() { Thread = thread, ArgumentCount = argCount, ReturnFrameBase = newBase };
             if (thread.CallOrReturnHookMask.Value != 0 && !thread.IsInHook)
             {
                 await ExecuteCallHook(functionContext, ct);
@@ -2162,6 +2191,29 @@ public static partial class LuaVirtualMachine
 
             thread.Stack.SetTop(newBase + argumentCount);
         }
+
+        var variableArgumentCount = function.GetVariableArgumentCount(argumentCount);
+
+        if (variableArgumentCount < 0)
+        {
+            thread.Stack.SetTop(thread.Stack.Count - variableArgumentCount);
+            argumentCount -= variableArgumentCount;
+            variableArgumentCount = 0;
+        }
+
+        if (variableArgumentCount == 0)
+        {
+            return (argumentCount, 0);
+        }
+
+        return PrepareVariableArgument(thread.Stack, newBase, argumentCount, variableArgumentCount);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    static (int ArgumentCount, int VariableArgumentCount) PrepareForFunctionCall(LuaThread thread, LuaFunction function,
+        int newBase)
+    {
+        var argumentCount = (int)(thread.Stack.Count - newBase);
 
         var variableArgumentCount = function.GetVariableArgumentCount(argumentCount);
 
