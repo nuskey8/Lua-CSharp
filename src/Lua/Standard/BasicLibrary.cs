@@ -91,7 +91,7 @@ public sealed class BasicLibrary
         var bytes = await File.ReadAllBytesAsync(arg0, cancellationToken);
         var fileName = "@" + arg0;
 
-        return await context.State.Load(bytes, fileName).InvokeAsync(context, cancellationToken);
+        return await context.State.Load(bytes, fileName).InvokeAsync(context with { ArgumentCount = context.ArgumentCount - 1 }, cancellationToken);
     }
 
     public ValueTask<int> Error(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
@@ -146,7 +146,6 @@ public sealed class BasicLibrary
 
     public async ValueTask<int> LoadFile(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
-        // Lua-CSharp does not support binary chunks, the mode argument is ignored.
         var arg0 = context.GetArgument<string>(0);
         var mode = context.HasArgument(1)
             ? context.GetArgument<string>(1)
@@ -159,7 +158,7 @@ public sealed class BasicLibrary
         try
         {
             var bytes = await File.ReadAllBytesAsync(arg0, cancellationToken);
-            var fileName = "@" + Path.GetFileName(arg0);
+            var fileName = "@" + arg0;
             return context.Return(context.State.Load(bytes, fileName, mode, arg2));
         }
         catch (Exception ex)
