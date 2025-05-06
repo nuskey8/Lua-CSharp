@@ -202,4 +202,39 @@ return a,b,c
             Assert.That(table[9].Read<double>(), Is.EqualTo(9));
         });
     }
+
+    [Test]
+    public async Task Test_Metamethod_MetaCallViaMeta()
+    {
+        var source = """
+                     local a = {name ="a"}
+                     setmetatable(a, {
+                         __call = function(a, b, c)
+                             return a.name..b.name..c.name
+                         end
+                     })
+
+
+                     local b = setmetatable({name="b"},
+                       {__unm = a,
+                       __add= a,
+                       __concat =a
+                       
+                       })
+                     local c ={name ="c"}
+                     return b,c
+                     """;
+        var result = await state.DoStringAsync(source);
+        var b = result[0];
+        var c = result[1];
+        var d = await state.MainThread.OpArithmetic(b, c, OpCode.Add);
+        Assert.True(d.TryRead(out string s));
+        Assert.That(s, Is.EqualTo("abc"));
+        d = await state.MainThread.OpUnary(b, OpCode.Unm);
+        Assert.True(d.TryRead(out s));
+        Assert.That(s, Is.EqualTo("abb"));
+        d = await state.MainThread.OpConcat([c, b]);
+        Assert.True(d.TryRead(out s));
+        Assert.That(s, Is.EqualTo("acb"));
+    }
 }

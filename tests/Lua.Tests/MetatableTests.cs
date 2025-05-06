@@ -188,4 +188,30 @@ end
         Assert.That(r, Has.Length.EqualTo(1));
         Assert.That(r[0].Read<LuaTable>()[1].Read<string>(), Does.Contain("stack traceback:"));
     }
+
+    [Test]
+    public async Task Test_Metamethod_MetaCallViaMeta()
+    {
+        var source = """
+                     local a = {name ="a"}
+                     setmetatable(a, {
+                         __call = function(a, b, c)
+                             return a.name..b.name..c.name
+                         end
+                     })
+
+
+                     local b = setmetatable({name="b"},
+                       {__unm = a,
+                       __add= a,
+                       __concat =a
+                       
+                       })
+                     local c ={name ="c"}
+                     assert((b + c)== "abc")
+                     assert((b .. c)== "abc")
+                     """;
+        await state.DoStringAsync(source);
+    }
+
 }
