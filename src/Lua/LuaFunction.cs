@@ -1,41 +1,42 @@
-using System.Runtime.CompilerServices;
 using Lua.Runtime;
 
 namespace Lua;
 
-public class LuaFunction(string name, Func<LuaFunctionExecutionContext, Memory<LuaValue>, CancellationToken, ValueTask<int>> func)
+public class LuaFunction(string name, Func<LuaFunctionExecutionContext, CancellationToken, ValueTask<int>> func)
 {
     public string Name { get; } = name;
-    internal Func<LuaFunctionExecutionContext, Memory<LuaValue>, CancellationToken, ValueTask<int>> Func { get; } = func;
+    internal Func<LuaFunctionExecutionContext, CancellationToken, ValueTask<int>> Func { get; } = func;
 
-    public LuaFunction(Func<LuaFunctionExecutionContext, Memory<LuaValue>, CancellationToken, ValueTask<int>> func) : this("anonymous", func)
+    public LuaFunction(Func<LuaFunctionExecutionContext, CancellationToken, ValueTask<int>> func) : this("anonymous", func)
     {
     }
 
-    public async ValueTask<int> InvokeAsync(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public async ValueTask<int> InvokeAsync(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
-        var frame = new CallStackFrame
+        var varArgumentCount = this.GetVariableArgumentCount(context.ArgumentCount);
+        if (varArgumentCount != 0)
         {
-            Base = context.FrameBase,
-            VariableArgumentCount = this is LuaClosure closure ? Math.Max(context.ArgumentCount - closure.Proto.ParameterCount, 0) : 0,
-            Function = this,
-        };
+            LuaVirtualMachine.PrepareVariableArgument(context.Thread.Stack, context.ArgumentCount, varArgumentCount);
+            context = context with { ArgumentCount = context.ArgumentCount - varArgumentCount };
+        }
 
-        context.Thread.PushCallStackFrame(frame);
-
-
+        var callStackFrameCount = context.Thread.CallStackFrameCount;
         try
         {
+            var frame = new CallStackFrame { Base = context.FrameBase, VariableArgumentCount = varArgumentCount, Function = this, ReturnBase = context.ReturnFrameBase };
+            context.Thread.PushCallStackFrame(frame);
+
             if (context.Thread.CallOrReturnHookMask.Value != 0 && !context.Thread.IsInHook)
             {
-                return await LuaVirtualMachine.ExecuteCallHook(context, buffer, cancellationToken);
+                return await LuaVirtualMachine.ExecuteCallHook(context, cancellationToken);
             }
 
-            return await Func(context, buffer, cancellationToken);
+            var r = await Func(context, cancellationToken);
+            return r;
         }
         finally
         {
-            context.Thread.PopCallStackFrame();
+            context.Thread.PopCallStackFrameUntil(callStackFrameCount);
         }
     }
 }

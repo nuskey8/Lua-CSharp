@@ -296,6 +296,12 @@ public readonly struct LuaValue : IEquatable<LuaValue>
         return value;
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal string UnsafeReadString()
+    {
+        return Unsafe.As<string>(referenceValue!);
+    }
+
     bool TryParseToDouble(out double result)
     {
         if (Type != LuaValueType.String)
@@ -584,27 +590,24 @@ public readonly struct LuaValue : IEquatable<LuaValue>
         return false;
     }
 
-    internal ValueTask<int> CallToStringAsync(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    internal ValueTask<int> CallToStringAsync(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
         if (this.TryGetMetamethod(context.State, Metamethods.ToString, out var metamethod))
         {
             if (!metamethod.TryReadFunction(out var func))
             {
-                LuaRuntimeException.AttemptInvalidOperation(context.State.GetTraceback(), "call", metamethod);
+                LuaRuntimeException.AttemptInvalidOperation(context.Thread, "call", metamethod);
             }
 
-            context.State.Push(this);
+            var stack = context.Thread.Stack;
+            stack.Push(this);
 
-            return func.InvokeAsync(context with
-            {
-                ArgumentCount = 1,
-                FrameBase = context.Thread.Stack.Count - 1,
-            }, buffer, cancellationToken);
+            return func.InvokeAsync(context with { ArgumentCount = 1, ReturnFrameBase = stack.Count - 1, }, cancellationToken);
         }
         else
         {
-            buffer.Span[0] = ToString();
-            return new(1);
+            context.Thread.Stack.Push(ToString());
+            return default;
         }
     }
 }

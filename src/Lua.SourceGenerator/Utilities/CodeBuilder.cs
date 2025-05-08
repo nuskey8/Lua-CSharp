@@ -82,9 +82,11 @@ internal sealed class CodeBuilder
             {
                 buffer.Append(", ");
             }
+
             buffer.Append(x);
             first = false;
         }
+
         buffer.Append(" }");
     }
 
