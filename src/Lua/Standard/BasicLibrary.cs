@@ -243,7 +243,7 @@ public sealed class BasicLibrary
 
     public async ValueTask<int> PCall(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
-        var frameCount = context.Thread.CallStack.Count;
+        var frameCount = context.Thread.CallStackFrameCount;
         var arg0 = context.GetArgument<LuaFunction>(0);
         try
         {
@@ -254,9 +254,10 @@ public sealed class BasicLibrary
         }
         catch (Exception ex)
         {
-            context.Thread.CallStack.PopUntil(frameCount);
+            context.Thread.PopCallStackFrameUntil(frameCount);
             if (ex is LuaRuntimeException luaEx)
             {
+                luaEx.Forget();
                 return context.Return(false, luaEx.ErrorObject);
             }
             else
@@ -543,7 +544,7 @@ public sealed class BasicLibrary
 
     public async ValueTask<int> XPCall(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
-        var frameCount = context.Thread.CallStack.Count;
+        var frameCount = context.Thread.CallStackFrameCount;
         var arg0 = context.GetArgument<LuaFunction>(0);
         var arg1 = context.GetArgument<LuaFunction>(1);
 
@@ -556,10 +557,17 @@ public sealed class BasicLibrary
         }
         catch (Exception ex)
         {
-            context.Thread.CallStack.PopUntil(frameCount);
-            var error = ex is LuaRuntimeException luaEx ? luaEx.ErrorObject : ex.Message;
+            context.Thread.PopCallStackFrameUntil(frameCount);
+            if (ex is LuaRuntimeException luaEx)
+            {
+                luaEx.Forget();
+                context.Thread.Push(luaEx.ErrorObject);
+            }
+            else
+            {
+                context.Thread.Push(ex.Message);
+            }
 
-            context.Thread.Push(error);
 
             // invoke error handler
             var count = await arg1.InvokeAsync(context with { ArgumentCount = 1, ReturnFrameBase = context.ReturnFrameBase + 1 }, cancellationToken);

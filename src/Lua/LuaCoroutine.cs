@@ -189,8 +189,7 @@ public sealed class LuaCoroutine : LuaThread, IValueTaskSource<LuaCoroutine.Yiel
                 {
                     if (ex is LuaRuntimeException luaRuntimeException)
                     {
-                        luaRuntimeException.BuildWithPop(0);
-                        traceback = luaRuntimeException.LuaTraceback;
+                        traceback = luaRuntimeException.Build();
                     }
 
                     Volatile.Write(ref status, (byte)LuaThreadStatus.Dead);

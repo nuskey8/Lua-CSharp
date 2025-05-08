@@ -55,79 +55,32 @@ public static class LuaThreadExtensions
 
     public static void Push(this LuaThread thread, LuaValue value)
     {
-        thread.CoreData!.Stack.Push(value);
+        thread.Stack.Push(value);
     }
 
     public static void Push(this LuaThread thread, params ReadOnlySpan<LuaValue> span)
     {
-        thread.CoreData!.Stack.PushRange(span);
+        thread.Stack.PushRange(span);
     }
 
     public static void Pop(this LuaThread thread, int count)
     {
-        thread.CoreData!.Stack.Pop(count);
+        thread.Stack.Pop(count);
     }
 
     public static LuaValue Pop(this LuaThread thread)
     {
-        return thread.CoreData!.Stack.Pop();
+        return thread.Stack.Pop();
     }
 
     public static LuaReturnValuesReader ReadReturnValues(this LuaThread thread, int argumentCount)
     {
-        var stack = thread.CoreData!.Stack;
+        var stack = thread.Stack;
         return new LuaReturnValuesReader(stack, stack.Count - argumentCount);
     }
 
-    public static ref readonly CallStackFrame GetCurrentFrame(this LuaThread thread)
-    {
-        return ref thread.CoreData!.CallStack.PeekRef();
-    }
 
-    public static ReadOnlySpan<LuaValue> GetStackValues(this LuaThread thread)
-    {
-        if (thread.CoreData == null) return default;
-        return thread.CoreData!.Stack.AsSpan();
-    }
-
-    public static ReadOnlySpan<CallStackFrame> GetCallStackFrames(this LuaThread thread)
-    {
-        if (thread.CoreData == null) return default;
-        return thread.CoreData!.CallStack.AsSpan();
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static void PushCallStackFrame(this LuaThread thread, in CallStackFrame frame)
-    {
-        thread.CoreData!.CallStack.Push(frame);
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static void PopCallStackFrameWithStackPop(this LuaThread thread)
-    {
-        var coreData = thread.CoreData!;
-
-        coreData.Stack.PopUntil(coreData!.CallStack.Pop().Base);
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static void PopCallStackFrameWithStackPop(this LuaThread thread, int frameBase)
-    {
-        var coreData = thread.CoreData!;
-        coreData!.CallStack.Pop();
-        {
-            coreData.Stack.PopUntil(frameBase);
-        }
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static void PopCallStackFrame(this LuaThread thread)
-    {
-        var coreData = thread.CoreData!;
-        coreData!.CallStack.Pop();
-    }
-
-    public static async ValueTask<LuaValue> OpArithmetic(this LuaThread thread, LuaValue left, LuaValue right, OpCode opCode, CancellationToken ct = default)
+    public static async ValueTask<LuaValue> Arithmetic(this LuaThread thread, LuaValue x, LuaValue y, OpCode opCode, CancellationToken cancellationToken = default)
     {
         [MethodImpl(MethodImplOptions.NoInlining)]
         static double Mod(double a, double b)
@@ -157,31 +110,32 @@ public static class LuaThreadExtensions
         }
 
 
-        if (left.TryReadDouble(out var numB) && right.TryReadDouble(out var numC))
+        if (x.TryReadDouble(out var numX) && y.TryReadDouble(out var numY))
         {
-            return ArithmeticOperation(opCode, numB, numC);
+            return ArithmeticOperation(opCode, numX, numY);
         }
 
-        return await LuaVirtualMachine.ExecuteBinaryOperationMetaMethod(thread, left, right, opCode, ct);
+
+        return await LuaVirtualMachine.ExecuteBinaryOperationMetaMethod(thread, x, y, opCode, cancellationToken);
     }
 
-    public static async ValueTask<LuaValue> OpUnary(this LuaThread thread, LuaValue left, OpCode opCode, CancellationToken ct = default)
+    public static async ValueTask<LuaValue> Unary(this LuaThread thread, LuaValue value, OpCode opCode, CancellationToken cancellationToken = default)
     {
         if (opCode == OpCode.Unm)
         {
-            if (left.TryReadDouble(out var numB))
+            if (value.TryReadDouble(out var numB))
             {
                 return -numB;
             }
         }
         else if (opCode == OpCode.Len)
         {
-            if (left.TryReadString(out var str))
+            if (value.TryReadString(out var str))
             {
                 return str.Length;
             }
 
-            if (left.TryReadTable(out var table))
+            if (value.TryReadTable(out var table))
             {
                 return table.ArrayLength;
             }
@@ -192,11 +146,11 @@ public static class LuaThreadExtensions
         }
 
 
-        return await LuaVirtualMachine.ExecuteUnaryOperationMetaMethod(thread, left, opCode, ct);
+        return await LuaVirtualMachine.ExecuteUnaryOperationMetaMethod(thread, value, opCode, cancellationToken);
     }
 
 
-    public static async ValueTask<bool> OpCompare(this LuaThread thread, LuaValue vb, LuaValue vc, OpCode opCode, CancellationToken ct = default)
+    public static async ValueTask<bool> Compare(this LuaThread thread, LuaValue x, LuaValue y, OpCode opCode, CancellationToken cancellationToken = default)
     {
         if (opCode is not (OpCode.Eq or OpCode.Lt or OpCode.Le))
         {
@@ -205,30 +159,30 @@ public static class LuaThreadExtensions
 
         if (opCode == OpCode.Eq)
         {
-            if (vb == vc)
+            if (x == y)
             {
                 return true;
             }
         }
         else
         {
-            if (vb.TryReadNumber(out var numB) && vc.TryReadNumber(out var numC))
+            if (x.TryReadNumber(out var numX) && y.TryReadNumber(out var numY))
             {
-                return opCode == OpCode.Lt ? numB < numC : numB <= numC;
+                return opCode == OpCode.Lt ? numX < numY : numX <= numY;
             }
 
-            if (vb.TryReadString(out var strB) && vc.TryReadString(out var strC))
+            if (x.TryReadString(out var strX) && y.TryReadString(out var strY))
             {
-                var c = StringComparer.Ordinal.Compare(strB, strC);
+                var c = StringComparer.Ordinal.Compare(strX, strY);
                 return opCode == OpCode.Lt ? c < 0 : c <= 0;
             }
         }
 
 
-        return await LuaVirtualMachine.ExecuteCompareOperationMetaMethod(thread, vb, vc, opCode, ct);
+        return await LuaVirtualMachine.ExecuteCompareOperationMetaMethod(thread, x, y, opCode, cancellationToken);
     }
 
-    public static ValueTask<LuaValue> OpGetTable(this LuaThread thread, LuaValue table, LuaValue key, CancellationToken ct = default)
+    public static async ValueTask<LuaValue> GetTable(this LuaThread thread, LuaValue table, LuaValue key, CancellationToken cancellationToken = default)
     {
         if (table.TryReadTable(out var luaTable))
         {
@@ -238,10 +192,11 @@ public static class LuaThreadExtensions
             }
         }
 
-        return LuaVirtualMachine.ExecuteGetTableSlowPath(thread, table, key, ct);
+
+        return await LuaVirtualMachine.ExecuteGetTableSlowPath(thread, table, key, cancellationToken);
     }
 
-    public static ValueTask OpSetTable(this LuaThread thread, LuaValue table, LuaValue key, LuaValue value, CancellationToken ct = default)
+    public static async ValueTask SetTable(this LuaThread thread, LuaValue table, LuaValue key, LuaValue value, CancellationToken cancellationToken = default)
     {
         if (key.TryReadNumber(out var numB))
         {
@@ -258,39 +213,39 @@ public static class LuaThreadExtensions
             if (!Unsafe.IsNullRef(ref valueRef) && valueRef.Type != LuaValueType.Nil)
             {
                 valueRef = value;
-                return default;
+                return;
             }
         }
 
-        return LuaVirtualMachine.ExecuteSetTableSlowPath(thread, table, key, value, ct);
+        await LuaVirtualMachine.ExecuteSetTableSlowPath(thread, table, key, value, cancellationToken);
     }
 
-    public static ValueTask<LuaValue> OpConcat(this LuaThread thread, ReadOnlySpan<LuaValue> values, CancellationToken ct = default)
+    public static ValueTask<LuaValue> Concat(this LuaThread thread, ReadOnlySpan<LuaValue> values, CancellationToken cancellationToken = default)
     {
         thread.Stack.PushRange(values);
-        return OpConcat(thread, values.Length, ct);
+        return Concat(thread, values.Length, cancellationToken);
     }
 
-    public static ValueTask<LuaValue> OpConcat(this LuaThread thread, int concatCount, CancellationToken ct = default)
+    public static async ValueTask<LuaValue> Concat(this LuaThread thread, int concatCount, CancellationToken cancellationToken = default)
     {
-        return LuaVirtualMachine.Concat(thread, concatCount, ct);
+        return await LuaVirtualMachine.Concat(thread, concatCount, cancellationToken);
     }
 
-    public static ValueTask<int> OpCall(this LuaThread thread, int funcIndex, CancellationToken ct = default)
+    public static async ValueTask<int> Call(this LuaThread thread, int funcIndex, CancellationToken cancellationToken = default)
     {
-        return LuaVirtualMachine.Call(thread, funcIndex, ct);
+        return await LuaVirtualMachine.Call(thread, funcIndex, cancellationToken);
     }
 
-    public static ValueTask<LuaValue[]> OpCall(this LuaThread thread, LuaValue function, ReadOnlySpan<LuaValue> args, CancellationToken ct = default)
+    public static ValueTask<LuaValue[]> Call(this LuaThread thread, LuaValue function, ReadOnlySpan<LuaValue> arguments, CancellationToken cancellationToken = default)
     {
         var funcIndex = thread.Stack.Count;
         thread.Stack.Push(function);
-        thread.Stack.PushRange(args);
-        return Impl(thread, funcIndex, ct);
+        thread.Stack.PushRange(arguments);
+        return Impl(thread, funcIndex, cancellationToken);
 
-        static async ValueTask<LuaValue[]> Impl(LuaThread thread, int funcIndex, CancellationToken ct)
+        static async ValueTask<LuaValue[]> Impl(LuaThread thread, int funcIndex, CancellationToken cancellationToken)
         {
-            await LuaVirtualMachine.Call(thread, funcIndex, ct);
+            await LuaVirtualMachine.Call(thread, funcIndex, cancellationToken);
             var count = thread.Stack.Count - funcIndex;
             using var results = thread.ReadReturnValues(count);
             return results.AsSpan().ToArray();

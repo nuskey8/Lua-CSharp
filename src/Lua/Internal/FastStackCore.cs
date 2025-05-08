@@ -85,8 +85,8 @@ public struct FastStackCore<T>
 
     public void PopUntil(int top)
     {
+        array.AsSpan(top, tail - top).Clear();
         tail = top;
-        array.AsSpan(top, tail).Clear();
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

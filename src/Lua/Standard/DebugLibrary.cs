@@ -353,8 +353,8 @@ public class DebugLibrary
         }
 
         var skipCount = Math.Min(Math.Max(level - 1, 0), callStack.Length - 1);
-        var frames = callStack[1..^skipCount];
-        return new(context.Return(Runtime.Traceback.GetTracebackString(context.State, callStack[0].Function, frames, message, level == 1)));
+        var frames = callStack[..^skipCount];
+        return new(context.Return(Runtime.Traceback.GetTracebackString(context.State, frames, message, level == 1)));
     }
 
     public ValueTask<int> GetRegistry(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
@@ -449,7 +449,7 @@ public class DebugLibrary
 
         if (thread.IsLineHookEnabled)
         {
-            thread.LastPc = thread.CallStack.Count > 0 ? thread.GetCurrentFrame().CallerInstructionIndex : -1;
+            thread.LastPc = thread.CallStackFrameCount > 0 ? thread.GetCurrentFrame().CallerInstructionIndex : -1;
         }
 
         thread.Hook = hook;

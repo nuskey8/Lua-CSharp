@@ -25,7 +25,7 @@ public abstract class LuaThread
         throw new LuaRuntimeException(context.Thread, "attempt to yield from outside a coroutine");
     }
 
-    internal class ThreadCoreData : IPoolNode<ThreadCoreData>
+    protected class ThreadCoreData : IPoolNode<ThreadCoreData>
     {
         //internal  LuaCoroutineData? coroutineData;
         internal LuaStack Stack = new();
@@ -59,17 +59,20 @@ public abstract class LuaThread
     }
 
     public LuaState State { get; protected set; } = null!;
-    internal ThreadCoreData? CoreData = new();
+    protected ThreadCoreData? CoreData = new();
     internal BitFlags2 LineAndCountHookMask;
     internal BitFlags2 CallOrReturnHookMask;
     internal bool IsInHook;
     internal int HookCount;
     internal int BaseHookCount;
     internal int LastPc;
+
+    internal LuaRuntimeException? CurrentException;
+    internal readonly ReversedStack<CallStackFrame> ExceptionTrace = new();
+
     public bool IsRunning { get; protected set; }
     internal LuaFunction? Hook { get; set; }
     public LuaStack Stack => CoreData!.Stack;
-    internal ref FastStackCore<CallStackFrame> CallStack => ref CoreData!.CallStack;
 
     internal bool IsLineHookEnabled
     {
@@ -103,28 +106,98 @@ public abstract class LuaThread
         IsRunning = true;
         try
         {
-            await closure.InvokeAsync(new()
-            {
-                Thread = this, ArgumentCount = Stack.Count, ReturnFrameBase = 0,
-            }, cancellationToken);
+            await closure.InvokeAsync(new() { Thread = this, ArgumentCount = Stack.Count, ReturnFrameBase = 0, }, cancellationToken);
 
             return Stack.Count;
         }
-        catch (LuaRuntimeException e)
-        {
-            e.BuildWithPop(0);
-            throw;
-        }
         finally
         {
+            PopCallStackFrameUntil(0);
             IsRunning = false;
         }
     }
 
+    public int CallStackFrameCount => CoreData == null ? 0 : CoreData!.CallStack.Count;
+
+    public ref readonly CallStackFrame GetCurrentFrame()
+    {
+        return ref CoreData!.CallStack.PeekRef();
+    }
+
+    public ReadOnlySpan<LuaValue> GetStackValues()
+    {
+        return CoreData == null ? default : CoreData!.Stack.AsSpan();
+    }
+
+    public ReadOnlySpan<CallStackFrame> GetCallStackFrames()
+    {
+        return CoreData == null ? default : CoreData!.CallStack.AsSpan();
+    }
+
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal void PushCallStackFrame(in CallStackFrame frame)
+    {
+        CurrentException?.Build();
+        CurrentException = null;
+        CoreData!.CallStack.Push(frame);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal void PopCallStackFrameWithStackPop()
+    {
+        var coreData = CoreData!;
+        var popFrame = coreData.CallStack.Pop();
+        if (CurrentException != null)
+        {
+            ExceptionTrace.Push(popFrame);
+        }
+
+        coreData.Stack.PopUntil(popFrame.Base);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal void PopCallStackFrameWithStackPop(int frameBase)
+    {
+        var coreData = CoreData!;
+        var popFrame = coreData.CallStack.Pop();
+        if (CurrentException != null)
+        {
+            ExceptionTrace.Push(popFrame);
+        }
+
+        {
+            coreData.Stack.PopUntil(frameBase);
+        }
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal void PopCallStackFrame()
+    {
+        var coreData = CoreData!;
+        var popFrame = coreData.CallStack.Pop();
+        if (CurrentException != null)
+        {
+            ExceptionTrace.Push(popFrame);
+        }
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal void PopCallStackFrameUntil(int top)
+    {
+        var coreData = CoreData!;
+        ref var callStack = ref coreData.CallStack;
+        if (CurrentException != null)
+        {
+            ExceptionTrace.Push(callStack.AsSpan()[top..]);
+        }
+
+        callStack.PopUntil(top);
+    }
 
     internal void DumpStackValues()
     {
-        var span = this.GetStackValues();
+        var span = GetStackValues();
         for (int i = 0; i < span.Length; i++)
         {
             Console.WriteLine($"LuaStack [{i}]\t{span[i]}");
@@ -133,9 +206,7 @@ public abstract class LuaThread
 
     public Traceback GetTraceback()
     {
-        var frames = this.GetCallStackFrames();
-
-        return new(State) { RootFunc = frames[0].Function, StackFrames = this.GetCallStackFrames()[1..].ToArray() };
+        return new(State, GetCallStackFrames());
     }
 
     protected void ThrowIfRunning()

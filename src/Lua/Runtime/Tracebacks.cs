@@ -3,20 +3,21 @@ using Lua.Internal;
 
 namespace Lua.Runtime;
 
-public class Traceback(LuaState state)
+public class Traceback(LuaState state, ReadOnlySpan<CallStackFrame> stackFrames)
 {
     public LuaState State => state;
-    public required LuaFunction RootFunc { get; init; }
-    public required CallStackFrame[] StackFrames { get; init; }
+    public LuaFunction RootFunc => StackFrames[0].Function;
+    readonly CallStackFrame[] stackFramesArray = stackFrames.ToArray();
+    public ReadOnlySpan<CallStackFrame> StackFrames => stackFramesArray;
 
     internal void WriteLastLuaTrace(ref PooledList<char> list)
     {
         var intFormatBuffer = (stackalloc char[15]);
         var shortSourceBuffer = (stackalloc char[59]);
-        var stackFrames = StackFrames.AsSpan();
-        for (var index = stackFrames.Length - 1; index >= 0; index--)
+        var stackFrames = StackFrames;
+        for (var index = stackFrames.Length - 1; index >= 1; index--)
         {
-            LuaFunction lastFunc = index > 0 ? stackFrames[index - 1].Function : RootFunc;
+            LuaFunction lastFunc = stackFrames[index - 1].Function;
             var frame = stackFrames[index];
             if (!frame.IsTailCall && lastFunc is LuaClosure closure)
             {
@@ -43,10 +44,10 @@ public class Traceback(LuaState state)
     {
         get
         {
-            var stackFrames = StackFrames.AsSpan();
-            for (var index = stackFrames.Length - 1; index >= 0; index--)
+            var stackFrames = StackFrames;
+            for (var index = stackFrames.Length - 1; index >= 1; index--)
             {
-                LuaFunction lastFunc = index > 0 ? stackFrames[index - 1].Function : RootFunc;
+                LuaFunction lastFunc = stackFrames[index - 1].Function;
                 var frame = stackFrames[index];
                 if (!frame.IsTailCall && lastFunc is LuaClosure closure)
                 {
@@ -68,7 +69,7 @@ public class Traceback(LuaState state)
 
     public override string ToString()
     {
-        return GetTracebackString(State, RootFunc, StackFrames, LuaValue.Nil);
+        return GetTracebackString(State, StackFrames, LuaValue.Nil);
     }
 
     public string ToString(int skipFrames)
@@ -78,10 +79,10 @@ public class Traceback(LuaState state)
             return "stack traceback:\n";
         }
 
-        return GetTracebackString(State, RootFunc, StackFrames[..^skipFrames], LuaValue.Nil);
+        return GetTracebackString(State, StackFrames[..^skipFrames], LuaValue.Nil);
     }
 
-    internal static string GetTracebackString(LuaState state, LuaFunction rootFunc, ReadOnlySpan<CallStackFrame> stackFrames, LuaValue message, bool skipFirstCsharpCall = false)
+    internal static string GetTracebackString(LuaState state, ReadOnlySpan<CallStackFrame> stackFrames, LuaValue message, bool skipFirstCsharpCall = false)
     {
         using var list = new PooledList<char>(64);
         if (message.Type is not LuaValueType.Nil)
@@ -102,9 +103,9 @@ public class Traceback(LuaState state)
             }
         }
 
-        for (var index = stackFrames.Length - 1; index >= 0; index--)
+        for (var index = stackFrames.Length - 1; index >= 1; index--)
         {
-            LuaFunction lastFunc = index > 0 ? stackFrames[index - 1].Function : rootFunc;
+            LuaFunction lastFunc = stackFrames[index - 1].Function;
             if (lastFunc is not null and not LuaClosure)
             {
                 list.AddRange("\t[C#]: in function '");
@@ -166,8 +167,8 @@ public class Traceback(LuaState state)
                     }
                 }
 
-                var caller = index > 1 ? stackFrames[index - 2].Function : rootFunc;
-                if (index > 0 && caller is LuaClosure callerClosure)
+                var caller = index > 1 ? stackFrames[index - 2].Function : stackFrames[0].Function;
+                if (index > 1 && caller is LuaClosure callerClosure)
                 {
                     var t = LuaDebug.GetFuncName(callerClosure.Proto, stackFrames[index - 1].CallerInstructionIndex, out var name);
                     if (t is not null)

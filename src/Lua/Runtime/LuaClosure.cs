@@ -18,13 +18,13 @@ public sealed class LuaClosure : LuaFunction
             return;
         }
 
-        if (thread.CallStack.Count == 0)
+        if (thread.CallStackFrameCount == 0)
         {
             upValues.Add(thread.State.EnvUpValue);
             return;
         }
 
-        var baseIndex = thread.CallStack.Peek().Base;
+        var baseIndex = thread.GetCallStackFrames()[^1].Base;
 
         // add upvalues
         for (int i = 0; i < proto.UpValues.Length; i++)
