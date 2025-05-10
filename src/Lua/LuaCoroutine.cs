@@ -59,7 +59,6 @@ public sealed class LuaCoroutine : LuaThread, IValueTaskSource<LuaCoroutine.Yiel
         State = parent.State;
         IsProtectedMode = isProtectedMode;
         Function = function;
-        IsRunning = false;
     }
 
     public override LuaThreadStatus GetStatus() => (LuaThreadStatus)status;
@@ -153,8 +152,8 @@ public sealed class LuaCoroutine : LuaThread, IValueTaskSource<LuaCoroutine.Yiel
                 if (isFirstCall)
                 {
                     Stack.PushRange(stack.AsSpan()[^argCount..]);
-                    functionTask = Function.InvokeAsync(new() { Thread = this, ArgumentCount = Stack.Count, ReturnFrameBase = 0 }, cancellationToken);
-
+                    //functionTask = Function.InvokeAsync(new() { Access = this.CurrentAccess, ArgumentCount = Stack.Count, ReturnFrameBase = 0 }, cancellationToken);
+                    functionTask =CurrentAccess.RunAsync(Function,Stack.Count, cancellationToken);
                     Volatile.Write(ref isFirstCall, false);
                     if (!functionTask.IsCompleted)
                     {

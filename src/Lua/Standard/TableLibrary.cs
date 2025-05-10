@@ -189,7 +189,7 @@ public sealed class TableLibrary
             var top = stack.Count;
             stack.Push(memory.Span[j]);
             stack.Push(pivot);
-            await comparer.InvokeAsync(context with { ArgumentCount = 2, ReturnFrameBase = top }, cancellationToken);
+            await context.Access.RunAsync(comparer, 2,cancellationToken);
 
             if (context.Thread.Stack.Get(top).ToBoolean())
             {

@@ -32,24 +32,17 @@ public static partial class LuaVirtualMachine
                 context.Thread.HookCount = context.Thread.BaseHookCount;
 
                 var hook = context.Thread.Hook!;
+
                 var stack = context.Thread.Stack;
+                var top = stack.Count;
                 stack.Push("count");
                 stack.Push(LuaValue.Nil);
-                var funcContext = new LuaFunctionExecutionContext { Thread = context.Thread, ArgumentCount = 2, ReturnFrameBase = context.Thread.Stack.Count - 2, };
-                var frame = new CallStackFrame
-                {
-                    Base = funcContext.FrameBase,
-                    ReturnBase = funcContext.ReturnFrameBase,
-                    VariableArgumentCount = hook.GetVariableArgumentCount(funcContext.ArgumentCount),
-                    Function = hook,
-                    CallerInstructionIndex = context.Pc,
-                };
-                frame.Flags |= CallStackFrameFlags.InHook;
                 context.Thread.IsInHook = true;
-                context.Thread.PushCallStackFrame(frame);
+                var frame = context.Thread.CurrentAccess.CreateCallStackFrame(hook, 2, top, context.Pc);
+                var access = context.Thread.PushCallStackFrame(frame);
+                var funcContext = new LuaFunctionExecutionContext { Access = access, ArgumentCount = stack.Count - frame.Base, ReturnFrameBase = frame.ReturnBase };
                 await hook.Func(funcContext, context.CancellationToken);
                 context.Thread.IsInHook = false;
-
 
                 countHookIsDone = true;
             }
@@ -70,22 +63,22 @@ public static partial class LuaVirtualMachine
 
                     var hook = context.Thread.Hook!;
                     var stack = context.Thread.Stack;
+                    var top = stack.Count;
                     stack.Push("line");
                     stack.Push(line);
-                    var funcContext = new LuaFunctionExecutionContext { Thread = context.Thread, ArgumentCount = 2, ReturnFrameBase = context.Thread.Stack.Count - 2, };
-                    var frame = new CallStackFrame
-                    {
-                        Base = funcContext.FrameBase,
-                        ReturnBase = funcContext.ReturnFrameBase,
-                        VariableArgumentCount = hook.GetVariableArgumentCount(funcContext.ArgumentCount),
-                        Function = hook,
-                        CallerInstructionIndex = pc,
-                    };
-                    frame.Flags |= CallStackFrameFlags.InHook;
                     context.Thread.IsInHook = true;
-                    context.Thread.PushCallStackFrame(frame);
-                    await hook.Func(funcContext, context.CancellationToken);
-                    context.Thread.IsInHook = false;
+                    var frame = context.Thread.CurrentAccess.CreateCallStackFrame(hook, 2, top, pc);
+                    var access = context.Thread.PushCallStackFrame(frame);
+                    var funcContext = new LuaFunctionExecutionContext { Access = access, ArgumentCount = stack.Count - frame.Base, ReturnFrameBase = frame.ReturnBase };
+                    try
+                    {
+                        await hook.Func(funcContext, context.CancellationToken);
+                    }
+                    finally
+                    {
+                        context.Thread.IsInHook = false;
+                    }
+
                     context.Thread.LastPc = pc;
                     return 0;
                 }
@@ -105,69 +98,51 @@ public static partial class LuaVirtualMachine
     [MethodImpl(MethodImplOptions.NoInlining)]
     static ValueTask<int> ExecuteCallHook(VirtualMachineExecutionContext context, in CallStackFrame frame, int arguments, bool isTailCall = false)
     {
-        return ExecuteCallHook(new()
-        {
-            Thread = context.Thread, ArgumentCount = arguments, ReturnFrameBase = frame.ReturnBase
-        },context.CancellationToken, isTailCall);
+        return ExecuteCallHook(new() { Access = context.Thread.CurrentAccess, ArgumentCount = arguments, ReturnFrameBase = frame.ReturnBase }, context.CancellationToken, isTailCall);
     }
 
-    internal static async ValueTask<int> ExecuteCallHook(LuaFunctionExecutionContext context,  CancellationToken cancellationToken, bool isTailCall = false)
+    internal static async ValueTask<int> ExecuteCallHook(LuaFunctionExecutionContext context, CancellationToken cancellationToken, bool isTailCall = false)
     {
         var argCount = context.ArgumentCount;
         var hook = context.Thread.Hook!;
         var stack = context.Thread.Stack;
         if (context.Thread.IsCallHookEnabled)
         {
+            var top = stack.Count;
             stack.Push((isTailCall ? "tail call" : "call"));
 
             stack.Push(LuaValue.Nil);
-            var funcContext = new LuaFunctionExecutionContext { Thread = context.Thread, ArgumentCount = 2, ReturnFrameBase = context.Thread.Stack.Count - 2, };
-            CallStackFrame frame = new()
-            {
-                Base = funcContext.FrameBase,
-                ReturnBase = funcContext.ReturnFrameBase,
-                VariableArgumentCount = hook.GetVariableArgumentCount(2),
-                Function = hook,
-                CallerInstructionIndex = 0,
-                Flags = CallStackFrameFlags.InHook
-            };
-
-            context.Thread.PushCallStackFrame(frame);
+            context.Thread.IsInHook = true;
+            var frame = context.Thread.CurrentAccess.CreateCallStackFrame(hook, 2, top, context.Thread.GetCurrentFrame().CallerInstructionIndex);
+            var access = context.Thread.PushCallStackFrame(frame);
+            var funcContext = new LuaFunctionExecutionContext { Access = access, ArgumentCount = stack.Count - frame.Base, ReturnFrameBase = frame.ReturnBase };
             try
             {
-                context.Thread.IsInHook = true;
                 await hook.Func(funcContext, cancellationToken);
-                context.Thread.PopCallStackFrameWithStackPop();
             }
             finally
             {
                 context.Thread.IsInHook = false;
+                context.Thread.PopCallStackFrameWithStackPop();
             }
         }
 
         {
-            ref readonly var frame = ref context.Thread.GetCurrentFrame();
-            var task = frame.Function.Func(new() { Thread = context.Thread, ArgumentCount = argCount, ReturnFrameBase = frame.ReturnBase, }, cancellationToken);
+            var frame = context.Thread.GetCurrentFrame();
+            var task = frame.Function.Func(new() { Access = context.Thread.CurrentAccess, ArgumentCount = argCount, ReturnFrameBase = frame.ReturnBase, }, cancellationToken);
             var r = await task;
             if (isTailCall || !context.Thread.IsReturnHookEnabled)
             {
                 return r;
             }
 
+            var top = stack.Count;
             stack.Push("return");
             stack.Push(LuaValue.Nil);
-            var funcContext = new LuaFunctionExecutionContext { Thread = context.Thread, ArgumentCount = 2, ReturnFrameBase = context.Thread.Stack.Count - 2, };
-
-
-            context.Thread.PushCallStackFrame(new()
-            {
-                Base = funcContext.FrameBase,
-                ReturnBase = funcContext.ReturnFrameBase,
-                VariableArgumentCount = hook.GetVariableArgumentCount(2),
-                Function = hook,
-                CallerInstructionIndex = 0,
-                Flags = CallStackFrameFlags.InHook
-            });
+            context.Thread.IsInHook = true;
+            frame = context.Thread.CurrentAccess.CreateCallStackFrame(hook, 2, top, 0);
+            var access = context.Thread.PushCallStackFrame(frame);
+            var funcContext = new LuaFunctionExecutionContext { Access = access, ArgumentCount = stack.Count - frame.Base, ReturnFrameBase = frame.ReturnBase };
             try
             {
                 context.Thread.IsInHook = true;
@@ -176,9 +151,9 @@ public static partial class LuaVirtualMachine
             finally
             {
                 context.Thread.IsInHook = false;
+                context.Thread.PopCallStackFrameWithStackPop();
             }
 
-            context.Thread.PopCallStackFrameWithStackPop();
             return r;
         }
     }

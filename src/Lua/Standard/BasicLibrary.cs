@@ -86,12 +86,13 @@ public sealed class BasicLibrary
     public async ValueTask<int> DoFile(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
         var arg0 = context.GetArgument<string>(0);
+        context.Thread.Stack.PopUntil(context.ReturnFrameBase);
 
         // do not use LuaState.DoFileAsync as it uses the newExecutionContext
-        var bytes = await File.ReadAllBytesAsync(arg0, cancellationToken);
+        var bytes =   File.ReadAllBytes(arg0);
         var fileName = "@" + arg0;
-
-        return await context.State.Load(bytes, fileName).InvokeAsync(context with { ArgumentCount = context.ArgumentCount - 1 }, cancellationToken);
+        var closure = context.State.Load(bytes, fileName);
+        return await context.Access.RunAsync(closure,cancellationToken);
     }
 
     public ValueTask<int> Error(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
@@ -126,22 +127,24 @@ public sealed class BasicLibrary
         return default;
     }
 
-    public ValueTask<int> IPairs(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    public async ValueTask<int> IPairs(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
         var arg0 = context.GetArgument<LuaTable>(0);
 
         // If table has a metamethod __ipairs, calls it with table as argument and returns the first three results from the call.
         if (arg0.Metatable != null && arg0.Metatable.TryGetValue(Metamethods.IPairs, out var metamethod))
         {
-            if (!metamethod.TryRead<LuaFunction>(out var function))
-            {
-                LuaRuntimeException.AttemptInvalidOperation(context.Thread, "call", metamethod);
-            }
+            var stack = context.Thread.Stack;
+            var top = stack.Count;
+            stack.Push(metamethod);
+            stack.Push(arg0);
 
-            return function.InvokeAsync(context, cancellationToken);
+            await LuaVirtualMachine.Call(context.Access.Thread,top,context.ReturnFrameBase,cancellationToken);
+            stack.SetTop(context.ReturnFrameBase+3);
+            return 3;
         }
 
-        return new(context.Return(IPairsIterator, arg0, 0));
+        return context.Return(IPairsIterator, arg0, 0);
     }
 
     public async ValueTask<int> LoadFile(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
@@ -223,31 +226,33 @@ public sealed class BasicLibrary
         }
     }
 
-    public ValueTask<int> Pairs(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    public async ValueTask<int> Pairs(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
         var arg0 = context.GetArgument<LuaTable>(0);
 
         // If table has a metamethod __pairs, calls it with table as argument and returns the first three results from the call.
         if (arg0.Metatable != null && arg0.Metatable.TryGetValue(Metamethods.Pairs, out var metamethod))
         {
-            if (!metamethod.TryRead<LuaFunction>(out var function))
-            {
-                LuaRuntimeException.AttemptInvalidOperation(context.Thread, "call", metamethod);
-            }
+            var stack = context.Thread.Stack;
+            var top = stack.Count;
+            stack.Push(metamethod);
+            stack.Push(arg0);
 
-            return function.InvokeAsync(context, cancellationToken);
+            await LuaVirtualMachine.Call(context.Access.Thread,top,context.ReturnFrameBase,cancellationToken);
+            stack.SetTop(context.ReturnFrameBase+3);
+            return 3;
+            
         }
 
-        return new(context.Return(PairsIterator, arg0, LuaValue.Nil));
+        return (context.Return(PairsIterator, arg0, LuaValue.Nil));
     }
 
     public async ValueTask<int> PCall(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
         var frameCount = context.Thread.CallStackFrameCount;
-        var arg0 = context.GetArgument<LuaFunction>(0);
         try
         {
-            var count = await arg0.InvokeAsync(context with { ArgumentCount = context.ArgumentCount - 1, ReturnFrameBase = context.ReturnFrameBase + 1 }, cancellationToken);
+            var count =  await LuaVirtualMachine.Call(context.Access.Thread,context.FrameBase,context.ReturnFrameBase+1,cancellationToken);
 
             context.Thread.Stack.Get(context.ReturnFrameBase) = true;
             return count + 1;
@@ -545,32 +550,37 @@ public sealed class BasicLibrary
     public async ValueTask<int> XPCall(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
         var frameCount = context.Thread.CallStackFrameCount;
-        var arg0 = context.GetArgument<LuaFunction>(0);
+        var arg0 = context.GetArgument(0);
         var arg1 = context.GetArgument<LuaFunction>(1);
 
         try
         {
-            var count = await arg0.InvokeAsync(context with { ArgumentCount = context.ArgumentCount - 2, ReturnFrameBase = context.ReturnFrameBase + 1 }, cancellationToken);
+            var stack = context.Thread.Stack;
+            stack.Get(context.FrameBase+1) = arg0;
+            var count =  await LuaVirtualMachine.Call(context.Access.Thread,context.FrameBase + 1,context.ReturnFrameBase+1,cancellationToken);
 
             context.Thread.Stack.Get(context.ReturnFrameBase) = true;
             return count + 1;
         }
         catch (Exception ex)
         {
-            context.Thread.PopCallStackFrameUntil(frameCount);
+            var thread = context.Thread;
+            thread.PopCallStackFrameUntil(frameCount);
+            
+            var access = thread.CurrentAccess;
             if (ex is LuaRuntimeException luaEx)
             {
                 luaEx.Forget();
-                context.Thread.Push(luaEx.ErrorObject);
+                access.Push(luaEx.ErrorObject);
             }
             else
             {
-                context.Thread.Push(ex.Message);
+                access.Push(ex.Message);
             }
 
 
             // invoke error handler
-            var count = await arg1.InvokeAsync(context with { ArgumentCount = 1, ReturnFrameBase = context.ReturnFrameBase + 1 }, cancellationToken);
+            var count = await access.RunAsync(arg1, 1,context.ReturnFrameBase+1, cancellationToken);
             context.Thread.Stack.Get(context.ReturnFrameBase) = false;
             return count + 1;
         }

@@ -594,15 +594,10 @@ public readonly struct LuaValue : IEquatable<LuaValue>
     {
         if (this.TryGetMetamethod(context.State, Metamethods.ToString, out var metamethod))
         {
-            if (!metamethod.TryReadFunction(out var func))
-            {
-                LuaRuntimeException.AttemptInvalidOperation(context.Thread, "call", metamethod);
-            }
-
             var stack = context.Thread.Stack;
+            stack.Push(metamethod);
             stack.Push(this);
-
-            return func.InvokeAsync(context with { ArgumentCount = 1, ReturnFrameBase = stack.Count - 1, }, cancellationToken);
+            return LuaVirtualMachine.Call(context.Thread,stack.Count-2, stack.Count - 2, cancellationToken);
         }
         else
         {
