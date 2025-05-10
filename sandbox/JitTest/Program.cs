@@ -22,7 +22,7 @@ var closure = luaState.Load(File.ReadAllBytes(GetAbsolutePath("test.lua")),"test
 
 for (int i = 0; i < 1000; i++)
 {
-   await luaState.MainThread.RunAsync(closure);
+   await luaState.TopLevelAccess.RunAsync(closure);
    luaState.MainThread.Stack.Clear();
 }
 

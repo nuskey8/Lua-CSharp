@@ -5,7 +5,7 @@ using Lua.Standard;
 using System.Text.RegularExpressions;
 using System;
 using System.IO;
-
+using System.Text;
 var state = LuaState.Create();
 state.OpenStandardLibraries();
 
@@ -31,10 +31,10 @@ try
 
     Console.WriteLine("Output " + new string('-', 50));
 
-    var count = await state.MainThread.RunAsync(closure);
+    var count = await state.TopLevelAccess.RunAsync(closure);
 
     Console.WriteLine("Result " + new string('-', 50));
-    using var results = state.MainThread.ReadReturnValues(count);
+    using var results = state.TopLevelAccess.ReadReturnValues(count);
     for (int i = 0; i < count; i++)
     {
         Console.WriteLine(results[i]);
@@ -46,26 +46,10 @@ catch (Exception ex)
 {
     if (ex is LuaCompileException luaCompileException)
     {
-        var linOffset = luaCompileException.OffSet - luaCompileException.Position.Column + 1;
-        var length = 0;
-        foreach (var c in source.AsSpan(linOffset))
-        {
-            if (c is '\n' or '\r')
-            {
-                break;
-            }
-
-            length++;
-        }
+        
+    
         Console.WriteLine("CompileError " + new string('-', 50));
-        Console.WriteLine(luaCompileException.ChunkName + ":"+luaCompileException.Position.Line + ":" + luaCompileException.Position.Column);
-        var line = source.Substring(linOffset, length);
-        var lineNumString = luaCompileException.Position.Line.ToString();
-        Console.WriteLine(new string(' ', lineNumString.Length) + " |");
-        Console.WriteLine(lineNumString + " | " + line);
-        Console.WriteLine(new string(' ', lineNumString.Length) + " | " + 
-                          new string(' ', luaCompileException.Position.Column - 1) + 
-                          "^ " + luaCompileException.MainMessage);
+        Console.WriteLine(RustLikeExceptionHook.OnCatch(source, luaCompileException)); ;
         Console.WriteLine(new string('-', 55));
     }
 
@@ -127,5 +111,41 @@ static void DebugChunk(Prototype chunk, int id)
     {
         DebugChunk(localChunk, nestedChunkId);
         nestedChunkId++;
+    }
+}
+
+public class LuaRustLikeException(string message, Exception? innerException) : LuaException(message, innerException);
+
+class RustLikeExceptionHook //: ILuaCompileHook
+{
+    public static string OnCatch(ReadOnlySpan<char> source, LuaCompileException exception)
+    {
+        var lineOffset = exception.OffSet - exception.Position.Column + 1;
+        var length = 0;
+        if (lineOffset < 0)
+        {
+            lineOffset = 0;
+        }
+        foreach (var c in source[lineOffset..])
+        {
+            if (c is '\n' or '\r')
+            {
+                break;
+            }
+       
+            length++;
+        }
+        var builder = new StringBuilder();
+        builder.AppendLine();
+        builder.AppendLine("[error]: "+exception.MessageWithNearToken);
+        builder.AppendLine("-->"+exception.ChunkName + ":" + exception.Position.Line + ":" + exception.Position.Column);
+        var line = source.Slice(lineOffset, length).ToString();
+        var lineNumString = exception.Position.Line.ToString();
+        builder.AppendLine(new string(' ', lineNumString.Length) + " |");
+        builder.AppendLine(lineNumString + " | " + line);
+        builder.AppendLine(new string(' ', lineNumString.Length) + " | " +
+                           new string(' ', exception.Position.Column - 1) +
+                           "^ " + exception.MainMessage);
+        return builder.ToString();
     }
 }

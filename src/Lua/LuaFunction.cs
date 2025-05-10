@@ -10,33 +10,4 @@ public class LuaFunction(string name, Func<LuaFunctionExecutionContext, Cancella
     public LuaFunction(Func<LuaFunctionExecutionContext, CancellationToken, ValueTask<int>> func) : this("anonymous", func)
     {
     }
-
-    public async ValueTask<int> InvokeAsync(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
-    {
-        var varArgumentCount = this.GetVariableArgumentCount(context.ArgumentCount);
-        if (varArgumentCount != 0)
-        {
-            LuaVirtualMachine.PrepareVariableArgument(context.Thread.Stack, context.ArgumentCount, varArgumentCount);
-            context = context with { ArgumentCount = context.ArgumentCount - varArgumentCount };
-        }
-
-        var callStackFrameCount = context.Thread.CallStackFrameCount;
-        try
-        {
-            var frame = new CallStackFrame { Base = context.FrameBase, VariableArgumentCount = varArgumentCount, Function = this, ReturnBase = context.ReturnFrameBase };
-            context.Thread.PushCallStackFrame(frame);
-
-            if (context.Thread.CallOrReturnHookMask.Value != 0 && !context.Thread.IsInHook)
-            {
-                return await LuaVirtualMachine.ExecuteCallHook(context, cancellationToken);
-            }
-
-            var r = await Func(context, cancellationToken);
-            return r;
-        }
-        finally
-        {
-            context.Thread.PopCallStackFrameUntil(callStackFrameCount);
-        }
-    }
 }

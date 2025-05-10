@@ -46,7 +46,6 @@ public class InterpreterSteps
     [Benchmark]
     public async ValueTask RunAsync()
     {
-        await state.MainThread.RunAsync(closure);
-        state.MainThread.Stack.Clear();
+        await state.TopLevelAccess.Call(closure, []);
     }
 }

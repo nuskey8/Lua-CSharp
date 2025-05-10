@@ -25,7 +25,7 @@ internal static class IOHelper
         try
         {
             var stream = File.Open(fileName, fileMode, fileAccess);
-            thread.Push(new LuaValue(new FileHandle(stream)));
+            thread.Stack.Push(new LuaValue(new FileHandle(stream)));
             return 1;
         }
         catch (IOException ex)
@@ -35,9 +35,9 @@ internal static class IOHelper
                 throw;
             }
 
-            thread.Push(LuaValue.Nil);
-            thread.Push(ex.Message);
-            thread.Push(ex.HResult);
+            thread.Stack.Push(LuaValue.Nil);
+            thread.Stack.Push(ex.Message);
+            thread.Stack.Push(ex.HResult);
             return 3;
         }
     }

@@ -12,6 +12,7 @@ public record struct CallStackFrame
     public int CallerInstructionIndex;
     internal CallStackFrameFlags Flags;
     internal bool IsTailCall => (Flags & CallStackFrameFlags.TailCall) == CallStackFrameFlags.TailCall;
+    public int Version;
 }
 
 [Flags]
