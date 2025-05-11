@@ -10,7 +10,7 @@ using static Constants;
 internal struct Scanner
 {
     public LuaState L;
-    public FastListCore<char> Buffer;
+    public PooledList<char> Buffer;
     public TextReader R;
     public int Current;
     public int LineNumber, LastLine;

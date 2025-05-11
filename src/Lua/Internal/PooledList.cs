@@ -3,7 +3,7 @@ using System.Runtime.CompilerServices;
 
 namespace Lua.Internal;
 
-internal ref struct PooledList<T>
+internal  struct PooledList<T> :IDisposable
 {
     T[]? buffer;
     int tail;
@@ -15,6 +15,7 @@ internal ref struct PooledList<T>
 
     public bool IsDisposed => tail == -1;
     public int Count => tail;
+    public int Length => tail;
 
     public void Add(in T item)
     {
@@ -60,6 +61,24 @@ internal ref struct PooledList<T>
 
         items.CopyTo(buffer.AsSpan()[tail..]);
         tail += items.Length;
+    }
+    
+    public void PopUntil(int count)
+    {
+        ThrowIfDisposed();
+
+        if (count > tail) throw new ArgumentOutOfRangeException(nameof(count));
+
+        tail = count;
+    }
+    
+    public void Pop(int count)
+    {
+        ThrowIfDisposed();
+
+        if (count > tail) throw new ArgumentOutOfRangeException(nameof(count));
+
+        tail -= count;
     }
 
     public void Clear()

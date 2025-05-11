@@ -41,7 +41,6 @@ internal class Parser : IPoolNode<Parser>, IDisposable
         }
 
         parser.Scanner = scanner;
-        scanner.Buffer.Clear();
         return parser;
     }
 
@@ -49,6 +48,8 @@ internal class Parser : IPoolNode<Parser>, IDisposable
 
     public void Release()
     {
+        Scanner.Buffer.Dispose();
+        Scanner = default;
         ActiveVariables.Clear();
         PendingGotos.Clear();
         ActiveLabels.Clear();
@@ -918,7 +919,8 @@ internal class Parser : IPoolNode<Parser>, IDisposable
             LastLine = 1,
             LookAheadToken = new(0, TkEos),
             L = l,
-            Source = name
+            Source = name,
+            Buffer = new PooledList<char>(r.Length)
         });
         var f = Function.Get(p, PrototypeBuilder.Get(name));
         p.Function = f;
