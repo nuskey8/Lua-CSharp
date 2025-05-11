@@ -5,17 +5,8 @@ namespace Lua.Tests;
 
 public class LuaTests
 {
-    LuaState state = default!;
-
-    [SetUp]
-    public void SetUp()
-    {
-        state = LuaState.Create();
-        state.OpenStandardLibraries();
-    }
-
-
     [Test]
+    [Parallelizable(ParallelScope.All)]
     [TestCase("tests-lua/code.lua")]
     [TestCase("tests-lua/goto.lua")]
     [TestCase("tests-lua/constructs.lua")]
@@ -36,6 +27,8 @@ public class LuaTests
     [TestCase("tests-lua/verybig.lua")]
     public async Task Test_Lua(string file)
     {
+        var state = LuaState.Create();
+        state.OpenStandardLibraries();
         var path = FileHelper.GetAbsolutePath(file);
         try
         {

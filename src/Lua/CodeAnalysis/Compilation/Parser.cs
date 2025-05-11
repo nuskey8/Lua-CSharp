@@ -922,9 +922,9 @@ internal class Parser : IPoolNode<Parser>, IDisposable
         });
         var f = Function.Get(p, PrototypeBuilder.Get(name));
         p.Function = f;
-        p.MainFunction();
         f.Proto.IsVarArg = true;
         f.Proto.LineDefined = 0;
+        p.MainFunction();
         return f.Proto.CreatePrototypeAndRelease();
     }
 
