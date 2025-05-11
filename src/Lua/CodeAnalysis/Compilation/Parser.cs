@@ -41,6 +41,7 @@ internal class Parser : IPoolNode<Parser>, IDisposable
         }
 
         parser.Scanner = scanner;
+        scanner.Buffer.Clear();
         return parser;
     }
 
@@ -917,7 +918,6 @@ internal class Parser : IPoolNode<Parser>, IDisposable
             LastLine = 1,
             LookAheadToken = new(0, TkEos),
             L = l,
-            Buffer = new(),
             Source = name
         });
         var f = Function.Get(p, PrototypeBuilder.Get(name));

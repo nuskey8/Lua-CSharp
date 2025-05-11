@@ -10,7 +10,7 @@ using static Constants;
 internal struct Scanner
 {
     public LuaState L;
-    public StringBuilder Buffer;
+    public FastListCore<char> Buffer;
     public TextReader R;
     public int Current;
     public int LineNumber, LastLine;
@@ -159,7 +159,7 @@ internal struct Scanner
 
     public void Save(int c)
     {
-        Buffer.Append((char)c);
+        Buffer.Add((char)c);
     }
 
     public bool CheckNext(string str)
@@ -200,7 +200,7 @@ internal struct Scanner
                         SaveAndAdvance();
                         if (!comment)
                         {
-                            var s = Buffer.ToString(2 + sep, Buffer.Length - (4 + 2 * sep));
+                            var s = Buffer.AsSpan().Slice(2 + sep, Buffer.Length - (4 + 2 * sep)).ToString();
                             Buffer.Clear();
                             return s;
                         }
@@ -315,7 +315,7 @@ internal struct Scanner
 
                 _ = ReadDigits();
 
-                if (!long.TryParse(Buffer.ToString(), NumberStyles.Float, CultureInfo.InvariantCulture, out long e))
+                if (!long.TryParse(Buffer.AsSpan(), NumberStyles.Float, CultureInfo.InvariantCulture, out long e))
                 {
                     NumberError(startPosition, pos + 1);
                 }
@@ -353,23 +353,22 @@ internal struct Scanner
             _ = ReadDigits();
         }
 
-        var str = Buffer.ToString();
-        if (str.StartsWith("0"))
+        var strSpan = Buffer.AsSpan();
+        if (strSpan.StartsWith("0"))
         {
-            if (str.Length == 1)
+            if (strSpan.Length == 1)
             {
                 Buffer.Clear();
                 return new(pos, 0d);
             }
 
-            str = str.TrimStart('0');
-            if (!IsDecimal(str[0]))
+            while (strSpan.Length > 1 && strSpan[0] == '0' && strSpan[1] == '0')
             {
-                str = "0" + str;
+                strSpan = strSpan[1..];
             }
         }
 
-        if (!double.TryParse(str, NumberStyles.Float, CultureInfo.InvariantCulture, out double f))
+        if (!double.TryParse(strSpan, NumberStyles.Float, CultureInfo.InvariantCulture, out double f))
         {
             NumberError(startPosition, pos);
         }
@@ -409,7 +408,7 @@ internal struct Scanner
 
         Save('\'');
 
-        Token = new(pos - Buffer.Length, TkString, Buffer.ToString());
+        Token = new(pos - Buffer.Length, TkString, Buffer.AsSpan().ToString());
         Buffer.Clear();
         ScanError(pos, message, TkString);
     }
@@ -476,11 +475,11 @@ internal struct Scanner
             switch (Current)
             {
                 case EndOfStream:
-                    Token = new(R.Position - Buffer.Length, TkString, Buffer.ToString());
+                    Token = new(R.Position - Buffer.Length, TkString, Buffer.AsSpan().ToString());
                     ScanError(R.Position, "unfinished string", TkEos);
                     break;
                 case '\n' or '\r':
-                    Token = new(R.Position - Buffer.Length, TkString, Buffer.ToString());
+                    Token = new(R.Position - Buffer.Length, TkString, Buffer.AsSpan().ToString());
                     ScanError(R.Position, "unfinished string", TkString);
                     break;
                 case '\\':
@@ -538,7 +537,7 @@ internal struct Scanner
         // {
         //     length--;
         // }
-        var str = Buffer.ToString(1, length);
+        var str = Buffer.AsSpan().Slice(1, length).ToString();
         Buffer.Clear();
         return new(pos, TkString, str);
     }
@@ -559,7 +558,7 @@ internal struct Scanner
     public Token ReservedOrName()
     {
         var pos = R.Position - Buffer.Length;
-        var str = Buffer.ToString();
+        var str = Buffer.AsSpan().ToString();
         Buffer.Clear();
         for (var i = 0; i < Tokens.Length; i++)
         {
