@@ -28,7 +28,7 @@ public abstract class LuaThread
     protected class ThreadCoreData : IPoolNode<ThreadCoreData>
     {
         //internal  LuaCoroutineData? coroutineData;
-        internal LuaStack Stack = new();
+        internal readonly LuaStack Stack = new();
         internal FastStackCore<CallStackFrame> CallStack;
 
         public void Clear()
@@ -67,10 +67,13 @@ public abstract class LuaThread
     internal int BaseHookCount;
     internal int LastPc;
 
+    internal int LastVersion;
+    internal int CurrentVersion;
+
     internal LuaRuntimeException? CurrentException;
     internal readonly ReversedStack<CallStackFrame> ExceptionTrace = new();
 
-    public bool IsRunning { get; protected set; }
+    public bool IsRunning => CallStackFrameCount != 0;
     internal LuaFunction? Hook { get; set; }
     public LuaStack Stack => CoreData!.Stack;
 
@@ -99,25 +102,10 @@ public abstract class LuaThread
         set => CallOrReturnHookMask.Flag1 = value;
     }
 
-    public async ValueTask<int> RunAsync(LuaClosure closure, CancellationToken cancellationToken = default)
-    {
-        ThrowIfRunning();
-
-        IsRunning = true;
-        try
-        {
-            await closure.InvokeAsync(new() { Thread = this, ArgumentCount = Stack.Count, ReturnFrameBase = 0, }, cancellationToken);
-
-            return Stack.Count;
-        }
-        finally
-        {
-            PopCallStackFrameUntil(0);
-            IsRunning = false;
-        }
-    }
-
     public int CallStackFrameCount => CoreData == null ? 0 : CoreData!.CallStack.Count;
+    
+    internal LuaThreadAccess CurrentAccess => new(this, CurrentVersion);
+    public LuaThreadAccess TopLevelAccess => new(this, 0);
 
     public ref readonly CallStackFrame GetCurrentFrame()
     {
@@ -134,33 +122,45 @@ public abstract class LuaThread
         return CoreData == null ? default : CoreData!.CallStack.AsSpan();
     }
 
+    void UpdateCurrentVersion(ref FastStackCore<CallStackFrame> callStack)
+    {
+        CurrentVersion = callStack.Count == 0 ? 0 : callStack.PeekRef().Version;
+    }
+
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal void PushCallStackFrame(in CallStackFrame frame)
+    internal LuaThreadAccess PushCallStackFrame(in CallStackFrame frame)
     {
         CurrentException?.Build();
         CurrentException = null;
-        CoreData!.CallStack.Push(frame);
+        ref var callStack = ref CoreData!.CallStack;
+        callStack.Push(frame);
+        callStack.PeekRef().Version = CurrentVersion = ++LastVersion;
+        return new LuaThreadAccess(this, CurrentVersion);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal void PopCallStackFrameWithStackPop()
     {
         var coreData = CoreData!;
-        var popFrame = coreData.CallStack.Pop();
+        ref var callStack = ref coreData.CallStack;
+        var popFrame = callStack.Pop();
+        UpdateCurrentVersion(ref callStack);
         if (CurrentException != null)
         {
             ExceptionTrace.Push(popFrame);
         }
 
-        coreData.Stack.PopUntil(popFrame.Base);
+        coreData.Stack.PopUntil(popFrame.ReturnBase);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal void PopCallStackFrameWithStackPop(int frameBase)
     {
         var coreData = CoreData!;
-        var popFrame = coreData.CallStack.Pop();
+        ref var callStack = ref coreData.CallStack;
+        var popFrame = callStack.Pop();
+        UpdateCurrentVersion(ref callStack);
         if (CurrentException != null)
         {
             ExceptionTrace.Push(popFrame);
@@ -175,7 +175,9 @@ public abstract class LuaThread
     internal void PopCallStackFrame()
     {
         var coreData = CoreData!;
-        var popFrame = coreData.CallStack.Pop();
+        ref var callStack = ref coreData.CallStack;
+        var popFrame = callStack.Pop();
+        UpdateCurrentVersion(ref callStack);
         if (CurrentException != null)
         {
             ExceptionTrace.Push(popFrame);
@@ -193,6 +195,7 @@ public abstract class LuaThread
         }
 
         callStack.PopUntil(top);
+        UpdateCurrentVersion(ref callStack);
     }
 
     internal void DumpStackValues()
@@ -207,13 +210,5 @@ public abstract class LuaThread
     public Traceback GetTraceback()
     {
         return new(State, GetCallStackFrames());
-    }
-
-    protected void ThrowIfRunning()
-    {
-        if (IsRunning)
-        {
-            throw new InvalidOperationException("the lua state is currently running");
-        }
     }
 }

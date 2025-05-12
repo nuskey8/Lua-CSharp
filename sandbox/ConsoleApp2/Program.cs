@@ -8,10 +8,10 @@ state.OpenStandardLibraries();
 {
     var closure = state.Load("return function (a,b,...)  print('a : '..a..' b :'..'args : ',...) end", "simple");
     using var threadLease = state.MainThread.RentUseThread();
-    var thread = threadLease.Thread;
+    var access = threadLease.Thread.TopLevelAccess;
     {
-        var count = await thread.RunAsync(closure);
-        var results = thread.ReadReturnValues(count);
+        var count = await access.RunAsync(closure,0);
+        var results = access.ReadReturnValues(count);
         for (int i = 0; i < results.Length; i++)
         {
             Console.WriteLine(results[i]);
@@ -19,9 +19,9 @@ state.OpenStandardLibraries();
 
         var f = results[0].Read<LuaClosure>();
         results.Dispose();
-        thread.Push("hello", "world", 1, 2, 3);
-        count = await thread.RunAsync(f);
-        results = thread.ReadReturnValues(count);
+        access.Push("hello", "world", 1, 2, 3);
+        count = await access.RunAsync(f);
+        results = access.ReadReturnValues(count);
         for (int i = 0; i < results.Length; i++)
         {
             Console.WriteLine(results[i]);

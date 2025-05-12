@@ -456,26 +456,22 @@ public class DebugLibrary
         if (thread.IsReturnHookEnabled && context.Thread == thread)
         {
             var stack = thread.Stack;
+            var top = stack.Count;
             stack.Push("return");
             stack.Push(LuaValue.Nil);
-            var funcContext = new LuaFunctionExecutionContext { Thread = context.Thread, ArgumentCount = 2, ReturnFrameBase = stack.Count - 2, };
-            var frame = new CallStackFrame
-            {
-                Base = funcContext.FrameBase, ReturnBase = funcContext.ReturnFrameBase, VariableArgumentCount = hook.GetVariableArgumentCount(2), Function = hook,
-            };
-            frame.Flags |= CallStackFrameFlags.InHook;
-            thread.PushCallStackFrame(frame);
+            context.Thread.IsInHook = true;
+            var frame = context.Thread.CurrentAccess.CreateCallStackFrame(hook, 2, top, 0);
+            var access= context.Thread.PushCallStackFrame(frame);
+            var funcContext = new LuaFunctionExecutionContext { Access =access, ArgumentCount = stack.Count-frame.Base, ReturnFrameBase = frame.ReturnBase };
             try
             {
-                thread.IsInHook = true;
                 await hook.Func(funcContext, cancellationToken);
             }
             finally
             {
-                thread.IsInHook = false;
+                context.Thread.IsInHook = false;
+                context.Thread.PopCallStackFrameWithStackPop();
             }
-
-            thread.PopCallStackFrameWithStackPop();
         }
 
         return 0;

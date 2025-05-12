@@ -12,25 +12,41 @@ public class AsyncTests
         state = LuaState.Create();
         state.OpenStandardLibraries();
         var assert = state.Environment["assert"].Read<LuaFunction>();
-        state.Environment["assert"] = new LuaFunction("wait",
-            async (c, ct) =>
+        state.Environment["assert"] = new LuaFunction("assert_with_wait",
+            async (context, ct) =>
             {
                 await Task.Delay(1, ct);
-                return await assert.InvokeAsync(c, ct);
+                var arg0 = context.GetArgument(0);
+
+                if (!arg0.ToBoolean())
+                {
+                    var message = "assertion failed!";
+                    if (context.HasArgument(1))
+                    {
+                        message = context.GetArgument<string>(1);
+                    }
+
+                    throw new LuaAssertionException(context.Thread, message);
+                }
+
+                return (context.Return(context.Arguments));
             });
     }
 
     [Test]
-    public async Task Test_Async()
+    [TestCase("tests-lua/coroutine.lua")]
+    [TestCase("tests-lua/db.lua")]
+    [TestCase("tests-lua/vararg.lua")]
+    public async Task Test_Async(string file)
     {
-        var path = FileHelper.GetAbsolutePath("tests-lua/coroutine.lua");
+        var path = FileHelper.GetAbsolutePath(file);
         try
         {
             await state.DoFileAsync(path);
         }
         catch (LuaRuntimeException e)
         {
-            var line = e.LuaTraceback.LastLine;
+            var line = e.LuaTraceback!.LastLine;
             throw new Exception($"{path}:line {line}\n{e.InnerException}\n {e}");
         }
     }

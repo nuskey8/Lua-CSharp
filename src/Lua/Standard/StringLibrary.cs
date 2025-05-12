@@ -507,13 +507,13 @@ public sealed class StringLibrary
             }
             else if (repl.TryRead<LuaFunction>(out var func))
             {
+                var stack = context.Thread.Stack;
                 for (int k = 1; k <= match.Groups.Count; k++)
                 {
-                    context.Thread.Push(match.Groups[k].Value);
+                    stack.Push(match.Groups[k].Value);
                 }
 
-
-                await func.InvokeAsync(context with { ArgumentCount = match.Groups.Count }, cancellationToken);
+                await context.Access.RunAsync(func,match.Groups.Count,cancellationToken);
 
                 result = context.Thread.Stack.Get(context.ReturnFrameBase);
             }
