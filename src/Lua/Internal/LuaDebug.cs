@@ -447,7 +447,7 @@ internal readonly struct LuaDebug : IDisposable
                 case OpCode.LoadK:
                 case OpCode.LoadKX:
                     {
-                        int b = (op == OpCode.LoadKX)
+                        int b = (op != OpCode.LoadKX)
                             ? i.Bx
                             : (prototype.Code[pc + 1].Ax);
                         if (prototype.Constants[b].TryReadString(out name))

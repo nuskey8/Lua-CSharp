@@ -547,6 +547,39 @@ public readonly struct LuaValue : IEquatable<LuaValue>
             _ => "",
         };
     }
+    
+    public  string TypeToString()
+    {
+        return Type switch
+        {
+            LuaValueType.Nil => "nil",
+            LuaValueType.Boolean => "boolean",
+            LuaValueType.String => "string",
+            LuaValueType.Number => "number",
+            LuaValueType.Function => "function",
+            LuaValueType.Thread => "thread",
+            LuaValueType.Table => "table",
+            LuaValueType.LightUserData => "userdata",
+            LuaValueType.UserData => "userdata",
+            _ => "",
+        };
+    }
+    public static string ToString(LuaValueType type)
+    {
+        return type switch
+        {
+            LuaValueType.Nil => "nil",
+            LuaValueType.Boolean => "boolean",
+            LuaValueType.String => "string",
+            LuaValueType.Number => "number",
+            LuaValueType.Function => "function",
+            LuaValueType.Thread => "thread",
+            LuaValueType.Table => "table",
+            LuaValueType.LightUserData => "userdata",
+            LuaValueType.UserData => "userdata",
+            _ => "",
+        };
+    }
 
     public static bool TryGetLuaValueType(Type type, out LuaValueType result)
     {

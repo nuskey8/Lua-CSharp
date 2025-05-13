@@ -101,8 +101,9 @@ public class LuaRuntimeException : LuaException
             thread.ExceptionTrace.Clear();
             thread.CurrentException = this;
         }
+
         Thread = thread;
-        
+
         ErrorObject = errorObject;
     }
 
@@ -110,27 +111,44 @@ public class LuaRuntimeException : LuaException
 
     public Traceback? LuaTraceback
     {
-
         get
         {
             if (luaTraceback == null)
             {
                 Build();
             }
+
             return luaTraceback;
         }
     }
+
     internal LuaThread? Thread { get; private set; } = default!;
     public LuaValue ErrorObject { get; }
 
     public static void AttemptInvalidOperation(LuaThread? thread, string op, LuaValue a, LuaValue b)
     {
-        throw new LuaRuntimeException(thread, $"attempt to {op} a '{a.Type}' with a '{b.Type}'");
+        throw new LuaRuntimeException(thread, $"attempt to {op} a '{a.TypeToString()}' with a '{b.TypeToString()}'");
     }
 
     public static void AttemptInvalidOperation(LuaThread? thread, string op, LuaValue a)
     {
-        throw new LuaRuntimeException(thread, $"attempt to {op} a '{a.Type}' value");
+        throw new LuaRuntimeException(thread, $"attempt to {op} a '{a.TypeToString()}' value");
+    }
+
+    internal static void AttemptInvalidOperationOnLuaStack(LuaThread thread, string op, int lastPc, int reg)
+    {
+        var caller = thread.GetCurrentFrame();
+        var luaValue = thread.Stack[caller.Base + reg];
+        var function = caller.Function;
+        var t = LuaDebug.GetName(((LuaClosure)function).Proto, lastPc, reg, out string? name);
+        if (t == null || name == null)
+        {
+            throw new LuaRuntimeException(thread, $"attempt to {op} a {luaValue.TypeToString()} value");
+        }
+        else
+        {
+            throw new LuaRuntimeException(thread, $"attempt to {op} a {luaValue.TypeToString()} value ({t} '{name}')");
+        }
     }
 
     public static void BadArgument(LuaThread? thread, int argumentId, string functionName)
@@ -193,7 +211,7 @@ public class LuaRuntimeException : LuaException
         {
             var callStack = Thread.ExceptionTrace.AsSpan();
             if (callStack.IsEmpty) return null;
-            luaTraceback = new Traceback(Thread.State,callStack);
+            luaTraceback = new Traceback(Thread.State, callStack);
             Thread.ExceptionTrace.Clear();
             Thread = null;
         }
@@ -227,6 +245,7 @@ public class LuaRuntimeException : LuaException
         {
             return base.ToString();
         }
+
         var pooledList = new PooledList<char>(64);
         pooledList.Clear();
         try

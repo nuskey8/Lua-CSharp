@@ -1074,7 +1074,7 @@ public static partial class LuaVirtualMachine
             }
             else
             {
-                LuaRuntimeException.AttemptInvalidOperation(GetThreadWithCurrentPc(context), "call", va);
+                LuaRuntimeException.AttemptInvalidOperationOnLuaStack(GetThreadWithCurrentPc(context), "call", context.Pc,instruction.A);
             }
         }
 
