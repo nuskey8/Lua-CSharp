@@ -1,5 +1,7 @@
 ﻿using System.Runtime.CompilerServices;
 
+// ReSharper disable MethodHasAsyncOverloadWithCancellation
+
 namespace Lua.Runtime;
 
 public static class LuaThreadAccessAccessExtensions
@@ -26,7 +28,7 @@ public static class LuaThreadAccessAccessExtensions
     public static async ValueTask<int> DoFileAsync(this LuaThreadAccess access, string path, Memory<LuaValue> buffer, CancellationToken cancellationToken = default)
     {
         access.ThrowIfInvalid();
-        var bytes = await File.ReadAllBytesAsync(path, cancellationToken);
+        var bytes = File.ReadAllBytes(path);
         var fileName = "@" + path;
         var closure = access.State.Load(bytes, fileName);
         var count = await access.RunAsync(closure, 0, cancellationToken);
@@ -37,7 +39,7 @@ public static class LuaThreadAccessAccessExtensions
 
     public static async ValueTask<LuaValue[]> DoFileAsync(this LuaThreadAccess access, string path, CancellationToken cancellationToken = default)
     {
-        var bytes = await File.ReadAllBytesAsync(path, cancellationToken);
+        var bytes = File.ReadAllBytes(path);
         var fileName = "@" + path;
         var closure = access.State.Load(bytes, fileName);
         var count = await access.RunAsync(closure, 0, cancellationToken);

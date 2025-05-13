@@ -1,6 +1,7 @@
 using System.Globalization;
 using Lua.Internal;
 using Lua.Runtime;
+// ReSharper disable MethodHasAsyncOverloadWithCancellation
 
 namespace Lua.Standard;
 
@@ -88,11 +89,10 @@ public sealed class BasicLibrary
         var arg0 = context.GetArgument<string>(0);
         context.Thread.Stack.PopUntil(context.ReturnFrameBase);
 
-        // do not use LuaState.DoFileAsync as it uses the newExecutionContext
-        var bytes =   File.ReadAllBytes(arg0);
+        var bytes = File.ReadAllBytes(arg0);
         var fileName = "@" + arg0;
         var closure = context.State.Load(bytes, fileName);
-        return await context.Access.RunAsync(closure,cancellationToken);
+        return await context.Access.RunAsync(closure, cancellationToken);
     }
 
     public ValueTask<int> Error(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
@@ -139,15 +139,15 @@ public sealed class BasicLibrary
             stack.Push(metamethod);
             stack.Push(arg0);
 
-            await LuaVirtualMachine.Call(context.Access.Thread,top,context.ReturnFrameBase,cancellationToken);
-            stack.SetTop(context.ReturnFrameBase+3);
+            await LuaVirtualMachine.Call(context.Access.Thread, top, context.ReturnFrameBase, cancellationToken);
+            stack.SetTop(context.ReturnFrameBase + 3);
             return 3;
         }
 
         return context.Return(IPairsIterator, arg0, 0);
     }
 
-    public async ValueTask<int> LoadFile(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    public ValueTask<int> LoadFile(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
         var arg0 = context.GetArgument<string>(0);
         var mode = context.HasArgument(1)
@@ -160,13 +160,13 @@ public sealed class BasicLibrary
         // do not use LuaState.DoFileAsync as it uses the newExecutionContext
         try
         {
-            var bytes = await File.ReadAllBytesAsync(arg0, cancellationToken);
+            var bytes = File.ReadAllBytes(arg0);
             var fileName = "@" + arg0;
-            return context.Return(context.State.Load(bytes, fileName, mode, arg2));
+            return new(context.Return(context.State.Load(bytes, fileName, mode, arg2)));
         }
         catch (Exception ex)
         {
-            return context.Return(LuaValue.Nil, ex.Message);
+            return new(context.Return(LuaValue.Nil, ex.Message));
         }
     }
 
@@ -238,10 +238,9 @@ public sealed class BasicLibrary
             stack.Push(metamethod);
             stack.Push(arg0);
 
-            await LuaVirtualMachine.Call(context.Access.Thread,top,context.ReturnFrameBase,cancellationToken);
-            stack.SetTop(context.ReturnFrameBase+3);
+            await LuaVirtualMachine.Call(context.Access.Thread, top, context.ReturnFrameBase, cancellationToken);
+            stack.SetTop(context.ReturnFrameBase + 3);
             return 3;
-            
         }
 
         return (context.Return(PairsIterator, arg0, LuaValue.Nil));
@@ -252,7 +251,7 @@ public sealed class BasicLibrary
         var frameCount = context.Thread.CallStackFrameCount;
         try
         {
-            var count =  await LuaVirtualMachine.Call(context.Access.Thread,context.FrameBase,context.ReturnFrameBase+1,cancellationToken);
+            var count = await LuaVirtualMachine.Call(context.Access.Thread, context.FrameBase, context.ReturnFrameBase + 1, cancellationToken);
 
             context.Thread.Stack.Get(context.ReturnFrameBase) = true;
             return count + 1;
@@ -556,8 +555,8 @@ public sealed class BasicLibrary
         try
         {
             var stack = context.Thread.Stack;
-            stack.Get(context.FrameBase+1) = arg0;
-            var count =  await LuaVirtualMachine.Call(context.Access.Thread,context.FrameBase + 1,context.ReturnFrameBase+1,cancellationToken);
+            stack.Get(context.FrameBase + 1) = arg0;
+            var count = await LuaVirtualMachine.Call(context.Access.Thread, context.FrameBase + 1, context.ReturnFrameBase + 1, cancellationToken);
 
             context.Thread.Stack.Get(context.ReturnFrameBase) = true;
             return count + 1;
@@ -566,7 +565,7 @@ public sealed class BasicLibrary
         {
             var thread = context.Thread;
             thread.PopCallStackFrameUntil(frameCount);
-            
+
             var access = thread.CurrentAccess;
             if (ex is LuaRuntimeException luaEx)
             {
@@ -580,7 +579,7 @@ public sealed class BasicLibrary
 
 
             // invoke error handler
-            var count = await access.RunAsync(arg1, 1,context.ReturnFrameBase+1, cancellationToken);
+            var count = await access.RunAsync(arg1, 1, context.ReturnFrameBase + 1, cancellationToken);
             context.Thread.Stack.Get(context.ReturnFrameBase) = false;
             return count + 1;
         }
