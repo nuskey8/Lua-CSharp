@@ -1,15 +1,22 @@
 ﻿using System.Text;
 
-namespace Lua.Internal;
+namespace Lua.CodeAnalysis.Compilation;
 
-internal static class BomUtility
+public static class BomUtility
 {
     static ReadOnlySpan<byte> BomUtf8 => [0xEF, 0xBB, 0xBF];
     static ReadOnlySpan<byte> BomUtf16Little => [0xFF, 0xFE];
     static ReadOnlySpan<byte> BomUtf16Big => [0xFE, 0xFF];
     static ReadOnlySpan<byte> BomUtf32Little => [0xFF, 0xFE, 0x00, 0x00];
-    static ReadOnlySpan<byte> BomUtf32Big => [0x00, 0x00, 0xFE, 0xFF];
 
+    /// <summary>
+    ///  Removes the BOM from the beginning of the text and returns the encoding.
+    ///  Supported encodings are UTF-8, UTF-16 (little and big endian), and UTF-32 (little endian).
+    ///  Unknown BOMs are ignored, and the encoding is set to UTF-8 by default.
+    ///  </summary>
+    ///  <param name="text">The text to check for BOM.</param>
+    ///  <param name="encoding">The encoding of the text.</param>
+    ///  <returns>The text without the BOM.</returns>
     public static ReadOnlySpan<byte> GetEncodingFromBytes(ReadOnlySpan<byte> text, out Encoding encoding)
     {
         if (text.StartsWith(BomUtf8))
@@ -34,12 +41,6 @@ internal static class BomUtility
         {
             encoding = Encoding.UTF32;
             return text.Slice(BomUtf32Little.Length);
-        }
-
-        if (text.StartsWith(BomUtf32Big))
-        {
-            encoding = Encoding.UTF32;
-            return text.Slice(BomUtf32Big.Length);
         }
 
         encoding = Encoding.UTF8;
