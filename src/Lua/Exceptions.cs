@@ -274,7 +274,7 @@ public sealed class LuaCancelledException : OperationCanceledException, ILuaTrac
 
     internal LuaThread? Thread { get; private set; }
 
-    internal LuaCancelledException(LuaThread thread, CancellationToken cancellationToken, Exception? innerException = null) : base("operation canceled in Lua", innerException, cancellationToken)
+    internal LuaCancelledException(LuaThread thread, CancellationToken cancellationToken, Exception? innerException = null) : base("The operation was cancelled during execution on Lua.", innerException, cancellationToken)
     {
         thread.CurrentException?.BuildOrGet();
         thread.ExceptionTrace.Clear();
