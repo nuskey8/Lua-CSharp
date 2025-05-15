@@ -596,7 +596,7 @@ internal readonly struct LuaDebug : IDisposable
 
 
             PRE.AsSpan().CopyTo(dest);
-            int newLine = source.IndexOf('\n');
+            int newLine = source.IndexOfAny("\r\n");
             if (newLine == -1 && source.Length < BUFFER_LEN - (PRE_LEN + RETS_LEN + POS_LEN))
             {
                 source.CopyTo(dest[PRE_LEN..]);
