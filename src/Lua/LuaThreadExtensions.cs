@@ -13,4 +13,19 @@ public static class LuaThreadExtensions
     {
         return new(LuaCoroutine.Create(thread, function, isProtectedMode));
     }
+
+    internal static void ThrowIfCancellationRequested(this LuaThread thread, CancellationToken cancellationToken)
+    {
+        if (cancellationToken.IsCancellationRequested)
+        {
+            Throw(thread, cancellationToken);
+        }
+
+        return;
+
+        static void Throw(LuaThread thread, CancellationToken cancellationToken)
+        {
+            throw new LuaCancelledException(thread, cancellationToken);
+        }
+    }
 }

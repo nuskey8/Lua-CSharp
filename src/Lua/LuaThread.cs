@@ -70,8 +70,11 @@ public abstract class LuaThread
     internal int LastVersion;
     internal int CurrentVersion;
 
-    internal LuaRuntimeException? CurrentException;
+    internal ILuaTracebackBuildable? CurrentException;
     internal readonly ReversedStack<CallStackFrame> ExceptionTrace = new();
+    
+    // internal bool CancelRequested;
+    // internal CancellationToken CancellationToken;
 
     public bool IsRunning => CallStackFrameCount != 0;
     internal LuaFunction? Hook { get; set; }
@@ -131,7 +134,7 @@ public abstract class LuaThread
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal LuaThreadAccess PushCallStackFrame(in CallStackFrame frame)
     {
-        CurrentException?.Build();
+        CurrentException?.BuildOrGet();
         CurrentException = null;
         ref var callStack = ref CoreData!.CallStack;
         callStack.Push(frame);
