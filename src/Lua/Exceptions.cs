@@ -6,26 +6,7 @@ using System.Runtime.CompilerServices;
 
 namespace Lua;
 
-public class LuaException : Exception
-{
-    protected LuaException(Exception innerException) : base(innerException.Message, innerException)
-    {
-    }
-
-    protected LuaException(string message, Exception innerException) : base(message, innerException)
-    {
-    }
-
-    public LuaException(string message) : base(message)
-    {
-    }
-
-    protected LuaException()
-    {
-    }
-}
-
-public class LuaParseException(string? chunkName, SourcePosition position, string message) : LuaException(message)
+public class LuaParseException(string? chunkName, SourcePosition position, string message) : Exception(message)
 {
     public string? ChunkName { get; } = chunkName;
     public SourcePosition Position { get; } = position;
@@ -63,7 +44,7 @@ public class LuaParseException(string? chunkName, SourcePosition position, strin
     public override string Message => $"{ChunkName}:{Position.Line}: {base.Message}";
 }
 
-public class LuaCompileException(string chunkName, SourcePosition position, int offset, string message, string? nearToken) : LuaException(GetMessageWithNearToken(message, nearToken))
+public class LuaCompileException(string chunkName, SourcePosition position, int offset, string message, string? nearToken) : Exception(GetMessageWithNearToken(message, nearToken))
 {
     public string ChunkName { get; } = chunkName;
     public int OffSet { get; } = offset;
@@ -84,11 +65,11 @@ public class LuaCompileException(string chunkName, SourcePosition position, int 
     }
 }
 
-public class LuaUnDumpException(string message) : LuaException(message);
+public class LuaUnDumpException(string message) : Exception(message);
 
-public class LuaRuntimeException : LuaException
+public class LuaRuntimeException : Exception
 {
-    public LuaRuntimeException(LuaThread? thread, Exception innerException) : base(innerException)
+    public LuaRuntimeException(LuaThread? thread, Exception innerException) : base(innerException.Message,innerException)
     {
         Thread = thread;
     }
@@ -266,4 +247,4 @@ public class LuaRuntimeException : LuaException
 
 public class LuaAssertionException(LuaThread? traceback, string message) : LuaRuntimeException(traceback, message);
 
-public class LuaModuleNotFoundException(string moduleName) : LuaException($"module '{moduleName}' not found");
+public class LuaModuleNotFoundException(string moduleName) : Exception($"module '{moduleName}' not found");

@@ -1365,7 +1365,7 @@ public static partial class LuaVirtualMachine
 
         if (!stack.Get(RA).TryReadTable(out var table))
         {
-            throw new LuaException("internal error");
+            throw new LuaRuntimeException(GetThreadWithCurrentPc(context),"internal error");
         }
 
         var count = instruction.B == 0
