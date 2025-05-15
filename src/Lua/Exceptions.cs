@@ -127,12 +127,12 @@ public class LuaRuntimeException : LuaException
 
     public static void AttemptInvalidOperation(LuaThread? thread, string op, LuaValue a, LuaValue b)
     {
-        throw new LuaRuntimeException(thread, $"attempt to {op} a '{a.TypeToString()}' with a '{b.TypeToString()}'");
+        throw new LuaRuntimeException(thread, $"attempt to {op} a {a.TypeToString()} value with a {b.TypeToString()} value");
     }
 
     public static void AttemptInvalidOperation(LuaThread? thread, string op, LuaValue a)
     {
-        throw new LuaRuntimeException(thread, $"attempt to {op} a '{a.TypeToString()}' value");
+        throw new LuaRuntimeException(thread, $"attempt to {op} a {a.TypeToString()} value");
     }
 
     internal static void AttemptInvalidOperationOnLuaStack(LuaThread thread, string op, int lastPc, int reg)

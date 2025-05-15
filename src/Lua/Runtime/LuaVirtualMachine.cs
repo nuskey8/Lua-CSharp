@@ -848,6 +848,7 @@ public static partial class LuaVirtualMachine
         var task = Concat(context, context.FrameBase + a, c - b + 1);
         if (task.IsCompleted)
         {
+            _ = task.Result;
             return true;
         }
 
@@ -1074,7 +1075,7 @@ public static partial class LuaVirtualMachine
             }
             else
             {
-                LuaRuntimeException.AttemptInvalidOperationOnLuaStack(GetThreadWithCurrentPc(context), "call", context.Pc,instruction.A);
+                LuaRuntimeException.AttemptInvalidOperationOnLuaStack(GetThreadWithCurrentPc(context), "call", context.Pc, instruction.A);
             }
         }
 
@@ -1405,6 +1406,10 @@ public static partial class LuaVirtualMachine
     [MethodImpl(MethodImplOptions.NoInlining)]
     static bool GetTableValueSlowPath(LuaValue table, LuaValue key, VirtualMachineExecutionContext context, out LuaValue value, out bool doRestart)
     {
+        // TODO: get table name if nil
+        // if (table.Type == LuaValueType.Nil)
+        // {
+        // }
         var targetTable = table;
         const int MAX_LOOP = 100;
         doRestart = false;
