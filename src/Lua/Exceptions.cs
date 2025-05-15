@@ -2,6 +2,7 @@ using Lua.CodeAnalysis;
 using Lua.CodeAnalysis.Syntax;
 using Lua.Internal;
 using Lua.Runtime;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 
 namespace Lua;
@@ -67,9 +68,14 @@ public class LuaCompileException(string chunkName, SourcePosition position, int 
 
 public class LuaUnDumpException(string message) : Exception(message);
 
-public class LuaRuntimeException : Exception
+internal interface ILuaTracebackBuildable
 {
-    public LuaRuntimeException(LuaThread? thread, Exception innerException) : base(innerException.Message,innerException)
+    Traceback? BuildOrGet();
+}
+
+public class LuaRuntimeException : Exception, ILuaTracebackBuildable
+{
+    public LuaRuntimeException(LuaThread? thread, Exception innerException) : base(innerException.Message, innerException)
     {
         Thread = thread;
     }
@@ -78,7 +84,7 @@ public class LuaRuntimeException : Exception
     {
         if (thread != null)
         {
-            thread.CurrentException?.Build();
+            thread.CurrentException?.BuildOrGet();
             thread.ExceptionTrace.Clear();
             thread.CurrentException = this;
         }
@@ -96,7 +102,7 @@ public class LuaRuntimeException : Exception
         {
             if (luaTraceback == null)
             {
-                Build();
+                ((ILuaTracebackBuildable)this).BuildOrGet();
             }
 
             return luaTraceback;
@@ -185,7 +191,7 @@ public class LuaRuntimeException : Exception
 
 
     [MethodImpl(MethodImplOptions.NoInlining)]
-    internal Traceback? Build()
+    Traceback? ILuaTracebackBuildable.BuildOrGet()
     {
         if (luaTraceback != null) return luaTraceback;
         if (Thread != null)
@@ -248,3 +254,49 @@ public class LuaRuntimeException : Exception
 public class LuaAssertionException(LuaThread? traceback, string message) : LuaRuntimeException(traceback, message);
 
 public class LuaModuleNotFoundException(string moduleName) : Exception($"module '{moduleName}' not found");
+
+public sealed class LuaCancelledException : OperationCanceledException, ILuaTracebackBuildable
+{
+    Traceback? luaTraceback;
+
+    public Traceback? LuaTraceback
+    {
+        get
+        {
+            if (luaTraceback == null)
+            {
+                ((ILuaTracebackBuildable)this).BuildOrGet();
+            }
+
+            return luaTraceback;
+        }
+    }
+
+    internal LuaThread? Thread { get; private set; }
+
+    internal LuaCancelledException(LuaThread thread, CancellationToken cancellationToken, Exception? innerException = null) : base("operation canceled in Lua", innerException, cancellationToken)
+    {
+        thread.CurrentException?.BuildOrGet();
+        thread.ExceptionTrace.Clear();
+        thread.CurrentException = this;
+        Thread = thread;
+    }
+
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    Traceback? ILuaTracebackBuildable.BuildOrGet()
+    {
+        if (luaTraceback != null) return luaTraceback;
+
+        if (Thread != null)
+        {
+            var callStack = Thread.ExceptionTrace.AsSpan();
+            if (callStack.IsEmpty) return null;
+            luaTraceback = new Traceback(Thread.State, callStack);
+            Thread.ExceptionTrace.Clear();
+            Thread = null!;
+        }
+
+        return luaTraceback;
+    }
+}

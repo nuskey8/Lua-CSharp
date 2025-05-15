@@ -53,6 +53,7 @@ public readonly struct LuaThreadAccess
             throw new ArgumentNullException(nameof(function));
         }
 
+        Thread.ThrowIfCancellationRequested(cancellationToken);
         var thread = Thread;
         var varArgumentCount = function.GetVariableArgumentCount(argumentCount);
         if (varArgumentCount != 0)
@@ -78,7 +79,7 @@ public readonly struct LuaThreadAccess
 
         var access = thread.PushCallStackFrame(frame);
         LuaFunctionExecutionContext context = new() { Access = access, ArgumentCount = argumentCount, ReturnFrameBase = returnBase, };
-
+        var callStackTop = thread.CallStackFrameCount;
         try
         {
             if (this.Thread.CallOrReturnHookMask.Value != 0 && !this.Thread.IsInHook)
@@ -90,7 +91,7 @@ public readonly struct LuaThreadAccess
         }
         finally
         {
-            this.Thread.PopCallStackFrame();
+            this.Thread.PopCallStackFrameUntil(callStackTop-1);
         }
     }
 

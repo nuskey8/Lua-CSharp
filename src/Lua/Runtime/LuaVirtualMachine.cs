@@ -1,6 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Lua.Internal;
+// ReSharper disable MethodHasAsyncOverload
 
 // ReSharper disable InconsistentNaming
 
@@ -255,6 +256,8 @@ public static partial class LuaVirtualMachine
                     {
                         break;
                     }
+
+                    ThrowIfCancellationRequested();
                 }
 
                 return Thread.Stack.Count - returnFrameBase;
@@ -262,6 +265,17 @@ public static partial class LuaVirtualMachine
             finally
             {
                 pool.TryPush(this);
+            }
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void ThrowIfCancellationRequested()
+        {
+            if (!CancellationToken.IsCancellationRequested) return;
+            Throw();
+                
+            void Throw()
+            { 
+                GetThreadWithCurrentPc(this).ThrowIfCancellationRequested(CancellationToken);
             }
         }
     }
@@ -567,6 +581,7 @@ public static partial class LuaVirtualMachine
                             context.Thread.State.CloseUpValues(context.Thread, frameBase + iA - 1);
                         }
 
+                        context.ThrowIfCancellationRequested();
                         continue;
                     case OpCode.Eq:
                         Markers.Eq();
@@ -695,6 +710,7 @@ public static partial class LuaVirtualMachine
                             indexRef = index;
                             Unsafe.Add(ref indexRef, 3) = index;
                             stack.NotifyTop(iA + frameBase + 4);
+                            context.ThrowIfCancellationRequested();
                             continue;
                         }
 
@@ -799,7 +815,7 @@ public static partial class LuaVirtualMachine
         catch (Exception e)
         {
             context.State.CloseUpValues(context.Thread, context.FrameBase);
-            if (e is not LuaRuntimeException)
+            if (e is not (LuaRuntimeException or LuaCancelledException))
             {
                 var newException = new LuaRuntimeException(context.Thread, e);
                 context.PopOnTopCallStackFrames();
@@ -1003,6 +1019,7 @@ public static partial class LuaVirtualMachine
     static async ValueTask ExecuteBinaryOperationMetaMethod(int target, LuaValue vb, LuaValue vc,
         VirtualMachineExecutionContext context, OpCode opCode)
     {
+        context.ThrowIfCancellationRequested();
         var (name, description) = opCode.GetNameAndDescription();
         if (vb.TryGetMetamethod(context.State, name, out var metamethod) ||
             vc.TryGetMetamethod(context.State, name, out metamethod))
@@ -1039,12 +1056,14 @@ public static partial class LuaVirtualMachine
                     await ExecuteCallHook(functionContext, context.CancellationToken);
                     stack.PopUntil(target + 1);
                     context.PostOperation = PostOperationType.DontPop;
+                    context.ThrowIfCancellationRequested();
                     return;
                 }
 
                 await func.Func(functionContext, context.CancellationToken);
                 stack.PopUntil(target + 1);
                 context.PostOperation = PostOperationType.DontPop;
+                context.ThrowIfCancellationRequested();
                 return;
             }
             finally
@@ -1060,6 +1079,7 @@ public static partial class LuaVirtualMachine
 
     static bool Call(VirtualMachineExecutionContext context, out bool doRestart)
     {
+        context.ThrowIfCancellationRequested();
         var instruction = context.Instruction;
         var RA = instruction.A + context.FrameBase;
         var newBase = RA + 1;
@@ -1119,6 +1139,7 @@ public static partial class LuaVirtualMachine
             var awaiter = task.GetAwaiter();
 
             awaiter.GetResult();
+            context.Thread.ThrowIfCancellationRequested(context.CancellationToken);
             var instruction = context.Instruction;
             var ic = instruction.C;
 
@@ -1137,8 +1158,9 @@ public static partial class LuaVirtualMachine
         }
     }
 
-    internal static async ValueTask<int> Call(LuaThread thread, int funcIndex, int returnBase, CancellationToken ct)
+    internal static async ValueTask<int> Call(LuaThread thread, int funcIndex, int returnBase, CancellationToken cancellationToken)
     {
+        thread.ThrowIfCancellationRequested(cancellationToken);
         var stack = thread.Stack;
         var newBase = funcIndex + 1;
         var va = stack.Get(funcIndex);
@@ -1165,11 +1187,23 @@ public static partial class LuaVirtualMachine
             var functionContext = new LuaFunctionExecutionContext() { Access = access, ArgumentCount = argCount, ReturnFrameBase = returnBase };
             if (thread.CallOrReturnHookMask.Value != 0 && !thread.IsInHook)
             {
-                await ExecuteCallHook(functionContext, ct);
+                await ExecuteCallHook(functionContext, cancellationToken);
+            }
+            else
+            {
+                await func.Func(functionContext, cancellationToken);
             }
 
-            await func.Func(functionContext, ct);
+            thread.ThrowIfCancellationRequested(cancellationToken);
             return thread.Stack.Count - funcIndex;
+        }
+        catch(OperationCanceledException  operationCanceledException)
+        {
+            if(operationCanceledException is not LuaCancelledException)
+            {
+                throw new LuaCancelledException(thread, cancellationToken, operationCanceledException);
+            }
+            throw;
         }
         finally
         {
@@ -1195,6 +1229,7 @@ public static partial class LuaVirtualMachine
 
     static bool TailCall(VirtualMachineExecutionContext context, out bool doRestart)
     {
+        context.ThrowIfCancellationRequested();
         var instruction = context.Instruction;
         var stack = context.Stack;
         var RA = instruction.A + context.FrameBase;
@@ -1259,6 +1294,7 @@ public static partial class LuaVirtualMachine
 
 
         task.GetAwaiter().GetResult();
+        context.ThrowIfCancellationRequested();
         if (!context.PopFromBuffer(context.CurrentReturnFrameBase, context.Stack.Count - context.CurrentReturnFrameBase))
         {
             return true;
@@ -1270,6 +1306,7 @@ public static partial class LuaVirtualMachine
 
     static bool TForCall(VirtualMachineExecutionContext context, out bool doRestart)
     {
+        context.ThrowIfCancellationRequested();
         doRestart = false;
         var instruction = context.Instruction;
         var stack = context.Stack;
@@ -1341,8 +1378,8 @@ public static partial class LuaVirtualMachine
             return false;
         }
 
-        var awaiter = task.GetAwaiter();
-        awaiter.GetResult();
+        task.GetAwaiter().GetResult();
+        context.ThrowIfCancellationRequested();
         context.Thread.PopCallStackFrame();
         TForCallPostOperation(context);
         return true;
@@ -1942,8 +1979,10 @@ public static partial class LuaVirtualMachine
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
-    internal static async ValueTask<LuaValue> ExecuteUnaryOperationMetaMethod(LuaThread thread, LuaValue vb, OpCode opCode, CancellationToken ct)
+    internal static async ValueTask<LuaValue> ExecuteUnaryOperationMetaMethod(LuaThread thread, LuaValue vb, OpCode opCode, CancellationToken cancellationToken)
     {
+        thread.ThrowIfCancellationRequested(cancellationToken);
+
         var (name, description) = opCode.GetNameAndDescription();
 
         if (vb.TryGetMetamethod(thread.State, name, out var metamethod))
@@ -1976,11 +2015,14 @@ public static partial class LuaVirtualMachine
                 var functionContext = new LuaFunctionExecutionContext() { Access = access, ArgumentCount = argCount, ReturnFrameBase = newBase };
                 if (thread.CallOrReturnHookMask.Value != 0 && !thread.IsInHook)
                 {
-                    await ExecuteCallHook(functionContext, ct);
+                    await ExecuteCallHook(functionContext, cancellationToken);
+                }
+                else
+                {
+                    await func.Func(functionContext, cancellationToken);
                 }
 
-
-                await func.Func(functionContext, ct);
+                thread.ThrowIfCancellationRequested(cancellationToken);
                 var results = stack.GetBuffer()[newFrame.ReturnBase..];
                 var result = results.Length == 0 ? default : results[0];
                 results.Clear();
@@ -2097,8 +2139,10 @@ public static partial class LuaVirtualMachine
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
-    internal static async ValueTask<bool> ExecuteCompareOperationMetaMethod(LuaThread thread, LuaValue vb, LuaValue vc, OpCode opCode, CancellationToken ct)
+    internal static async ValueTask<bool> ExecuteCompareOperationMetaMethod(LuaThread thread, LuaValue vb, LuaValue vc, OpCode opCode, CancellationToken cancellationToken)
     {
+        thread.ThrowIfCancellationRequested(cancellationToken);
+
         var (name, description) = opCode.GetNameAndDescription();
         bool reverseLe = false;
     ReCheck:
@@ -2133,11 +2177,14 @@ public static partial class LuaVirtualMachine
                 var functionContext = new LuaFunctionExecutionContext() { Access = access, ArgumentCount = argCount, ReturnFrameBase = newBase };
                 if (thread.CallOrReturnHookMask.Value != 0 && !thread.IsInHook)
                 {
-                    await ExecuteCallHook(functionContext, ct);
+                    await ExecuteCallHook(functionContext, cancellationToken);
+                }
+                else
+                {
+                    await func.Func(functionContext, cancellationToken);
                 }
 
-
-                await func.Func(functionContext, ct);
+                thread.ThrowIfCancellationRequested(cancellationToken);
                 var results = stack.GetBuffer()[newFrame.ReturnBase..];
                 var result = results.Length == 0 ? default : results[0];
                 results.Clear();

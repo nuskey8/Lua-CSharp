@@ -47,7 +47,7 @@ public static partial class LuaVirtualMachine
                 countHookIsDone = true;
             }
 
-
+            context.ThrowIfCancellationRequested();
             if (context.Thread.IsLineHookEnabled)
             {
                 var sourcePositions = prototype.LineInfo;
@@ -126,6 +126,7 @@ public static partial class LuaVirtualMachine
                 context.Thread.PopCallStackFrameWithStackPop();
             }
         }
+        context.Thread.ThrowIfCancellationRequested(cancellationToken);
 
         {
             var frame = context.Thread.GetCurrentFrame();
@@ -135,7 +136,7 @@ public static partial class LuaVirtualMachine
             {
                 return r;
             }
-
+            context.Thread.ThrowIfCancellationRequested(cancellationToken);
             var top = stack.Count;
             stack.Push("return");
             stack.Push(LuaValue.Nil);

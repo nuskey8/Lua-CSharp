@@ -1,6 +1,7 @@
 using System.Globalization;
 using Lua.Internal;
 using Lua.Runtime;
+
 // ReSharper disable MethodHasAsyncOverloadWithCancellation
 
 namespace Lua.Standard;
@@ -259,14 +260,17 @@ public sealed class BasicLibrary
         catch (Exception ex)
         {
             context.Thread.PopCallStackFrameUntil(frameCount);
-            if (ex is LuaRuntimeException luaEx)
+            switch (ex)
             {
-                luaEx.Forget();
-                return context.Return(false, luaEx.ErrorObject);
-            }
-            else
-            {
-                return context.Return(false, ex.Message);
+                case LuaCancelledException:
+                    throw;
+                case OperationCanceledException:
+                    throw new LuaCancelledException(context.Thread,cancellationToken, ex);
+                case LuaRuntimeException luaEx:
+                    luaEx.Forget();
+                    return context.Return(false, luaEx.ErrorObject);
+                default:
+                    return context.Return(false, ex.Message);
             }
         }
     }
@@ -565,6 +569,7 @@ public sealed class BasicLibrary
         {
             var thread = context.Thread;
             thread.PopCallStackFrameUntil(frameCount);
+            cancellationToken.ThrowIfCancellationRequested();
 
             var access = thread.CurrentAccess;
             if (ex is LuaRuntimeException luaEx)
