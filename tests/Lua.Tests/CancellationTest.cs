@@ -65,8 +65,8 @@ public class CancellationTest
         }
         catch (Exception e)
         {
-            Assert.That(e, Is.TypeOf<LuaCancelledException>());
-            var luaCancelledException = (LuaCancelledException)e;
+            Assert.That(e, Is.TypeOf<LuaCanceledException>());
+            var luaCancelledException = (LuaCanceledException)e;
             Assert.That(luaCancelledException.InnerException, Is.TypeOf<TaskCanceledException>());
             var luaStackTrace = luaCancelledException.LuaTraceback!.ToString();
             Console.WriteLine(luaStackTrace);
@@ -94,8 +94,8 @@ public class CancellationTest
         }
         catch (Exception e)
         {
-            Assert.That(e, Is.TypeOf<LuaCancelledException>());
-            var luaCancelledException = (LuaCancelledException)e;
+            Assert.That(e, Is.TypeOf<LuaCanceledException>());
+            var luaCancelledException = (LuaCanceledException)e;
             Assert.That(luaCancelledException.InnerException, Is.Null);
             var luaStackTrace = luaCancelledException.LuaTraceback!.ToString();
             Console.WriteLine(luaStackTrace);
@@ -128,9 +128,9 @@ public class CancellationTest
         }
         catch (Exception e)
         {
-            Assert.That(e, Is.TypeOf<LuaCancelledException>());
+            Assert.That(e, Is.TypeOf<LuaCanceledException>());
             Console.WriteLine(e.StackTrace);
-            var luaCancelledException = (LuaCancelledException)e;
+            var luaCancelledException = (LuaCanceledException)e;
             Assert.That(luaCancelledException.InnerException, Is.Null);
             var traceback = luaCancelledException.LuaTraceback;
             if (traceback != null)
@@ -165,9 +165,9 @@ public class CancellationTest
         }
         catch (Exception e)
         {
-            Assert.That(e, Is.TypeOf<LuaCancelledException>());
+            Assert.That(e, Is.TypeOf<LuaCanceledException>());
             Console.WriteLine(e.StackTrace);
-            var luaCancelledException = (LuaCancelledException)e;
+            var luaCancelledException = (LuaCanceledException)e;
             Assert.That(luaCancelledException.InnerException, Is.Null);
             var traceback = luaCancelledException.LuaTraceback;
             if (traceback != null)

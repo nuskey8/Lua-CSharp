@@ -255,7 +255,7 @@ public class LuaAssertionException(LuaThread? traceback, string message) : LuaRu
 
 public class LuaModuleNotFoundException(string moduleName) : Exception($"module '{moduleName}' not found");
 
-public sealed class LuaCancelledException : OperationCanceledException, ILuaTracebackBuildable
+public sealed class LuaCanceledException : OperationCanceledException, ILuaTracebackBuildable
 {
     Traceback? luaTraceback;
 
@@ -274,7 +274,7 @@ public sealed class LuaCancelledException : OperationCanceledException, ILuaTrac
 
     internal LuaThread? Thread { get; private set; }
 
-    internal LuaCancelledException(LuaThread thread, CancellationToken cancellationToken, Exception? innerException = null) : base("The operation was cancelled during execution on Lua.", innerException, cancellationToken)
+    internal LuaCanceledException(LuaThread thread, CancellationToken cancellationToken, Exception? innerException = null) : base("The operation was cancelled during execution on Lua.", innerException, cancellationToken)
     {
         thread.CurrentException?.BuildOrGet();
         thread.ExceptionTrace.Clear();

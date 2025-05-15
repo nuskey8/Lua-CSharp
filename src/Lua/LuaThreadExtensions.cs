@@ -25,7 +25,7 @@ public static class LuaThreadExtensions
 
         static void Throw(LuaThread thread, CancellationToken cancellationToken)
         {
-            throw new LuaCancelledException(thread, cancellationToken);
+            throw new LuaCanceledException(thread, cancellationToken);
         }
     }
 }

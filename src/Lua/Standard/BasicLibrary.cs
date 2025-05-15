@@ -262,10 +262,10 @@ public sealed class BasicLibrary
             context.Thread.PopCallStackFrameUntil(frameCount);
             switch (ex)
             {
-                case LuaCancelledException:
+                case LuaCanceledException:
                     throw;
                 case OperationCanceledException:
-                    throw new LuaCancelledException(context.Thread,cancellationToken, ex);
+                    throw new LuaCanceledException(context.Thread,cancellationToken, ex);
                 case LuaRuntimeException luaEx:
                     luaEx.Forget();
                     return context.Return(false, luaEx.ErrorObject);

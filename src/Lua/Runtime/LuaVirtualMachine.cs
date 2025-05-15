@@ -815,7 +815,7 @@ public static partial class LuaVirtualMachine
         catch (Exception e)
         {
             context.State.CloseUpValues(context.Thread, context.FrameBase);
-            if (e is not (LuaRuntimeException or LuaCancelledException))
+            if (e is not (LuaRuntimeException or LuaCanceledException))
             {
                 var newException = new LuaRuntimeException(context.Thread, e);
                 context.PopOnTopCallStackFrames();
@@ -1199,9 +1199,9 @@ public static partial class LuaVirtualMachine
         }
         catch(OperationCanceledException  operationCanceledException)
         {
-            if(operationCanceledException is not LuaCancelledException)
+            if(operationCanceledException is not LuaCanceledException)
             {
-                throw new LuaCancelledException(thread, cancellationToken, operationCanceledException);
+                throw new LuaCanceledException(thread, cancellationToken, operationCanceledException);
             }
             throw;
         }
