@@ -413,7 +413,7 @@ public class DebugLibrary
     {
         var thread = GetLuaThread(context, out var argOffset);
         LuaFunction? hook = context.GetArgumentOrDefault<LuaFunction?>(argOffset);
-        var mask = context.GetArgument<string>(argOffset + 1);
+        var mask = context.GetArgumentOrDefault<string?>(argOffset + 1)??"";
         var count = context.GetArgumentOrDefault<int>(argOffset + 2);
         thread.SetHook(hook, mask, count);
         if (hook is null)
