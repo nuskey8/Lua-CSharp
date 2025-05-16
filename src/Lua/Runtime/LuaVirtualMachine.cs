@@ -242,10 +242,12 @@ public static partial class LuaVirtualMachine
         public async ValueTask<int> ExecuteClosureAsyncImpl()
         {
             var returnFrameBase = CurrentReturnFrameBase;
+            var toCatchFlag = false;
             try
             {
                 while (MoveNext(this))
                 {
+                    toCatchFlag = true;
                     await Task;
                     Task = default;
                     if (PostOperation is not (PostOperationType.TailCall or PostOperationType.DontPop))
@@ -258,10 +260,29 @@ public static partial class LuaVirtualMachine
                         break;
                     }
 
+                    toCatchFlag = false;
+
                     ThrowIfCancellationRequested();
                 }
 
                 return Thread.Stack.Count - returnFrameBase;
+            }
+            catch (Exception e)
+            {
+                if (toCatchFlag)
+                {
+                    State.CloseUpValues(Thread, FrameBase);
+                    if (e is not (LuaRuntimeException or LuaCanceledException))
+                    {
+                        Exception newException = e is OperationCanceledException ? new LuaCanceledException(Thread, CancellationToken, e) : new LuaRuntimeException(Thread, e);
+                        PopOnTopCallStackFrames();
+                        throw newException;
+                    }
+
+                    PopOnTopCallStackFrames();
+                }
+
+                throw;
             }
             finally
             {
@@ -823,7 +844,7 @@ public static partial class LuaVirtualMachine
             context.State.CloseUpValues(context.Thread, context.FrameBase);
             if (e is not (LuaRuntimeException or LuaCanceledException))
             {
-                var newException = new LuaRuntimeException(context.Thread, e);
+                Exception newException = e is OperationCanceledException ? new LuaCanceledException(context.Thread, context.CancellationToken, e) : new LuaRuntimeException(context.Thread, e);
                 context.PopOnTopCallStackFrames();
                 throw newException;
             }

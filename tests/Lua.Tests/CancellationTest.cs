@@ -1,4 +1,5 @@
 ﻿using Lua.Standard;
+using System.Diagnostics;
 
 namespace Lua.Tests;
 
@@ -169,6 +170,53 @@ public class CancellationTest
             Console.WriteLine(e.StackTrace);
             var luaCancelledException = (LuaCanceledException)e;
             Assert.That(luaCancelledException.InnerException, Is.Null);
+            var traceback = luaCancelledException.LuaTraceback;
+            if (traceback != null)
+            {
+                var luaStackTrace = traceback.ToString();
+                Console.WriteLine(luaStackTrace);
+            }
+        }
+    }
+    
+    [Test]
+    public async Task CancelByHookTest()
+    {
+        var source = """
+                     local ret = 0
+                     ::loop::
+                     ret = ret + 1
+                     goto loop
+                     return ret
+                     """;
+        var cancellationTokenSource = new CancellationTokenSource();
+        var sw = Stopwatch.StartNew();
+        state.MainThread.SetHook(new LuaFunction("timeout",async (context, cancellationToken) =>
+        {
+            if (sw.ElapsedMilliseconds > 100)
+            {
+                await Task.Delay(1,cancellationToken);
+                cancellationTokenSource.Cancel();
+                cancellationToken.ThrowIfCancellationRequested();
+            }
+            return  context.Return();
+        }),"",10000);
+        cancellationTokenSource.Token.Register(() =>
+        {
+            Console.WriteLine("Cancellation requested");
+        });
+        try
+        {
+            var r = await state.DoStringAsync(source, "@test.lua", cancellationTokenSource.Token);
+            Console.WriteLine(r[0]);
+            Assert.Fail("Expected TaskCanceledException was not thrown.");
+        }
+        catch (Exception e)
+        {
+            Assert.That(e, Is.TypeOf<LuaCanceledException>());
+            Console.WriteLine(e.StackTrace);
+            var luaCancelledException = (LuaCanceledException)e;
+            Assert.That(luaCancelledException.InnerException, Is.TypeOf<OperationCanceledException>());
             var traceback = luaCancelledException.LuaTraceback;
             if (traceback != null)
             {
