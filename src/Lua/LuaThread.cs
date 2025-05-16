@@ -185,6 +185,34 @@ public abstract class LuaThread
         UpdateCurrentVersion(ref callStack);
     }
 
+    public void SetHook(LuaFunction? hook, string mask, int count = 0)
+    {
+        if (hook is null)
+        {
+            HookCount = 0;
+            BaseHookCount = 0;
+            Hook = null;
+            IsLineHookEnabled = false;
+            IsCallHookEnabled = false;
+            IsReturnHookEnabled = false;
+            return;
+        }
+
+        HookCount = count > 0 ? count + 1 : 0;
+        BaseHookCount = count;
+
+        IsLineHookEnabled = (mask.Contains('l'));
+        IsCallHookEnabled = (mask.Contains('c'));
+        IsReturnHookEnabled = (mask.Contains('r'));
+
+        if (IsLineHookEnabled)
+        {
+            LastPc = CallStackFrameCount > 0 ? GetCurrentFrame().CallerInstructionIndex : -1;
+        }
+
+        Hook = hook;
+    }
+
     internal void DumpStackValues()
     {
         var span = GetStackValues();

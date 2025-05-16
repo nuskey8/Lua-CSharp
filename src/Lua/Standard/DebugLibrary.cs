@@ -413,40 +413,14 @@ public class DebugLibrary
     {
         var thread = GetLuaThread(context, out var argOffset);
         LuaFunction? hook = context.GetArgumentOrDefault<LuaFunction?>(argOffset);
+        var mask = context.GetArgument<string>(argOffset + 1);
+        var count = context.GetArgumentOrDefault<int>(argOffset + 2);
+        thread.SetHook(hook, mask, count);
         if (hook is null)
         {
-            thread.HookCount = -1;
-            thread.BaseHookCount = 0;
-            thread.Hook = null;
-            thread.IsLineHookEnabled = false;
-            thread.IsCallHookEnabled = false;
-            thread.IsReturnHookEnabled = false;
             return 0;
         }
 
-        var mask = context.GetArgument<string>(argOffset + 1);
-        if (context.HasArgument(argOffset + 2))
-        {
-            var count = context.GetArgument<int>(argOffset + 2);
-            thread.BaseHookCount = count;
-            thread.HookCount = count + 1;
-        }
-        else
-        {
-            thread.HookCount = 0;
-            thread.BaseHookCount = 0;
-        }
-
-        thread.IsLineHookEnabled = (mask.Contains('l'));
-        thread.IsCallHookEnabled = (mask.Contains('c'));
-        thread.IsReturnHookEnabled = (mask.Contains('r'));
-
-        if (thread.IsLineHookEnabled)
-        {
-            thread.LastPc = thread.CallStackFrameCount > 0 ? thread.GetCurrentFrame().CallerInstructionIndex : -1;
-        }
-
-        thread.Hook = hook;
         if (thread.IsReturnHookEnabled && context.Thread == thread)
         {
             var stack = thread.Stack;
@@ -455,8 +429,8 @@ public class DebugLibrary
             stack.Push(LuaValue.Nil);
             context.Thread.IsInHook = true;
             var frame = context.Thread.CurrentAccess.CreateCallStackFrame(hook, 2, top, 0);
-            var access= context.Thread.PushCallStackFrame(frame);
-            var funcContext = new LuaFunctionExecutionContext { Access =access, ArgumentCount = stack.Count-frame.Base, ReturnFrameBase = frame.ReturnBase };
+            var access = context.Thread.PushCallStackFrame(frame);
+            var funcContext = new LuaFunctionExecutionContext { Access = access, ArgumentCount = stack.Count - frame.Base, ReturnFrameBase = frame.ReturnBase };
             try
             {
                 await hook.Func(funcContext, cancellationToken);
