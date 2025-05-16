@@ -27,9 +27,9 @@ public static partial class LuaVirtualMachine
             bool countHookIsDone = false;
             var pc = context.Pc;
             var prototype = context.Prototype;
-            if (context.Thread.IsCountHookEnabled && --context.Thread.HookCount == 0)
+            if (context.Thread.HookCount == 0)
             {
-                context.Thread.HookCount = context.Thread.BaseHookCount;
+                context.Thread.HookCount = context.Thread.BaseHookCount + 1;
 
                 var hook = context.Thread.Hook!;
 

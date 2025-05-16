@@ -417,7 +417,6 @@ public class DebugLibrary
         {
             thread.HookCount = -1;
             thread.BaseHookCount = 0;
-            thread.IsCountHookEnabled = false;
             thread.Hook = null;
             thread.IsLineHookEnabled = false;
             thread.IsCallHookEnabled = false;
@@ -430,17 +429,12 @@ public class DebugLibrary
         {
             var count = context.GetArgument<int>(argOffset + 2);
             thread.BaseHookCount = count;
-            thread.HookCount = count;
-            if (count > 0)
-            {
-                thread.IsCountHookEnabled = true;
-            }
+            thread.HookCount = count + 1;
         }
         else
         {
             thread.HookCount = 0;
             thread.BaseHookCount = 0;
-            thread.IsCountHookEnabled = false;
         }
 
         thread.IsLineHookEnabled = (mask.Contains('l'));

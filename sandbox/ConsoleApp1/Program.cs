@@ -46,8 +46,6 @@ catch (Exception ex)
 {
     if (ex is LuaCompileException luaCompileException)
     {
-        
-    
         Console.WriteLine("CompileError " + new string('-', 50));
         Console.WriteLine(RustLikeExceptionHook.OnCatch(source, luaCompileException)); ;
         Console.WriteLine(new string('-', 55));
@@ -114,7 +112,7 @@ static void DebugChunk(Prototype chunk, int id)
     }
 }
 
-public class LuaRustLikeException(string message, Exception? innerException) : LuaException(message, innerException);
+public class LuaRustLikeException(string message, Exception? innerException) : Exception(message, innerException);
 
 class RustLikeExceptionHook //: ILuaCompileHook
 {

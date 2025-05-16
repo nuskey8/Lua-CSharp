@@ -1,6 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Lua.Internal;
+
 // ReSharper disable MethodHasAsyncOverload
 
 // ReSharper disable InconsistentNaming
@@ -267,14 +268,15 @@ public static partial class LuaVirtualMachine
                 pool.TryPush(this);
             }
         }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void ThrowIfCancellationRequested()
         {
             if (!CancellationToken.IsCancellationRequested) return;
             Throw();
-                
+
             void Throw()
-            { 
+            {
                 GetThreadWithCurrentPc(this).ThrowIfCancellationRequested(CancellationToken);
             }
         }
@@ -303,6 +305,9 @@ public static partial class LuaVirtualMachine
         return context.ExecuteClosureAsyncImpl();
     }
 
+    static long DummyHookCount = 0;
+    static bool DummyLineHookEnabled = false;
+
     static bool MoveNext(VirtualMachineExecutionContext context)
     {
         try
@@ -314,13 +319,14 @@ public static partial class LuaVirtualMachine
             var stack = context.Stack;
             stack.EnsureCapacity(frameBase + context.Prototype.MaxStackSize);
             ref var constHead = ref MemoryMarshalEx.UnsafeElementAt(context.Prototype.Constants, 0);
-            ref var lineAndCountHookMask = ref context.Thread.LineAndCountHookMask;
+            ref var lineHookFlag = ref (context.Thread.IsInHook ? ref DummyLineHookEnabled : ref context.Thread.IsLineHookEnabled);
+            ref var hookCount = ref (context.Thread.IsInHook ? ref DummyHookCount : ref context.Thread.HookCount);
             goto Loop;
         LineHook:
 
             {
                 context.LastHookPc = context.Pc;
-                if (!context.Thread.IsInHook && ExecutePerInstructionHook(context))
+                if (ExecutePerInstructionHook(context))
                 {
                     {
                         context.PostOperation = PostOperationType.Nop;
@@ -336,7 +342,7 @@ public static partial class LuaVirtualMachine
             {
                 var instruction = Unsafe.Add(ref instructionsHead, ++context.Pc);
                 context.Instruction = instruction;
-                if (lineAndCountHookMask.Value != 0 && (context.Pc != context.LastHookPc))
+                if (--hookCount == 0 || (lineHookFlag && (context.Pc != context.LastHookPc)))
                 {
                     goto LineHook;
                 }
@@ -1197,12 +1203,13 @@ public static partial class LuaVirtualMachine
             thread.ThrowIfCancellationRequested(cancellationToken);
             return thread.Stack.Count - funcIndex;
         }
-        catch(OperationCanceledException  operationCanceledException)
+        catch (OperationCanceledException operationCanceledException)
         {
-            if(operationCanceledException is not LuaCanceledException)
+            if (operationCanceledException is not LuaCanceledException)
             {
                 throw new LuaCanceledException(thread, cancellationToken, operationCanceledException);
             }
+
             throw;
         }
         finally
@@ -1402,7 +1409,7 @@ public static partial class LuaVirtualMachine
 
         if (!stack.Get(RA).TryReadTable(out var table))
         {
-            throw new LuaRuntimeException(GetThreadWithCurrentPc(context),"internal error");
+            throw new LuaRuntimeException(GetThreadWithCurrentPc(context), "internal error");
         }
 
         var count = instruction.B == 0

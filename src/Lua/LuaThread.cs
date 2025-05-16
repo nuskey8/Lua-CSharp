@@ -60,10 +60,10 @@ public abstract class LuaThread
 
     public LuaState State { get; protected set; } = null!;
     protected ThreadCoreData? CoreData = new();
-    internal BitFlags2 LineAndCountHookMask;
+    internal bool IsLineHookEnabled;
     internal BitFlags2 CallOrReturnHookMask;
     internal bool IsInHook;
-    internal int HookCount;
+    internal long HookCount;
     internal int BaseHookCount;
     internal int LastPc;
 
@@ -72,26 +72,10 @@ public abstract class LuaThread
 
     internal ILuaTracebackBuildable? CurrentException;
     internal readonly ReversedStack<CallStackFrame> ExceptionTrace = new();
-    
-    // internal bool CancelRequested;
-    // internal CancellationToken CancellationToken;
 
     public bool IsRunning => CallStackFrameCount != 0;
     internal LuaFunction? Hook { get; set; }
     public LuaStack Stack => CoreData!.Stack;
-
-    internal bool IsLineHookEnabled
-    {
-        get => LineAndCountHookMask.Flag0;
-        set => LineAndCountHookMask.Flag0 = value;
-    }
-
-    internal bool IsCountHookEnabled
-    {
-        get => LineAndCountHookMask.Flag1;
-        set => LineAndCountHookMask.Flag1 = value;
-    }
-
 
     internal bool IsCallHookEnabled
     {
@@ -106,7 +90,7 @@ public abstract class LuaThread
     }
 
     public int CallStackFrameCount => CoreData == null ? 0 : CoreData!.CallStack.Count;
-    
+
     internal LuaThreadAccess CurrentAccess => new(this, CurrentVersion);
     public LuaThreadAccess TopLevelAccess => new(this, 0);
 
