@@ -27,7 +27,7 @@ public sealed class ModuleLibrary
                     ? context.State.Load(module.ReadBytes(), module.Name)
                     : context.State.Load(module.ReadText(), module.Name);
             }
-            await context.Access.RunAsync(closure, 0, cancellationToken);
+            await context.Access.RunAsync(closure, 0, context.ReturnFrameBase, cancellationToken);
             loadedTable = context.Thread.Stack.Get(context.ReturnFrameBase);
             loaded[arg0] = loadedTable;
         }
