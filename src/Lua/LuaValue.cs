@@ -396,8 +396,13 @@ public readonly struct LuaValue : IEquatable<LuaValue>
         return true;
     }
 
+    public static LuaValue FromUserData(ILuaUserData userData)
+    {
+        return new (userData);
+    }
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public LuaValue(object obj)
+    internal LuaValue(object obj)
     {
         Type = LuaValueType.LightUserData;
         referenceValue = obj;

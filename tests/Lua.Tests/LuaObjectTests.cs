@@ -7,7 +7,8 @@ public partial class TestUserData
 {
     [LuaMember]
     public int Property { get; set; }
-
+    [LuaMember]
+    public LuaValue LuaValueProperty { get; set; }
     [LuaMember("p2")]
     public string PropertyWithName { get; set; } = "";
 
@@ -37,10 +38,10 @@ public partial class TestUserData
     }
 
     [LuaMember]
-    public async Task<double> InstanceMethodWithReturnValueAsync()
+    public async ValueTask<LuaValue> InstanceMethodWithReturnValueAsync(LuaValue value,CancellationToken ct)
     {
-        await Task.Delay(1);
-        return Property;
+        await Task.Delay(1,ct);
+        return value;
     }
 
     [LuaMetamethod(LuaObjectMetamethod.Call)]
@@ -135,10 +136,10 @@ public class LuaObjectTests
 
         var state = LuaState.Create();
         state.Environment["test"] = userData;
-        var results = await state.DoStringAsync("return test:InstanceMethodWithReturnValueAsync()");
+        var results = await state.DoStringAsync("return test:InstanceMethodWithReturnValueAsync(2)");
 
         Assert.That(results, Has.Length.EqualTo(1));
-        Assert.That(results[0], Is.EqualTo(new LuaValue(1)));
+        Assert.That(results[0], Is.EqualTo(new LuaValue(2)));
     }
 
     [Test]
