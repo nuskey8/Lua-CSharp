@@ -443,12 +443,12 @@ partial class LuaObjectGenerator
 
             if (methodMetadata.IsAsync)
             {
-                builder.Append("await ", false);
+                builder.Append("await ");
             }
 
             if (methodMetadata.IsStatic)
             {
-                builder.Append($"{typeMetadata.FullTypeName}.{methodMetadata.Symbol.Name}(", false);
+                builder.Append($"{typeMetadata.FullTypeName}.{methodMetadata.Symbol.Name}(",!(methodMetadata.HasReturnValue||methodMetadata.IsAsync));
                 builder.Append(string.Join(",", Enumerable.Range(0, index).Select(x => $"arg{x}")), false);
 
                 if (hasCancellationToken)
@@ -482,12 +482,12 @@ partial class LuaObjectGenerator
                 }
 
                 var conversionPrefix =GetLuaValuePrefix(returnType,references,compilation);
-                builder.AppendLine(methodMetadata.IsAsync ? $"context.Return({conversionPrefix}result));" : $"new global::System.Threading.Tasks.ValueTask<int>(context.Return({conversionPrefix}result)));");
+                builder.AppendLine(methodMetadata.IsAsync ? $"context.Return({conversionPrefix}result));" : $"new global::System.Threading.Tasks.ValueTask<int>(context.Return({conversionPrefix}result)));",false);
                 
             }
             else
             {
-                builder.AppendLine(methodMetadata.IsAsync ? "context.Return();" : "new global::System.Threading.Tasks.ValueTask<int>(context.Return());");
+                builder.AppendLine(methodMetadata.IsAsync ? "context.Return();" : "new global::System.Threading.Tasks.ValueTask<int>(context.Return());",false);
             }
         }
 
