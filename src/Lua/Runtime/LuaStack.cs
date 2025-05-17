@@ -1,6 +1,7 @@
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Lua.Internal;
+using System.Diagnostics;
 
 namespace Lua.Runtime;
 
@@ -10,6 +11,8 @@ public sealed class LuaStack(int initialSize = 256)
     int top;
 
     public int Count => top;
+
+    public ref LuaValue this[int index] => ref Get(index);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void EnsureCapacity(int newSize)
@@ -25,6 +28,11 @@ public sealed class LuaStack(int initialSize = 256)
             while (size < newSize)
             {
                 size *= 2;
+            }
+
+            if (1000000 < size)
+            {
+                throw new ("Lua Stack overflow");
             }
 
             Array.Resize(ref array, size);
@@ -46,7 +54,7 @@ public sealed class LuaStack(int initialSize = 256)
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void PushRange(ReadOnlySpan<LuaValue> values)
+    public void PushRange(params ReadOnlySpan<LuaValue> values)
     {
         EnsureCapacity(top + values.Length);
         values.CopyTo(array.AsSpan()[top..]);
@@ -61,6 +69,16 @@ public sealed class LuaStack(int initialSize = 256)
         var item = array[top];
         array[top] = default;
         return item;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void Pop(int count)
+    {
+        var newSize = top - count;
+        if (newSize >= top) return;
+
+        array.AsSpan(newSize, top - newSize).Clear();
+        top = newSize;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -133,5 +151,15 @@ public sealed class LuaStack(int initialSize = 256)
     static void ThrowEmptyStack()
     {
         throw new InvalidOperationException("Empty stack");
+    }
+
+    [DebuggerBrowsable(DebuggerBrowsableState.RootHidden)]
+    private Span<LuaValue> Span => AsSpan();
+
+    internal void SetTop(int top)
+    {
+        EnsureCapacity(top);
+        NotifyTop(top);
+        PopUntil(top);
     }
 }

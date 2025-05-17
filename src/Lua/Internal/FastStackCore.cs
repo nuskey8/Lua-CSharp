@@ -71,6 +71,7 @@ public struct FastStackCore<T>
         {
             return false;
         }
+
         array[--tail] = default;
 
         return true;
@@ -80,6 +81,12 @@ public struct FastStackCore<T>
     {
         if (!TryPop(out var result)) ThrowForEmptyStack();
         return result;
+    }
+
+    public void PopUntil(int top)
+    {
+        array.AsSpan(top, tail - top).Clear();
+        tail = top;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

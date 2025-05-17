@@ -296,6 +296,12 @@ public readonly struct LuaValue : IEquatable<LuaValue>
         return value;
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal string UnsafeReadString()
+    {
+        return Unsafe.As<string>(referenceValue!);
+    }
+
     bool TryParseToDouble(out double result)
     {
         if (Type != LuaValueType.String)
@@ -390,8 +396,13 @@ public readonly struct LuaValue : IEquatable<LuaValue>
         return true;
     }
 
+    public static LuaValue FromUserData(ILuaUserData userData)
+    {
+        return new (userData);
+    }
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public LuaValue(object obj)
+    internal LuaValue(object obj)
     {
         Type = LuaValueType.LightUserData;
         referenceValue = obj;
@@ -541,6 +552,39 @@ public readonly struct LuaValue : IEquatable<LuaValue>
             _ => "",
         };
     }
+    
+    public  string TypeToString()
+    {
+        return Type switch
+        {
+            LuaValueType.Nil => "nil",
+            LuaValueType.Boolean => "boolean",
+            LuaValueType.String => "string",
+            LuaValueType.Number => "number",
+            LuaValueType.Function => "function",
+            LuaValueType.Thread => "thread",
+            LuaValueType.Table => "table",
+            LuaValueType.LightUserData => "userdata",
+            LuaValueType.UserData => "userdata",
+            _ => "",
+        };
+    }
+    public static string ToString(LuaValueType type)
+    {
+        return type switch
+        {
+            LuaValueType.Nil => "nil",
+            LuaValueType.Boolean => "boolean",
+            LuaValueType.String => "string",
+            LuaValueType.Number => "number",
+            LuaValueType.Function => "function",
+            LuaValueType.Thread => "thread",
+            LuaValueType.Table => "table",
+            LuaValueType.LightUserData => "userdata",
+            LuaValueType.UserData => "userdata",
+            _ => "",
+        };
+    }
 
     public static bool TryGetLuaValueType(Type type, out LuaValueType result)
     {
@@ -584,27 +628,19 @@ public readonly struct LuaValue : IEquatable<LuaValue>
         return false;
     }
 
-    internal ValueTask<int> CallToStringAsync(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    internal ValueTask<int> CallToStringAsync(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
         if (this.TryGetMetamethod(context.State, Metamethods.ToString, out var metamethod))
         {
-            if (!metamethod.TryReadFunction(out var func))
-            {
-                LuaRuntimeException.AttemptInvalidOperation(context.State.GetTraceback(), "call", metamethod);
-            }
-
-            context.State.Push(this);
-
-            return func.InvokeAsync(context with
-            {
-                ArgumentCount = 1,
-                FrameBase = context.Thread.Stack.Count - 1,
-            }, buffer, cancellationToken);
+            var stack = context.Thread.Stack;
+            stack.Push(metamethod);
+            stack.Push(this);
+            return LuaVirtualMachine.Call(context.Thread,stack.Count-2, stack.Count - 2, cancellationToken);
         }
         else
         {
-            buffer.Span[0] = ToString();
-            return new(1);
+            context.Thread.Stack.Push(ToString());
+            return default;
         }
     }
 }
