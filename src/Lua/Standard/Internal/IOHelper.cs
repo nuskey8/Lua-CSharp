@@ -48,7 +48,7 @@ internal static class IOHelper
     {
         try
         {
-            for (int i = 1; i < context.ArgumentCount; i++)
+            for (int i = 0; i < context.ArgumentCount; i++)
             {
                 var arg = context.Arguments[i];
                 if (arg.TryRead<string>(out var str))
@@ -70,6 +70,7 @@ internal static class IOHelper
         }
         catch (IOException ex)
         {
+            context.Thread.Stack.PopUntil(context.ReturnFrameBase);
             var stack = context.Thread.Stack;
             stack.Push(LuaValue.Nil);
             stack.Push(ex.Message);
@@ -77,6 +78,7 @@ internal static class IOHelper
             return 3;
         }
 
+        context.Thread.Stack.PopUntil(context.ReturnFrameBase);
         context.Thread.Stack.Push(new(file));
         return 1;
     }

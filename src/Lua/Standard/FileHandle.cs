@@ -226,8 +226,7 @@ public class FileHandle : ILuaUserData
     static readonly LuaFunction WriteFunction = new("write", (context, cancellationToken) =>
     {
         var file = context.GetArgument<FileHandle>(0);
-        context.Return();
-        var resultCount = IOHelper.Write(file, "write", context);
+        var resultCount = IOHelper.Write(file, "write", context with{ArgumentCount = context.ArgumentCount-1});
         return new(resultCount);
     });
 }

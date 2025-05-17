@@ -192,7 +192,6 @@ public sealed class IOLibrary
     public ValueTask<int> Write(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
         var file = context.State.Environment["io"].Read<LuaTable>()["stdout"].Read<FileHandle>();
-        context.Return();
         var resultCount = IOHelper.Write(file, "write", context);
         return new(resultCount);
     }
