@@ -1,9 +1,10 @@
 using System.Runtime.CompilerServices;
 using Lua.Internal;
+using System.Collections;
 
 namespace Lua;
 
-public sealed class LuaTable
+public sealed class LuaTable : IEnumerable<KeyValuePair<LuaValue, LuaValue>>
 {
     public LuaTable() : this(8, 8)
     {
@@ -267,7 +268,6 @@ public sealed class LuaTable
 
         var prevLength = array.Length;
         var newLength = array.Length;
-        if (newLength == 0) newLength = 8;
         newLength = newCapacity <= 8 ? 8 : MathEx.NextPowerOfTwo(newCapacity);
 
         Array.Resize(ref array, newLength);
@@ -314,5 +314,41 @@ public sealed class LuaTable
     static void ThrowIndexIsNaN()
     {
         throw new ArgumentException("the table index is NaN");
+    }
+
+    public LuaTableEnumerator GetEnumerator()
+    {
+        return new(this);
+    }
+
+    IEnumerator<KeyValuePair<LuaValue, LuaValue>> IEnumerable<KeyValuePair<LuaValue, LuaValue>>.GetEnumerator()
+    {
+        return new LuaTableEnumerator(this);
+    }
+
+    IEnumerator IEnumerable.GetEnumerator()
+    {
+        return new LuaTableEnumerator(this);
+    }
+
+    public struct LuaTableEnumerator(LuaTable table) : IEnumerator<KeyValuePair<LuaValue, LuaValue>>
+    {
+        public KeyValuePair<LuaValue, LuaValue> Current => current;
+        KeyValuePair<LuaValue, LuaValue> current = default;
+
+        public bool MoveNext()
+        {
+            return table.TryGetNext(Current.Key, out current);
+        }
+
+        public void Reset()
+        {
+        }
+
+        object IEnumerator.Current => Current;
+
+        public void Dispose()
+        {
+        }
     }
 }
