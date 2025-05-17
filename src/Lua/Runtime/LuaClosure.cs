@@ -62,6 +62,11 @@ public sealed class LuaClosure : LuaFunction
     {
         if (description.IsLocal)
         {
+            if (description is { Index: 0, Name: "_ENV" })
+            {
+                return state.EnvUpValue;
+            }
+
             return state.GetOrAddUpValue(thread, baseIndex + description.Index);
         }
 
