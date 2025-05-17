@@ -451,7 +451,7 @@ partial class LuaObjectGenerator
                 }
                 else
                 {
-                    builder.AppendLine(methodMetadata.IsAsync ? "context.Return(new global::Lua.LuaValue(result))));" : "new global::System.Threading.Tasks.ValueTask<int>(context.Return(new global::Lua.LuaValue(result)));");
+                    builder.AppendLine(methodMetadata.IsAsync ? "context.Return(new global::Lua.LuaValue(result));" : "new global::System.Threading.Tasks.ValueTask<int>(context.Return(new global::Lua.LuaValue(result)));");
                 }
             }
             else

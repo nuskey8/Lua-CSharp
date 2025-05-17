@@ -6,7 +6,7 @@ namespace Lua.Tests;
 public partial class TestUserData
 {
     [LuaMember]
-    public double Property { get; set; }
+    public int Property { get; set; }
 
     [LuaMember("p2")]
     public string PropertyWithName { get; set; } = "";
@@ -33,6 +33,13 @@ public partial class TestUserData
     [LuaMember]
     public double InstanceMethodWithReturnValue()
     {
+        return Property;
+    }
+
+    [LuaMember]
+    public async Task<double> InstanceMethodWithReturnValueAsync()
+    {
+        await Task.Delay(1);
         return Property;
     }
 
@@ -116,6 +123,19 @@ public class LuaObjectTests
         var state = LuaState.Create();
         state.Environment["test"] = userData;
         var results = await state.DoStringAsync("return test:InstanceMethodWithReturnValue()");
+
+        Assert.That(results, Has.Length.EqualTo(1));
+        Assert.That(results[0], Is.EqualTo(new LuaValue(1)));
+    }
+    
+    [Test]
+    public async Task Test_InstanceMethodWithReturnValueAsync()
+    {
+        var userData = new TestUserData() { Property = 1 };
+
+        var state = LuaState.Create();
+        state.Environment["test"] = userData;
+        var results = await state.DoStringAsync("return test:InstanceMethodWithReturnValueAsync()");
 
         Assert.That(results, Has.Length.EqualTo(1));
         Assert.That(results[0], Is.EqualTo(new LuaValue(1)));
