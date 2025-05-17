@@ -38,7 +38,7 @@ public static partial class LuaVirtualMachine
                 stack.Push("count");
                 stack.Push(LuaValue.Nil);
                 context.Thread.IsInHook = true;
-                var frame = context.Thread.CurrentAccess.CreateCallStackFrame(hook, 2, top, context.Pc);
+                var frame = context.Thread.CurrentAccess.CreateCallStackFrame(hook, 2, top, pc);
                 var access = context.Thread.PushCallStackFrame(frame);
                 var funcContext = new LuaFunctionExecutionContext { Access = access, ArgumentCount = stack.Count - frame.Base, ReturnFrameBase = frame.ReturnBase };
                 await hook.Func(funcContext, context.CancellationToken);
@@ -113,7 +113,7 @@ public static partial class LuaVirtualMachine
 
             stack.Push(LuaValue.Nil);
             context.Thread.IsInHook = true;
-            var frame = context.Thread.CurrentAccess.CreateCallStackFrame(hook, 2, top, context.Thread.GetCurrentFrame().CallerInstructionIndex);
+            var frame = context.Thread.CurrentAccess.CreateCallStackFrame(hook, 2, top, 0);
             var access = context.Thread.PushCallStackFrame(frame);
             var funcContext = new LuaFunctionExecutionContext { Access = access, ArgumentCount = stack.Count - frame.Base, ReturnFrameBase = frame.ReturnBase };
             try
