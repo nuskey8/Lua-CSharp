@@ -409,6 +409,39 @@ namespace Lua.Internal
             public LuaValue value; // Value of entry
         }
 
+        internal int Version => _version;
+
+        internal static bool MoveNext(LuaValueDictionary dictionary, int version, ref int index, out KeyValuePair<LuaValue, LuaValue> current)
+        {
+            if (version != dictionary._version)
+            {
+                ThrowHelper.ThrowInvalidOperationException_InvalidOperation_EnumFailedVersion();
+            }
+
+        SearchNext:
+            // Use unsigned comparison since we set index to dictionary.count+1 when the enumeration ends.
+            // dictionary.count+1 could be negative if dictionary.count is int.MaxValue
+            while ((uint)index < (uint)dictionary._count)
+            {
+                ref Entry entry = ref dictionary._entries![index++];
+
+                if (entry.next >= -1)
+                {
+                    if (entry.value.Type is LuaValueType.Nil)
+                    {
+                        goto SearchNext;
+                    }
+
+                    current = new KeyValuePair<LuaValue, LuaValue>(entry.key, entry.value);
+                    return true;
+                }
+            }
+
+            index = dictionary._count + 1;
+            current = default;
+            return false;
+        }
+
         public struct Enumerator
         {
             private readonly LuaValueDictionary dictionary;
@@ -424,30 +457,7 @@ namespace Lua.Internal
                 _current = default;
             }
 
-            public bool MoveNext()
-            {
-                if (_version != dictionary._version)
-                {
-                    ThrowHelper.ThrowInvalidOperationException_InvalidOperation_EnumFailedVersion();
-                }
-
-                // Use unsigned comparison since we set index to dictionary.count+1 when the enumeration ends.
-                // dictionary.count+1 could be negative if dictionary.count is int.MaxValue
-                while ((uint)_index < (uint)dictionary._count)
-                {
-                    ref Entry entry = ref dictionary._entries![_index++];
-
-                    if (entry.next >= -1)
-                    {
-                        _current = new KeyValuePair<LuaValue, LuaValue>(entry.key, entry.value);
-                        return true;
-                    }
-                }
-
-                _index = dictionary._count + 1;
-                _current = default;
-                return false;
-            }
+            public bool MoveNext() => LuaValueDictionary.MoveNext(dictionary, _version, ref _index, out _current);
 
             public KeyValuePair<LuaValue, LuaValue> Current => _current;
         }

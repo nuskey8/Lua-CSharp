@@ -334,11 +334,34 @@ public sealed class LuaTable : IEnumerable<KeyValuePair<LuaValue, LuaValue>>
     public struct LuaTableEnumerator(LuaTable table) : IEnumerator<KeyValuePair<LuaValue, LuaValue>>
     {
         public KeyValuePair<LuaValue, LuaValue> Current => current;
+        int index = -1;
+        readonly int version = table.dictionary.Version;
         KeyValuePair<LuaValue, LuaValue> current = default;
 
         public bool MoveNext()
         {
-            return table.TryGetNext(Current.Key, out current);
+            if (index < 0)
+            {
+                var arrayIndex = -index - 1;
+                var span = table.array.AsSpan(arrayIndex);
+                for (int i = 0; i < span.Length; i++)
+                {
+                    if (span[i].Type is not LuaValueType.Nil)
+                    {
+                        current = new(arrayIndex + i + 1, span[i]);
+                        index = -arrayIndex - i - 2;
+                        return true;
+                    }
+                }
+
+                index = 0;
+            }
+
+            while (LuaValueDictionary.MoveNext(table.Dictionary, version, ref index, out current) && current.Value.Type is LuaValueType.Nil)
+            {
+            }
+
+            return current.Value.Type is not LuaValueType.Nil;
         }
 
         public void Reset()
