@@ -177,9 +177,14 @@ partial class LuaObjectGenerator
             }
 
         PARAMETERS:
-            foreach (var typeSymbol in method.Symbol.Parameters
-                         .Select(x => x.Type))
+            for (int index = 0; index < method.Symbol.Parameters.Length; index++)
             {
+                IParameterSymbol? parameterSymbol = method.Symbol.Parameters[index];
+                var typeSymbol = parameterSymbol.Type;
+                if(index == method.Symbol.Parameters.Length - 1 && SymbolEqualityComparer.Default.Equals(typeSymbol, references.CancellationToken))
+                {
+                    continue;
+                }
                 if (SymbolEqualityComparer.Default.Equals(typeSymbol, references.LuaValue)) continue;
                 if (SymbolEqualityComparer.Default.Equals(typeSymbol, typeMetadata.Symbol)) continue;
 
@@ -359,10 +364,20 @@ partial class LuaObjectGenerator
                 builder.AppendLine($"var userData = context.GetArgument<{typeMetadata.FullTypeName}>(0);");
                 index++;
             }
+            
+            bool hasCancellationToken = false;
 
-            foreach (var parameter in methodMetadata.Symbol.Parameters)
+            for (int i = 0; i < methodMetadata.Symbol.Parameters.Length; i++)
             {
-                var isParameterLuaValue = SymbolEqualityComparer.Default.Equals(parameter.Type, references.LuaValue);
+                IParameterSymbol? parameter = methodMetadata.Symbol.Parameters[i];
+                var parameterType = parameter.Type;
+                var isParameterLuaValue = SymbolEqualityComparer.Default.Equals(parameterType, references.LuaValue);
+
+                if (i == methodMetadata.Symbol.Parameters.Length - 1 && SymbolEqualityComparer.Default.Equals(parameterType, references.CancellationToken))
+                {
+                    hasCancellationToken = true;
+                    break;
+                }
 
                 if (parameter.HasExplicitDefaultValue)
                 {
@@ -374,7 +389,7 @@ partial class LuaObjectGenerator
                     }
                     else
                     {
-                        builder.AppendLine($"var arg{index} = context.HasArgument({index}) ?  context.GetArgument<{parameter.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}>({index}) : {syntax.Default!.Value.ToFullString()};");
+                        builder.AppendLine($"var arg{index} = context.HasArgument({index}) ?  context.GetArgument<{parameterType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}>({index}) : {syntax.Default!.Value.ToFullString()};");
                     }
                 }
                 else
@@ -385,7 +400,7 @@ partial class LuaObjectGenerator
                     }
                     else
                     {
-                        builder.AppendLine($"var arg{index} = context.GetArgument<{parameter.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}>({index});");
+                        builder.AppendLine($"var arg{index} = context.GetArgument<{parameterType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}>({index});");
                     }
                 }
 
@@ -406,12 +421,24 @@ partial class LuaObjectGenerator
             {
                 builder.Append($"{typeMetadata.FullTypeName}.{methodMetadata.Symbol.Name}(", false);
                 builder.Append(string.Join(",", Enumerable.Range(0, index).Select(x => $"arg{x}")), false);
+
+                if (hasCancellationToken)
+                {
+                    builder.Append(index > 0?",ct":"ct", false);
+                }
+
                 builder.AppendLine(");", false);
             }
             else
             {
                 builder.Append($"userData.{methodMetadata.Symbol.Name}(");
                 builder.Append(string.Join(",", Enumerable.Range(1, index - 1).Select(x => $"arg{x}")), false);
+
+                if (hasCancellationToken)
+                {
+                    builder.Append(index > 1 ? ",ct" : "ct", false);
+                }
+
                 builder.AppendLine(");", false);
             }
 

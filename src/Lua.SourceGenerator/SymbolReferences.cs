@@ -16,6 +16,7 @@ public sealed class SymbolReferences
             LuaIgnoreMemberAttribute = compilation.GetTypeByMetadataName("Lua.LuaIgnoreMemberAttribute")!,
             LuaMetamethodAttribute = compilation.GetTypeByMetadataName("Lua.LuaMetamethodAttribute")!,
             LuaValue = compilation.GetTypeByMetadataName("Lua.LuaValue")!,
+            CancellationToken = compilation.GetTypeByMetadataName("System.Threading.CancellationToken")!
         };
     }
 
@@ -24,4 +25,5 @@ public sealed class SymbolReferences
     public INamedTypeSymbol LuaIgnoreMemberAttribute { get; private set; } = default!;
     public INamedTypeSymbol LuaMetamethodAttribute { get; private set; } = default!;
     public INamedTypeSymbol LuaValue { get; private set; } = default!;
+    public INamedTypeSymbol CancellationToken { get; private set; } = default!;
 }
