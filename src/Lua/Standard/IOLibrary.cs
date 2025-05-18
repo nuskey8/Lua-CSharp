@@ -63,20 +63,20 @@ public sealed class IOLibrary
 
         if (context.ArgumentCount == 0 || context.Arguments[0].Type is LuaValueType.Nil)
         {
-            return new(context.Return(io["stdio"]));
+            return new(context.Return(io["stdin"]));
         }
 
         var arg = context.Arguments[0];
         if (arg.TryRead<FileHandle>(out var file))
         {
-            io["stdio"] = new(file);
+            io["stdin"] = new(file);
             return new(context.Return(new LuaValue(file)));
         }
         else
         {
             var stream = File.Open(arg.ToString()!, FileMode.Open, FileAccess.ReadWrite);
             var handle = new FileHandle(stream);
-            io["stdio"] = new(handle);
+            io["stdin"] = new(handle);
             return new(context.Return(new LuaValue(handle)));
         }
     }
@@ -85,7 +85,7 @@ public sealed class IOLibrary
     {
         if (context.ArgumentCount == 0)
         {
-            var file = context.State.Environment["io"].Read<LuaTable>()["stdio"].Read<FileHandle>();
+            var file = context.State.Environment["io"].Read<LuaTable>()["stdin"].Read<FileHandle>();
             return new(context.Return(new CSharpClosure("iterator", [new(file)], static (context, ct) =>
             {
                 var file = context.GetCsClosure()!.UpValues[0].Read<FileHandle>();
@@ -167,7 +167,7 @@ public sealed class IOLibrary
 
     public ValueTask<int> Read(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
-        var file = context.State.Environment["io"].Read<LuaTable>()["stdio"].Read<FileHandle>();
+        var file = context.State.Environment["io"].Read<LuaTable>()["stdin"].Read<FileHandle>();
         context.Return();
         var stack = context.Thread.Stack;
 
