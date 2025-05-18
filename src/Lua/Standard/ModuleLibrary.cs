@@ -71,7 +71,7 @@ public sealed class ModuleLibrary
         {
             path = pathSpan[..nextIndex].ToString();
             var fileName = path.Replace("?", name);
-            if (File.Exists(fileName))
+            if (state.FileManager.IsReadable(fileName))
             {
                 return fileName;
             }

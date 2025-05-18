@@ -23,4 +23,17 @@ public static class LuaStateExtensions
     {
         return state.TopLevelAccess.DoFileAsync(path, cancellationToken);
     }
+
+    public static async ValueTask<LuaClosure> LoadFileAsync(this LuaState state, string fileName, string mode, LuaTable? environment, CancellationToken cancellationToken)
+    {
+        var name = "@" + fileName;
+        LuaClosure closure;
+        {
+            using var file = await state.FileManager.LoadModuleAsync(fileName, cancellationToken);
+            closure = file.Type == LuaFileType.Bytes
+                ? state.Load(file.ReadBytes(), name, mode, environment)
+                : state.Load(file.ReadText(), name, environment);
+        }
+        return closure;
+    }
 }

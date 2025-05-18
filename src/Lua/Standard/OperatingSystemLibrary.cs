@@ -143,7 +143,7 @@ public sealed class OperatingSystemLibrary
         var fileName = context.GetArgument<string>(0);
         try
         {
-            File.Delete(fileName);
+            context.State.FileManager.Remove(fileName);
             return new(context.Return(true));
         }
         catch (IOException ex)
@@ -158,7 +158,7 @@ public sealed class OperatingSystemLibrary
         var newName = context.GetArgument<string>(1);
         try
         {
-            File.Move(oldName, newName);
+            context.State.FileManager.Rename(oldName, newName);
             return new(context.Return(true));
         }
         catch (IOException ex)

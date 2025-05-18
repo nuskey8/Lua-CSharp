@@ -28,9 +28,7 @@ public static class LuaThreadAccessAccessExtensions
     public static async ValueTask<int> DoFileAsync(this LuaThreadAccess access, string path, Memory<LuaValue> buffer, CancellationToken cancellationToken = default)
     {
         access.ThrowIfInvalid();
-        var bytes = File.ReadAllBytes(path);
-        var fileName = "@" + path;
-        var closure = access.State.Load(bytes, fileName);
+        var closure = await access.State.LoadFileAsync(path, "bt", null, cancellationToken);
         var count = await access.RunAsync(closure, 0, cancellationToken);
         using var results = access.ReadReturnValues(count);
         results.AsSpan()[..Math.Min(buffer.Length, results.Length)].CopyTo(buffer.Span);
@@ -39,9 +37,7 @@ public static class LuaThreadAccessAccessExtensions
 
     public static async ValueTask<LuaValue[]> DoFileAsync(this LuaThreadAccess access, string path, CancellationToken cancellationToken = default)
     {
-        var bytes = File.ReadAllBytes(path);
-        var fileName = "@" + path;
-        var closure = access.State.Load(bytes, fileName);
+        var closure = await access.State.LoadFileAsync(path, "bt", null, cancellationToken);
         var count = await access.RunAsync(closure, 0, cancellationToken);
         using var results = access.ReadReturnValues(count);
         return results.AsSpan().ToArray();
