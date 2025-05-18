@@ -886,7 +886,7 @@ public static partial class LuaVirtualMachine
         var stack = context.Stack;
         var b = instruction.B;
         var c = instruction.C;
-        stack.NotifyTop(context.FrameBase + c + 1);
+        stack.SetTop(context.FrameBase + c + 1);
         var a = instruction.A;
         var task = Concat(context, context.FrameBase + a, c - b + 1);
         if (task.IsCompleted)
