@@ -29,7 +29,7 @@ public static class LuaStateExtensions
         var name = "@" + fileName;
         LuaClosure closure;
         {
-            using var file = await state.FileManager.LoadModuleAsync(fileName, cancellationToken);
+            using var file = await state.FileManager.ReadFileAsync(fileName, cancellationToken);
             closure = file.Type == LuaFileType.Bytes
                 ? state.Load(file.ReadBytes(), name, mode, environment)
                 : state.Load(file.ReadText(), name, environment);
