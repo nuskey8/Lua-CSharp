@@ -2392,7 +2392,7 @@ public static partial class LuaVirtualMachine
     static void GetThreadWithCurrentPc(LuaThread thread, int pc)
     {
         var frame = thread.GetCurrentFrame();
-        thread.PushCallStackFrame(frame with { CallerInstructionIndex = pc });
+        thread.PushCallStackFrame(frame with { CallerInstructionIndex = pc,Flags = frame.Flags^ CallStackFrameFlags.TailCall });
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
