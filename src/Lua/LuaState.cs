@@ -4,8 +4,8 @@ using System.Runtime.CompilerServices;
 using Lua.Internal;
 using Lua.Loaders;
 using Lua.Runtime;
+using Lua.Standard;
 using System.Buffers;
-using System.Text;
 
 namespace Lua;
 
@@ -15,7 +15,6 @@ public sealed class LuaState
     readonly LuaMainThread mainThread;
     FastListCore<UpValue> openUpValues;
     FastStackCore<LuaThread> threadStack;
-    readonly LuaTable packages = new();
     readonly LuaTable environment;
     readonly LuaTable registry = new();
     readonly UpValue envUpValue;
@@ -31,7 +30,8 @@ public sealed class LuaState
 
     public LuaTable Environment => environment;
     public LuaTable Registry => registry;
-    public LuaTable LoadedModules => packages;
+    public LuaTable LoadedModules => registry[ModuleLibrary.LoadedKeyForRegistry].Read<LuaTable>();
+    public LuaTable PreloadModules => registry[ModuleLibrary.PreloadKeyForRegistry].Read<LuaTable>();
     public LuaMainThread MainThread => mainThread;
 
     public LuaThreadAccess TopLevelAccess => new (mainThread, 0);
@@ -56,6 +56,8 @@ public sealed class LuaState
         mainThread = new(this);
         environment = new();
         envUpValue = UpValue.Closed(environment);
+        registry[ModuleLibrary.LoadedKeyForRegistry] = new LuaTable(0, 8);
+        registry[ModuleLibrary.PreloadKeyForRegistry] = new LuaTable(0, 8);
     }
 
 
