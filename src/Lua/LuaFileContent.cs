@@ -2,46 +2,46 @@
 
 namespace Lua;
 
-public enum LuaFileType
+public enum LuaFileContentType
 {
     Text,
     Bytes
 }
 
-public readonly struct LuaFile : IDisposable
+public readonly struct LuaFileContent : IDisposable
 {
-    public LuaFileType Type => type;
+    public LuaFileContentType Type => type;
 
-    readonly LuaFileType type;
+    readonly LuaFileContentType type;
     readonly object referenceValue;
 
-    public LuaFile(string text)
+    public LuaFileContent(string text)
     {
-        type = LuaFileType.Text;
+        type = LuaFileContentType.Text;
         referenceValue = text;
     }
 
-    public LuaFile(byte[] bytes)
+    public LuaFileContent(byte[] bytes)
     {
-        type = LuaFileType.Bytes;
+        type = LuaFileContentType.Bytes;
         referenceValue = bytes;
     }
 
-    public LuaFile(IMemoryOwner<char> bytes)
+    public LuaFileContent(IMemoryOwner<char> bytes)
     {
-        type = LuaFileType.Text;
+        type = LuaFileContentType.Text;
         referenceValue = bytes;
     }
 
-    public LuaFile(IMemoryOwner<byte> bytes)
+    public LuaFileContent(IMemoryOwner<byte> bytes)
     {
-        type = LuaFileType.Bytes;
+        type = LuaFileContentType.Bytes;
         referenceValue = bytes;
     }
 
     public ReadOnlySpan<char> ReadText()
     {
-        if (type != LuaFileType.Text) throw new Exception(); // TODO: add message
+        if (type != LuaFileContentType.Text) throw new Exception(); // TODO: add message
         if (referenceValue is IMemoryOwner<char> mem)
         {
             return mem.Memory.Span;
@@ -52,7 +52,7 @@ public readonly struct LuaFile : IDisposable
 
     public ReadOnlySpan<byte> ReadBytes()
     {
-        if (type != LuaFileType.Bytes) throw new Exception(); // TODO: add message
+        if (type != LuaFileContentType.Bytes) throw new Exception(); // TODO: add message
         if (referenceValue is IMemoryOwner<byte> mem)
         {
             return mem.Memory.Span;

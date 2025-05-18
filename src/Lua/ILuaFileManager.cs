@@ -3,7 +3,7 @@
 public interface ILuaFileManager
 {
     public bool IsReadable(string path);
-    public ValueTask<LuaFile> ReadFileAsync(string path, CancellationToken cancellationToken);
+    public ValueTask<LuaFileContent> ReadFileContentAsync(string path, CancellationToken cancellationToken);
     public IStream Open(string path, FileMode mode, FileAccess access);
     public void Rename (string oldName, string newName);
     public void Remove (string path);
@@ -59,10 +59,10 @@ public sealed class SystemFileManager : ILuaFileManager
         }
     }
 
-    public ValueTask<LuaFile> ReadFileAsync(string path, CancellationToken cancellationToken)
+    public ValueTask<LuaFileContent> ReadFileContentAsync(string path, CancellationToken cancellationToken)
     {
         var bytes = File.ReadAllBytes(path);
-        return new(new LuaFile(bytes));
+        return new(new LuaFileContent(bytes));
     }
 
     public IStream Open(string path, FileMode mode, FileAccess access)
