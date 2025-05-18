@@ -46,9 +46,10 @@ public static class OpenLibsExtensions
             io[func.Name] = func;
         }
 
-        io["stdin"] = new LuaValue(new FileHandle(ConsoleHelper.OpenStandardInput()));
-        io["stdout"] = new LuaValue(new FileHandle(ConsoleHelper.OpenStandardOutput()));
-        io["stderr"] = new LuaValue(new FileHandle(ConsoleHelper.OpenStandardError()));
+        var registry = state.Registry;
+        registry ["stdin"] = new (new FileHandle(ConsoleHelper.OpenStandardInput()));
+        registry["stdout"] =new (new FileHandle(ConsoleHelper.OpenStandardOutput()));
+        registry["stderr"] = new (new FileHandle(ConsoleHelper.OpenStandardError()));
 
         state.Environment["io"] = io;
         state.LoadedModules["io"] = io;
