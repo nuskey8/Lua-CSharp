@@ -177,12 +177,16 @@ partial class LuaObjectGenerator
             }
 
         PARAMETERS:
-            foreach (var typeSymbol in method.Symbol.Parameters
-                .Select(x => x.Type))
+            foreach (var para in method.Symbol.Parameters)
             {
+                var typeSymbol = para.Type;
                 if (SymbolEqualityComparer.Default.Equals(typeSymbol, references.LuaValue)) continue;
                 if (SymbolEqualityComparer.Default.Equals(typeSymbol, typeMetadata.Symbol)) continue;
 
+                if (typeSymbol is IArrayTypeSymbol arr && para.IsParams)
+                {
+                    typeSymbol = arr.ElementType;
+                }
                 var conversion = compilation.ClassifyConversion(typeSymbol, references.LuaValue);
                 if (!conversion.Exists && (typeSymbol is not INamedTypeSymbol namedTypeSymbol || !metaDict.ContainsKey(namedTypeSymbol)))
                 {
@@ -360,12 +364,23 @@ partial class LuaObjectGenerator
                 index++;
             }
 
+            var hasParams = methodMetadata.Symbol.Parameters.Any(x => x.IsParams);
+            var nonParamsCount = 0;
             foreach (var parameter in methodMetadata.Symbol.Parameters)
             {
                 var isParameterLuaValue = SymbolEqualityComparer.Default.Equals(parameter.Type, references.LuaValue);
 
-                if (parameter.HasExplicitDefaultValue)
+                if (parameter.IsParams)
                 {
+                    builder.AppendLine($"var parameters = new LuaValue[context.ArgumentCount - {nonParamsCount}];");
+                    builder.AppendLine($"for (var i = 0; i < context.ArgumentCount - {nonParamsCount}; i++)");
+                    builder.AppendLine("{");
+                    builder.AppendLine($"    parameters[i] = context.GetArgument(i + {nonParamsCount});");
+                    builder.AppendLine("}");
+                }
+                else if (parameter.HasExplicitDefaultValue)
+                {
+                    nonParamsCount++;
                     var syntax = (ParameterSyntax)parameter.DeclaringSyntaxReferences[0].GetSyntax();
 
                     if (isParameterLuaValue)
@@ -379,6 +394,7 @@ partial class LuaObjectGenerator
                 }
                 else
                 {
+                    nonParamsCount++;
                     if (isParameterLuaValue)
                     {
                         builder.AppendLine($"var arg{index} = context.GetArgument({index});");
@@ -404,13 +420,31 @@ partial class LuaObjectGenerator
             if (methodMetadata.IsStatic)
             {
                 builder.Append($"{typeMetadata.FullTypeName}.{methodMetadata.Symbol.Name}(", false);
-                builder.Append(string.Join(",", Enumerable.Range(0, index).Select(x => $"arg{x}")), false);
+                builder.Append(string.Join(",", Enumerable.Range(0, hasParams ? index - 1 : index).Select(x => $"arg{x}")), false);
+                if (hasParams)
+                {
+                    if (index > 1)
+                    {
+                        builder.Append(",", false);
+                    }
+                    builder.Append("parameters", false);
+                    // params must be the last parameter in C#
+                }
                 builder.AppendLine(");", false);
             }
             else
             {
                 builder.Append($"userData.{methodMetadata.Symbol.Name}(");
-                builder.Append(string.Join(",", Enumerable.Range(1, index - 1).Select(x => $"arg{x}")), false);
+                builder.Append(string.Join(",", Enumerable.Range(1, hasParams ? index - 2 : index - 1).Select(x => $"arg{x}")), false);
+                if (hasParams)
+                {
+                    if (index > 1)
+                    {
+                        builder.Append(",", false);
+                    }
+                    builder.Append("parameters");
+                    // params must be the last parameter in C#
+                }
                 builder.AppendLine(");", false);
             }
 

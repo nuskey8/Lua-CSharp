@@ -18,6 +18,19 @@ public partial class TestUserData
     }
 
     [LuaMember]
+    public static LuaTable ParamsMethod(params LuaValue[] arguments)
+    {
+        var table = new LuaTable(arguments.Length, arguments.Length);
+        for (int i = 0; i < arguments.Length; i++)
+        {
+            // lua starts at 1
+            table[i + 1] = arguments[i];
+        }
+
+        return table;
+    }
+
+    [LuaMember]
     public static async Task MethodAsync()
     {
         await Task.CompletedTask;
@@ -86,6 +99,21 @@ public class LuaObjectTests
         var results = await state.DoStringAsync("return test.MethodVoid()");
 
         Assert.That(results, Has.Length.EqualTo(0));
+    }
+
+    [Test]
+    public async Task Test_ParamsMethod()
+    {
+        var userData = new TestUserData();
+
+        var state = LuaState.Create();
+        state.Environment["test"] = userData;
+        var results = await state.DoStringAsync("return test.ParamsMethod('abc', 'def')");
+
+        Assert.That(results, Has.Length.EqualTo(1));
+        var table = results[0].Read<LuaTable>();
+        Assert.That(table[1].Read<string>(), Is.EqualTo("abc"));
+        Assert.That(table[2].Read<string>(), Is.EqualTo("def"));
     }
 
     [Test]
