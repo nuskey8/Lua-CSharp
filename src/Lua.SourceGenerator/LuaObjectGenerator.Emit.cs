@@ -443,7 +443,7 @@ partial class LuaObjectGenerator
 
             if (methodMetadata.IsAsync)
             {
-                builder.Append("await ");
+                builder.Append("await ",!methodMetadata.HasReturnValue);
             }
 
             if (methodMetadata.IsStatic)
@@ -460,7 +460,7 @@ partial class LuaObjectGenerator
             }
             else
             {
-                builder.Append($"userData.{methodMetadata.Symbol.Name}(");
+                builder.Append($"userData.{methodMetadata.Symbol.Name}(",!(methodMetadata.HasReturnValue||methodMetadata.IsAsync));
                 builder.Append(string.Join(",", Enumerable.Range(1, index - 1).Select(x => $"arg{x}")), false);
 
                 if (hasCancellationToken)
