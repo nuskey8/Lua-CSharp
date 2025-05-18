@@ -378,7 +378,7 @@ public class DebugLibrary
             return new(context.Return(LuaValue.Nil));
         }
 
-        return new(context.Return(new LuaValue(upValues[n1 - 1])));
+        return new(context.Return( LuaValue.FromObject(upValues[n1 - 1])));
     }
 
     public ValueTask<int> UpValueJoin(LuaFunctionExecutionContext context, CancellationToken cancellationToken)

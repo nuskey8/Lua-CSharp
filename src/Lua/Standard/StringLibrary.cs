@@ -426,7 +426,7 @@ public sealed class StringLibrary
         var regex = StringHelper.ToRegex(pattern);
         var matches = regex.Matches(s);
 
-        return new(context.Return(new CSharpClosure("iterator", [new LuaValue(matches), 0], static (context, cancellationToken) =>
+        return new(context.Return(new CSharpClosure("iterator", [LuaValue.FromObject(matches), 0], static (context, cancellationToken) =>
         {
             var upValues = context.GetCsClosure()!.UpValues;
             var matches = upValues[0].Read<MatchCollection>();
