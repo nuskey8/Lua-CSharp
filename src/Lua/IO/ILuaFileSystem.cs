@@ -5,10 +5,9 @@ public interface ILuaFileSystem
     public bool IsReadable(string path);
     public ValueTask<LuaFileContent> ReadFileContentAsync(string path, CancellationToken cancellationToken);
     public IStream Open(string path, FileMode mode, FileAccess access);
-    public void Rename (string oldName, string newName);
-    public void Remove (string path);
+    public void Rename(string oldName, string newName);
+    public void Remove(string path);
 }
-
 
 public interface IStream : IDisposable
 {
@@ -67,28 +66,23 @@ public sealed class FileSystem : ILuaFileSystem
 
     public IStream Open(string path, FileMode mode, FileAccess access)
     {
-        return new SystemStream(File.Open(path, mode, access));
+        return new StreamWrapper(File.Open(path, mode, access));
     }
 
-    public ValueTask WriteAllTextAsync(string path, string text, CancellationToken cancellationToken)
-    {
-        File.WriteAllText(path, text);
-        return new();
-    }
     public void Rename(string oldName, string newName)
     {
         if (oldName == newName) return;
         File.Move(oldName, newName);
         File.Delete(oldName);
-        
     }
+
     public void Remove(string path)
     {
         File.Delete(path);
     }
 }
 
-public sealed class SystemStreamReader(StreamReader streamReader) : IStreamReader
+public sealed class StreamReaderWrapper(StreamReader streamReader) : IStreamReader
 {
     public ValueTask<string?> ReadLineAsync(CancellationToken cancellationToken)
     {
@@ -111,17 +105,11 @@ public sealed class SystemStreamReader(StreamReader streamReader) : IStreamReade
     }
 }
 
-public sealed class SystemStreamWriter(StreamWriter streamWriter) : IStreamWriter
+public sealed class StreamWriterWrapper(StreamWriter streamWriter) : IStreamWriter
 {
     public ValueTask WriteAsync(ReadOnlyMemory<char> buffer, CancellationToken cancellationToken)
     {
         streamWriter.Write(buffer.Span);
-        return new();
-    }
-
-    public ValueTask WriteLineAsync(ReadOnlyMemory<char> buffer, CancellationToken cancellationToken)
-    {
-        streamWriter.WriteLine(buffer.Span);
         return new();
     }
 
@@ -143,10 +131,10 @@ public sealed class SystemStreamWriter(StreamWriter streamWriter) : IStreamWrite
     }
 }
 
-public sealed class SystemStream(Stream fileStream) : IStream
+public sealed class StreamWrapper(Stream fileStream) : IStream
 {
-    public IStreamReader? Reader => fileStream.CanRead ? new SystemStreamReader(new(fileStream)) : null;
-    public IStreamWriter? Writer => fileStream.CanWrite ? new SystemStreamWriter(new(fileStream)) : null;
+    public IStreamReader? Reader => fileStream.CanRead ? new StreamReaderWrapper(new(fileStream)) : null;
+    public IStreamWriter? Writer => fileStream.CanWrite ? new StreamWriterWrapper(new(fileStream)) : null;
 
     public long Seek(long offset, SeekOrigin origin) => fileStream.Seek(offset, origin);
 

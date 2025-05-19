@@ -50,7 +50,7 @@ public class FileHandle : ILuaUserData
         fileHandleMetatable[Metamethods.Index] = IndexMetamethod;
     }
 
-    public FileHandle(Stream stream) : this(new SystemStream(stream)) { }
+    public FileHandle(Stream stream) : this(new StreamWrapper(stream)) { }
 
     public FileHandle(IStream stream)
     {
