@@ -2,6 +2,7 @@ using Lua.CodeAnalysis.Compilation;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Lua.Internal;
+using Lua.IO;
 using Lua.Loaders;
 using Lua.Runtime;
 using Lua.Standard;
@@ -38,7 +39,7 @@ public sealed class LuaState
 
     public ILuaModuleLoader ModuleLoader { get; set; } = FileModuleLoader.Instance;
     
-    public ILuaFileSystem FileSystem { get; set; } = Lua.FileSystem.Instance;
+    public ILuaFileSystem FileSystem { get; set; } = Lua.IO.FileSystem.Instance;
 
     // metatables
     LuaTable? nilMetatable;

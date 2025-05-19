@@ -1,4 +1,4 @@
-﻿namespace Lua;
+﻿namespace Lua.IO;
 
 public interface ILuaFileSystem
 {
