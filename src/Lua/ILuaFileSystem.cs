@@ -1,6 +1,6 @@
 ﻿namespace Lua;
 
-public interface ILuaFileManager
+public interface ILuaFileSystem
 {
     public bool IsReadable(string path);
     public ValueTask<LuaFileContent> ReadFileContentAsync(string path, CancellationToken cancellationToken);
@@ -41,9 +41,9 @@ public interface IStreamWriter : IDisposable
     public void SetVBuf(string mode, int size);
 }
 
-public sealed class SystemFileManager : ILuaFileManager
+public sealed class FileSystem : ILuaFileSystem
 {
-    public static readonly SystemFileManager Instance = new();
+    public static readonly FileSystem Instance = new();
 
     public bool IsReadable(string path)
     {

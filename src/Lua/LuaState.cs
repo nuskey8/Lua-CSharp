@@ -38,7 +38,7 @@ public sealed class LuaState
 
     public ILuaModuleLoader ModuleLoader { get; set; } = FileModuleLoader.Instance;
     
-    public ILuaFileManager FileManager { get; set; } = SystemFileManager.Instance;
+    public ILuaFileSystem FileSystem { get; set; } = Lua.FileSystem.Instance;
 
     // metatables
     LuaTable? nilMetatable;
