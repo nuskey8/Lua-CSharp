@@ -18,20 +18,10 @@ public interface ILuaIOStream : IDisposable
     public ValueTask<string?> ReadLineAsync(CancellationToken cancellationToken);
     public ValueTask<string> ReadToEndAsync(CancellationToken cancellationToken);
     public ValueTask<string?> ReadStringAsync(int count, CancellationToken cancellationToken);
-
     public ValueTask WriteAsync(ReadOnlyMemory<char> buffer, CancellationToken cancellationToken);
     public ValueTask FlushAsync(CancellationToken cancellationToken);
     public void SetVBuf(string mode, int size);
-
     public long Seek(long offset, SeekOrigin origin);
-
-    public void SetLength(long value);
-
-    public bool CanRead { get; }
-    public bool CanSeek { get; }
-    public bool CanWrite { get; }
-    public long Length { get; }
-    public long Position { get; set; }
 }
 
 public sealed class FileSystem : ILuaFileSystem
@@ -167,19 +157,9 @@ public sealed class LuaIOStreamWrapper(Stream innerStream) : ILuaIOStream
     }
 
     public long Seek(long offset, SeekOrigin origin) => innerStream.Seek(offset, origin);
-
-    public void SetLength(long value) => innerStream.SetLength(value);
-
     public bool CanRead => innerStream.CanRead;
     public bool CanSeek => innerStream.CanSeek;
     public bool CanWrite => innerStream.CanWrite;
-    public long Length => innerStream.Length;
-
-    public long Position
-    {
-        get => innerStream.Position;
-        set => innerStream.Position = value;
-    }
 
     public void Dispose() => innerStream.Dispose();
 }
