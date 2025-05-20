@@ -9,7 +9,7 @@ public interface ILuaFileSystem
     public IStream? Open(string path, LuaFileOpenMode mode, bool throwError);
     public void Rename(string oldName, string newName);
     public void Remove(string path);
-    public string GetTempFileName ();
+    public string GetTempFileName();
 }
 
 public interface IStream : IDisposable
@@ -112,8 +112,8 @@ public sealed class FileSystem : ILuaFileSystem
     {
         File.Delete(path);
     }
-    
-    public string GetTempFileName ()
+
+    public string GetTempFileName()
     {
         return Path.GetTempFileName();
     }

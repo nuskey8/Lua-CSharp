@@ -44,7 +44,7 @@ public class FileHandle : ILuaUserData
 
     static FileHandle()
     {
-        fileHandleMetatable = new LuaTable(0,1);
+        fileHandleMetatable = new LuaTable(0, 1);
         fileHandleMetatable[Metamethods.Index] = IndexMetamethod;
     }
 
@@ -65,9 +65,9 @@ public class FileHandle : ILuaUserData
         return stream.ReadToEndAsync(cancellationToken);
     }
 
-    public ValueTask<string?> ReadStringAsync(int count,CancellationToken cancellationToken)
+    public ValueTask<string?> ReadStringAsync(int count, CancellationToken cancellationToken)
     {
-        return stream.ReadStringAsync(count,cancellationToken);
+        return stream.ReadStringAsync(count, cancellationToken);
     }
 
     public ValueTask WriteAsync(ReadOnlyMemory<char> buffer, CancellationToken cancellationToken)
@@ -98,12 +98,7 @@ public class FileHandle : ILuaUserData
     {
         if (isClosed) throw new ObjectDisposedException(nameof(FileHandle));
         Volatile.Write(ref isClosed, true);
-
-        
-        
-            stream.Dispose();
-        
-
+        stream.Dispose();
         stream = null!;
     }
 
