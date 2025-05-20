@@ -153,8 +153,9 @@ public class FileHandle : ILuaUserData
     static readonly LuaFunction ReadFunction = new("read", async (context, cancellationToken) =>
     {
         var file = context.GetArgument<FileHandle>(0);
+        var args = context.Arguments[1..].ToArray();
         context.Return();
-        var resultCount = await IOHelper.ReadAsync(context.Thread, file, "read", 1, context.Arguments[1..].ToArray(), false, cancellationToken);
+        var resultCount = await IOHelper.ReadAsync(context.Thread, file, "read", 1, args, false, cancellationToken);
         return resultCount;
     });
 
