@@ -190,6 +190,6 @@ public sealed class OperatingSystemLibrary
 
     public ValueTask<int> TmpName(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
-        return new(context.Return(Path.GetTempFileName()));
+        return new(context.Return(context.State.FileSystem.GetTempFileName()));
     }
 }
