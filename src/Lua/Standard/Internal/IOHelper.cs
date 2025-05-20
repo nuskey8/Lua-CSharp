@@ -1,5 +1,6 @@
 using System.Text;
 using Lua.Internal;
+using Lua.IO;
 
 namespace Lua.Standard.Internal;
 
@@ -9,22 +10,21 @@ internal static class IOHelper
     {
         var fileMode = mode switch
         {
-            "r" or "rb" or "r+" or "r+b" => FileMode.Open,
-            "w" or "wb" or "w+" or "w+b" => FileMode.Create,
-            "a" or "ab" or "a+" or "a+b" => FileMode.Append,
+            "r" or "rb" => LuaFileMode.Read,
+            "w" or "wb" => LuaFileMode.Write,
+            "a" or "ab" => LuaFileMode.Append,
+            "r+" or "rb+" => LuaFileMode.ReadWriteOpen,
+            "w+" or "wb+" => LuaFileMode.ReadWriteCreate,
+            "a+" or "ab+" => LuaFileMode.ReadAppend,
             _ => throw new LuaRuntimeException(thread, "bad argument #2 to 'open' (invalid mode)"),
         };
 
-        var fileAccess = mode switch
-        {
-            "r" or "rb" => FileAccess.Read,
-            "w" or "wb" or "a" or "ab" => FileAccess.Write,
-            _ => FileAccess.ReadWrite,
-        };
+        var binary = mode.Contains("b");
+        if (binary) throw new LuaRuntimeException(thread, "binary mode is not supported");
 
         try
         {
-            var stream = thread.State.FileSystem.Open(fileName, fileMode, fileAccess);
+            var stream = thread.State.FileSystem.Open(fileName, fileMode);
             thread.Stack.Push(new LuaValue(new FileHandle(stream)));
             return 1;
         }

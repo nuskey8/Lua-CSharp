@@ -1,3 +1,4 @@
+using Lua.IO;
 using Lua.Runtime;
 using Lua.Standard.Internal;
 
@@ -74,7 +75,7 @@ public sealed class IOLibrary
         }
         else
         {
-            var stream = context.State.FileSystem.Open(arg.ToString()!, FileMode.Open, FileAccess.ReadWrite);
+            var stream = context.State.FileSystem.Open(arg.ToString()!, LuaFileMode.ReadWriteOpen);
             var handle = new FileHandle(stream);
             registry["stdin"] = new(handle);
             return new(context.Return(new LuaValue(handle)));
@@ -158,7 +159,7 @@ public sealed class IOLibrary
         }
         else
         {
-            var stream = context.State.FileSystem.Open(arg.ToString()!, FileMode.Open, FileAccess.ReadWrite);
+            var stream = context.State.FileSystem.Open(arg.ToString()!, LuaFileMode.ReadWriteOpen);
             var handle = new FileHandle(stream);
             io["stdout"] = new(handle);
             return new(context.Return(new LuaValue(handle)));

@@ -17,7 +17,7 @@ public class FileHandle : ILuaUserData
         {
             return new(context.Return(name switch
             {
-                "close" => CloseFunction,
+                "close" => CloseFunction!,
                 "flush" => FlushFunction!,
                 "lines" => LinesFunction!,
                 "read" => ReadFunction!,
