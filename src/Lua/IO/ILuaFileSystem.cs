@@ -6,14 +6,14 @@ public interface ILuaFileSystem
 {
     public bool IsReadable(string path);
     public ValueTask<LuaFileContent> ReadFileContentAsync(string path, CancellationToken cancellationToken);
-    public IStream? Open(string path, LuaFileOpenMode mode, bool throwError);
+    public ILuaIOStream? Open(string path, LuaFileOpenMode mode, bool throwError);
     public void Rename(string oldName, string newName);
     public void Remove(string path);
     public string DirectorySeparator { get; }
     public string GetTempFileName();
 }
 
-public interface IStream : IDisposable
+public interface ILuaIOStream : IDisposable
 {
     public ValueTask<string?> ReadLineAsync(CancellationToken cancellationToken);
     public ValueTask<string> ReadToEndAsync(CancellationToken cancellationToken);
@@ -72,12 +72,12 @@ public sealed class FileSystem : ILuaFileSystem
         return new(new LuaFileContent(bytes));
     }
 
-    public IStream? Open(string path, LuaFileOpenMode luaMode, bool throwError)
+    public ILuaIOStream? Open(string path, LuaFileOpenMode luaMode, bool throwError)
     {
         var (mode, access) = GetFileMode(luaMode);
         try
         {
-            return new StreamWrapper(File.Open(path, mode, access));
+            return new LuaIOStreamWrapper(File.Open(path, mode, access));
         }
         catch (Exception)
         {
@@ -111,7 +111,7 @@ public sealed class FileSystem : ILuaFileSystem
     }
 }
 
-public sealed class StreamWrapper(Stream innerStream) : IStream
+public sealed class LuaIOStreamWrapper(Stream innerStream) : ILuaIOStream
 {
     StreamReader? reader;
     StreamWriter? writer;
