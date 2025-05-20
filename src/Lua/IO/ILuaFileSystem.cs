@@ -6,7 +6,7 @@ public interface ILuaFileSystem
 {
     public bool IsReadable(string path);
     public ValueTask<LuaFileContent> ReadFileContentAsync(string path, CancellationToken cancellationToken);
-    public IStream Open(string path, LuaFileMode mode);
+    public IStream Open(string path, LuaFileOpenMode mode);
     public void Rename(string oldName, string newName);
     public void Remove(string path);
 }
@@ -48,17 +48,17 @@ public sealed class FileSystem : ILuaFileSystem
 {
     public static readonly FileSystem Instance = new();
 
-    public static (FileMode, FileAccess access) GetFileMode(LuaFileMode luaFileMode)
+    public static (FileMode, FileAccess access) GetFileMode(LuaFileOpenMode luaFileOpenMode)
     {
-        return luaFileMode switch
+        return luaFileOpenMode switch
         {
-            LuaFileMode.Read => (FileMode.Open, FileAccess.Read),
-            LuaFileMode.Write => (FileMode.Create, FileAccess.Write),
-            LuaFileMode.Append => (FileMode.Append, FileAccess.Write),
-            LuaFileMode.ReadWriteOpen => (FileMode.Open, FileAccess.ReadWrite),
-            LuaFileMode.ReadWriteCreate => (FileMode.Create, FileAccess.ReadWrite),
-            LuaFileMode.ReadAppend => (FileMode.Append, FileAccess.ReadWrite),
-            _ => throw new ArgumentOutOfRangeException(nameof(luaFileMode), luaFileMode, null)
+            LuaFileOpenMode.Read => (FileMode.Open, FileAccess.Read),
+            LuaFileOpenMode.Write => (FileMode.Create, FileAccess.Write),
+            LuaFileOpenMode.Append => (FileMode.Append, FileAccess.Write),
+            LuaFileOpenMode.ReadWriteOpen => (FileMode.Open, FileAccess.ReadWrite),
+            LuaFileOpenMode.ReadWriteCreate => (FileMode.Create, FileAccess.ReadWrite),
+            LuaFileOpenMode.ReadAppend => (FileMode.Append, FileAccess.ReadWrite),
+            _ => throw new ArgumentOutOfRangeException(nameof(luaFileOpenMode), luaFileOpenMode, null)
         };
     }
 
@@ -82,7 +82,7 @@ public sealed class FileSystem : ILuaFileSystem
         return new(new LuaFileContent(bytes));
     }
 
-    public IStream Open(string path, LuaFileMode luaMode)
+    public IStream Open(string path, LuaFileOpenMode luaMode)
     {
         var (mode, access) = GetFileMode(luaMode);
         return new StreamWrapper(File.Open(path, mode, access));

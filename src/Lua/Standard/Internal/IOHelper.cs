@@ -10,12 +10,12 @@ internal static class IOHelper
     {
         var fileMode = mode switch
         {
-            "r" or "rb" => LuaFileMode.Read,
-            "w" or "wb" => LuaFileMode.Write,
-            "a" or "ab" => LuaFileMode.Append,
-            "r+" or "rb+" => LuaFileMode.ReadWriteOpen,
-            "w+" or "wb+" => LuaFileMode.ReadWriteCreate,
-            "a+" or "ab+" => LuaFileMode.ReadAppend,
+            "r" or "rb" => LuaFileOpenMode.Read,
+            "w" or "wb" => LuaFileOpenMode.Write,
+            "a" or "ab" => LuaFileOpenMode.Append,
+            "r+" or "rb+" => LuaFileOpenMode.ReadWriteOpen,
+            "w+" or "wb+" => LuaFileOpenMode.ReadWriteCreate,
+            "a+" or "ab+" => LuaFileOpenMode.ReadAppend,
             _ => throw new LuaRuntimeException(thread, "bad argument #2 to 'open' (invalid mode)"),
         };
 

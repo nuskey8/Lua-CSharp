@@ -1,6 +1,6 @@
 ﻿namespace Lua.IO
 {
-    public enum LuaFileMode
+    public enum LuaFileOpenMode
     {
         /// <summary>
         /// r
