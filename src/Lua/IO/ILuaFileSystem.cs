@@ -6,7 +6,7 @@ public interface ILuaFileSystem
 {
     public bool IsReadable(string path);
     public ValueTask<LuaFileContent> ReadFileContentAsync(string path, CancellationToken cancellationToken);
-    public IStream Open(string path, LuaFileOpenMode mode);
+    public IStream? Open(string path, LuaFileOpenMode mode, bool throwError);
     public void Rename(string oldName, string newName);
     public void Remove(string path);
 }
@@ -82,10 +82,22 @@ public sealed class FileSystem : ILuaFileSystem
         return new(new LuaFileContent(bytes));
     }
 
-    public IStream Open(string path, LuaFileOpenMode luaMode)
+    public IStream? Open(string path, LuaFileOpenMode luaMode, bool throwError)
     {
         var (mode, access) = GetFileMode(luaMode);
-        return new StreamWrapper(File.Open(path, mode, access));
+        try
+        {
+            return new StreamWrapper(File.Open(path, mode, access));
+        }
+        catch (Exception)
+        {
+            if (throwError)
+            {
+                throw;
+            }
+
+            return null;
+        }
     }
 
     public void Rename(string oldName, string newName)
