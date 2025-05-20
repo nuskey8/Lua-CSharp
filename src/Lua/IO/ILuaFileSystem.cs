@@ -13,8 +13,13 @@ public interface ILuaFileSystem
 
 public interface IStream : IDisposable
 {
-    public IStreamReader? Reader { get; }
-    public IStreamWriter? Writer { get; }
+    public ValueTask<string?> ReadLineAsync(CancellationToken cancellationToken);
+    public ValueTask<string> ReadToEndAsync(CancellationToken cancellationToken);
+    public ValueTask<string?> ReadStringAsync(int count, CancellationToken cancellationToken);
+
+    public ValueTask WriteAsync(ReadOnlyMemory<char> buffer, CancellationToken cancellationToken);
+    public ValueTask FlushAsync(CancellationToken cancellationToken);
+    public void SetVBuf(string mode, int size);
 
     public long Seek(long offset, SeekOrigin origin);
 
@@ -29,9 +34,6 @@ public interface IStream : IDisposable
 
 public interface IStreamReader : IDisposable
 {
-    public ValueTask<string?> ReadLineAsync(CancellationToken cancellationToken);
-    public ValueTask<string> ReadToEndAsync(CancellationToken cancellationToken);
-    public ValueTask<string?> ReadStringAsync(int count,CancellationToken cancellationToken);
 }
 
 public interface IStreamWriter : IDisposable
@@ -84,24 +86,33 @@ public sealed class FileSystem : ILuaFileSystem
     }
 }
 
-public sealed class StreamReaderWrapper(StreamReader streamReader) : IStreamReader
+public sealed class StreamWrapper(Stream innerStream) : IStream
 {
+    StreamReader? reader;
+    StreamWriter? writer;
+
     public ValueTask<string?> ReadLineAsync(CancellationToken cancellationToken)
     {
-        return new(streamReader.ReadLine());
+        reader ??= new(innerStream);
+
+        return new(reader.ReadLine());
     }
 
     public ValueTask<string> ReadToEndAsync(CancellationToken cancellationToken)
     {
-        return new(streamReader.ReadToEnd());
+        reader ??= new(innerStream);
+
+        return new(reader.ReadToEnd());
     }
 
-    public ValueTask<string?> ReadStringAsync(int count,CancellationToken cancellationToken)
+    public ValueTask<string?> ReadStringAsync(int count, CancellationToken cancellationToken)
     {
+        reader ??= new(innerStream);
+
         using var byteBuffer = new PooledArray<char>(count);
         var span = byteBuffer.AsSpan();
-        var ret=streamReader.Read(span);
-        if(ret != span.Length)
+        var ret = reader.Read(span);
+        if (ret != span.Length)
         {
             return new(default(string));
         }
@@ -109,57 +120,41 @@ public sealed class StreamReaderWrapper(StreamReader streamReader) : IStreamRead
         return new(span.ToString());
     }
 
-    public void Dispose()
-    {
-        streamReader.Dispose();
-    }
-}
-
-public sealed class StreamWriterWrapper(StreamWriter streamWriter) : IStreamWriter
-{
     public ValueTask WriteAsync(ReadOnlyMemory<char> buffer, CancellationToken cancellationToken)
     {
-        streamWriter.Write(buffer.Span);
+        writer ??= new(innerStream);
+
+        writer.Write(buffer.Span);
         return new();
     }
 
     public ValueTask FlushAsync(CancellationToken cancellationToken)
     {
-        streamWriter.Flush();
+        innerStream.Flush();
         return new();
     }
 
     public void SetVBuf(string mode, int size)
     {
+        writer ??= new(innerStream);
         // Ignore size parameter
-        streamWriter.AutoFlush = mode is "no" or "line";
+        writer.AutoFlush = mode is "no" or "line";
     }
 
-    public void Dispose()
-    {
-        streamWriter.Dispose();
-    }
-}
+    public long Seek(long offset, SeekOrigin origin) => innerStream.Seek(offset, origin);
 
-public sealed class StreamWrapper(Stream fileStream) : IStream
-{
-    public IStreamReader? Reader => fileStream.CanRead ? new StreamReaderWrapper(new(fileStream)) : null;
-    public IStreamWriter? Writer => fileStream.CanWrite ? new StreamWriterWrapper(new(fileStream)) : null;
+    public void SetLength(long value) => innerStream.SetLength(value);
 
-    public long Seek(long offset, SeekOrigin origin) => fileStream.Seek(offset, origin);
-
-    public void SetLength(long value) => fileStream.SetLength(value);
-
-    public bool CanRead => fileStream.CanRead;
-    public bool CanSeek => fileStream.CanSeek;
-    public bool CanWrite => fileStream.CanWrite;
-    public long Length => fileStream.Length;
+    public bool CanRead => innerStream.CanRead;
+    public bool CanSeek => innerStream.CanSeek;
+    public bool CanWrite => innerStream.CanWrite;
+    public long Length => innerStream.Length;
 
     public long Position
     {
-        get => fileStream.Position;
-        set => fileStream.Position = value;
+        get => innerStream.Position;
+        set => innerStream.Position = value;
     }
 
-    public void Dispose() => fileStream.Dispose();
+    public void Dispose() => innerStream.Dispose();
 }

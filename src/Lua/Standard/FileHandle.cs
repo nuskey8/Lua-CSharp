@@ -17,7 +17,7 @@ public class FileHandle : ILuaUserData
         {
             return new(context.Return(name switch
             {
-                "close" => CloseFunction!,
+                "close" => CloseFunction,
                 "flush" => FlushFunction!,
                 "lines" => LinesFunction!,
                 "read" => ReadFunction!,
@@ -34,8 +34,6 @@ public class FileHandle : ILuaUserData
     });
 
     IStream stream;
-    IStreamWriter? writer;
-    IStreamReader? reader;
     bool isClosed;
 
     public bool IsClosed => Volatile.Read(ref isClosed);
@@ -46,7 +44,7 @@ public class FileHandle : ILuaUserData
 
     static FileHandle()
     {
-        fileHandleMetatable = new LuaTable();
+        fileHandleMetatable = new LuaTable(0,1);
         fileHandleMetatable[Metamethods.Index] = IndexMetamethod;
     }
 
@@ -55,28 +53,26 @@ public class FileHandle : ILuaUserData
     public FileHandle(IStream stream)
     {
         this.stream = stream;
-        if (stream.CanRead) reader = stream.Reader;
-        if (stream.CanWrite) writer = stream.Writer;
     }
 
     public ValueTask<string?> ReadLineAsync(CancellationToken cancellationToken)
     {
-        return reader!.ReadLineAsync(cancellationToken);
+        return stream.ReadLineAsync(cancellationToken);
     }
 
     public ValueTask<string> ReadToEndAsync(CancellationToken cancellationToken)
     {
-        return reader!.ReadToEndAsync(cancellationToken);
+        return stream.ReadToEndAsync(cancellationToken);
     }
 
     public ValueTask<string?> ReadStringAsync(int count,CancellationToken cancellationToken)
     {
-        return reader!.ReadStringAsync(count,cancellationToken);
+        return stream.ReadStringAsync(count,cancellationToken);
     }
 
     public ValueTask WriteAsync(ReadOnlyMemory<char> buffer, CancellationToken cancellationToken)
     {
-        return writer!.WriteAsync(buffer, cancellationToken);
+        return stream.WriteAsync(buffer, cancellationToken);
     }
 
     public long Seek(string whence, long offset) =>
@@ -90,12 +86,12 @@ public class FileHandle : ILuaUserData
 
     public ValueTask FlushAsync(CancellationToken cancellationToken)
     {
-        return writer!.FlushAsync(cancellationToken);
+        return stream.FlushAsync(cancellationToken);
     }
 
     public void SetVBuf(string mode, int size)
     {
-        writer!.SetVBuf(mode, size);
+        stream.SetVBuf(mode, size);
     }
 
     public void Close()
@@ -103,22 +99,12 @@ public class FileHandle : ILuaUserData
         if (isClosed) throw new ObjectDisposedException(nameof(FileHandle));
         Volatile.Write(ref isClosed, true);
 
-        if (reader != null)
-        {
-            reader.Dispose();
-        }
-        else if (writer != null)
-        {
-            writer.Dispose();
-        }
-        else
-        {
+        
+        
             stream.Dispose();
-        }
+        
 
         stream = null!;
-        writer = null;
-        reader = null;
     }
 
     static readonly LuaFunction CloseFunction = new("close", (context, cancellationToken) =>
