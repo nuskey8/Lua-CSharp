@@ -69,9 +69,9 @@ public class FileHandle : ILuaUserData
         return reader!.ReadToEndAsync(cancellationToken);
     }
 
-    public ValueTask<int> ReadByteAsync(CancellationToken cancellationToken)
+    public ValueTask<string?> ReadStringAsync(int count,CancellationToken cancellationToken)
     {
-        return reader!.ReadByteAsync(cancellationToken);
+        return reader!.ReadStringAsync(count,cancellationToken);
     }
 
     public ValueTask WriteAsync(ReadOnlyMemory<char> buffer, CancellationToken cancellationToken)
@@ -79,28 +79,14 @@ public class FileHandle : ILuaUserData
         return writer!.WriteAsync(buffer, cancellationToken);
     }
 
-    public long Seek(string whence, long offset)
-    {
-        if (whence != null)
+    public long Seek(string whence, long offset) =>
+        whence switch
         {
-            switch (whence)
-            {
-                case "set":
-                    stream.Seek(offset, SeekOrigin.Begin);
-                    break;
-                case "cur":
-                    stream.Seek(offset, SeekOrigin.Current);
-                    break;
-                case "end":
-                    stream.Seek(offset, SeekOrigin.End);
-                    break;
-                default:
-                    throw new ArgumentException($"Invalid option '{whence}'");
-            }
-        }
-
-        return stream.Position;
-    }
+            "set" => stream.Seek(offset, SeekOrigin.Begin),
+            "cur" => stream.Seek(offset, SeekOrigin.Current),
+            "end" => stream.Seek(offset, SeekOrigin.End),
+            _ => throw new ArgumentException($"Invalid option '{whence}'")
+        };
 
     public ValueTask FlushAsync(CancellationToken cancellationToken)
     {

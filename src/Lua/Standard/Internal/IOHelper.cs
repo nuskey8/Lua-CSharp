@@ -125,22 +125,17 @@ internal static class IOHelper
                 }
                 else if (format.TryRead<int>(out var count))
                 {
-                    using var byteBuffer = new PooledArray<byte>(count);
-
-                    for (int j = 0; j < count; j++)
+                    var ret = await file.ReadStringAsync(count, cancellationToken);
+                    if (ret == null)
                     {
-                        var b = await file.ReadByteAsync(cancellationToken);
-                        if (b == -1)
-                        {
-                            stack.PopUntil(top);
-                            stack.Push(LuaValue.Nil);
-                            return 1;
-                        }
-
-                        byteBuffer[j] = (byte)b;
+                        stack.PopUntil(top);
+                        stack.Push(default);
+                        return 1;
                     }
-
-                    stack.Push(Encoding.UTF8.GetString(byteBuffer.AsSpan()));
+                    else
+                    {
+                        stack.Push(ret);
+                    }
                 }
                 else
                 {

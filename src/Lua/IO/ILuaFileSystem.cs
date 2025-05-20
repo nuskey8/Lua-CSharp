@@ -1,4 +1,6 @@
-﻿namespace Lua.IO;
+﻿using Lua.Internal;
+
+namespace Lua.IO;
 
 public interface ILuaFileSystem
 {
@@ -29,7 +31,7 @@ public interface IStreamReader : IDisposable
 {
     public ValueTask<string?> ReadLineAsync(CancellationToken cancellationToken);
     public ValueTask<string> ReadToEndAsync(CancellationToken cancellationToken);
-    public ValueTask<int> ReadByteAsync(CancellationToken cancellationToken);
+    public ValueTask<string?> ReadStringAsync(int count,CancellationToken cancellationToken);
 }
 
 public interface IStreamWriter : IDisposable
@@ -94,9 +96,17 @@ public sealed class StreamReaderWrapper(StreamReader streamReader) : IStreamRead
         return new(streamReader.ReadToEnd());
     }
 
-    public ValueTask<int> ReadByteAsync(CancellationToken cancellationToken)
+    public ValueTask<string?> ReadStringAsync(int count,CancellationToken cancellationToken)
     {
-        return new(streamReader.Read());
+        using var byteBuffer = new PooledArray<char>(count);
+        var span = byteBuffer.AsSpan();
+        var ret=streamReader.Read(span);
+        if(ret != span.Length)
+        {
+            return new(default(string));
+        }
+
+        return new(span.ToString());
     }
 
     public void Dispose()
