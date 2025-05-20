@@ -91,7 +91,14 @@ public class FileHandle : ILuaUserData
 
     public void SetVBuf(string mode, int size)
     {
-        stream.SetVBuf(mode, size);
+        var bufferingMode = mode switch
+        {
+            "no" => LuaFileBufferingMode.NoBuffering,
+            "full" => LuaFileBufferingMode.FullBuffering,
+            "line" => LuaFileBufferingMode.LineBuffering,
+            _ => throw new ArgumentException($"Invalid option '{mode}'")
+        };
+        stream.SetVBuf(bufferingMode, size);
     }
 
     public void Close()

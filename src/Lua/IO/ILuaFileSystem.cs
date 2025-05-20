@@ -20,7 +20,7 @@ public interface ILuaIOStream : IDisposable
     public ValueTask<string?> ReadStringAsync(int count, CancellationToken cancellationToken);
     public ValueTask WriteAsync(ReadOnlyMemory<char> buffer, CancellationToken cancellationToken);
     public ValueTask FlushAsync(CancellationToken cancellationToken);
-    public void SetVBuf(string mode, int size);
+    public void SetVBuf(LuaFileBufferingMode mode, int size);
     public long Seek(long offset, SeekOrigin origin);
 }
 
@@ -149,11 +149,11 @@ public sealed class LuaIOStreamWrapper(Stream innerStream) : ILuaIOStream
         return new();
     }
 
-    public void SetVBuf(string mode, int size)
+    public void SetVBuf(LuaFileBufferingMode mode, int size)
     {
         writer ??= new(innerStream);
         // Ignore size parameter
-        writer.AutoFlush = mode is "no" or "line";
+        writer.AutoFlush = mode is LuaFileBufferingMode.NoBuffering or LuaFileBufferingMode.LineBuffering;
     }
 
     public long Seek(long offset, SeekOrigin origin) => innerStream.Seek(offset, origin);
