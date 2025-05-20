@@ -9,6 +9,7 @@ public interface ILuaFileSystem
     public IStream? Open(string path, LuaFileOpenMode mode, bool throwError);
     public void Rename(string oldName, string newName);
     public void Remove(string path);
+    public string DirectorySeparator { get; }
     public string GetTempFileName();
 }
 
@@ -31,18 +32,6 @@ public interface IStream : IDisposable
     public bool CanWrite { get; }
     public long Length { get; }
     public long Position { get; set; }
-}
-
-public interface IStreamReader : IDisposable
-{
-}
-
-public interface IStreamWriter : IDisposable
-{
-    public ValueTask WriteAsync(ReadOnlyMemory<char> buffer, CancellationToken cancellationToken);
-    public ValueTask FlushAsync(CancellationToken cancellationToken);
-
-    public void SetVBuf(string mode, int size);
 }
 
 public sealed class FileSystem : ILuaFileSystem
@@ -112,6 +101,9 @@ public sealed class FileSystem : ILuaFileSystem
     {
         File.Delete(path);
     }
+
+    static readonly string directorySeparator = Path.DirectorySeparatorChar.ToString();
+    public string DirectorySeparator => directorySeparator;
 
     public string GetTempFileName()
     {

@@ -130,7 +130,7 @@ public sealed class ModuleLibrary
     public async ValueTask<int> SearcherLua(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
         var name = context.GetArgument<string>(0);
-        var fileName = await FindFile(context.Access, name, "path", Path.DirectorySeparatorChar.ToString());
+        var fileName = await FindFile(context.Access, name, "path", context.State.FileSystem.DirectorySeparator);
         if (fileName == null)
         {
             return (context.Return(LuaValue.Nil));
