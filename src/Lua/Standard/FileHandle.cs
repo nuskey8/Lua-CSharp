@@ -48,7 +48,7 @@ public class FileHandle : ILuaUserData
         fileHandleMetatable[Metamethods.Index] = IndexMetamethod;
     }
 
-    public FileHandle(Stream stream) : this(new LuaIOStreamWrapper(stream)) { }
+    public FileHandle(LuaFileOpenMode mode, Stream stream) : this(new LuaIOStreamWrapper(mode,stream)) { }
 
     public FileHandle(ILuaIOStream stream)
     {

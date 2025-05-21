@@ -1,4 +1,5 @@
 ﻿using Lua.Internal;
+using System.Text;
 
 namespace Lua.IO;
 
@@ -16,6 +17,7 @@ public interface ILuaFileSystem
 
 public interface ILuaIOStream : IDisposable
 {
+    public LuaFileOpenMode Mode { get; }
     public ValueTask<string?> ReadLineAsync(CancellationToken cancellationToken);
     public ValueTask<string> ReadToEndAsync(CancellationToken cancellationToken);
     public ValueTask<string?> ReadStringAsync(int count, CancellationToken cancellationToken);
@@ -23,6 +25,11 @@ public interface ILuaIOStream : IDisposable
     public ValueTask FlushAsync(CancellationToken cancellationToken);
     public void SetVBuf(LuaFileBufferingMode mode, int size);
     public long Seek(long offset, SeekOrigin origin);
+
+    public static ILuaIOStream CreateStreamWrapper(LuaFileOpenMode mode, Stream stream)
+    {
+        return new LuaIOStreamWrapper(mode, stream);
+    }
 }
 
 public sealed class FileSystem : ILuaFileSystem
@@ -37,7 +44,7 @@ public sealed class FileSystem : ILuaFileSystem
             LuaFileOpenMode.Write => (FileMode.Create, FileAccess.Write),
             LuaFileOpenMode.Append => (FileMode.Append, FileAccess.Write),
             LuaFileOpenMode.ReadWriteOpen => (FileMode.Open, FileAccess.ReadWrite),
-            LuaFileOpenMode.ReadWriteCreate => (FileMode.Create, FileAccess.ReadWrite),
+            LuaFileOpenMode.ReadWriteCreate => (FileMode.Truncate, FileAccess.ReadWrite),
             LuaFileOpenMode.ReadAppend => (FileMode.Append, FileAccess.ReadWrite),
             _ => throw new ArgumentOutOfRangeException(nameof(luaFileOpenMode), luaFileOpenMode, null)
         };
@@ -65,15 +72,17 @@ public sealed class FileSystem : ILuaFileSystem
 
     public ILuaIOStream? Open(string path, LuaFileOpenMode luaMode, bool throwError)
     {
-        if (luaMode == LuaFileOpenMode.ReadAppend)
-        {
-            throw new NotSupportedException("a+ mode is not supported.");
-        }
-
         var (mode, access) = GetFileMode(luaMode);
         try
         {
-            return new LuaIOStreamWrapper(File.Open(path, mode, access));
+            if (luaMode == LuaFileOpenMode.ReadAppend)
+            {
+                var s = new LuaIOStreamWrapper(luaMode, File.Open(path, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.ReadWrite | FileShare.Delete));
+                s.Seek(0, SeekOrigin.End);
+                return s;
+            }
+
+            return new LuaIOStreamWrapper(luaMode, File.Open(path, mode, access, FileShare.ReadWrite | FileShare.Delete));
         }
         catch (Exception)
         {
@@ -108,70 +117,95 @@ public sealed class FileSystem : ILuaFileSystem
 
     public ILuaIOStream OpenTempFileStream()
     {
-        return new LuaIOStreamWrapper(File.Open(Path.GetTempFileName(), FileMode.OpenOrCreate, FileAccess.ReadWrite));
+        return new LuaIOStreamWrapper(LuaFileOpenMode.ReadAppend, File.Open(Path.GetTempFileName(), FileMode.Open, FileAccess.ReadWrite));
     }
 }
 
-public sealed class LuaIOStreamWrapper(Stream innerStream) : ILuaIOStream
+internal sealed class LuaIOStreamWrapper(LuaFileOpenMode mode, Stream innerStream) : ILuaIOStream
 {
-    StreamReader? reader;
-    StreamWriter? writer;
+    public LuaFileOpenMode Mode => mode;
+    Utf8Reader? reader;
+    ulong flushSize = ulong.MaxValue;
+    ulong nextFlushSize = ulong.MaxValue;
 
     public ValueTask<string?> ReadLineAsync(CancellationToken cancellationToken)
     {
         ThrowIfNotReadable();
-        reader ??= new(innerStream);
-
-        return new(reader.ReadLine());
+        reader ??= new();
+        return new(reader.ReadLine(innerStream));
     }
 
     public ValueTask<string> ReadToEndAsync(CancellationToken cancellationToken)
     {
         ThrowIfNotReadable();
-        reader ??= new(innerStream);
-
-        return new(reader.ReadToEnd());
+        reader ??= new();
+        return new(reader.ReadToEnd(innerStream));
     }
 
     public ValueTask<string?> ReadStringAsync(int count, CancellationToken cancellationToken)
     {
         ThrowIfNotReadable();
-        reader ??= new(innerStream);
-
-        using var byteBuffer = new PooledArray<char>(count);
-        var span = byteBuffer.AsSpan();
-        var ret = reader.Read(span);
-        if (ret != span.Length)
-        {
-            return new(default(string));
-        }
-
-        return new(span.ToString());
+        reader ??= new();
+        return new(reader.Read(innerStream, count));
     }
 
     public ValueTask WriteAsync(ReadOnlyMemory<char> buffer, CancellationToken cancellationToken)
     {
         ThrowIfNotWritable();
-        writer ??= new(innerStream);
-        writer.Write(buffer.Span);
+        if (mode is LuaFileOpenMode.Append or LuaFileOpenMode.ReadAppend)
+        {
+            innerStream.Seek(0, SeekOrigin.End);
+        }
+
+        using var byteBuffer = new PooledArray<byte>(4096);
+        var encoder = Encoding.UTF8.GetEncoder();
+        var totalBytes = encoder.GetByteCount(buffer.Span, true);
+        var remainingBytes = totalBytes;
+        while (0 < remainingBytes)
+        {
+            var byteCount = encoder.GetBytes(buffer.Span, byteBuffer.AsSpan(), false);
+            innerStream.Write(byteBuffer.AsSpan()[..byteCount]);
+            remainingBytes -= byteCount;
+        }
+
+        if (nextFlushSize < (ulong)totalBytes)
+        {
+            innerStream.Flush();
+            nextFlushSize = flushSize;
+        }
+
+        reader?.Clear();
         return new();
     }
 
     public ValueTask FlushAsync(CancellationToken cancellationToken)
     {
-        ThrowIfNotWritable();
-        writer?.Flush();
+        innerStream.Flush();
+        nextFlushSize = flushSize;
         return new();
     }
 
     public void SetVBuf(LuaFileBufferingMode mode, int size)
     {
-        writer ??= new(innerStream);
         // Ignore size parameter
-        writer.AutoFlush = mode is LuaFileBufferingMode.NoBuffering or LuaFileBufferingMode.LineBuffering;
+        if (mode is LuaFileBufferingMode.NoBuffering or LuaFileBufferingMode.LineBuffering)
+        {
+            nextFlushSize = 0;
+            flushSize = 0;
+        }
+        else
+        {
+            nextFlushSize = (ulong)size;
+            flushSize = (ulong)size;
+        }
     }
 
-    public long Seek(long offset, SeekOrigin origin) => innerStream.Seek(offset, origin);
+    public long Seek(long offset, SeekOrigin origin)
+    {
+        reader?.Clear();
+        return innerStream.Seek(offset, origin);
+    }
+
     public bool CanRead => innerStream.CanRead;
     public bool CanSeek => innerStream.CanSeek;
     public bool CanWrite => innerStream.CanWrite;
@@ -192,5 +226,9 @@ public sealed class LuaIOStreamWrapper(Stream innerStream) : ILuaIOStream
         }
     }
 
-    public void Dispose() => innerStream.Dispose();
+    public void Dispose()
+    {
+        innerStream.Dispose();
+        reader?.Dispose();
+    }
 }

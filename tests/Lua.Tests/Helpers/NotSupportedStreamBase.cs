@@ -8,6 +8,8 @@ namespace Lua.Tests.Helpers
         {
         }
 
+        public virtual LuaFileOpenMode Mode => throw IOThrowHelpers.GetNotSupportedException();
+
         public virtual ValueTask<string?> ReadLineAsync(CancellationToken cancellationToken)
         {
             throw IOThrowHelpers.GetNotSupportedException();
@@ -38,7 +40,7 @@ namespace Lua.Tests.Helpers
             throw IOThrowHelpers.GetNotSupportedException();
         }
 
-        public virtual  long Seek(long offset, SeekOrigin origin)
+        public virtual long Seek(long offset, SeekOrigin origin)
         {
             throw IOThrowHelpers.GetNotSupportedException();
         }
