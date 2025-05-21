@@ -21,6 +21,7 @@ public sealed class IOLibrary
             new("read", Read),
             new("type", Type),
             new("write", Write),
+            new("tmpfile", TmpFile),
         ];
     }
 
@@ -195,4 +196,12 @@ public sealed class IOLibrary
         var resultCount = await IOHelper.WriteAsync(file, "write", context, cancellationToken);
         return resultCount;
     }
+    
+    public async ValueTask<int> TmpFile(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    {
+        var file = context.State.Registry["stdout"].Read<FileHandle>();
+        var resultCount = await IOHelper.WriteAsync(file, "write", context, cancellationToken);
+        return resultCount;
+    }
+    
 }

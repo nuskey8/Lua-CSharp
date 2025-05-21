@@ -11,6 +11,7 @@ public interface ILuaFileSystem
     public void Remove(string path);
     public string DirectorySeparator { get; }
     public string GetTempFileName();
+    public ILuaIOStream OpenTempFileStream();
 }
 
 public interface ILuaIOStream : IDisposable
@@ -103,6 +104,11 @@ public sealed class FileSystem : ILuaFileSystem
     public string GetTempFileName()
     {
         return Path.GetTempFileName();
+    }
+
+    public ILuaIOStream OpenTempFileStream()
+    {
+        return new LuaIOStreamWrapper(File.Open(Path.GetTempFileName(), FileMode.OpenOrCreate, FileAccess.ReadWrite));
     }
 }
 
