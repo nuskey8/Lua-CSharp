@@ -8,16 +8,15 @@ public class AbstractFileTests
 {
     class ReadOnlyFileSystem(Dictionary<string, string> dictionary) : NotImplementedExceptionFileSystemBase
     {
-        public override ILuaIOStream? Open(string path, LuaFileOpenMode mode, bool throwError)
+        public override ILuaIOStream Open(string path, LuaFileOpenMode mode)
         {
             if (!dictionary.TryGetValue(path, out var value))
             {
-                if (!throwError) return null;
                 throw new FileNotFoundException($"File {path} not found");
             }
 
             if (mode != LuaFileOpenMode.Read)
-                throw new NotSupportedException($"File {path} not opened in read mode");
+                throw new IOException($"File {path} not opened in read mode");
             return new ReadOnlyCharMemoryLuaIOStream(value.AsMemory());
         }
     }
