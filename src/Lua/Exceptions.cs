@@ -77,6 +77,13 @@ public class LuaRuntimeException : Exception, ILuaTracebackBuildable
 {
     public LuaRuntimeException(LuaThread? thread, Exception innerException) : base(innerException.Message, innerException)
     {
+        if (thread != null)
+        {
+            thread.CurrentException?.BuildOrGet();
+            thread.ExceptionTrace.Clear();
+            thread.CurrentException = this;
+        }
+
         Thread = thread;
     }
 
