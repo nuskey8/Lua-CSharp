@@ -396,13 +396,33 @@ public readonly struct LuaValue : IEquatable<LuaValue>
         return true;
     }
 
+    public static LuaValue FromObject(object obj)
+    {
+        return obj switch
+        {
+            null => Nil,
+            LuaValue luaValue => luaValue,
+            bool boolValue => boolValue,
+            double doubleValue => doubleValue,
+            string stringValue => stringValue,
+            LuaFunction luaFunction => luaFunction,
+            LuaTable luaTable => luaTable,
+            LuaThread luaThread => luaThread,
+            ILuaUserData userData => FromUserData(userData),
+            int intValue => intValue,
+            long longValue => longValue,
+            float floatValue => floatValue,
+            _ => new LuaValue(obj)
+        };
+    }
+
     public static LuaValue FromUserData(ILuaUserData userData)
     {
-        return new (userData);
+        return new(userData);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal LuaValue(object obj)
+    LuaValue(object obj)
     {
         Type = LuaValueType.LightUserData;
         referenceValue = obj;
@@ -552,8 +572,8 @@ public readonly struct LuaValue : IEquatable<LuaValue>
             _ => "",
         };
     }
-    
-    public  string TypeToString()
+
+    public string TypeToString()
     {
         return Type switch
         {
@@ -569,6 +589,7 @@ public readonly struct LuaValue : IEquatable<LuaValue>
             _ => "",
         };
     }
+
     public static string ToString(LuaValueType type)
     {
         return type switch
@@ -635,7 +656,7 @@ public readonly struct LuaValue : IEquatable<LuaValue>
             var stack = context.Thread.Stack;
             stack.Push(metamethod);
             stack.Push(this);
-            return LuaVirtualMachine.Call(context.Thread,stack.Count-2, stack.Count - 2, cancellationToken);
+            return LuaVirtualMachine.Call(context.Thread, stack.Count - 2, stack.Count - 2, cancellationToken);
         }
         else
         {
