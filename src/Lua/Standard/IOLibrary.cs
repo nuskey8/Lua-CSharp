@@ -76,7 +76,7 @@ public sealed class IOLibrary
         }
         else
         {
-            var stream = context.State.FileSystem.Open(arg.ToString()!, LuaFileOpenMode.ReadWriteOpen,true)!;
+            var stream = context.State.FileSystem.Open(arg.ToString()!, LuaFileOpenMode.ReadWriteOpen, true)!;
             var handle = new FileHandle(stream);
             registry["stdin"] = new(handle);
             return new(context.Return(new LuaValue(handle)));
@@ -160,7 +160,7 @@ public sealed class IOLibrary
         }
         else
         {
-            var stream = context.State.FileSystem.Open(arg.ToString()!, LuaFileOpenMode.ReadWriteOpen,true)!;
+            var stream = context.State.FileSystem.Open(arg.ToString()!, LuaFileOpenMode.ReadWriteOpen, true)!;
             var handle = new FileHandle(stream);
             io["stdout"] = new(handle);
             return new(context.Return(new LuaValue(handle)));
@@ -170,9 +170,10 @@ public sealed class IOLibrary
     public async ValueTask<int> Read(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
         var file = context.State.Registry["stdin"].Read<FileHandle>();
+        var args = context.Arguments.ToArray();
         context.Return();
 
-        var resultCount = await IOHelper.ReadAsync(context.Thread, file, "read", 0, context.Arguments.ToArray(), false, cancellationToken);
+        var resultCount = await IOHelper.ReadAsync(context.Thread, file, "read", 0, args, false, cancellationToken);
         return resultCount;
     }
 
@@ -196,12 +197,9 @@ public sealed class IOLibrary
         var resultCount = await IOHelper.WriteAsync(file, "write", context, cancellationToken);
         return resultCount;
     }
-    
-    public async ValueTask<int> TmpFile(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+
+    public ValueTask<int> TmpFile(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
-        var file = context.State.Registry["stdout"].Read<FileHandle>();
-        var resultCount = await IOHelper.WriteAsync(file, "write", context, cancellationToken);
-        return resultCount;
+        return new(context.Return(LuaValue.FromUserData(new FileHandle(context.State.FileSystem.OpenTempFileStream()))));
     }
-    
 }
