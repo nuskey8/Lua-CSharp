@@ -48,9 +48,15 @@ public static class OpenLibsExtensions
         }
 
         var registry = state.Registry;
-        registry["stdin"] = new(new FileHandle(LuaFileOpenMode.Read, ConsoleHelper.OpenStandardInput()));
-        registry["stdout"] = new(new FileHandle(LuaFileOpenMode.Write, ConsoleHelper.OpenStandardOutput()));
-        registry["stderr"] = new(new FileHandle(LuaFileOpenMode.Write, ConsoleHelper.OpenStandardError()));
+        var stdin = new LuaValue(new FileHandle(LuaFileOpenMode.Read, ConsoleHelper.OpenStandardInput()));
+        var stdout = new LuaValue(new FileHandle(LuaFileOpenMode.Write, ConsoleHelper.OpenStandardOutput()));
+        var stderr = new LuaValue(new FileHandle(LuaFileOpenMode.Write, ConsoleHelper.OpenStandardError()));
+        registry["stdin"] = stdin;
+        registry["stdout"] = stdout;
+        registry["stderr"] = stderr;
+        io["stdin"] = stdin;
+        io["stdout"] = stdout;
+        io["stderr"] = stderr;
 
         state.Environment["io"] = io;
         state.LoadedModules["io"] = io;
