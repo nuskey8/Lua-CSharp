@@ -64,6 +64,11 @@ public sealed class FileSystem : ILuaFileSystem
 
     public ILuaIOStream? Open(string path, LuaFileOpenMode luaMode, bool throwError)
     {
+        if (luaMode == LuaFileOpenMode.ReadAppend)
+        {
+            throw new NotSupportedException("a+ mode is not supported.");
+        }
+
         var (mode, access) = GetFileMode(luaMode);
         try
         {
@@ -108,6 +113,7 @@ public sealed class LuaIOStreamWrapper(Stream innerStream) : ILuaIOStream
 
     public ValueTask<string?> ReadLineAsync(CancellationToken cancellationToken)
     {
+        ThrowIfNotReadable();
         reader ??= new(innerStream);
 
         return new(reader.ReadLine());
@@ -115,6 +121,7 @@ public sealed class LuaIOStreamWrapper(Stream innerStream) : ILuaIOStream
 
     public ValueTask<string> ReadToEndAsync(CancellationToken cancellationToken)
     {
+        ThrowIfNotReadable();
         reader ??= new(innerStream);
 
         return new(reader.ReadToEnd());
@@ -122,6 +129,7 @@ public sealed class LuaIOStreamWrapper(Stream innerStream) : ILuaIOStream
 
     public ValueTask<string?> ReadStringAsync(int count, CancellationToken cancellationToken)
     {
+        ThrowIfNotReadable();
         reader ??= new(innerStream);
 
         using var byteBuffer = new PooledArray<char>(count);
@@ -137,15 +145,16 @@ public sealed class LuaIOStreamWrapper(Stream innerStream) : ILuaIOStream
 
     public ValueTask WriteAsync(ReadOnlyMemory<char> buffer, CancellationToken cancellationToken)
     {
+        ThrowIfNotWritable();
         writer ??= new(innerStream);
-
         writer.Write(buffer.Span);
         return new();
     }
 
     public ValueTask FlushAsync(CancellationToken cancellationToken)
     {
-        innerStream.Flush();
+        ThrowIfNotWritable();
+        writer?.Flush();
         return new();
     }
 
@@ -160,6 +169,22 @@ public sealed class LuaIOStreamWrapper(Stream innerStream) : ILuaIOStream
     public bool CanRead => innerStream.CanRead;
     public bool CanSeek => innerStream.CanSeek;
     public bool CanWrite => innerStream.CanWrite;
+
+    void ThrowIfNotReadable()
+    {
+        if (!innerStream.CanRead)
+        {
+            throw new IOException("Stream is not readable.");
+        }
+    }
+
+    void ThrowIfNotWritable()
+    {
+        if (!innerStream.CanWrite)
+        {
+            throw new IOException("Stream is not writable.");
+        }
+    }
 
     public void Dispose() => innerStream.Dispose();
 }
