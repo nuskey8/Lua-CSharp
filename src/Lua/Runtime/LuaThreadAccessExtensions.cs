@@ -183,7 +183,7 @@ public static class LuaThreadAccessAccessExtensions
         {
             if (luaTable.TryGetValue(key, out var value))
             {
-                return (value);
+                return value;
             }
         }
 
