@@ -3,11 +3,6 @@
 public enum LuaFileBufferingMode
 {
     /// <summary>
-    /// No buffering. `no` in Lua
-    /// </summary>
-    NoBuffering,
-
-    /// <summary>
     /// Full buffering `full` in Lua
     /// </summary>
     FullBuffering,
@@ -16,4 +11,8 @@ public enum LuaFileBufferingMode
     /// Line buffering `line` in Lua
     /// </summary>
     LineBuffering,
+    /// <summary>
+    /// No buffering. `no` in Lua
+    /// </summary>
+    NoBuffering,
 }
