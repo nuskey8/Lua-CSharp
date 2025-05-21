@@ -24,11 +24,7 @@ internal static class IOHelper
 
         try
         {
-            var stream = thread.State.FileSystem.Open(fileName, fileMode, throwError);
-            if (stream == null)
-            {
-                return 0;
-            }
+            var stream = thread.State.FileSystem.Open(fileName, fileMode);
 
             thread.Stack.Push(new LuaValue(new FileHandle(stream)));
             return 1;

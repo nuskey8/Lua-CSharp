@@ -76,7 +76,7 @@ public sealed class IOLibrary
         }
         else
         {
-            var stream = context.State.FileSystem.Open(arg.ToString()!, LuaFileOpenMode.ReadWriteOpen, true)!;
+            var stream = context.State.FileSystem.Open(arg.ToString(), LuaFileOpenMode.ReadWriteOpen);
             var handle = new FileHandle(stream);
             registry["stdin"] = new(handle);
             return new(context.Return(new LuaValue(handle)));
@@ -139,7 +139,7 @@ public sealed class IOLibrary
             ? context.GetArgument<string>(1)
             : "r";
         context.Return();
-        var resultCount = IOHelper.Open(context.Thread, fileName, mode, false);
+        var resultCount = IOHelper.Open(context.Thread, fileName, mode, true);
         return new(resultCount);
     }
 
@@ -160,10 +160,17 @@ public sealed class IOLibrary
         }
         else
         {
-            var stream = context.State.FileSystem.Open(arg.ToString()!, LuaFileOpenMode.ReadWriteOpen, true)!;
-            var handle = new FileHandle(stream);
-            io["stdout"] = new(handle);
-            return new(context.Return(new LuaValue(handle)));
+            try
+            {
+                var stream = context.State.FileSystem.Open(arg.ToString(), LuaFileOpenMode.ReadWriteOpen);
+                var handle = new FileHandle(stream);
+                io["stdout"] = new(handle);
+                return new(context.Return(new LuaValue(handle)));
+            }
+            catch (Exception ex) when(ex is IOException or FileNotFoundException)
+            {
+                return new(context.Return(LuaValue.Nil, ex.Message, ex.HResult));
+            }
         }
     }
 

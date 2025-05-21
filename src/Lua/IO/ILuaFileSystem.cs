@@ -7,7 +7,7 @@ public interface ILuaFileSystem
 {
     public bool IsReadable(string path);
     public ValueTask<LuaFileContent> ReadFileContentAsync(string path, CancellationToken cancellationToken);
-    public ILuaIOStream? Open(string path, LuaFileOpenMode mode, bool throwError);
+    public ILuaIOStream Open(string path, LuaFileOpenMode mode);
     public void Rename(string oldName, string newName);
     public void Remove(string path);
     public string DirectorySeparator { get; }
@@ -70,29 +70,19 @@ public sealed class FileSystem : ILuaFileSystem
         return new(new LuaFileContent(bytes));
     }
 
-    public ILuaIOStream? Open(string path, LuaFileOpenMode luaMode, bool throwError)
+    public ILuaIOStream Open(string path, LuaFileOpenMode luaMode)
     {
         var (mode, access) = GetFileMode(luaMode);
-        try
+        
+        if (luaMode == LuaFileOpenMode.ReadAppend)
         {
-            if (luaMode == LuaFileOpenMode.ReadAppend)
-            {
-                var s = new LuaIOStreamWrapper(luaMode, File.Open(path, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.ReadWrite | FileShare.Delete));
-                s.Seek(0, SeekOrigin.End);
-                return s;
-            }
-
-            return new LuaIOStreamWrapper(luaMode, File.Open(path, mode, access, FileShare.ReadWrite | FileShare.Delete));
+            var s = new LuaIOStreamWrapper(luaMode, File.Open(path, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.ReadWrite | FileShare.Delete));
+            s.Seek(0, SeekOrigin.End);
+            return s;
         }
-        catch (Exception)
-        {
-            if (throwError)
-            {
-                throw;
-            }
 
-            return null;
-        }
+        return new LuaIOStreamWrapper(luaMode, File.Open(path, mode, access, FileShare.ReadWrite | FileShare.Delete));
+        
     }
 
     public void Rename(string oldName, string newName)
