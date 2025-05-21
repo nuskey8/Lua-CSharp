@@ -35,12 +35,10 @@ namespace Lua.Tests.Helpers
         {
             throw new NotImplementedException();
         }
-        
-        public virtual ILuaIOStream OpenTempStream ()
+
+        public ILuaIOStream OpenTempFileStream()
         {
             throw new NotImplementedException();
         }
-        
-        
     }
 }
