@@ -139,8 +139,15 @@ public sealed class IOLibrary
             ? context.GetArgument<string>(1)
             : "r";
         context.Return();
-        var resultCount = IOHelper.Open(context.Thread, fileName, mode, true);
-        return new(resultCount);
+        try
+        {
+            var resultCount = IOHelper.Open(context.Thread, fileName, mode, true);
+            return new(resultCount);
+        }
+        catch (IOException ex)
+        {
+            return new(context.Return(LuaValue.Nil, ex.Message, ex.HResult));
+        }
     }
 
     public ValueTask<int> Output(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
@@ -160,17 +167,10 @@ public sealed class IOLibrary
         }
         else
         {
-            try
-            {
-                var stream = context.State.FileSystem.Open(arg.ToString(), LuaFileOpenMode.ReadWriteOpen);
-                var handle = new FileHandle(stream);
-                io["stdout"] = new(handle);
-                return new(context.Return(new LuaValue(handle)));
-            }
-            catch (Exception ex) when(ex is IOException or FileNotFoundException)
-            {
-                return new(context.Return(LuaValue.Nil, ex.Message, ex.HResult));
-            }
+            var stream = context.State.FileSystem.Open(arg.ToString(), LuaFileOpenMode.ReadWriteOpen);
+            var handle = new FileHandle(stream);
+            io["stdout"] = new(handle);
+            return new(context.Return(new LuaValue(handle)));
         }
     }
 
