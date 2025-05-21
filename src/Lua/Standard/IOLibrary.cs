@@ -31,7 +31,7 @@ public sealed class IOLibrary
     {
         var file = context.HasArgument(0)
             ? context.GetArgument<FileHandle>(0)
-            : context.State.Registry["stdout"].Read<FileHandle>();
+            : context.State.Registry["_IO_output"].Read<FileHandle>();
 
         try
         {
@@ -46,7 +46,7 @@ public sealed class IOLibrary
 
     public async ValueTask<int> Flush(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
-        var file = context.State.Registry["stdout"].Read<FileHandle>();
+        var file = context.State.Registry["_IO_output"].Read<FileHandle>();
 
         try
         {
@@ -65,20 +65,20 @@ public sealed class IOLibrary
 
         if (context.ArgumentCount == 0 || context.Arguments[0].Type is LuaValueType.Nil)
         {
-            return new(context.Return(registry["stdin"]));
+            return new(context.Return(registry["_IO_input"]));
         }
 
         var arg = context.Arguments[0];
         if (arg.TryRead<FileHandle>(out var file))
         {
-            registry["stdin"] = new(file);
+            registry["_IO_input"] = new(file);
             return new(context.Return(new LuaValue(file)));
         }
         else
         {
             var stream = context.State.FileSystem.Open(arg.ToString(), LuaFileOpenMode.ReadWriteOpen);
             var handle = new FileHandle(stream);
-            registry["stdin"] = new(handle);
+            registry["_IO_input"] = new(handle);
             return new(context.Return(new LuaValue(handle)));
         }
     }
@@ -87,7 +87,7 @@ public sealed class IOLibrary
     {
         if (context.ArgumentCount == 0)
         {
-            var file = context.State.Registry["stdin"].Read<FileHandle>();
+            var file = context.State.Registry["_IO_input"].Read<FileHandle>();
             return new(context.Return(new CSharpClosure("iterator", [new(file)], static async (context, cancellationToken) =>
             {
                 var file = context.GetCsClosure()!.UpValues[0].Read<FileHandle>();
@@ -156,27 +156,27 @@ public sealed class IOLibrary
 
         if (context.ArgumentCount == 0 || context.Arguments[0].Type is LuaValueType.Nil)
         {
-            return new(context.Return(io["stdout"]));
+            return new(context.Return(io["_IO_output"]));
         }
 
         var arg = context.Arguments[0];
         if (arg.TryRead<FileHandle>(out var file))
         {
-            io["stdout"] = new(file);
+            io["_IO_output"] = new(file);
             return new(context.Return(new LuaValue(file)));
         }
         else
         {
             var stream = context.State.FileSystem.Open(arg.ToString(), LuaFileOpenMode.ReadWriteOpen);
             var handle = new FileHandle(stream);
-            io["stdout"] = new(handle);
+            io["_IO_output"] = new(handle);
             return new(context.Return(new LuaValue(handle)));
         }
     }
 
     public async ValueTask<int> Read(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
-        var file = context.State.Registry["stdin"].Read<FileHandle>();
+        var file = context.State.Registry["_IO_input"].Read<FileHandle>();
         var args = context.Arguments.ToArray();
         context.Return();
 
@@ -200,7 +200,7 @@ public sealed class IOLibrary
 
     public async ValueTask<int> Write(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
-        var file = context.State.Registry["stdout"].Read<FileHandle>();
+        var file = context.State.Registry["_IO_output"].Read<FileHandle>();
         var resultCount = await IOHelper.WriteAsync(file, "write", context, cancellationToken);
         return resultCount;
     }
