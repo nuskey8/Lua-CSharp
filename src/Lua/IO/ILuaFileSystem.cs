@@ -73,7 +73,7 @@ public sealed class FileSystem : ILuaFileSystem
     public ILuaIOStream Open(string path, LuaFileOpenMode luaMode)
     {
         var (mode, access) = GetFileMode(luaMode);
-        
+
         if (luaMode == LuaFileOpenMode.ReadAppend)
         {
             var s = new LuaIOStreamWrapper(luaMode, File.Open(path, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.ReadWrite | FileShare.Delete));
@@ -82,7 +82,6 @@ public sealed class FileSystem : ILuaFileSystem
         }
 
         return new LuaIOStreamWrapper(luaMode, File.Open(path, mode, access, FileShare.ReadWrite | FileShare.Delete));
-        
     }
 
     public void Rename(string oldName, string newName)
@@ -218,6 +217,7 @@ internal sealed class LuaIOStreamWrapper(LuaFileOpenMode mode, Stream innerStrea
 
     public void Dispose()
     {
+        if (innerStream.CanWrite) innerStream.Flush();
         innerStream.Dispose();
         reader?.Dispose();
     }
