@@ -865,6 +865,17 @@ public static partial class LuaVirtualMachine
         throw new LuaRuntimeException(context.Thread, $"OpCode {opcode} is not implemented");
     }
 
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    internal static double Mod(double a, double b)
+    {
+        var mod = a % b;
+        if ((b > 0 && mod < 0) || (b < 0 && mod > 0))
+        {
+            mod += b;
+        }
+
+        return mod;
+    }
 
     static void SelfPostOperation(VirtualMachineExecutionContext context, Span<LuaValue> results)
     {

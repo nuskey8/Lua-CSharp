@@ -74,108 +74,146 @@ public static class LuaThreadAccessAccessExtensions
         return new LuaReturnValuesReader(stack, stack.Count - argumentCount);
     }
 
-
-    public static async ValueTask<LuaValue> Arithmetic(this LuaThreadAccess access, LuaValue x, LuaValue y, OpCode opCode, CancellationToken cancellationToken = default)
+    public static async ValueTask<LuaValue> Add(this LuaThreadAccess access, LuaValue x, LuaValue y, CancellationToken cancellationToken = default)
     {
-        [MethodImpl(MethodImplOptions.NoInlining)]
-        static double Mod(double a, double b)
-        {
-            var mod = a % b;
-            if ((b > 0 && mod < 0) || (b < 0 && mod > 0))
-            {
-                mod += b;
-            }
-
-            return mod;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        static double ArithmeticOperation(OpCode code, double a, double b)
-        {
-            return code switch
-            {
-                OpCode.Add => a + b,
-                OpCode.Sub => a - b,
-                OpCode.Mul => a * b,
-                OpCode.Div => a / b,
-                OpCode.Mod => Mod(a, b),
-                OpCode.Pow => Math.Pow(a, b),
-                _ => throw new InvalidOperationException($"Unsupported arithmetic operation: {code}"),
-            };
-        }
-
-
         if (x.TryReadDouble(out var numX) && y.TryReadDouble(out var numY))
         {
-            return ArithmeticOperation(opCode, numX, numY);
+            return numX + numY;
         }
 
         access.ThrowIfInvalid();
-        return await LuaVirtualMachine.ExecuteBinaryOperationMetaMethod(access.Thread, x, y, opCode, cancellationToken);
+        return await LuaVirtualMachine.ExecuteBinaryOperationMetaMethod(access.Thread, x, y, OpCode.Add, cancellationToken);
     }
 
-    public static async ValueTask<LuaValue> Unary(this LuaThreadAccess access, LuaValue value, OpCode opCode, CancellationToken cancellationToken = default)
+    public static async ValueTask<LuaValue> Sub(this LuaThreadAccess access, LuaValue x, LuaValue y, CancellationToken cancellationToken = default)
     {
-        if (opCode == OpCode.Unm)
+        if (x.TryReadDouble(out var numX) && y.TryReadDouble(out var numY))
         {
-            if (value.TryReadDouble(out var numB))
-            {
-                return -numB;
-            }
-        }
-        else if (opCode == OpCode.Len)
-        {
-            if (value.TryReadString(out var str))
-            {
-                return str.Length;
-            }
-
-            if (value.TryReadTable(out var table))
-            {
-                return table.ArrayLength;
-            }
-        }
-        else
-        {
-            throw new InvalidOperationException($"Unsupported unary operation: {opCode}");
+            return numX - numY;
         }
 
         access.ThrowIfInvalid();
-        return await LuaVirtualMachine.ExecuteUnaryOperationMetaMethod(access.Thread, value, opCode, cancellationToken);
+        return await LuaVirtualMachine.ExecuteBinaryOperationMetaMethod(access.Thread, x, y, OpCode.Sub, cancellationToken);
     }
 
-
-    public static async ValueTask<bool> Compare(this LuaThreadAccess access, LuaValue x, LuaValue y, OpCode opCode, CancellationToken cancellationToken = default)
+    public static async ValueTask<LuaValue> Mul(this LuaThreadAccess access, LuaValue x, LuaValue y, CancellationToken cancellationToken = default)
     {
-        if (opCode is not (OpCode.Eq or OpCode.Lt or OpCode.Le))
+        if (x.TryReadDouble(out var numX) && y.TryReadDouble(out var numY))
         {
-            throw new InvalidOperationException($"Unsupported compare operation: {opCode}");
-        }
-
-        if (opCode == OpCode.Eq)
-        {
-            if (x == y)
-            {
-                return true;
-            }
-        }
-        else
-        {
-            if (x.TryReadNumber(out var numX) && y.TryReadNumber(out var numY))
-            {
-                return opCode == OpCode.Lt ? numX < numY : numX <= numY;
-            }
-
-            if (x.TryReadString(out var strX) && y.TryReadString(out var strY))
-            {
-                var c = StringComparer.Ordinal.Compare(strX, strY);
-                return opCode == OpCode.Lt ? c < 0 : c <= 0;
-            }
+            return numX * numY;
         }
 
         access.ThrowIfInvalid();
-        return await LuaVirtualMachine.ExecuteCompareOperationMetaMethod(access.Thread, x, y, opCode, cancellationToken);
+        return await LuaVirtualMachine.ExecuteBinaryOperationMetaMethod(access.Thread, x, y, OpCode.Mul, cancellationToken);
     }
+
+    public static async ValueTask<LuaValue> Div(this LuaThreadAccess access, LuaValue x, LuaValue y, CancellationToken cancellationToken = default)
+    {
+        if (x.TryReadDouble(out var numX) && y.TryReadDouble(out var numY))
+        {
+            return numX / numY;
+        }
+
+        access.ThrowIfInvalid();
+        return await LuaVirtualMachine.ExecuteBinaryOperationMetaMethod(access.Thread, x, y, OpCode.Div, cancellationToken);
+    }
+
+    public static async ValueTask<LuaValue> Mod(this LuaThreadAccess access, LuaValue x, LuaValue y, CancellationToken cancellationToken = default)
+    {
+        if (x.TryReadDouble(out var numX) && y.TryReadDouble(out var numY))
+        {
+            return LuaVirtualMachine.Mod(numX, numY);
+        }
+
+        access.ThrowIfInvalid();
+        return await LuaVirtualMachine.ExecuteBinaryOperationMetaMethod(access.Thread, x, y, OpCode.Mod, cancellationToken);
+    }
+
+    public static async ValueTask<LuaValue> Pow(this LuaThreadAccess access, LuaValue x, LuaValue y, CancellationToken cancellationToken = default)
+    {
+        if (x.TryReadDouble(out var numX) && y.TryReadDouble(out var numY))
+        {
+            return Math.Pow(numX, numY);
+        }
+
+        access.ThrowIfInvalid();
+        return await LuaVirtualMachine.ExecuteBinaryOperationMetaMethod(access.Thread, x, y, OpCode.Pow, cancellationToken);
+    }
+
+
+    public static async ValueTask<LuaValue> Unm(this LuaThreadAccess access, LuaValue value, CancellationToken cancellationToken = default)
+    {
+        if (value.TryReadDouble(out var numB))
+        {
+            return -numB;
+        }
+
+        access.ThrowIfInvalid();
+        return await LuaVirtualMachine.ExecuteUnaryOperationMetaMethod(access.Thread, value, OpCode.Unm, cancellationToken);
+    }
+
+    public static async ValueTask<LuaValue> Len(this LuaThreadAccess access, LuaValue value, CancellationToken cancellationToken = default)
+    {
+        if (value.TryReadString(out var str))
+        {
+            return str.Length;
+        }
+
+        if (value.TryReadTable(out var table))
+        {
+            return table.ArrayLength;
+        }
+
+        access.ThrowIfInvalid();
+        return await LuaVirtualMachine.ExecuteUnaryOperationMetaMethod(access.Thread, value, OpCode.Len, cancellationToken);
+    }
+
+
+    public static async ValueTask<bool> LessThan(this LuaThreadAccess access, LuaValue x, LuaValue y, CancellationToken cancellationToken = default)
+    {
+        if (x.TryReadNumber(out var numX) && y.TryReadNumber(out var numY))
+        {
+            return numX < numY;
+        }
+
+        if (x.TryReadString(out var strX) && y.TryReadString(out var strY))
+        {
+            var c = StringComparer.Ordinal.Compare(strX, strY);
+            return c < 0;
+        }
+
+        access.ThrowIfInvalid();
+        return await LuaVirtualMachine.ExecuteCompareOperationMetaMethod(access.Thread, x, y, OpCode.Lt, cancellationToken);
+    }
+
+    public static async ValueTask<bool> LessThanOrEquals(this LuaThreadAccess access, LuaValue x, LuaValue y, CancellationToken cancellationToken = default)
+    {
+        if (x.TryReadNumber(out var numX) && y.TryReadNumber(out var numY))
+        {
+            return numX <= numY;
+        }
+
+        if (x.TryReadString(out var strX) && y.TryReadString(out var strY))
+        {
+            var c = StringComparer.Ordinal.Compare(strX, strY);
+            return c <= 0;
+        }
+
+        access.ThrowIfInvalid();
+        return await LuaVirtualMachine.ExecuteCompareOperationMetaMethod(access.Thread, x, y, OpCode.Le, cancellationToken);
+    }
+
+    public static async ValueTask<bool> Equals(this LuaThreadAccess access, LuaValue x, LuaValue y, CancellationToken cancellationToken = default)
+    {
+        if (x == y)
+        {
+            return true;
+        }
+
+        access.ThrowIfInvalid();
+        return await LuaVirtualMachine.ExecuteCompareOperationMetaMethod(access.Thread, x, y, OpCode.Eq, cancellationToken);
+    }
+
 
     public static async ValueTask<LuaValue> GetTable(this LuaThreadAccess access, LuaValue table, LuaValue key, CancellationToken cancellationToken = default)
     {

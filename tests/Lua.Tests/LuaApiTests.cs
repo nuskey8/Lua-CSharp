@@ -39,7 +39,7 @@ public class LuaApiTests
         var a = result[0].Read<LuaTable>();
         var b = result[1].Read<LuaTable>();
 
-        var c = await access.Arithmetic(a, b, OpCode.Add);
+        var c = await access.Add(a, b);
         var table = c.Read<LuaTable>();
         Assert.Multiple(() =>
         {
@@ -72,7 +72,7 @@ public class LuaApiTests
 
         var result = await access.DoStringAsync(source);
         var a = result[0].Read<LuaTable>();
-        var c = await access.Unary(a, OpCode.Unm);
+        var c = await access.Unm(a);
         var table = c.Read<LuaTable>();
         Assert.Multiple(() =>
         {
@@ -111,9 +111,9 @@ public class LuaApiTests
         var a = result[0].Read<LuaTable>();
         var b = result[1].Read<LuaTable>();
         var c = result[2].Read<LuaTable>();
-        var ab = await access.Compare(a, b, OpCode.Eq);
+        var ab = await access.Equals(a, b);
         Assert.False(ab);
-        var ac = await access.Compare(a, c, OpCode.Eq);
+        var ac = await access.Equals(a, c);
         Assert.True(ac);
     }
 
@@ -234,10 +234,10 @@ return a,b,c
         var a = result[0];
         var b = result[1];
         var c = result[2];
-        var d = await access.Arithmetic(b, c, OpCode.Add);
+        var d = await access.Add(b, c);
         Assert.True(d.TryRead(out string s));
         Assert.That(s, Is.EqualTo("abc"));
-        d = await access.Unary(b, OpCode.Unm);
+        d = await access.Unm(b);
         Assert.True(d.TryRead(out s));
         Assert.That(s, Is.EqualTo("abb"));
         d = await access.Concat([c, b]);
@@ -277,10 +277,10 @@ return a,b,c
         var a = result[0];
         var b = result[1];
         var c = result[2];
-        var d = await access.Arithmetic(b, c, OpCode.Add);
+        var d = await access.Add(b, c);
         Assert.True(d.TryRead(out string s));
         Assert.That(s, Is.EqualTo("abc"));
-        d = await access.Unary(b, OpCode.Unm);
+        d = await access.Unm(b);
         Assert.True(d.TryRead(out s));
         Assert.That(s, Is.EqualTo("abb"));
         d = await access.Concat([c, b]);
