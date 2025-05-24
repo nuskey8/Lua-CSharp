@@ -89,10 +89,7 @@ public sealed class BasicLibrary
     {
         var arg0 = context.GetArgument<string>(0);
         context.Thread.Stack.PopUntil(context.ReturnFrameBase);
-
-        var bytes = File.ReadAllBytes(arg0);
-        var fileName = "@" + arg0;
-        var closure = context.State.Load(bytes, fileName);
+        var closure = await context.State.LoadFileAsync(arg0, "bt",null, cancellationToken);
         return await context.Access.RunAsync(closure, cancellationToken);
     }
 
@@ -148,7 +145,7 @@ public sealed class BasicLibrary
         return context.Return(IPairsIterator, arg0, 0);
     }
 
-    public ValueTask<int> LoadFile(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    public async ValueTask<int> LoadFile(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
         var arg0 = context.GetArgument<string>(0);
         var mode = context.HasArgument(1)
@@ -161,13 +158,11 @@ public sealed class BasicLibrary
         // do not use LuaState.DoFileAsync as it uses the newExecutionContext
         try
         {
-            var bytes = File.ReadAllBytes(arg0);
-            var fileName = "@" + arg0;
-            return new(context.Return(context.State.Load(bytes, fileName, mode, arg2)));
+            return context.Return(await context.State.LoadFileAsync(arg0,  mode, arg2,cancellationToken));
         }
         catch (Exception ex)
         {
-            return new(context.Return(LuaValue.Nil, ex.Message));
+            return context.Return(LuaValue.Nil, ex.Message);
         }
     }
 

@@ -1,3 +1,4 @@
+using Lua.IO;
 using Lua.Runtime;
 using Lua.Standard.Internal;
 
@@ -47,9 +48,14 @@ public static class OpenLibsExtensions
         }
 
         var registry = state.Registry;
-        registry ["stdin"] = new (new FileHandle(ConsoleHelper.OpenStandardInput()));
-        registry["stdout"] =new (new FileHandle(ConsoleHelper.OpenStandardOutput()));
-        registry["stderr"] = new (new FileHandle(ConsoleHelper.OpenStandardError()));
+        var stdin = new LuaValue(new FileHandle(LuaFileOpenMode.Read, ConsoleHelper.OpenStandardInput()));
+        var stdout = new LuaValue(new FileHandle(LuaFileOpenMode.Write, ConsoleHelper.OpenStandardOutput()));
+        var stderr = new LuaValue(new FileHandle(LuaFileOpenMode.Write, ConsoleHelper.OpenStandardError()));
+        registry["_IO_input"] = stdin;
+        registry["_IO_output"] = stdout;
+        io["stdin"] = stdin;
+        io["stdout"] = stdout;
+        io["stderr"] = stderr;
 
         state.Environment["io"] = io;
         state.LoadedModules["io"] = io;
@@ -74,10 +80,19 @@ public static class OpenLibsExtensions
 
     public static void OpenModuleLibrary(this LuaState state)
     {
-        var package = new LuaTable();
+        var package = new LuaTable(0, 8);
         package["loaded"] = state.LoadedModules;
+        package["preload"] = state.PreloadModules;
+        var moduleLibrary = ModuleLibrary.Instance;
+        var searchers = new LuaTable();
+        searchers[1] = new LuaFunction("preload", moduleLibrary.SearcherPreload);
+        searchers[2] = new LuaFunction("searcher_Lua", moduleLibrary.SearcherLua);
+        package["searchers"] = searchers;
+        package["path"] = "?.lua";
+        package["searchpath"] = moduleLibrary.SearchPathFunction;
+        package["config"] = $"{Path.DirectorySeparatorChar}\n;\n?\n!\n-";
         state.Environment["package"] = package;
-        state.Environment["require"] = ModuleLibrary.Instance.RequireFunction;
+        state.Environment["require"] = moduleLibrary.RequireFunction;
     }
 
     public static void OpenOperatingSystemLibrary(this LuaState state)

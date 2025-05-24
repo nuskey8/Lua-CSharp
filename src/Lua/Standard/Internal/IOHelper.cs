@@ -1,5 +1,6 @@
 using System.Text;
 using Lua.Internal;
+using Lua.IO;
 
 namespace Lua.Standard.Internal;
 
@@ -9,22 +10,22 @@ internal static class IOHelper
     {
         var fileMode = mode switch
         {
-            "r" or "rb" or "r+" or "r+b" => FileMode.Open,
-            "w" or "wb" or "w+" or "w+b" => FileMode.Create,
-            "a" or "ab" or "a+" or "a+b" => FileMode.Append,
+            "r" or "rb" => LuaFileOpenMode.Read,
+            "w" or "wb" => LuaFileOpenMode.Write,
+            "a" or "ab" => LuaFileOpenMode.Append,
+            "r+" or "rb+" => LuaFileOpenMode.ReadWriteOpen,
+            "w+" or "wb+" => LuaFileOpenMode.ReadWriteCreate,
+            "a+" or "ab+" => LuaFileOpenMode.ReadAppend,
             _ => throw new LuaRuntimeException(thread, "bad argument #2 to 'open' (invalid mode)"),
         };
 
-        var fileAccess = mode switch
-        {
-            "r" or "rb" => FileAccess.Read,
-            "w" or "wb" or "a" or "ab" => FileAccess.Write,
-            _ => FileAccess.ReadWrite,
-        };
+        var binary = mode.Contains("b");
+        if (binary) throw new LuaRuntimeException(thread, "binary mode is not supported");
 
         try
         {
-            var stream = File.Open(fileName, fileMode, fileAccess);
+            var stream = thread.State.FileSystem.Open(fileName, fileMode);
+
             thread.Stack.Push(new LuaValue(new FileHandle(stream)));
             return 1;
         }
@@ -44,7 +45,7 @@ internal static class IOHelper
 
     // TODO: optimize (use IBuffertWrite<byte>, async)
 
-    public static int Write(FileHandle file, string name, LuaFunctionExecutionContext context)
+    public static async ValueTask<int> WriteAsync(FileHandle file, string name, LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
         try
         {
@@ -53,14 +54,14 @@ internal static class IOHelper
                 var arg = context.Arguments[i];
                 if (arg.TryRead<string>(out var str))
                 {
-                    file.Write(str);
+                    await file.WriteAsync(str.AsMemory(), cancellationToken);
                 }
                 else if (arg.TryRead<double>(out var d))
                 {
                     using var fileBuffer = new PooledArray<char>(64);
                     var span = fileBuffer.AsSpan();
                     d.TryFormat(span, out var charsWritten);
-                    file.Write(span[..charsWritten]);
+                    await file.WriteAsync(fileBuffer.AsMemory()[..charsWritten], cancellationToken);
                 }
                 else
                 {
@@ -85,7 +86,7 @@ internal static class IOHelper
 
     static readonly LuaValue[] defaultReadFormat = ["*l"];
 
-    public static int Read(LuaThread thread, FileHandle file, string name, int startArgumentIndex, ReadOnlySpan<LuaValue> formats, bool throwError)
+    public static async ValueTask<int> ReadAsync(LuaThread thread, FileHandle file, string name, int startArgumentIndex, ReadOnlyMemory<LuaValue> formats, bool throwError, CancellationToken cancellationToken)
     {
         if (formats.Length == 0)
         {
@@ -99,7 +100,7 @@ internal static class IOHelper
         {
             for (int i = 0; i < formats.Length; i++)
             {
-                var format = formats[i];
+                var format = formats.Span[i];
                 if (format.TryRead<string>(out var str))
                 {
                     switch (str)
@@ -110,37 +111,32 @@ internal static class IOHelper
                             throw new NotImplementedException();
                         case "*a":
                         case "*all":
-                            stack.Push(file.ReadToEnd());
+                            stack.Push(await file.ReadToEndAsync(cancellationToken));
                             break;
                         case "*l":
                         case "*line":
-                            stack.Push(file.ReadLine() ?? LuaValue.Nil);
+                            stack.Push(await file.ReadLineAsync(cancellationToken) ?? LuaValue.Nil);
                             break;
                         case "L":
                         case "*L":
-                            var text = file.ReadLine();
+                            var text = await file.ReadLineAsync(cancellationToken);
                             stack.Push(text == null ? LuaValue.Nil : text + Environment.NewLine);
                             break;
                     }
                 }
                 else if (format.TryRead<int>(out var count))
                 {
-                    using var byteBuffer = new PooledArray<byte>(count);
-
-                    for (int j = 0; j < count; j++)
+                    var ret = await file.ReadStringAsync(count, cancellationToken);
+                    if (ret == null)
                     {
-                        var b = file.ReadByte();
-                        if (b == -1)
-                        {
-                            stack.PopUntil(top);
-                            stack.Push(LuaValue.Nil);
-                            return 1;
-                        }
-
-                        byteBuffer[j] = (byte)b;
+                        stack.PopUntil(top);
+                        stack.Push(default);
+                        return 1;
                     }
-
-                    stack.Push(Encoding.UTF8.GetString(byteBuffer.AsSpan()));
+                    else
+                    {
+                        stack.Push(ret);
+                    }
                 }
                 else
                 {
