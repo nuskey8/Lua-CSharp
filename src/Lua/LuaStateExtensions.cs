@@ -1,6 +1,4 @@
-using System.Buffers;
-using Lua.CodeAnalysis.Compilation;
-using Lua.CodeAnalysis.Syntax;
+using Lua.Runtime;
 
 namespace Lua;
 
@@ -8,45 +6,34 @@ public static class LuaStateExtensions
 {
     public static ValueTask<int> DoStringAsync(this LuaState state, string source, Memory<LuaValue> buffer, string? chunkName = null, CancellationToken cancellationToken = default)
     {
-        var syntaxTree = LuaSyntaxTree.Parse(source, chunkName);
-        var chunk = LuaCompiler.Default.Compile(syntaxTree, chunkName);
-        return state.RunAsync(chunk, buffer, cancellationToken);
+        return state.TopLevelAccess.DoStringAsync(source, buffer, chunkName, cancellationToken);
     }
 
-    public static async ValueTask<LuaValue[]> DoStringAsync(this LuaState state, string source, string? chunkName = null, CancellationToken cancellationToken = default)
+    public static ValueTask<LuaValue[]> DoStringAsync(this LuaState state, string source, string? chunkName = null, CancellationToken cancellationToken = default)
     {
-        var buffer = ArrayPool<LuaValue>.Shared.Rent(1024);
-        try
-        {
-            var resultCount = await DoStringAsync(state, source, buffer, chunkName, cancellationToken);
-            return buffer.AsSpan(0, resultCount).ToArray();
-        }
-        finally
-        {
-            ArrayPool<LuaValue>.Shared.Return(buffer);
-        }
+        return state.TopLevelAccess.DoStringAsync(source, chunkName, cancellationToken);
     }
 
-    public static async ValueTask<int> DoFileAsync(this LuaState state, string path, Memory<LuaValue> buffer, CancellationToken cancellationToken = default)
+    public static ValueTask<int> DoFileAsync(this LuaState state, string path, Memory<LuaValue> buffer, CancellationToken cancellationToken = default)
     {
-        var text = await File.ReadAllTextAsync(path, cancellationToken);
-        var fileName = "@"+Path.GetFileName(path);
-        var syntaxTree = LuaSyntaxTree.Parse(text, fileName);
-        var chunk = LuaCompiler.Default.Compile(syntaxTree, fileName);
-        return await state.RunAsync(chunk, buffer, cancellationToken);
+        return state.TopLevelAccess.DoFileAsync(path, buffer, cancellationToken);
     }
 
-    public static async ValueTask<LuaValue[]> DoFileAsync(this LuaState state, string path, CancellationToken cancellationToken = default)
+    public static ValueTask<LuaValue[]> DoFileAsync(this LuaState state, string path, CancellationToken cancellationToken = default)
     {
-        var buffer = ArrayPool<LuaValue>.Shared.Rent(1024);
-        try
+        return state.TopLevelAccess.DoFileAsync(path, cancellationToken);
+    }
+
+    public static async ValueTask<LuaClosure> LoadFileAsync(this LuaState state, string fileName, string mode, LuaTable? environment, CancellationToken cancellationToken)
+    {
+        var name = "@" + fileName;
+        LuaClosure closure;
         {
-            var resultCount = await DoFileAsync(state, path, buffer, cancellationToken);
-            return buffer.AsSpan(0, resultCount).ToArray();
+            using var file = await state.FileSystem.ReadFileContentAsync(fileName, cancellationToken);
+            closure = file.Type == LuaFileContentType.Bytes
+                ? state.Load(file.ReadBytes(), name, mode, environment)
+                : state.Load(file.ReadText(), name, environment);
         }
-        finally
-        {
-            ArrayPool<LuaValue>.Shared.Return(buffer);
-        }
+        return closure;
     }
 }

@@ -37,7 +37,7 @@ public class NBodyBenchmark
         return core.MoonSharpState.DoFile(core.FilePath);
     }
 
-    [Benchmark(Description = "NLua (DoString)")]
+    [Benchmark(Description = "NLua (DoString)", Baseline = true)]
     public object[] Benchmark_NLua_String()
     {
         return core.NLuaState.DoString(core.SourceText);
