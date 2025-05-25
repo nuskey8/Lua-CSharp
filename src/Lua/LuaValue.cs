@@ -416,8 +416,9 @@ public readonly struct LuaValue : IEquatable<LuaValue>
         };
     }
 
-    public static LuaValue FromUserData(ILuaUserData userData)
+    public static LuaValue FromUserData(ILuaUserData? userData)
     {
+        if (userData is null) return Nil;
         return new(userData);
     }
 
