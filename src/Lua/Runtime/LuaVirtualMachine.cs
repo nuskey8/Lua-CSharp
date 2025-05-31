@@ -1482,10 +1482,21 @@ public static partial class LuaVirtualMachine
     [MethodImpl(MethodImplOptions.NoInlining)]
     static bool GetTableValueSlowPath(LuaValue table, LuaValue key, VirtualMachineExecutionContext context, out LuaValue value, out bool doRestart)
     {
-        // TODO: get table name if nil
-        // if (table.Type == LuaValueType.Nil)
-        // {
-        // }
+        if (table.Type == LuaValueType.Nil)
+        {
+            ThrowInvalidOperation();
+
+            [MethodImpl(MethodImplOptions.NoInlining)]
+            void ThrowInvalidOperation()
+            {
+                var op = context.Instruction.OpCode;
+                if (op != OpCode.GetTabUp)
+                    LuaRuntimeException.AttemptInvalidOperationOnLuaStack(GetThreadWithCurrentPc(context), "index", context.Pc, context.Instruction.B);
+                else
+                    LuaRuntimeException.AttemptInvalidOperationOnUpValues(GetThreadWithCurrentPc(context), "index", context.Pc, context.Instruction.B);
+            }
+        }
+
         var targetTable = table;
         const int MAX_LOOP = 100;
         doRestart = false;
@@ -1644,6 +1655,21 @@ public static partial class LuaVirtualMachine
     static bool SetTableValueSlowPath(LuaValue table, LuaValue key, LuaValue value,
         VirtualMachineExecutionContext context, out bool doRestart)
     {
+        if (table.Type == LuaValueType.Nil)
+        {
+            ThrowInvalidOperation();
+
+            [MethodImpl(MethodImplOptions.NoInlining)]
+            void ThrowInvalidOperation()
+            {
+                var op = context.Instruction.OpCode;
+                if (op != OpCode.SetTabUp)
+                    LuaRuntimeException.AttemptInvalidOperationOnLuaStack(GetThreadWithCurrentPc(context), "index", context.Pc, context.Instruction.A);
+                else
+                    LuaRuntimeException.AttemptInvalidOperationOnUpValues(GetThreadWithCurrentPc(context), "index", context.Pc, context.Instruction.A);
+            }
+        }
+
         var targetTable = table;
         const int MAX_LOOP = 100;
         doRestart = false;
@@ -2403,7 +2429,7 @@ public static partial class LuaVirtualMachine
     static void GetThreadWithCurrentPc(LuaThread thread, int pc)
     {
         var frame = thread.GetCurrentFrame();
-        thread.PushCallStackFrame(frame with { CallerInstructionIndex = pc,Flags = frame.Flags^ CallStackFrameFlags.TailCall });
+        thread.PushCallStackFrame(frame with { CallerInstructionIndex = pc, Flags = frame.Flags & (0 ^ CallStackFrameFlags.TailCall) });
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

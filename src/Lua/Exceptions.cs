@@ -145,6 +145,16 @@ public class LuaRuntimeException : Exception, ILuaTracebackBuildable
         }
     }
 
+    internal static void AttemptInvalidOperationOnUpValues(LuaThread thread, string op, int lastPc, int reg)
+    {
+        var caller = thread.GetCurrentFrame();
+        var luaValue = thread.Stack[caller.Base + reg];
+        var function = caller.Function;
+        var name = ((LuaClosure)function).Proto.UpValues[reg].Name;
+
+        throw new LuaRuntimeException(thread, $"attempt to {op} a {luaValue.TypeToString()} value (global '{name}')");
+    }
+
     public static void BadArgument(LuaThread? thread, int argumentId, string functionName)
     {
         throw new LuaRuntimeException(thread, $"bad argument #{argumentId} to '{functionName}' (value expected)");
