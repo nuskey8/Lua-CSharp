@@ -221,7 +221,7 @@ public class LuaRuntimeException : Exception, ILuaTracebackBuildable
 
         if (callerFunction is not LuaClosure callerClosure)
         {
-            return ("function", callerFunction.Name);
+            return ("function", current.Function.Name);
         }
 
         return (LuaDebug.GetFuncName(callerClosure.Proto, pc, out var name) ?? "", name ?? current.Function.Name);
