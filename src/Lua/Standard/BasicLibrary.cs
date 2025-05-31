@@ -350,7 +350,7 @@ public sealed class BasicLibrary
         }
         else
         {
-            LuaRuntimeException.BadArgument(context.Thread, 1, "select", "number", arg0.Type.ToString());
+            LuaRuntimeException.BadArgument(context.Thread, 1, "select", LuaValueType.Number, arg0.Type);
             return default;
         }
     }

@@ -121,7 +121,7 @@ public sealed class OperatingSystemLibrary
             }
             else
             {
-                LuaRuntimeException.BadArgument(context.Thread, 1, "exit", LuaValueType.Nil.ToString(), code.Type.ToString());
+                LuaRuntimeException.BadArgument(context.Thread, 1, "exit", LuaValueType.Nil, code.Type);
             }
         }
         else

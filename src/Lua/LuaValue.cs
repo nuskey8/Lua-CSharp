@@ -576,19 +576,7 @@ public readonly struct LuaValue : IEquatable<LuaValue>
 
     public string TypeToString()
     {
-        return Type switch
-        {
-            LuaValueType.Nil => "nil",
-            LuaValueType.Boolean => "boolean",
-            LuaValueType.String => "string",
-            LuaValueType.Number => "number",
-            LuaValueType.Function => "function",
-            LuaValueType.Thread => "thread",
-            LuaValueType.Table => "table",
-            LuaValueType.LightUserData => "userdata",
-            LuaValueType.UserData => "userdata",
-            _ => "",
-        };
+        return ToString(Type);
     }
 
     public static string ToString(LuaValueType type)
@@ -602,7 +590,7 @@ public readonly struct LuaValue : IEquatable<LuaValue>
             LuaValueType.Function => "function",
             LuaValueType.Thread => "thread",
             LuaValueType.Table => "table",
-            LuaValueType.LightUserData => "userdata",
+            LuaValueType.LightUserData => "light userdata",
             LuaValueType.UserData => "userdata",
             _ => "",
         };

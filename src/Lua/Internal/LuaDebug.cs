@@ -434,7 +434,7 @@ internal readonly struct LuaDebug : IDisposable
                         int t = i.B; /* table index */
 
                         var vn = (op == OpCode.GetTable) /* name of indexed variable */
-                            ? GetLocalName(prototype, t + 1, pc)
+                            ? GetLocalName(prototype, t, pc)
                             : prototype.UpValues[t].Name.ToString();
                         GetConstantName(prototype, pc, k, out name);
                         return vn is "_ENV" ? "global" : "field";

@@ -243,7 +243,7 @@ public sealed class StringLibrary
                     case 'G':
                         if (!parameter.TryRead<double>(out var f))
                         {
-                            LuaRuntimeException.BadArgument(context.Thread, parameterIndex + 1, "format", LuaValueType.Number.ToString(), parameter.Type.ToString());
+                            LuaRuntimeException.BadArgument(context.Thread, parameterIndex + 1, "format", LuaValueType.Number, parameter.Type);
                         }
 
                         switch (specifier)
@@ -324,7 +324,7 @@ public sealed class StringLibrary
                     case 'X':
                         if (!parameter.TryRead<double>(out var x))
                         {
-                            LuaRuntimeException.BadArgument(context.Thread, parameterIndex + 1, "format", LuaValueType.Number.ToString(), parameter.Type.ToString());
+                            LuaRuntimeException.BadArgument(context.Thread, parameterIndex + 1, "format", LuaValueType.Number, parameter.Type);
                         }
 
                         LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.Thread, "format", parameterIndex + 1, x);

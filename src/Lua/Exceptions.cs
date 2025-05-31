@@ -121,7 +121,14 @@ public class LuaRuntimeException : Exception, ILuaTracebackBuildable
 
     public static void AttemptInvalidOperation(LuaThread? thread, string op, LuaValue a, LuaValue b)
     {
-        throw new LuaRuntimeException(thread, $"attempt to {op} a {a.TypeToString()} value with a {b.TypeToString()} value");
+        var typeA = a.TypeToString();
+        var typeB = b.TypeToString();
+        if (typeA == typeB)
+        {
+            throw new LuaRuntimeException(thread, $"attempt to {op} two {typeA} values");
+        }
+ 
+        throw new LuaRuntimeException(thread, $"attempt to {op} a {typeA} value with a {typeB} value");
     }
 
     public static void AttemptInvalidOperation(LuaThread? thread, string op, LuaValue a)
@@ -129,28 +136,70 @@ public class LuaRuntimeException : Exception, ILuaTracebackBuildable
         throw new LuaRuntimeException(thread, $"attempt to {op} a {a.TypeToString()} value");
     }
 
+    internal static void AttemptInvalidOperationOnLuaStack(LuaThread thread, string op, int lastPc, int regA, int regB)
+    {
+        var caller = thread.GetCurrentFrame();
+        var luaValueA = regA < 255 ? thread.Stack[caller.Base + regA] : ((LuaClosure)caller.Function).Proto.Constants[regA - 256];
+        var luaValueB = regB < 255 ? thread.Stack[caller.Base + regB] : ((LuaClosure)caller.Function).Proto.Constants[regB - 256];
+        var function = caller.Function;
+        var tA = LuaDebug.GetName(((LuaClosure)function).Proto, lastPc, regA, out string? nameA);
+        var tB = LuaDebug.GetName(((LuaClosure)function).Proto, lastPc, regB, out string? nameB);
+
+        using var builder = new PooledList<char>(64);
+        builder.Clear();
+        builder.AddRange("attempt to ");
+        builder.AddRange(op);
+        builder.AddRange(" a ");
+        builder.AddRange(luaValueA.TypeToString());
+        builder.AddRange(" value");
+        if (tA != null && nameA != null)
+        {
+            builder.AddRange($" ({tA} '{nameA}')");
+        }
+
+        builder.AddRange(" with a ");
+        builder.AddRange(luaValueB.TypeToString());
+        builder.AddRange(" value");
+        if (tB != null && nameB != null)
+        {
+            builder.AddRange($" ({tB} '{nameB}')");
+        }
+
+        throw new LuaRuntimeException(thread, builder.AsSpan().ToString());
+    }
+
     internal static void AttemptInvalidOperationOnLuaStack(LuaThread thread, string op, int lastPc, int reg)
     {
         var caller = thread.GetCurrentFrame();
-        var luaValue = thread.Stack[caller.Base + reg];
+        var luaValue = reg < 255 ? thread.Stack[caller.Base + reg] : ((LuaClosure)caller.Function).Proto.Constants[reg - 256];
         var function = caller.Function;
         var t = LuaDebug.GetName(((LuaClosure)function).Proto, lastPc, reg, out string? name);
-        if (t == null || name == null)
+        
+        using var builder = new PooledList<char>(64);
+        builder.Clear();
+        builder.AddRange("attempt to ");
+        builder.AddRange(op);
+        builder.AddRange(" a ");
+        builder.AddRange(luaValue.TypeToString());
+        builder.AddRange(" value");
+        if (t != null && name != null)
         {
-            throw new LuaRuntimeException(thread, $"attempt to {op} a {luaValue.TypeToString()} value");
+            builder.AddRange($" ({t} '{name}')");
         }
-        else
         {
-            throw new LuaRuntimeException(thread, $"attempt to {op} a {luaValue.TypeToString()} value ({t} '{name}')");
+            throw new LuaRuntimeException(thread,  builder.AsSpan().ToString());
         }
     }
 
     internal static void AttemptInvalidOperationOnUpValues(LuaThread thread, string op, int lastPc, int reg)
     {
         var caller = thread.GetCurrentFrame();
-        var luaValue = thread.Stack[caller.Base + reg];
-        var function = caller.Function;
-        var name = ((LuaClosure)function).Proto.UpValues[reg].Name;
+        var closure = (LuaClosure)caller.Function;
+        var proto = closure.Proto;
+
+        var upValue = proto.UpValues[reg];
+        var luaValue = closure.UpValues[upValue.Index].GetValue();
+        var name = upValue.Name;
 
         throw new LuaRuntimeException(thread, $"attempt to {op} a {luaValue.TypeToString()} value (global '{name}')");
     }
@@ -168,6 +217,11 @@ public class LuaRuntimeException : Exception, ILuaTracebackBuildable
     public static void BadArgument(LuaThread? thread, int argumentId, string functionName, string expected, string actual)
     {
         throw new LuaRuntimeException(thread, $"bad argument #{argumentId} to '{functionName}' ({expected} expected, got {actual})");
+    }
+    
+    public static void BadArgument(LuaThread? thread, int argumentId, string functionName, LuaValueType expected, LuaValueType actual)
+    {
+        throw new LuaRuntimeException(thread, $"bad argument #{argumentId} to '{functionName}' ({LuaValue.ToString(expected)} expected, got {LuaValue.ToString(actual)})");
     }
 
     public static void BadArgument(LuaThread? thread, int argumentId, string functionName, string message)

@@ -1901,7 +1901,7 @@ public static partial class LuaVirtualMachine
             return true;
         }
 
-        LuaRuntimeException.AttemptInvalidOperation(GetThreadWithCurrentPc(context), description, vb, vc);
+        LuaRuntimeException.AttemptInvalidOperationOnLuaStack(GetThreadWithCurrentPc(context), description,context.Pc, context.Instruction.B, context.Instruction.C);
         return false;
     }
 
@@ -2035,7 +2035,7 @@ public static partial class LuaVirtualMachine
             return true;
         }
 
-        LuaRuntimeException.AttemptInvalidOperation(GetThreadWithCurrentPc(context), description, vb);
+        LuaRuntimeException.AttemptInvalidOperationOnLuaStack(GetThreadWithCurrentPc(context), description,context.Pc, context.Instruction.B);
         return true;
     }
 
@@ -2186,7 +2186,7 @@ public static partial class LuaVirtualMachine
                 (vb, vc) = (vc, vb);
             }
 
-            LuaRuntimeException.AttemptInvalidOperation(GetThreadWithCurrentPc(context), description, vb, vc);
+            LuaRuntimeException.AttemptInvalidOperation(GetThreadWithCurrentPc(context), "compare", vb, vc);
         }
         else
         {
