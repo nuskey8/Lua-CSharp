@@ -24,6 +24,7 @@ public sealed class StringLibrary
             new(libraryName,"gsub", GSub),
             new(libraryName,"len", Len),
             new(libraryName,"lower", Lower),
+            new (libraryName,"match", Match),
             new(libraryName,"rep", Rep),
             new(libraryName,"reverse", Reverse),
             new(libraryName,"sub", Sub),
@@ -559,6 +560,12 @@ public sealed class StringLibrary
     {
         var s = context.GetArgument<string>(0);
         return new(context.Return(s.ToLower()));
+    }
+    
+    public ValueTask<int> Match(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    {
+        //TODO : implement string.match
+        throw new NotImplementedException();
     }
 
     public ValueTask<int> Rep(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
