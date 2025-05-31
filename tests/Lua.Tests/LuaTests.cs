@@ -31,9 +31,10 @@ public class LuaTests
         var state = LuaState.Create();
         state.OpenStandardLibraries();
         var path = FileHelper.GetAbsolutePath(file);
+        Directory.SetCurrentDirectory(Path.GetDirectoryName(path)!);
         try
         {
-            await state.DoFileAsync(path);
+            await state.DoFileAsync(Path.GetFileName(file));
         }
         catch (LuaRuntimeException e)
         {
@@ -45,7 +46,6 @@ public class LuaTests
 
             var line = luaTraceback.LastLine;
             throw new Exception($"{path}:line {line}\n{e.InnerException}\n {e}");
-
         }
     }
 }
