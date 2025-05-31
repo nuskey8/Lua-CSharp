@@ -203,7 +203,7 @@ public class LuaRuntimeException : Exception, ILuaTracebackBuildable
         throw new LuaRuntimeException(thread, $"attempt to {op} a {luaValue.TypeToString()} value (global '{name}')");
     }
 
-    internal static string GetCurrentFunctionName(LuaThread thread)
+    internal static (string NameWhat, string Name) GetCurrentFunctionName(LuaThread thread)
     {
         var current = thread.GetCurrentFrame();
         var pc = current.CallerInstructionIndex;
@@ -219,40 +219,52 @@ public class LuaRuntimeException : Exception, ILuaTracebackBuildable
             callerClosure = (LuaClosure)caller.Function;
         }
 
-        LuaDebug.GetFuncName(callerClosure.Proto, pc, out var name);
-        return name ?? current.Function.Name;
+        return (LuaDebug.GetFuncName(callerClosure.Proto, pc, out var name) ?? "", name ?? current.Function.Name);
     }
 
     public static void BadArgument(LuaThread thread, int argumentId)
     {
-        throw new LuaRuntimeException(thread, $"bad argument #{argumentId} to '{GetCurrentFunctionName(thread)}' (value expected)");
+        BadArgument(thread, argumentId, "value expected");
     }
 
 
     public static void BadArgument(LuaThread thread, int argumentId, LuaValueType expected, LuaValueType actual)
     {
-        throw new LuaRuntimeException(thread, $"bad argument #{argumentId} to '{GetCurrentFunctionName(thread)}' ({LuaValue.ToString(expected)} expected, got {LuaValue.ToString(actual)})");
+        BadArgument(thread, argumentId, $"{LuaValue.ToString(expected)} expected, got {LuaValue.ToString(actual)})");
     }
 
     public static void BadArgument(LuaThread thread, int argumentId, LuaValueType[] expected, LuaValueType actual)
     {
-        throw new LuaRuntimeException(thread, $"bad argument #{argumentId} to '{GetCurrentFunctionName(thread)}' ({string.Join(" or ", expected.Select(LuaValue.ToString))} expected, got {LuaValue.ToString(actual)})");
+        BadArgument(thread, argumentId, $"({string.Join(" or ", expected.Select(LuaValue.ToString))} expected, got {LuaValue.ToString(actual)})");
     }
 
 
     public static void BadArgument(LuaThread thread, int argumentId, string expected, string actual)
     {
-        throw new LuaRuntimeException(thread, $"bad argument #{argumentId} to '{GetCurrentFunctionName(thread)}' ({expected} expected, got {actual})");
+        BadArgument(thread, argumentId, $"({expected} expected, got {actual})");
     }
 
     public static void BadArgument(LuaThread thread, int argumentId, string[] expected, string actual)
     {
-        throw new LuaRuntimeException(thread, $"bad argument #{argumentId} to '{GetCurrentFunctionName(thread)}' ({string.Join(" or ", expected)} expected, got {actual})");
+        if (expected.Length == 0)
+        {
+            throw new ArgumentException("Expected array must not be empty", nameof(expected));
+        }
+
+        BadArgument(thread, argumentId, $"({string.Join(" or ", expected)} expected, got {actual})");
     }
 
 
     public static void BadArgument(LuaThread thread, int argumentId, string message)
     {
+        var (nameWhat, name) = GetCurrentFunctionName(thread);
+        if (argumentId == 1 && nameWhat == "method")
+        {
+            // If the first argument is a method, we don't need to specify the function name
+            // because it is already implied by the method call.
+            throw new LuaRuntimeException(thread, $"calling '{name}' on bad self ({message})");
+        }
+
         throw new LuaRuntimeException(thread, $"bad argument #{argumentId} to '{GetCurrentFunctionName(thread)}' ({message})");
     }
 
