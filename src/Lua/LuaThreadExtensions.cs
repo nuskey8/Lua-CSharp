@@ -1,46 +1,31 @@
-using Lua.Internal;
+using Lua.Runtime;
 
 namespace Lua;
 
 public static class LuaThreadExtensions
 {
-    public static async ValueTask<LuaValue[]> ResumeAsync(this LuaThread thread, LuaState state, CancellationToken cancellationToken = default)
+    public static UseThreadLease RentUseThread(this LuaThread thread)
     {
-        using var buffer = new PooledArray<LuaValue>(1024);
-
-        var frameBase = thread.Stack.Count;
-        thread.Stack.Push(thread);
-
-        var resultCount = await thread.ResumeAsync(new()
-        {
-            State = state,
-            Thread = state.CurrentThread,
-            ArgumentCount = 1,
-            FrameBase = frameBase,
-        }, buffer.AsMemory(), cancellationToken);
-
-        return buffer.AsSpan()[0..resultCount].ToArray();
+        return new(LuaUserThread.Create(thread));
     }
 
-    public static async ValueTask<LuaValue[]> ResumeAsync(this LuaThread thread, LuaState state, LuaValue[] arguments, CancellationToken cancellationToken = default)
+    public static CoroutineLease RentCoroutine(this LuaThread thread, LuaFunction function, bool isProtectedMode = false)
     {
-        using var buffer = new PooledArray<LuaValue>(1024);
+        return new(LuaCoroutine.Create(thread, function, isProtectedMode));
+    }
 
-        var frameBase = thread.Stack.Count;
-        thread.Stack.Push(thread);
-        for (int i = 0; i < arguments.Length; i++)
+    internal static void ThrowIfCancellationRequested(this LuaThread thread, CancellationToken cancellationToken)
+    {
+        if (cancellationToken.IsCancellationRequested)
         {
-            thread.Stack.Push(arguments[i]);
+            Throw(thread, cancellationToken);
         }
 
-        var resultCount = await thread.ResumeAsync(new()
-        {
-            State = state,
-            Thread = state.CurrentThread,
-            ArgumentCount = 1 + arguments.Length,
-            FrameBase = frameBase,
-        }, buffer.AsMemory(), cancellationToken);
+        return;
 
-        return buffer.AsSpan()[0..resultCount].ToArray();
+        static void Throw(LuaThread thread, CancellationToken cancellationToken)
+        {
+            throw new LuaCanceledException(thread, cancellationToken);
+        }
     }
 }
