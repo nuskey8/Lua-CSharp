@@ -258,19 +258,21 @@ public class LuaRuntimeException : Exception, ILuaTracebackBuildable
     public static void BadArgument(LuaThread thread, int argumentId, string message)
     {
         var (nameWhat, name) = GetCurrentFunctionName(thread);
-        if (argumentId == 1 && nameWhat == "method")
+        if (nameWhat == "method")
         {
-            // If the first argument is a method, we don't need to specify the function name
-            // because it is already implied by the method call.
-            throw new LuaRuntimeException(thread, $"calling '{name}' on bad self ({message})");
+            argumentId--;
+            if (argumentId == 0)
+            {
+                throw new LuaRuntimeException(thread, $"calling '{name}' on bad self ({message})");
+            }
         }
 
-        throw new LuaRuntimeException(thread, $"bad argument #{argumentId} to '{GetCurrentFunctionName(thread)}' ({message})");
+        throw new LuaRuntimeException(thread, $"bad argument #{argumentId} to '{name}' ({message})");
     }
 
     public static void BadArgumentNumberIsNotInteger(LuaThread thread, int argumentId)
     {
-        throw new LuaRuntimeException(thread, $"bad argument #{argumentId} to '{GetCurrentFunctionName(thread)}' (number has no integer representation)");
+        BadArgument(thread, argumentId, "number has no integer representation");
     }
 
     public static void ThrowBadArgumentIfNumberIsNotInteger(LuaThread thread, int argumentId, double value)
