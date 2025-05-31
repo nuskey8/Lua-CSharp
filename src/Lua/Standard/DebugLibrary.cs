@@ -10,27 +10,28 @@ public class DebugLibrary
 
     public DebugLibrary()
     {
+        var libraryName = "debug";
         Functions =
         [
-            new("getlocal", GetLocal),
-            new("setlocal", SetLocal),
-            new("getupvalue", GetUpValue),
-            new("setupvalue", SetUpValue),
-            new("getmetatable", GetMetatable),
-            new("setmetatable", SetMetatable),
-            new("getuservalue", GetUserValue),
-            new("setuservalue", SetUserValue),
-            new("traceback", Traceback),
-            new("getregistry", GetRegistry),
-            new("upvalueid", UpValueId),
-            new("upvaluejoin", UpValueJoin),
-            new("gethook", GetHook),
-            new("sethook", SetHook),
-            new("getinfo", GetInfo),
+            new(libraryName,"getlocal", GetLocal),
+            new(libraryName,"setlocal", SetLocal),
+            new(libraryName,"getupvalue", GetUpValue),
+            new(libraryName,"setupvalue", SetUpValue),
+            new(libraryName,"getmetatable", GetMetatable),
+            new(libraryName,"setmetatable", SetMetatable),
+            new(libraryName,"getuservalue", GetUserValue),
+            new(libraryName,"setuservalue", SetUserValue),
+            new(libraryName,"traceback", Traceback),
+            new(libraryName,"getregistry", GetRegistry),
+            new(libraryName,"upvalueid", UpValueId),
+            new(libraryName,"upvaluejoin", UpValueJoin),
+            new(libraryName,"gethook", GetHook),
+            new(libraryName,"sethook", SetHook),
+            new(libraryName,"getinfo", GetInfo),
         ];
     }
 
-    public readonly LuaFunction[] Functions;
+    public readonly LibraryFunction[] Functions;
 
 
     static LuaThread GetLuaThread(in LuaFunctionExecutionContext context, out int argOffset)
@@ -277,7 +278,7 @@ public class DebugLibrary
 
         if (arg1.Type is not (LuaValueType.Nil or LuaValueType.Table))
         {
-            LuaRuntimeException.BadArgument(context.Thread, 2, "setmetatable", [LuaValueType.Nil, LuaValueType.Table]);
+            LuaRuntimeException.BadArgument(context.Thread, 2, [LuaValueType.Nil, LuaValueType.Table]);
         }
 
         context.State.SetMetatable(arg0, arg1.UnsafeRead<LuaTable>());

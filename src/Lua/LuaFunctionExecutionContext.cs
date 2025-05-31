@@ -59,19 +59,19 @@ public readonly record struct LuaFunctionExecutionContext
             var t = typeof(T);
             if ((t == typeof(int) || t == typeof(long)) && arg.TryReadNumber(out _))
             {
-                LuaRuntimeException.BadArgumentNumberIsNotInteger(Thread, index + 1, Thread.GetCurrentFrame().Function.Name);
+                LuaRuntimeException.BadArgumentNumberIsNotInteger(Thread, index + 1);
             }
             else if (LuaValue.TryGetLuaValueType(t, out var type))
             {
-                LuaRuntimeException.BadArgument(Thread, index + 1, Thread.GetCurrentFrame().Function.Name, type, arg.Type);
+                LuaRuntimeException.BadArgument(Thread, index + 1,type, arg.Type);
             }
             else if (arg.Type is LuaValueType.UserData or LuaValueType.LightUserData)
             {
-                LuaRuntimeException.BadArgument(Thread, index + 1, Thread.GetCurrentFrame().Function.Name, t.Name, arg.UnsafeRead<object>()?.GetType().ToString() ?? "userdata: 0");
+                LuaRuntimeException.BadArgument(Thread, index + 1, t.Name, arg.UnsafeRead<object>()?.GetType().ToString() ?? "userdata: 0");
             }
             else
             {
-                LuaRuntimeException.BadArgument(Thread, index + 1, Thread.GetCurrentFrame().Function.Name, t.Name, arg.TypeToString());
+                LuaRuntimeException.BadArgument(Thread, index + 1, t.Name, arg.TypeToString());
             }
         }
 
@@ -98,19 +98,19 @@ public readonly record struct LuaFunctionExecutionContext
             var t = typeof(T);
             if ((t == typeof(int) || t == typeof(long)) && arg.TryReadNumber(out _))
             {
-                LuaRuntimeException.BadArgumentNumberIsNotInteger(Thread, index + 1, Thread.GetCurrentFrame().Function.Name);
+                LuaRuntimeException.BadArgumentNumberIsNotInteger(Thread, index + 1);
             }
             else if (LuaValue.TryGetLuaValueType(t, out var type))
             {
-                LuaRuntimeException.BadArgument(Thread, index + 1, Thread.GetCurrentFrame().Function.Name, type, arg.Type);
+                LuaRuntimeException.BadArgument(Thread, index + 1, type, arg.Type);
             }
             else if (arg.Type is LuaValueType.UserData or LuaValueType.LightUserData)
             {
-                LuaRuntimeException.BadArgument(Thread, index + 1, Thread.GetCurrentFrame().Function.Name, t.Name, arg.UnsafeRead<object>()?.GetType().ToString() ?? "userdata: 0");
+                LuaRuntimeException.BadArgument(Thread, index + 1, t.Name, arg.UnsafeRead<object>()?.GetType().ToString() ?? "userdata: 0");
             }
             else
             {
-                LuaRuntimeException.BadArgument(Thread, index + 1, Thread.GetCurrentFrame().Function.Name, t.Name, arg.TypeToString());
+                LuaRuntimeException.BadArgument(Thread, index + 1, t.Name, arg.TypeToString());
             }
         }
 

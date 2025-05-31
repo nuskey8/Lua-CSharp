@@ -141,7 +141,7 @@ public class Traceback(LuaState state, ReadOnlySpan<CallStackFrame> stackFrames)
                 if (p.LineDefined == 0)
                 {
                     list.AddRange("main chunk");
-                    list.AddRange("\n");
+                    list.Add('\n');
                     goto Next;
                 }
 

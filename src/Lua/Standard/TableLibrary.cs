@@ -13,18 +13,19 @@ public sealed class TableLibrary
 
     public TableLibrary()
     {
+        var libraryName = "table";
         Functions =
         [
-            new("concat", Concat),
-            new("insert", Insert),
-            new("pack", Pack),
-            new("remove", Remove),
-            new("sort", Sort),
-            new("unpack", Unpack),
+            new(libraryName, "concat", Concat),
+            new(libraryName, "insert", Insert),
+            new(libraryName, "pack", Pack),
+            new(libraryName, "remove", Remove),
+            new(libraryName, "sort", Sort),
+            new(libraryName, "unpack", Unpack),
         ];
     }
 
-    public readonly LuaFunction[] Functions;
+    public readonly LibraryFunction[] Functions;
 
     // TODO: optimize
     private static readonly Prototype defaultComparer = new Prototype(
@@ -89,7 +90,7 @@ public sealed class TableLibrary
             ? context.GetArgument<double>(1)
             : table.ArrayLength + 1;
 
-        LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.Thread, "insert", 2, pos_arg);
+        LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.Thread, 2, pos_arg);
 
         var pos = (int)pos_arg;
 
@@ -124,7 +125,7 @@ public sealed class TableLibrary
             ? context.GetArgument<double>(1)
             : table.ArrayLength;
 
-        LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.Thread, "remove", 2, n_arg);
+        LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.Thread, 2, n_arg);
 
         var n = (int)n_arg;
 
@@ -189,7 +190,7 @@ public sealed class TableLibrary
             var top = stack.Count;
             stack.Push(memory.Span[j]);
             stack.Push(pivot);
-            await context.Access.RunAsync(comparer, 2,cancellationToken);
+            await context.Access.RunAsync(comparer, 2, cancellationToken);
 
             if (context.Thread.Stack.Get(top).ToBoolean())
             {

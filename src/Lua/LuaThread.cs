@@ -72,6 +72,7 @@ public abstract class LuaThread
 
     internal ILuaTracebackBuildable? CurrentException;
     internal readonly ReversedStack<CallStackFrame> ExceptionTrace = new();
+    internal LuaFunction? LastCallerFunction;
 
     public bool IsRunning => CallStackFrameCount != 0;
     internal LuaFunction? Hook { get; set; }

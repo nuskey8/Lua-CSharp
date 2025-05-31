@@ -11,21 +11,21 @@ public sealed class OperatingSystemLibrary
     {
         Functions =
         [
-            new("clock", Clock),
-            new("date", Date),
-            new("difftime", DiffTime),
-            new("execute", Execute),
-            new("exit", Exit),
-            new("getenv", GetEnv),
-            new("remove", Remove),
-            new("rename", Rename),
-            new("setlocale", SetLocale),
-            new("time", Time),
-            new("tmpname", TmpName),
+            new("os","clock", Clock),
+            new("os","date", Date),
+            new("os","difftime", DiffTime),
+            new("os","execute", Execute),
+            new("os","exit", Exit),
+            new("os","getenv", GetEnv),
+            new("os","remove", Remove),
+            new("os","rename", Rename),
+            new("os","setlocale", SetLocale),
+            new("os","time", Time),
+            new("os","tmpname", TmpName),
         ];
     }
 
-    public readonly LuaFunction[] Functions;
+    public readonly LibraryFunction[] Functions;
 
     public ValueTask<int> Clock(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
@@ -121,7 +121,7 @@ public sealed class OperatingSystemLibrary
             }
             else
             {
-                LuaRuntimeException.BadArgument(context.Thread, 1, "exit", LuaValueType.Nil, code.Type);
+                LuaRuntimeException.BadArgument(context.Thread, 1, LuaValueType.Nil, code.Type);
             }
         }
         else

@@ -21,7 +21,7 @@ public static class OpenLibsExtensions
         var bit32 = new LuaTable(0, BitwiseLibrary.Instance.Functions.Length);
         foreach (var func in BitwiseLibrary.Instance.Functions)
         {
-            bit32[func.Name] = func;
+            bit32[func.Name] = func.Func;
         }
 
         state.Environment["bit32"] = bit32;
@@ -33,7 +33,7 @@ public static class OpenLibsExtensions
         var coroutine = new LuaTable(0, CoroutineLibrary.Instance.Functions.Length);
         foreach (var func in CoroutineLibrary.Instance.Functions)
         {
-            coroutine[func.Name] = func;
+            coroutine[func.Name] = func.Func;
         }
 
         state.Environment["coroutine"] = coroutine;
@@ -44,7 +44,7 @@ public static class OpenLibsExtensions
         var io = new LuaTable(0, IOLibrary.Instance.Functions.Length);
         foreach (var func in IOLibrary.Instance.Functions)
         {
-            io[func.Name] = func;
+            io[func.Name] = func.Func;
         }
 
         var registry = state.Registry;
@@ -68,7 +68,7 @@ public static class OpenLibsExtensions
         var math = new LuaTable(0, MathematicsLibrary.Instance.Functions.Length);
         foreach (var func in MathematicsLibrary.Instance.Functions)
         {
-            math[func.Name] = func;
+            math[func.Name] = func.Func;
         }
 
         math["pi"] = Math.PI;
@@ -100,7 +100,7 @@ public static class OpenLibsExtensions
         var os = new LuaTable(0, OperatingSystemLibrary.Instance.Functions.Length);
         foreach (var func in OperatingSystemLibrary.Instance.Functions)
         {
-            os[func.Name] = func;
+            os[func.Name] = func.Func;
         }
 
         state.Environment["os"] = os;
@@ -112,7 +112,7 @@ public static class OpenLibsExtensions
         var @string = new LuaTable(0, StringLibrary.Instance.Functions.Length);
         foreach (var func in StringLibrary.Instance.Functions)
         {
-            @string[func.Name] = func;
+            @string[func.Name] = func.Func;
         }
 
         state.Environment["string"] = @string;
@@ -139,7 +139,7 @@ public static class OpenLibsExtensions
         var table = new LuaTable(0, TableLibrary.Instance.Functions.Length);
         foreach (var func in TableLibrary.Instance.Functions)
         {
-            table[func.Name] = func;
+            table[func.Name] = func.Func;
         }
 
         state.Environment["table"] = table;
@@ -151,7 +151,7 @@ public static class OpenLibsExtensions
         var debug = new LuaTable(0, DebugLibrary.Instance.Functions.Length);
         foreach (var func in DebugLibrary.Instance.Functions)
         {
-            debug[func.Name] = func;
+            debug[func.Name] = func.Func;
         }
 
         state.Environment["debug"] = debug;

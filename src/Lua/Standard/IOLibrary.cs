@@ -10,22 +10,23 @@ public sealed class IOLibrary
 
     public IOLibrary()
     {
+        var libraryName = "io";
         Functions =
         [
-            new("close", Close),
-            new("flush", Flush),
-            new("input", Input),
-            new("lines", Lines),
-            new("open", Open),
-            new("output", Output),
-            new("read", Read),
-            new("type", Type),
-            new("write", Write),
-            new("tmpfile", TmpFile),
+            new(libraryName,"close", Close),
+            new(libraryName,"flush", Flush),
+            new(libraryName,"input", Input),
+            new(libraryName,"lines", Lines),
+            new(libraryName,"open", Open),
+            new(libraryName,"output", Output),
+            new(libraryName,"read", Read),
+            new(libraryName,"type", Type),
+            new(libraryName,"write", Write),
+            new(libraryName,"tmpfile", TmpFile),
         ];
     }
 
-    public readonly LuaFunction[] Functions;
+    public readonly LibraryFunction[] Functions;
 
     public ValueTask<int> Close(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
@@ -92,7 +93,7 @@ public sealed class IOLibrary
             {
                 var file = context.GetCsClosure()!.UpValues[0].Read<FileHandle>();
                 context.Return();
-                var resultCount = await IOHelper.ReadAsync(context.Thread, file, "lines", 0, Memory<LuaValue>.Empty, true, cancellationToken);
+                var resultCount = await IOHelper.ReadAsync(context.Thread, file, "io.lines", 0, Memory<LuaValue>.Empty, true, cancellationToken);
                 if (resultCount > 0 && context.Thread.Stack.Get(context.ReturnFrameBase).Type is LuaValueType.Nil)
                 {
                     file.Close();
@@ -121,7 +122,7 @@ public sealed class IOLibrary
                 var formats = upValues.AsMemory(1);
                 var stack = context.Thread.Stack;
                 context.Return();
-                var resultCount = await IOHelper.ReadAsync(context.Thread, file, "lines", 0, formats, true, cancellationToken);
+                var resultCount = await IOHelper.ReadAsync(context.Thread, file, "io.lines", 0, formats, true, cancellationToken);
                 if (resultCount > 0 && stack.Get(context.ReturnFrameBase).Type is LuaValueType.Nil)
                 {
                     file.Close();
@@ -180,7 +181,7 @@ public sealed class IOLibrary
         var args = context.Arguments.ToArray();
         context.Return();
 
-        var resultCount = await IOHelper.ReadAsync(context.Thread, file, "read", 0, args, false, cancellationToken);
+        var resultCount = await IOHelper.ReadAsync(context.Thread, file, "io.read", 0, args, false, cancellationToken);
         return resultCount;
     }
 
@@ -201,7 +202,7 @@ public sealed class IOLibrary
     public async ValueTask<int> Write(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
         var file = context.State.Registry["_IO_output"].Read<FileHandle>();
-        var resultCount = await IOHelper.WriteAsync(file, "write", context, cancellationToken);
+        var resultCount = await IOHelper.WriteAsync(file, "io.write", context, cancellationToken);
         return resultCount;
     }
 

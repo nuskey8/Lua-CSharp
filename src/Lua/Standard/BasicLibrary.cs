@@ -81,6 +81,7 @@ public sealed class BasicLibrary
 
     public ValueTask<int> CollectGarbage(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
+        if (context.HasArgument(0)) context.GetArgument<string>(0);
         GC.Collect();
         return new(context.Return());
     }
@@ -89,7 +90,7 @@ public sealed class BasicLibrary
     {
         var arg0 = context.GetArgument<string>(0);
         context.Thread.Stack.PopUntil(context.ReturnFrameBase);
-        var closure = await context.State.LoadFileAsync(arg0, "bt",null, cancellationToken);
+        var closure = await context.State.LoadFileAsync(arg0, "bt", null, cancellationToken);
         return await context.Access.RunAsync(closure, cancellationToken);
     }
 
@@ -158,7 +159,7 @@ public sealed class BasicLibrary
         // do not use LuaState.DoFileAsync as it uses the newExecutionContext
         try
         {
-            return context.Return(await context.State.LoadFileAsync(arg0,  mode, arg2,cancellationToken));
+            return context.Return(await context.State.LoadFileAsync(arg0, mode, arg2, cancellationToken));
         }
         catch (Exception ex)
         {
@@ -260,7 +261,7 @@ public sealed class BasicLibrary
                 case LuaCanceledException:
                     throw;
                 case OperationCanceledException:
-                    throw new LuaCanceledException(context.Thread,cancellationToken, ex);
+                    throw new LuaCanceledException(context.Thread, cancellationToken, ex);
                 case LuaRuntimeException luaEx:
                     luaEx.Forget();
                     return context.Return(false, luaEx.ErrorObject);
@@ -312,7 +313,7 @@ public sealed class BasicLibrary
         }
         else
         {
-            LuaRuntimeException.BadArgument(context.Thread, 2, "rawlen", [LuaValueType.String, LuaValueType.Table]);
+            LuaRuntimeException.BadArgument(context.Thread, 2, [LuaValueType.String, LuaValueType.Table]);
             return default;
         }
     }
@@ -350,7 +351,7 @@ public sealed class BasicLibrary
         }
         else
         {
-            LuaRuntimeException.BadArgument(context.Thread, 1, "select", LuaValueType.Number, arg0.Type);
+            LuaRuntimeException.BadArgument(context.Thread, 1, LuaValueType.Number, arg0.Type);
             return default;
         }
     }
@@ -362,7 +363,7 @@ public sealed class BasicLibrary
 
         if (arg1.Type is not (LuaValueType.Nil or LuaValueType.Table))
         {
-            LuaRuntimeException.BadArgument(context.Thread, 2, "setmetatable", [LuaValueType.Nil, LuaValueType.Table]);
+            LuaRuntimeException.BadArgument(context.Thread, 2, [LuaValueType.Nil, LuaValueType.Table]);
         }
 
         if (arg0.Metatable != null && arg0.Metatable.TryGetValue(Metamethods.Metatable, out _))

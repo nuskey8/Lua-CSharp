@@ -58,7 +58,7 @@ public static class Metamethods
             case OpCode.Call:
                 return (Call, "call");
             case OpCode.Concat:
-                return (Concat, "concat");
+                return (Concat, "concatenate");
             default: return (opCode.ToString(), opCode.ToString());
         }
     }

@@ -8,18 +8,19 @@ public sealed class CoroutineLibrary
 
     public CoroutineLibrary()
     {
+        var libraryName = "coroutine";
         Functions =
         [
-            new("create", Create),
-            new("resume", Resume),
-            new("running", Running),
-            new("status", Status),
-            new("wrap", Wrap),
-            new("yield", Yield),
+            new(libraryName, "create", Create),
+            new(libraryName, "resume", Resume),
+            new(libraryName, "running", Running),
+            new(libraryName, "status", Status),
+            new(libraryName, "wrap", Wrap),
+            new(libraryName, "yield", Yield),
         ];
     }
 
-    public readonly LuaFunction[] Functions;
+    public readonly LibraryFunction[] Functions;
 
     public ValueTask<int> Create(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {

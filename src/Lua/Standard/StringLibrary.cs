@@ -12,25 +12,26 @@ public sealed class StringLibrary
 
     public StringLibrary()
     {
+        var libraryName = "string";
         Functions =
         [
-            new("byte", Byte),
-            new("char", Char),
-            new("dump", Dump),
-            new("find", Find),
-            new("format", Format),
-            new("gmatch", GMatch),
-            new("gsub", GSub),
-            new("len", Len),
-            new("lower", Lower),
-            new("rep", Rep),
-            new("reverse", Reverse),
-            new("sub", Sub),
-            new("upper", Upper),
+            new(libraryName,"byte", Byte),
+            new(libraryName,"char", Char),
+            new(libraryName,"dump", Dump),
+            new(libraryName,"find", Find),
+            new(libraryName,"format", Format),
+            new(libraryName,"gmatch", GMatch),
+            new(libraryName,"gsub", GSub),
+            new(libraryName,"len", Len),
+            new(libraryName,"lower", Lower),
+            new(libraryName,"rep", Rep),
+            new(libraryName,"reverse", Reverse),
+            new(libraryName,"sub", Sub),
+            new(libraryName,"upper", Upper),
         ];
     }
 
-    public readonly LuaFunction[] Functions;
+    public readonly LibraryFunction[] Functions;
 
     public ValueTask<int> Byte(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
@@ -42,8 +43,8 @@ public sealed class StringLibrary
             ? context.GetArgument<double>(2)
             : i;
 
-        LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.Thread, "byte", 2, i);
-        LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.Thread, "byte", 3, j);
+        LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.Thread, 2, i);
+        LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.Thread, 3, j);
 
         var span = StringHelper.Slice(s, (int)i, (int)j);
         var buffer = context.GetReturnBuffer(span.Length);
@@ -66,7 +67,7 @@ public sealed class StringLibrary
         for (int i = 0; i < context.ArgumentCount; i++)
         {
             var arg = context.GetArgument<double>(i);
-            LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.Thread, "char", i + 1, arg);
+            LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.Thread, i + 1, arg);
             builder.Append((char)arg);
         }
 
@@ -88,7 +89,7 @@ public sealed class StringLibrary
             : 1;
         var plain = context.HasArgument(3) && context.GetArgument(3).ToBoolean();
 
-        LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.Thread, "find", 3, init);
+        LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.Thread, 3, init);
 
         // init can be negative value
         if (init < 0)
@@ -243,7 +244,7 @@ public sealed class StringLibrary
                     case 'G':
                         if (!parameter.TryRead<double>(out var f))
                         {
-                            LuaRuntimeException.BadArgument(context.Thread, parameterIndex + 1, "format", LuaValueType.Number, parameter.Type);
+                            LuaRuntimeException.BadArgument(context.Thread, parameterIndex + 1, LuaValueType.Number, parameter.Type);
                         }
 
                         switch (specifier)
@@ -324,10 +325,10 @@ public sealed class StringLibrary
                     case 'X':
                         if (!parameter.TryRead<double>(out var x))
                         {
-                            LuaRuntimeException.BadArgument(context.Thread, parameterIndex + 1, "format", LuaValueType.Number, parameter.Type);
+                            LuaRuntimeException.BadArgument(context.Thread, parameterIndex + 1, LuaValueType.Number, parameter.Type);
                         }
 
-                        LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.Thread, "format", parameterIndex + 1, x);
+                        LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.Thread, parameterIndex + 1, x);
 
                         switch (specifier)
                         {
@@ -469,7 +470,7 @@ public sealed class StringLibrary
             ? context.GetArgument<double>(3)
             : int.MaxValue;
 
-        LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.Thread, "gsub", 4, n_arg);
+        LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.Thread, 4, n_arg);
 
         var n = (int)n_arg;
         var regex = StringHelper.ToRegex(pattern);
@@ -568,7 +569,7 @@ public sealed class StringLibrary
             ? context.GetArgument<string>(2)
             : null;
 
-        LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.Thread, "rep", 2, n_arg);
+        LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.Thread, 2, n_arg);
 
         var n = (int)n_arg;
 
@@ -603,8 +604,8 @@ public sealed class StringLibrary
             ? context.GetArgument<double>(2)
             : -1;
 
-        LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.Thread, "sub", 2, i);
-        LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.Thread, "sub", 3, j);
+        LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.Thread, 2, i);
+        LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.Thread, 3, j);
 
         return new(context.Return(StringHelper.Slice(s, (int)i, (int)j).ToString()));
     }

@@ -7,39 +7,40 @@ public sealed class MathematicsLibrary
 
     public MathematicsLibrary()
     {
+        var libraryName = "math";
         Functions =
         [
-            new("abs", Abs),
-            new("acos", Acos),
-            new("asin", Asin),
-            new("atan2", Atan2),
-            new("atan", Atan),
-            new("ceil", Ceil),
-            new("cos", Cos),
-            new("cosh", Cosh),
-            new("deg", Deg),
-            new("exp", Exp),
-            new("floor", Floor),
-            new("fmod", Fmod),
-            new("frexp", Frexp),
-            new("ldexp", Ldexp),
-            new("log", Log),
-            new("max", Max),
-            new("min", Min),
-            new("modf", Modf),
-            new("pow", Pow),
-            new("rad", Rad),
-            new("random", Random),
-            new("randomseed", RandomSeed),
-            new("sin", Sin),
-            new("sinh", Sinh),
-            new("sqrt", Sqrt),
-            new("tan", Tan),
-            new("tanh", Tanh),
+            new(libraryName, "abs", Abs),
+            new(libraryName, "acos", Acos),
+            new(libraryName, "asin", Asin),
+            new(libraryName, "atan2", Atan2),
+            new(libraryName, "atan", Atan),
+            new(libraryName, "ceil", Ceil),
+            new(libraryName, "cos", Cos),
+            new(libraryName, "cosh", Cosh),
+            new(libraryName, "deg", Deg),
+            new(libraryName, "exp", Exp),
+            new(libraryName, "floor", Floor),
+            new(libraryName, "fmod", Fmod),
+            new(libraryName, "frexp", Frexp),
+            new(libraryName, "ldexp", Ldexp),
+            new(libraryName, "log", Log),
+            new(libraryName, "max", Max),
+            new(libraryName, "min", Min),
+            new(libraryName, "modf", Modf),
+            new(libraryName, "pow", Pow),
+            new(libraryName, "rad", Rad),
+            new(libraryName, "random", Random),
+            new(libraryName, "randomseed", RandomSeed),
+            new(libraryName, "sin", Sin),
+            new(libraryName, "sinh", Sinh),
+            new(libraryName, "sqrt", Sqrt),
+            new(libraryName, "tan", Tan),
+            new(libraryName, "tanh", Tanh),
         ];
     }
 
-    public readonly LuaFunction[] Functions;
+    public readonly LibraryFunction[] Functions;
 
     public sealed class RandomUserData(Random random) : ILuaUserData
     {

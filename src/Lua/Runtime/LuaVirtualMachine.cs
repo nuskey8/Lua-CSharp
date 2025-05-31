@@ -1298,6 +1298,8 @@ public static partial class LuaVirtualMachine
         newBase = context.FrameBase + variableArgumentCount;
         stack.PopUntil(newBase + argumentCount);
         var lastFrame = thread.GetCurrentFrame();
+        thread.LastPc = context.Pc;
+        thread.LastCallerFunction = lastFrame.Function;
         context.Thread.PopCallStackFrame();
         var newFrame = func.CreateNewTailCallFrame(context, newBase, context.CurrentReturnFrameBase, variableArgumentCount);
 
@@ -1532,7 +1534,7 @@ public static partial class LuaVirtualMachine
             if (op != OpCode.GetTabUp)
                 LuaRuntimeException.AttemptInvalidOperationOnLuaStack(GetThreadWithCurrentPc(context), "index", context.Pc, context.Instruction.B);
             else
-                LuaRuntimeException.AttemptInvalidOperationOnUpValues(GetThreadWithCurrentPc(context), "index", context.Pc, context.Instruction.B);
+                LuaRuntimeException.AttemptInvalidOperationOnUpValues(GetThreadWithCurrentPc(context), "index", context.Instruction.B);
         }
     }
 
@@ -1713,7 +1715,7 @@ public static partial class LuaVirtualMachine
             if (op != OpCode.SetTabUp)
                 LuaRuntimeException.AttemptInvalidOperationOnLuaStack(GetThreadWithCurrentPc(context), "index", context.Pc, context.Instruction.A);
             else
-                LuaRuntimeException.AttemptInvalidOperationOnUpValues(GetThreadWithCurrentPc(context), "index", context.Pc, context.Instruction.A);
+                LuaRuntimeException.AttemptInvalidOperationOnUpValues(GetThreadWithCurrentPc(context), "index", context.Instruction.A);
         }
     }
 

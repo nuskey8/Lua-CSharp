@@ -11,7 +11,7 @@ public sealed class ModuleLibrary
     public ModuleLibrary()
     {
         RequireFunction = new("require", Require);
-        SearchPathFunction = new("searchpath", SearchPath);
+        SearchPathFunction = new("package.searchpath", SearchPath);
     }
 
     public readonly LuaFunction RequireFunction;
