@@ -198,7 +198,7 @@ public sealed class BasicLibrary
             }
             else
             {
-                LuaRuntimeException.BadArgument(context.Thread, 1, "load");
+                LuaRuntimeException.BadArgument(context.Thread, 1,[LuaValueType.String,LuaValueType.Function],arg0.Type);
                 return default; // dummy
             }
         }
@@ -313,7 +313,7 @@ public sealed class BasicLibrary
         }
         else
         {
-            LuaRuntimeException.BadArgument(context.Thread, 2, [LuaValueType.String, LuaValueType.Table]);
+            LuaRuntimeException.BadArgument(context.Thread, 2, [LuaValueType.String, LuaValueType.Table], arg0.Type);
             return default;
         }
     }
@@ -363,7 +363,7 @@ public sealed class BasicLibrary
 
         if (arg1.Type is not (LuaValueType.Nil or LuaValueType.Table))
         {
-            LuaRuntimeException.BadArgument(context.Thread, 2, [LuaValueType.Nil, LuaValueType.Table]);
+            LuaRuntimeException.BadArgument(context.Thread, 2, [LuaValueType.Nil, LuaValueType.Table], arg1.Type);
         }
 
         if (arg0.Metatable != null && arg0.Metatable.TryGetValue(Metamethods.Metatable, out _))

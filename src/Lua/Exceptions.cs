@@ -228,20 +228,28 @@ public class LuaRuntimeException : Exception, ILuaTracebackBuildable
         throw new LuaRuntimeException(thread, $"bad argument #{argumentId} to '{GetCurrentFunctionName(thread)}' (value expected)");
     }
 
-    public static void BadArgument(LuaThread thread, int argumentId, LuaValueType[] expected)
+
+    public static void BadArgument(LuaThread thread, int argumentId, LuaValueType expected, LuaValueType actual)
     {
-        throw new LuaRuntimeException(thread, $"bad argument #{argumentId} to '{GetCurrentFunctionName(thread)}' ({string.Join(" or ", expected)} expected)");
+        throw new LuaRuntimeException(thread, $"bad argument #{argumentId} to '{GetCurrentFunctionName(thread)}' ({LuaValue.ToString(expected)} expected, got {LuaValue.ToString(actual)})");
     }
+
+    public static void BadArgument(LuaThread thread, int argumentId, LuaValueType[] expected, LuaValueType actual)
+    {
+        throw new LuaRuntimeException(thread, $"bad argument #{argumentId} to '{GetCurrentFunctionName(thread)}' ({string.Join(" or ", expected.Select(LuaValue.ToString))} expected, got {LuaValue.ToString(actual)})");
+    }
+
 
     public static void BadArgument(LuaThread thread, int argumentId, string expected, string actual)
     {
         throw new LuaRuntimeException(thread, $"bad argument #{argumentId} to '{GetCurrentFunctionName(thread)}' ({expected} expected, got {actual})");
     }
 
-    public static void BadArgument(LuaThread thread, int argumentId, LuaValueType expected, LuaValueType actual)
+    public static void BadArgument(LuaThread thread, int argumentId, string[] expected, string actual)
     {
-        throw new LuaRuntimeException(thread, $"bad argument #{argumentId} to '{GetCurrentFunctionName(thread)}' ({LuaValue.ToString(expected)} expected, got {LuaValue.ToString(actual)})");
+        throw new LuaRuntimeException(thread, $"bad argument #{argumentId} to '{GetCurrentFunctionName(thread)}' ({string.Join(" or ", expected)} expected, got {actual})");
     }
+
 
     public static void BadArgument(LuaThread thread, int argumentId, string message)
     {

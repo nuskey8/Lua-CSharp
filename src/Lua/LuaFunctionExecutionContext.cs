@@ -192,7 +192,7 @@ public readonly record struct LuaFunctionExecutionContext
     {
         if (ArgumentCount <= index)
         {
-            LuaRuntimeException.BadArgument(Thread, index + 1, Thread.GetCurrentFrame().Function.Name);
+            LuaRuntimeException.BadArgument(Thread, index + 1);
         }
     }
 }

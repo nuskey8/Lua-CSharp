@@ -140,7 +140,7 @@ internal static class IOHelper
                 }
                 else
                 {
-                    LuaRuntimeException.BadArgument(thread, i + 1, name);
+                    LuaRuntimeException.BadArgument(thread, i + 1,  ["string", "integer"] , format.TypeToString());
                 }
             }
 
