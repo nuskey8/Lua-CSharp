@@ -16,7 +16,7 @@ public class LuaTests
     //[TestCase("tests-lua/sort.lua")] //check for "invalid order function" is not implemented
     //[TestCase("tests-lua/calls.lua")] //  string.dump and reader function for load chunk is not implemented
     [TestCase("tests-lua/closure.lua")]
-    //[TestCase("tests-lua/errors.lua")] // get table name  if nil is not implemented
+    [TestCase("tests-lua/errors.lua")] // get table name  if nil is not implemented
     [TestCase("tests-lua/events.lua")]
     [TestCase("tests-lua/vararg.lua")]
     [TestCase("tests-lua/nextvar.lua")]
@@ -44,7 +44,7 @@ public class LuaTests
                 throw;
             }
 
-            var line = luaTraceback.LastLine;
+            var line = luaTraceback.FirstLine;
             throw new Exception($"{path}:line {line}\n{e.InnerException}\n {e}");
         }
     }

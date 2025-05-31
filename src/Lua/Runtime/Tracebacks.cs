@@ -67,6 +67,32 @@ public class Traceback(LuaState state, ReadOnlySpan<CallStackFrame> stackFrames)
         }
     }
 
+    public int FirstLine
+    {
+        get
+        {
+            var stackFrames = StackFrames;
+            for (var index = 1; index <= stackFrames.Length; index++)
+            {
+                LuaFunction lastFunc = stackFrames[index - 1].Function;
+                var frame = stackFrames[index];
+                if (!frame.IsTailCall && lastFunc is LuaClosure closure)
+                {
+                    var p = closure.Proto;
+                    if (frame.CallerInstructionIndex < 0 || p.LineInfo.Length <= frame.CallerInstructionIndex)
+                    {
+                        Console.WriteLine($"Trace back error");
+                        return default;
+                    }
+
+                    return p.LineInfo[frame.CallerInstructionIndex];
+                }
+            }
+
+            return default;
+        }
+    }
+
     public override string ToString()
     {
         return GetTracebackString(State, StackFrames, LuaValue.Nil);
@@ -145,7 +171,7 @@ public class Traceback(LuaState state, ReadOnlySpan<CallStackFrame> stackFrames)
                     goto Next;
                 }
 
-                if (0 < index && stackFrames[index - 1].Flags.HasFlag(CallStackFrameFlags.InHook))
+                if (stackFrames[index - 1].Flags.HasFlag(CallStackFrameFlags.InHook))
                 {
                     list.AddRange("hook");
                     list.AddRange(" '");
