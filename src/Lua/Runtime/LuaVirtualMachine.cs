@@ -1482,21 +1482,6 @@ public static partial class LuaVirtualMachine
     [MethodImpl(MethodImplOptions.NoInlining)]
     static bool GetTableValueSlowPath(LuaValue table, LuaValue key, VirtualMachineExecutionContext context, out LuaValue value, out bool doRestart)
     {
-        if (table.Type == LuaValueType.Nil)
-        {
-            ThrowInvalidOperation();
-
-            [MethodImpl(MethodImplOptions.NoInlining)]
-            void ThrowInvalidOperation()
-            {
-                var op = context.Instruction.OpCode;
-                if (op != OpCode.GetTabUp)
-                    LuaRuntimeException.AttemptInvalidOperationOnLuaStack(GetThreadWithCurrentPc(context), "index", context.Pc, context.Instruction.B);
-                else
-                    LuaRuntimeException.AttemptInvalidOperationOnUpValues(GetThreadWithCurrentPc(context), "index", context.Pc, context.Instruction.B);
-            }
-        }
-
         var targetTable = table;
         const int MAX_LOOP = 100;
         doRestart = false;
@@ -1524,7 +1509,10 @@ public static partial class LuaVirtualMachine
 
             if (!table.TryGetMetamethod(context.State, Metamethods.Index, out var metatableValue))
             {
-                LuaRuntimeException.AttemptInvalidOperation(GetThreadWithCurrentPc(context), "index", table);
+                if (i == 0)
+                    ThrowInvalidOperationWithName();
+                else
+                    LuaRuntimeException.AttemptInvalidOperation(GetThreadWithCurrentPc(context), "index", table);
             }
 
             table = metatableValue;
@@ -1536,6 +1524,16 @@ public static partial class LuaVirtualMachine
         }
 
         throw new LuaRuntimeException(GetThreadWithCurrentPc(context), "loop in gettable");
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        void ThrowInvalidOperationWithName()
+        {
+            var op = context.Instruction.OpCode;
+            if (op != OpCode.GetTabUp)
+                LuaRuntimeException.AttemptInvalidOperationOnLuaStack(GetThreadWithCurrentPc(context), "index", context.Pc, context.Instruction.B);
+            else
+                LuaRuntimeException.AttemptInvalidOperationOnUpValues(GetThreadWithCurrentPc(context), "index", context.Pc, context.Instruction.B);
+        }
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
@@ -1655,21 +1653,6 @@ public static partial class LuaVirtualMachine
     static bool SetTableValueSlowPath(LuaValue table, LuaValue key, LuaValue value,
         VirtualMachineExecutionContext context, out bool doRestart)
     {
-        if (table.Type == LuaValueType.Nil)
-        {
-            ThrowInvalidOperation();
-
-            [MethodImpl(MethodImplOptions.NoInlining)]
-            void ThrowInvalidOperation()
-            {
-                var op = context.Instruction.OpCode;
-                if (op != OpCode.SetTabUp)
-                    LuaRuntimeException.AttemptInvalidOperationOnLuaStack(GetThreadWithCurrentPc(context), "index", context.Pc, context.Instruction.A);
-                else
-                    LuaRuntimeException.AttemptInvalidOperationOnUpValues(GetThreadWithCurrentPc(context), "index", context.Pc, context.Instruction.A);
-            }
-        }
-
         var targetTable = table;
         const int MAX_LOOP = 100;
         doRestart = false;
@@ -1705,7 +1688,10 @@ public static partial class LuaVirtualMachine
 
             if (!table.TryGetMetamethod(context.State, Metamethods.NewIndex, out var metatableValue))
             {
-                LuaRuntimeException.AttemptInvalidOperation(GetThreadWithCurrentPc(context), "index", table);
+                if (i == 0)
+                    ThrowInvalidOperationWithName();
+                else
+                    LuaRuntimeException.AttemptInvalidOperation(GetThreadWithCurrentPc(context), "index", table);
             }
 
             table = metatableValue;
@@ -1719,6 +1705,16 @@ public static partial class LuaVirtualMachine
         }
 
         throw new LuaRuntimeException(GetThreadWithCurrentPc(context), "loop in settable");
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        void ThrowInvalidOperationWithName()
+        {
+            var op = context.Instruction.OpCode;
+            if (op != OpCode.SetTabUp)
+                LuaRuntimeException.AttemptInvalidOperationOnLuaStack(GetThreadWithCurrentPc(context), "index", context.Pc, context.Instruction.A);
+            else
+                LuaRuntimeException.AttemptInvalidOperationOnUpValues(GetThreadWithCurrentPc(context), "index", context.Pc, context.Instruction.A);
+        }
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
