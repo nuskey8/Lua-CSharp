@@ -183,6 +183,7 @@ public sealed class TableLibrary
     {
         var pivot = memory.Span[high];
         int i = low - 1;
+        var access = context.Thread.CurrentAccess;
 
         for (int j = low; j < high; j++)
         {
@@ -190,7 +191,7 @@ public sealed class TableLibrary
             var top = stack.Count;
             stack.Push(memory.Span[j]);
             stack.Push(pivot);
-            await context.Access.RunAsync(comparer, 2, cancellationToken);
+            await access.RunAsync(comparer, 2, cancellationToken);
 
             if (context.Thread.Stack.Get(top).ToBoolean())
             {

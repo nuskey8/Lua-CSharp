@@ -207,16 +207,21 @@ public class LuaRuntimeException : Exception, ILuaTracebackBuildable
     {
         var current = thread.GetCurrentFrame();
         var pc = current.CallerInstructionIndex;
-        LuaClosure callerClosure;
+        LuaFunction callerFunction;
         if (current.IsTailCall)
         {
             pc = thread.LastPc;
-            callerClosure = (LuaClosure)thread.LastCallerFunction!;
+            callerFunction = thread.LastCallerFunction!;
         }
         else
         {
             var caller = thread.GetCallStackFrames()[^2];
-            callerClosure = (LuaClosure)caller.Function;
+            callerFunction = caller.Function;
+        }
+
+        if (callerFunction is not LuaClosure callerClosure)
+        {
+            return ("function", callerFunction.Name);
         }
 
         return (LuaDebug.GetFuncName(callerClosure.Proto, pc, out var name) ?? "", name ?? current.Function.Name);
