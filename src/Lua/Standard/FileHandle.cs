@@ -4,8 +4,6 @@ using Lua.Standard.Internal;
 
 namespace Lua.Standard;
 
-// TODO: optimize (remove StreamReader/Writer)
-
 public class FileHandle : ILuaUserData
 {
     public static readonly LuaFunction IndexMetamethod = new("index", (context, ct) =>
@@ -48,7 +46,7 @@ public class FileHandle : ILuaUserData
         fileHandleMetatable[Metamethods.Index] = IndexMetamethod;
     }
 
-    public FileHandle(LuaFileOpenMode mode, Stream stream) : this(new LuaIOStreamWrapper(mode,stream)) { }
+    public FileHandle(LuaFileOpenMode mode, Stream stream) : this(new LuaIOStreamWrapper(mode, stream)) { }
 
     public FileHandle(ILuaIOStream stream)
     {
