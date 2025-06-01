@@ -200,7 +200,7 @@ public class LuaRuntimeException : Exception, ILuaTracebackBuildable
         var luaValue = closure.UpValues[upValue.Index].GetValue();
         var name = upValue.Name;
 
-        throw new LuaRuntimeException(thread, $"attempt to {op} a {luaValue.TypeToString()} value (global '{name}')");
+        throw new LuaRuntimeException(thread, $"attempt to {op} a {luaValue.TypeToString()} value (upvalue '{name}')");
     }
 
     internal static (string NameWhat, string Name) GetCurrentFunctionName(LuaThread thread)
