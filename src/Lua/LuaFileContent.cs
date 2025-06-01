@@ -41,7 +41,7 @@ public readonly struct LuaFileContent : IDisposable
 
     public ReadOnlySpan<char> ReadText()
     {
-        if (type != LuaFileContentType.Text) throw new Exception(); // TODO: add message
+        if (type != LuaFileContentType.Text) throw new InvalidOperationException("Cannot read text from a LuaFileContent of type Bytes.");
         if (referenceValue is IMemoryOwner<char> mem)
         {
             return mem.Memory.Span;
@@ -52,7 +52,7 @@ public readonly struct LuaFileContent : IDisposable
 
     public ReadOnlySpan<byte> ReadBytes()
     {
-        if (type != LuaFileContentType.Bytes) throw new Exception(); // TODO: add message
+        if (type != LuaFileContentType.Bytes) throw new InvalidOperationException("Cannot read bytes from a LuaFileContent of type Text.");
         if (referenceValue is IMemoryOwner<byte> mem)
         {
             return mem.Memory.Span;
