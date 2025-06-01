@@ -14,6 +14,16 @@ public static class LuaStateExtensions
         return state.TopLevelAccess.DoStringAsync(source, chunkName, cancellationToken);
     }
 
+    public static ValueTask<int> DoBytesAsync(this LuaState state, ReadOnlySpan<byte> source, Memory<LuaValue> buffer, string chunkName, CancellationToken cancellationToken = default)
+    {
+        return state.TopLevelAccess.DoBytesAsync(source, buffer, chunkName, cancellationToken);
+    }
+
+    public static ValueTask<LuaValue[]> DoBytesAsync(this LuaState state, ReadOnlySpan<byte> source, string chunkName, CancellationToken cancellationToken = default)
+    {
+        return state.TopLevelAccess.DoBytesAsync(source, chunkName, cancellationToken);
+    }
+
     public static ValueTask<int> DoFileAsync(this LuaState state, string path, Memory<LuaValue> buffer, CancellationToken cancellationToken = default)
     {
         return state.TopLevelAccess.DoFileAsync(path, buffer, cancellationToken);
