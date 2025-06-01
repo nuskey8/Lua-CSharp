@@ -15,20 +15,20 @@ public sealed class StringLibrary
         var libraryName = "string";
         Functions =
         [
-            new(libraryName,"byte", Byte),
-            new(libraryName,"char", Char),
-            new(libraryName,"dump", Dump),
-            new(libraryName,"find", Find),
-            new(libraryName,"format", Format),
-            new(libraryName,"gmatch", GMatch),
-            new(libraryName,"gsub", GSub),
-            new(libraryName,"len", Len),
-            new(libraryName,"lower", Lower),
-            new (libraryName,"match", Match),
-            new(libraryName,"rep", Rep),
-            new(libraryName,"reverse", Reverse),
-            new(libraryName,"sub", Sub),
-            new(libraryName,"upper", Upper),
+            new(libraryName, "byte", Byte),
+            new(libraryName, "char", Char),
+            new(libraryName, "dump", Dump),
+            new(libraryName, "find", Find),
+            new(libraryName, "format", Format),
+            new(libraryName, "gmatch", GMatch),
+            new(libraryName, "gsub", GSub),
+            new(libraryName, "len", Len),
+            new(libraryName, "lower", Lower),
+            new(libraryName, "match", Match),
+            new(libraryName, "rep", Rep),
+            new(libraryName, "reverse", Reverse),
+            new(libraryName, "sub", Sub),
+            new(libraryName, "upper", Upper),
         ];
     }
 
@@ -303,8 +303,18 @@ public sealed class StringLibrary
                                 formattedValue = $"\"{StringHelper.Escape(parameter.Read<string>())}\"";
                                 break;
                             case LuaValueType.Number:
-                                // TODO: floating point numbers must be in hexadecimal notation
-                                formattedValue = parameter.Read<double>().ToString(CultureInfo.InvariantCulture);
+                                formattedValue = DoubleToQFormat(parameter.Read<double>());
+
+                                static string DoubleToQFormat(double value)
+                                {
+                                    if (MathEx.IsInteger(value))
+                                    {
+                                        return value.ToString(CultureInfo.InvariantCulture);
+                                    }
+
+                                    return HexConverter.FromDouble(value);
+                                }
+
                                 break;
                             default:
 
@@ -515,7 +525,7 @@ public sealed class StringLibrary
                     stack.Push(match.Groups[k].Value);
                 }
 
-                await context.Access.RunAsync(func,match.Groups.Count,cancellationToken);
+                await context.Access.RunAsync(func, match.Groups.Count, cancellationToken);
 
                 result = context.Thread.Stack.Get(context.ReturnFrameBase);
             }
@@ -561,7 +571,7 @@ public sealed class StringLibrary
         var s = context.GetArgument<string>(0);
         return new(context.Return(s.ToLower()));
     }
-    
+
     public ValueTask<int> Match(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
         //TODO : implement string.match
