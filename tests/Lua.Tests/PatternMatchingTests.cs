@@ -252,6 +252,12 @@ public class PatternMatchingTests
         Assert.That(result[0].Read<double>(), Is.EqualTo(1));
         Assert.That(result[1].Read<double>(), Is.EqualTo(0));
         
+        // Empty pattern with empty string (should match at position 1)
+        result = await state.DoStringAsync("return string.find('', '')");
+        Assert.That(result.Length, Is.EqualTo(2));
+        Assert.That(result[0].Read<double>(), Is.EqualTo(1));
+        Assert.That(result[1].Read<double>(), Is.EqualTo(0));
+        
         // Negative start position
         result = await state.DoStringAsync("return string.find('hello', 'l', -2)");
         Assert.That(result.Length, Is.EqualTo(2));
@@ -260,6 +266,11 @@ public class PatternMatchingTests
         
         // Start position beyond string length
         result = await state.DoStringAsync("return string.find('hello', 'l', 10)");
+        Assert.That(result.Length, Is.EqualTo(1));
+        Assert.That(result[0].Type, Is.EqualTo(LuaValueType.Nil));
+        
+        // Empty string with init beyond length
+        result = await state.DoStringAsync("return string.find('', '', 2)");
         Assert.That(result.Length, Is.EqualTo(1));
         Assert.That(result[0].Type, Is.EqualTo(LuaValueType.Nil));
         
@@ -797,5 +808,123 @@ public class PatternMatchingTests
         exception = Assert.ThrowsAsync<LuaRuntimeException>(async () =>
             await state.DoStringAsync("return string.match(string.rep('a', 1000), string.rep('a?', 1000) .. string.rep('a', 1000))"));
         Assert.That(exception.Message, Does.Contain("pattern too complex"));
+    }
+
+    [Test]
+    public async Task Test_DollarSignPattern_EscapingIssue()
+    {
+        var state = LuaState.Create();
+        state.OpenStringLibrary();
+        state.OpenTableLibrary();
+        
+        // Test the problematic pattern from the user's code
+        // The pattern "$([^$]+)" won't work because $ needs to be escaped as %$
+        var result = await state.DoStringAsync(@"
+            local prog = 'Hello $world$ and $123$ test'
+            local matches = {}
+            
+            -- Wrong pattern (will not match correctly)
+            for s in string.gmatch(prog, '$([^$]+)') do
+                table.insert(matches, s)
+            end
+            
+            return #matches
+        ");
+        Assert.That(result[0].Read<double>(), Is.EqualTo(0)); // No matches because pattern is wrong
+        
+        // Test the correct pattern with escaped dollar signs
+        result = await state.DoStringAsync(@"
+            local prog = 'Hello $world$ and $123$ test'
+            local matches = {}
+            
+            -- Correct pattern (with escaped dollar signs)
+            for s in string.gmatch(prog, '%$([^%$]+)') do
+                table.insert(matches, s)
+            end
+            
+            return table.unpack(matches)
+        ");
+        Assert.That(result.Length, Is.EqualTo(2));
+        Assert.That(result[0].Read<string>(), Is.EqualTo("world"));
+        Assert.That(result[1].Read<string>(), Is.EqualTo("123"));
+    }
+
+    [Test]
+    public async Task Test_DollarSignPattern_CompleteExample()
+    {
+        var state = LuaState.Create();
+        state.OpenStringLibrary();
+        state.OpenTableLibrary();
+        state.OpenBasicLibrary();
+        
+        // Simulate the user's use case with corrected pattern
+        var result = await state.DoStringAsync(@"
+            local prog = 'Start $1$ middle $hello$ end $2$'
+            local F = {
+                [1] = function() return 'FIRST' end,
+                [2] = function() return 'SECOND' end
+            }
+            local output = {}
+            
+            -- Process the string with correct pattern
+            local lastPos = 1
+            for match, content in string.gmatch(prog, '()%$([^%$]+)%$()') do
+                -- Add text before the match
+                if match > lastPos then
+                    table.insert(output, prog:sub(lastPos, match - 1))
+                end
+                
+                -- Process the content
+                local n = tonumber(content)
+                if n and F[n] then
+                    table.insert(output, F[n]())
+                else
+                    table.insert(output, content)
+                end
+                
+                lastPos = match + #content + 2 -- +2 for the two $ signs
+            end
+            
+            -- Add remaining text
+            if lastPos <= #prog then
+                table.insert(output, prog:sub(lastPos))
+            end
+            
+            return table.concat(output)
+        ");
+        
+        Assert.That(result[0].Read<string>(), Is.EqualTo("Start FIRST middle hello end SECOND"));
+    }
+
+    [Test]
+    public async Task Test_DollarSignPattern_EdgeCases()
+    {
+        var state = LuaState.Create();
+        state.OpenStringLibrary();
+        state.OpenTableLibrary();
+        
+        // Test empty content between dollar signs
+        var result = await state.DoStringAsync(@"
+            local matches = {}
+            for s in string.gmatch('$$ and $empty$', '%$([^%$]*)') do
+                table.insert(matches, s)
+            end
+            return table.unpack(matches)
+        ");
+        Assert.That(result.Length, Is.EqualTo(2));
+        Assert.That(result[0].Read<string>(), Is.EqualTo("")); // Empty match
+        Assert.That(result[1].Read<string>(), Is.EqualTo("empty"));
+        
+        // Test nested or adjacent dollar signs
+        result = await state.DoStringAsync(@"
+            local matches = {}
+            for s in string.gmatch('$a$$b$', '%$([^%$]+)') do
+                table.insert(matches, s)
+            end
+            return table.unpack(matches)
+        ");
+        Assert.That(result.Length, Is.EqualTo(2));
+        Assert.That(result[0].Read<string>(), Is.EqualTo("a"));
+        Assert.That(result[1].Read<string>(), Is.EqualTo("b"));
     }
 }

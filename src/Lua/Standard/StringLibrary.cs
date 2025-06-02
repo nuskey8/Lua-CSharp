@@ -693,7 +693,15 @@ public sealed class StringLibrary
             init = s.Length + init + 1;
         }
 
-        init = Math.Max(0, Math.Min(init - 1, s.Length)); // Convert from 1-based to 0-based and clamp
+        init--; // Convert from 1-based to 0-based
+        
+        // Check if init is beyond string bounds
+        if (init > s.Length)
+        {
+            return new(context.Return(LuaValue.Nil));
+        }
+        
+        init = Math.Max(0, init); // Clamp to 0 if negative
 
         // Check for plain search mode (4th parameter = true)
         if (find && context.GetArgumentOrDefault(3).ToBoolean())
@@ -712,11 +720,6 @@ public sealed class StringLibrary
 
     private static ValueTask<int> PlainSearch(LuaFunctionExecutionContext context, string s, string pattern, int init)
     {
-        if (init > s.Length)
-        {
-            return new(context.Return(LuaValue.Nil));
-        }
-
         var index = s.AsSpan(init).IndexOf(pattern);
         if (index == -1)
         {
@@ -729,11 +732,6 @@ public sealed class StringLibrary
 
     private static ValueTask<int> SimplePatternSearch(LuaFunctionExecutionContext context, string s, string pattern, int init)
     {
-        if (init > s.Length)
-        {
-            return new(context.Return(LuaValue.Nil));
-        }
-
         var index = s.AsSpan(init).IndexOf(pattern);
         if (index == -1)
         {
