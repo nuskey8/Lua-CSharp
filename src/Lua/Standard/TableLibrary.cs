@@ -76,7 +76,7 @@ public sealed class TableLibrary
             if (i != arg3) builder.AddRange(arg1);
         }
 
-        return new(context.Return(builder.ToString()));
+        return new(context.Return(builder.AsSpan().ToString()));
     }
 
     public ValueTask<int> Insert(LuaFunctionExecutionContext context, CancellationToken cancellationToken)

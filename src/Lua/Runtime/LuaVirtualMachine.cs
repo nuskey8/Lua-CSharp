@@ -1301,7 +1301,7 @@ public static partial class LuaVirtualMachine
         thread.LastPc = context.Pc;
         thread.LastCallerFunction = lastFrame.Function;
         context.Thread.PopCallStackFrame();
-        var newFrame = func.CreateNewTailCallFrame(context, newBase, context.CurrentReturnFrameBase, variableArgumentCount);
+        var newFrame = func.CreateNewTailCallFrame(context, newBase, lastFrame.ReturnBase, variableArgumentCount);
 
         newFrame.CallerInstructionIndex = lastFrame.CallerInstructionIndex;
         newFrame.Version = lastFrame.Version;
@@ -1324,7 +1324,7 @@ public static partial class LuaVirtualMachine
         }
 
         doRestart = false;
-        var task = func.Func(new() { Access = access, ArgumentCount = argumentCount, ReturnFrameBase = context.CurrentReturnFrameBase }, context.CancellationToken);
+        var task = func.Func(new() { Access = access, ArgumentCount = argumentCount, ReturnFrameBase = lastFrame.ReturnBase }, context.CancellationToken);
 
         if (!task.IsCompleted)
         {
@@ -1336,7 +1336,7 @@ public static partial class LuaVirtualMachine
 
         task.GetAwaiter().GetResult();
         context.ThrowIfCancellationRequested();
-        if (!context.PopFromBuffer(context.CurrentReturnFrameBase, context.Stack.Count - context.CurrentReturnFrameBase))
+        if (!context.PopFromBuffer(lastFrame.ReturnBase, context.Stack.Count - lastFrame.ReturnBase))
         {
             return true;
         }
