@@ -99,8 +99,11 @@ public sealed class BasicLibrary
         var value = context.ArgumentCount == 0
             ? LuaValue.Nil
             : context.Arguments[0];
+        var level = context.HasArgument(1)
+            ? context.GetArgument<int>(1)
+            : 1;
 
-        throw new LuaRuntimeException(context.Thread, value);
+        throw new LuaRuntimeException(context.Thread, value, level);
     }
 
     public ValueTask<int> GetMetatable(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
@@ -198,7 +201,7 @@ public sealed class BasicLibrary
             }
             else
             {
-                LuaRuntimeException.BadArgument(context.Thread, 1,[LuaValueType.String,LuaValueType.Function],arg0.Type);
+                LuaRuntimeException.BadArgument(context.Thread, 1, [LuaValueType.String, LuaValueType.Function], arg0.Type);
                 return default; // dummy
             }
         }
@@ -263,8 +266,16 @@ public sealed class BasicLibrary
                 case OperationCanceledException:
                     throw new LuaCanceledException(context.Thread, cancellationToken, ex);
                 case LuaRuntimeException luaEx:
-                    luaEx.Forget();
-                    return context.Return(false, luaEx.ErrorObject);
+                    {
+                        if (luaEx.ErrorObject.Type == LuaValueType.Nil)
+                        {
+                            return context.Return(false, LuaValue.Nil);
+                        }
+                        using var builder = new PooledList<char>();
+                        var message = luaEx.MinimalMessage();
+                        luaEx.Forget();
+                        return context.Return(false, message);
+                    }
                 default:
                     return context.Return(false, ex.Message);
             }

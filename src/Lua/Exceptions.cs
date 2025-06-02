@@ -87,7 +87,7 @@ public class LuaRuntimeException : Exception, ILuaTracebackBuildable
         Thread = thread;
     }
 
-    public LuaRuntimeException(LuaThread? thread, LuaValue errorObject)
+    public LuaRuntimeException(LuaThread? thread, LuaValue errorObject, int level = 1)
     {
         if (thread != null)
         {
@@ -99,7 +99,10 @@ public class LuaRuntimeException : Exception, ILuaTracebackBuildable
         Thread = thread;
 
         ErrorObject = errorObject;
+        this.level = level;
     }
+
+    int level = 1;
 
     Traceback? luaTraceback;
 
@@ -327,6 +330,49 @@ public class LuaRuntimeException : Exception, ILuaTracebackBuildable
     {
         Thread?.ExceptionTrace.Clear();
         Thread = null;
+    }
+
+    internal string MinimalMessage()
+    {
+        var message = InnerException?.ToString() ?? ErrorObject.ToString();
+        if (level <= 0)
+        {
+            return message;
+        }
+
+        if (luaTraceback == null)
+        {
+            if (Thread != null)
+            {
+                var callStack = Thread.ExceptionTrace.AsSpan();
+                level = Math.Min(level, callStack.Length + 1);
+                callStack = callStack[(level - 1)..];
+                if (callStack.IsEmpty)
+                {
+                    return ErrorObject.ToString();
+                }
+
+                {
+                    var pooledList = new PooledList<char>(64);
+                    pooledList.Clear();
+                    try
+                    {
+                        Traceback.WriteLastLuaTrace(callStack, ref pooledList);
+                        if (pooledList.Length != 0) pooledList.AddRange(": ");
+                        pooledList.AddRange(message);
+                        return pooledList.AsSpan().ToString();
+                    }
+                    finally
+                    {
+                        pooledList.Dispose();
+                    }
+                }
+            }
+
+            return message;
+        }
+
+        return CreateMessage(luaTraceback, message);
     }
 
     public override string Message

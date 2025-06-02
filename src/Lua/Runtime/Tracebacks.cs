@@ -10,11 +10,10 @@ public class Traceback(LuaState state, ReadOnlySpan<CallStackFrame> stackFrames)
     readonly CallStackFrame[] stackFramesArray = stackFrames.ToArray();
     public ReadOnlySpan<CallStackFrame> StackFrames => stackFramesArray;
 
-    internal void WriteLastLuaTrace(ref PooledList<char> list)
+    internal static void WriteLastLuaTrace(ReadOnlySpan<CallStackFrame> stackFrames, ref PooledList<char> list)
     {
         var intFormatBuffer = (stackalloc char[15]);
         var shortSourceBuffer = (stackalloc char[59]);
-        var stackFrames = StackFrames;
         for (var index = stackFrames.Length - 1; index >= 1; index--)
         {
             LuaFunction lastFunc = stackFrames[index - 1].Function;
@@ -38,6 +37,11 @@ public class Traceback(LuaState state, ReadOnlySpan<CallStackFrame> stackFrames)
                 return;
             }
         }
+    }
+
+    internal void WriteLastLuaTrace(ref PooledList<char> list)
+    {
+        WriteLastLuaTrace(StackFrames, ref list);
     }
 
     public int LastLine
