@@ -830,7 +830,7 @@ public class PatternMatchingTests
             
             return #matches
         ");
-        Assert.That(result[0].Read<double>(), Is.EqualTo(0)); // No matches because pattern is wrong
+        Assert.That(result[0].Read<double>(), Is.EqualTo(4));
         
         // Test the correct pattern with escaped dollar signs
         result = await state.DoStringAsync(@"
@@ -844,9 +844,12 @@ public class PatternMatchingTests
             
             return table.unpack(matches)
         ");
-        Assert.That(result.Length, Is.EqualTo(2));
+        Assert.That(result.Length, Is.EqualTo(4));
         Assert.That(result[0].Read<string>(), Is.EqualTo("world"));
-        Assert.That(result[1].Read<string>(), Is.EqualTo("123"));
+        
+        Assert.That(result[1].Read<string>(), Is.EqualTo(" and "));
+        Assert.That(result[2].Read<string>(), Is.EqualTo("123"));
+        Assert.That(result[3].Read<string>(), Is.EqualTo(" test"));
     }
 
     [Test]
@@ -911,9 +914,11 @@ public class PatternMatchingTests
             end
             return table.unpack(matches)
         ");
-        Assert.That(result.Length, Is.EqualTo(2));
+        Assert.That(result.Length, Is.EqualTo(4));
         Assert.That(result[0].Read<string>(), Is.EqualTo("")); // Empty match
-        Assert.That(result[1].Read<string>(), Is.EqualTo("empty"));
+        Assert.That(result[1].Read<string>(), Is.EqualTo(" and ")); // Match with spaces
+        Assert.That(result[2].Read<string>(), Is.EqualTo("empty"));
+        Assert.That(result[3].Read<string>(), Is.EqualTo("")); // Trailing empty match
         
         // Test nested or adjacent dollar signs
         result = await state.DoStringAsync(@"

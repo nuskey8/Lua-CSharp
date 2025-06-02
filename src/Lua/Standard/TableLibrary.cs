@@ -1,4 +1,5 @@
 using Lua.CodeAnalysis;
+using Lua.Internal;
 using System.Runtime.CompilerServices;
 using System.Text;
 using Lua.Runtime;
@@ -53,7 +54,7 @@ public sealed class TableLibrary
             ? (long)context.GetArgument<double>(3)
             : arg0.ArrayLength;
 
-        var builder = new ValueStringBuilder(512);
+        using var builder = new PooledList<char>(512);
 
         for (long i = arg2; i <= arg3; i++)
         {
@@ -61,18 +62,18 @@ public sealed class TableLibrary
 
             if (value.Type is LuaValueType.String)
             {
-                builder.Append(value.Read<string>());
+                builder.AddRange(value.Read<string>());
             }
             else if (value.Type is LuaValueType.Number)
             {
-                builder.Append(value.Read<double>().ToString(CultureInfo.InvariantCulture));
+                builder.AddRange(value.Read<double>().ToString(CultureInfo.InvariantCulture));
             }
             else
             {
                 throw new LuaRuntimeException(context.Thread, $"invalid value ({value.Type}) at index {i} in table for 'concat'");
             }
 
-            if (i != arg3) builder.Append(arg1);
+            if (i != arg3) builder.AddRange(arg1);
         }
 
         return new(context.Return(builder.ToString()));
