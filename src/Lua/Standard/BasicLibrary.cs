@@ -267,10 +267,11 @@ public sealed class BasicLibrary
                     throw new LuaCanceledException(context.Thread, cancellationToken, ex);
                 case LuaRuntimeException luaEx:
                     {
-                        if (luaEx.ErrorObject.Type != LuaValueType.String)
+                        if (luaEx.InnerException == null && luaEx.ErrorObject.Type != LuaValueType.String)
                         {
                             return context.Return(false, luaEx.ErrorObject);
                         }
+
                         using var builder = new PooledList<char>();
                         var message = luaEx.MinimalMessage();
                         luaEx.Forget();

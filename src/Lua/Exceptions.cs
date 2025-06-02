@@ -68,6 +68,14 @@ public class LuaCompileException(string chunkName, SourcePosition position, int 
 
 public class LuaUnDumpException(string message) : Exception(message);
 
+internal class LuaStackOverflowException() : Exception("stack overflow")
+{
+    public override string ToString()
+    {
+        return  "stack overflow";
+    }
+}
+
 internal interface ILuaTracebackBuildable
 {
     Traceback? BuildOrGet();

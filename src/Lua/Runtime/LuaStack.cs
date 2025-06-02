@@ -32,7 +32,7 @@ public sealed class LuaStack(int initialSize = 256)
 
             if (1000000 < size)
             {
-                throw new ("Lua Stack overflow");
+                throw new LuaStackOverflowException();
             }
 
             Array.Resize(ref array, size);
