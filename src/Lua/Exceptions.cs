@@ -372,7 +372,21 @@ public class LuaRuntimeException : Exception, ILuaTracebackBuildable
             return message;
         }
 
-        return CreateMessage(luaTraceback, message);
+        {
+            var pooledList = new PooledList<char>(64);
+            pooledList.Clear();
+            try
+            {
+                luaTraceback.WriteLastLuaTrace(ref pooledList);
+                if (pooledList.Length != 0) pooledList.AddRange(": ");
+                pooledList.AddRange(message);
+                return pooledList.AsSpan().ToString();
+            }
+            finally
+            {
+                pooledList.Dispose();
+            }
+        }
     }
 
     public override string Message

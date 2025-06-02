@@ -857,12 +857,12 @@ public static partial class LuaVirtualMachine
 
     static void ThrowLuaRuntimeException(VirtualMachineExecutionContext context, string message)
     {
-        throw new LuaRuntimeException(context.Thread, message);
+        throw new LuaRuntimeException(GetThreadWithCurrentPc(context), message);
     }
 
     static void ThrowLuaNotImplementedException(VirtualMachineExecutionContext context, OpCode opcode)
     {
-        throw new LuaRuntimeException(context.Thread, $"OpCode {opcode} is not implemented");
+        throw new LuaRuntimeException(GetThreadWithCurrentPc(context), $"OpCode {opcode} is not implemented");
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
@@ -1453,12 +1453,12 @@ public static partial class LuaVirtualMachine
         if (c == 0)
         {
             context.Pc++;
-            c =  context.Prototype.Code [context.Pc].Ax;
+            c = context.Prototype.Code[context.Pc].Ax;
         }
 
-        table.EnsureArrayCapacity((c-1) * 50 + count);
+        table.EnsureArrayCapacity((c - 1) * 50 + count);
         stack.GetBuffer().Slice(RA + 1, count)
-            .CopyTo(table.GetArraySpan()[((c- 1) * 50)..]);
+            .CopyTo(table.GetArraySpan()[((c - 1) * 50)..]);
         stack.PopUntil(RA + 1);
     }
 
@@ -1909,7 +1909,7 @@ public static partial class LuaVirtualMachine
             return true;
         }
 
-        LuaRuntimeException.AttemptInvalidOperationOnLuaStack(GetThreadWithCurrentPc(context), description,context.Pc, context.Instruction.B, context.Instruction.C);
+        LuaRuntimeException.AttemptInvalidOperationOnLuaStack(GetThreadWithCurrentPc(context), description, context.Pc, context.Instruction.B, context.Instruction.C);
         return false;
     }
 
@@ -2043,7 +2043,7 @@ public static partial class LuaVirtualMachine
             return true;
         }
 
-        LuaRuntimeException.AttemptInvalidOperationOnLuaStack(GetThreadWithCurrentPc(context), description,context.Pc, context.Instruction.B);
+        LuaRuntimeException.AttemptInvalidOperationOnLuaStack(GetThreadWithCurrentPc(context), description, context.Pc, context.Instruction.B);
         return true;
     }
 
