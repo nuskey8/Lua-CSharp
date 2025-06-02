@@ -1449,10 +1449,16 @@ public static partial class LuaVirtualMachine
         var count = instruction.B == 0
             ? stack.Count - (RA + 1)
             : instruction.B;
+        var c = instruction.C;
+        if (c == 0)
+        {
+            context.Pc++;
+            c =  context.Prototype.Code [context.Pc].Ax;
+        }
 
-        table.EnsureArrayCapacity((instruction.C - 1) * 50 + count);
+        table.EnsureArrayCapacity((c-1) * 50 + count);
         stack.GetBuffer().Slice(RA + 1, count)
-            .CopyTo(table.GetArraySpan()[((instruction.C - 1) * 50)..]);
+            .CopyTo(table.GetArraySpan()[((c- 1) * 50)..]);
         stack.PopUntil(RA + 1);
     }
 

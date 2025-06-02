@@ -8,5 +8,5 @@ internal class Constants
     public const int MaxStack = 1000000;
     public const int MaxUpValue = byte.MaxValue;
     public const int MaxCallCount = 200;
-    public const int MaxLine = 10000;
+    public const int MaxLine = 1000000;
 }
