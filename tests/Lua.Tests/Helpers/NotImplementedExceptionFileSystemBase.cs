@@ -14,7 +14,7 @@ namespace Lua.Tests.Helpers
             throw new NotImplementedException();
         }
 
-        public virtual ILuaIOStream Open(string path, LuaFileOpenMode mode)
+        public virtual ILuaIOStream Open(string path, LuaFileMode mode)
         {
             throw new NotImplementedException();
         }

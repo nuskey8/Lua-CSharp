@@ -1,5 +1,6 @@
 using System.Globalization;
 using Lua.Internal;
+using Lua.IO;
 using Lua.Runtime;
 
 // ReSharper disable MethodHasAsyncOverloadWithCancellation
@@ -185,7 +186,7 @@ public sealed class BasicLibrary
 
         var arg3 = context.HasArgument(3)
             ? context.GetArgument<LuaTable>(3)
-            : context.State.Environment;
+            : null;
 
         // do not use LuaState.DoFileAsync as it uses the newExecutionContext
         try
@@ -198,6 +199,10 @@ public sealed class BasicLibrary
             {
                 // TODO: 
                 throw new NotImplementedException();
+            }
+            else if (arg0.TryRead<ByteArrayData>(out var rawBytes))
+            {
+                return new(context.Return(context.State.Load(rawBytes.Bytes, name, "bt", arg3)));
             }
             else
             {

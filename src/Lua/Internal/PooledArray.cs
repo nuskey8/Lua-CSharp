@@ -15,6 +15,14 @@ public struct PooledArray<T>(int sizeHint) : IDisposable
             return ref array![index];
         }
     }
+    public T[] UnderlyingArray
+    {
+        get
+        {
+            ThrowIfDisposed();
+            return array!;
+        }
+    }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public Span<T> AsSpan()
