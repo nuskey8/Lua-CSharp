@@ -35,10 +35,10 @@ public sealed class LuaState
     public LuaTable PreloadModules => registry[ModuleLibrary.PreloadKeyForRegistry].Read<LuaTable>();
     public LuaMainThread MainThread => mainThread;
 
-    public LuaThreadAccess TopLevelAccess => new (mainThread, 0);
+    public LuaThreadAccess TopLevelAccess => new(mainThread, 0);
 
     public ILuaModuleLoader ModuleLoader { get; set; } = FileModuleLoader.Instance;
-    
+
     public ILuaFileSystem FileSystem { get; set; } = Lua.IO.FileSystem.Instance;
 
     // metatables
@@ -157,7 +157,7 @@ public sealed class LuaState
         return new LuaClosure(MainThread, prototype, environment);
     }
 
-    public LuaClosure Load(ReadOnlySpan<byte> chunk, string chunkName, string mode = "bt", LuaTable? environment = null)
+    public LuaClosure Load(ReadOnlySpan<byte> chunk, string? chunkName = null, string mode = "bt", LuaTable? environment = null)
     {
         if (chunk.Length > 4)
         {
@@ -175,6 +175,8 @@ public sealed class LuaState
         {
             var chars = pooled.AsSpan(0, charCount);
             encoding.GetChars(chunk, chars);
+            chunkName ??= chars.ToString();
+
             return Load(chars, chunkName, environment);
         }
         finally

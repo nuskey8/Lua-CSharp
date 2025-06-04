@@ -46,7 +46,7 @@ public class FileHandle : ILuaUserData
         fileHandleMetatable[Metamethods.Index] = IndexMetamethod;
     }
 
-    public FileHandle(LuaFileOpenMode mode, Stream stream) : this(new LuaIOStreamWrapper(mode, stream)) { }
+    public FileHandle(Stream stream,LuaFileOpenMode mode, LuaFileContentType type =LuaFileContentType.Text) : this(ILuaIOStream.CreateStreamWrapper( stream,mode,type)) { }
 
     public FileHandle(ILuaIOStream stream)
     {
@@ -58,9 +58,9 @@ public class FileHandle : ILuaUserData
         return stream.ReadLineAsync(cancellationToken);
     }
 
-    public ValueTask<string> ReadToEndAsync(CancellationToken cancellationToken)
+    public ValueTask<LuaFileContent> ReadToEndAsync(CancellationToken cancellationToken)
     {
-        return stream.ReadToEndAsync(cancellationToken);
+        return stream.ReadAllAsync(cancellationToken);
     }
 
     public ValueTask<string?> ReadStringAsync(int count, CancellationToken cancellationToken)
@@ -68,9 +68,9 @@ public class FileHandle : ILuaUserData
         return stream.ReadStringAsync(count, cancellationToken);
     }
 
-    public ValueTask WriteAsync(ReadOnlyMemory<char> buffer, CancellationToken cancellationToken)
+    public ValueTask WriteAsync(LuaFileContent content, CancellationToken cancellationToken)
     {
-        return stream.WriteAsync(buffer, cancellationToken);
+        return stream.WriteAsync(content, cancellationToken);
     }
 
     public long Seek(string whence, long offset) =>
@@ -102,8 +102,8 @@ public class FileHandle : ILuaUserData
     public void Close()
     {
         if (isClosed) throw new ObjectDisposedException(nameof(FileHandle));
+        stream.Close();
         Volatile.Write(ref isClosed, true);
-        stream.Dispose();
         stream = null!;
     }
 

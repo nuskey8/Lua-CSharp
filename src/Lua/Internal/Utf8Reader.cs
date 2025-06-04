@@ -31,6 +31,8 @@ internal sealed class Utf8Reader
         scratchBufferUsed = true;
     }
 
+    public long Remain => bufLen - bufPos;
+
     public string? ReadLine(Stream stream)
     {
         var resultBuffer = ArrayPool<byte>.Shared.Rent(1024);
@@ -93,6 +95,7 @@ internal sealed class Utf8Reader
                 if (bufPos >= bufLen)
                 {
                     bufLen = stream.Read(buffer, 0, buffer.Length);
+
                     bufPos = 0;
                     if (bufLen == 0)
                         break; // EOF

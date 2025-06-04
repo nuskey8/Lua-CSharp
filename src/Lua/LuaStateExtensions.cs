@@ -1,3 +1,4 @@
+using Lua.IO;
 using Lua.Runtime;
 
 namespace Lua;
@@ -38,12 +39,29 @@ public static class LuaStateExtensions
     {
         var name = "@" + fileName;
         LuaClosure closure;
+        
+        var openFlags = LuaFileMode.Read;
+        if (mode.Contains('b'))
         {
-            using var file = await state.FileSystem.ReadFileContentAsync(fileName, cancellationToken);
-            closure = file.Type == LuaFileContentType.Bytes
-                ? state.Load(file.ReadBytes(), name, mode, environment)
-                : state.Load(file.ReadText(), name, environment);
+            openFlags |= LuaFileMode.Binary;
         }
+        if (mode.Contains('t'))
+        {
+            openFlags |= LuaFileMode.Text;
+        }
+
+        using var stream = state.FileSystem.Open(fileName, openFlags);
+        var content = await stream.ReadAllAsync(cancellationToken);
+            
+        if (content.Type == LuaFileContentType.Binary)
+        {
+            closure = state.Load(content.ReadBytes().Span, name, mode, environment);
+        }
+        else
+        {
+            closure = state.Load(content.ReadText().Span, name, environment);
+        }
+
         return closure;
     }
 }

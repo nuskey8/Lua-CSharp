@@ -8,20 +8,8 @@ internal static class IOHelper
 {
     public static int Open(LuaThread thread, string fileName, string mode, bool throwError)
     {
-        var fileMode = mode switch
-        {
-            "r" or "rb" => LuaFileOpenMode.Read,
-            "w" or "wb" => LuaFileOpenMode.Write,
-            "a" or "ab" => LuaFileOpenMode.Append,
-            "r+" or "rb+" => LuaFileOpenMode.ReadWriteOpen,
-            "w+" or "wb+" => LuaFileOpenMode.ReadWriteCreate,
-            "a+" or "ab+" => LuaFileOpenMode.ReadAppend,
-            _ => throw new LuaRuntimeException(thread, "bad argument #2 to 'open' (invalid mode)"),
-        };
-
-        var binary = mode.Contains("b");
-        if (binary) throw new LuaRuntimeException(thread, "binary mode is not supported");
-
+        var fileMode = LuaFileModeExtensions.ParseModeString(mode);
+        if (!fileMode.IsValid()) throw new LuaRuntimeException(thread, "bad argument #2 to 'open' (invalid mode)");
         try
         {
             var stream = thread.State.FileSystem.Open(fileName, fileMode);
@@ -54,14 +42,18 @@ internal static class IOHelper
                 var arg = context.Arguments[i];
                 if (arg.TryRead<string>(out var str))
                 {
-                    await file.WriteAsync(str.AsMemory(), cancellationToken);
+                    await file.WriteAsync(new(str), cancellationToken);
                 }
                 else if (arg.TryRead<double>(out var d))
                 {
                     using var fileBuffer = new PooledArray<char>(64);
                     var span = fileBuffer.AsSpan();
                     d.TryFormat(span, out var charsWritten);
-                    await file.WriteAsync(fileBuffer.AsMemory()[..charsWritten], cancellationToken);
+                    await file.WriteAsync(new(fileBuffer.UnderlyingArray.AsMemory(0,charsWritten) ), cancellationToken);
+                }
+                else if (arg.TryRead<IBinaryData>(out var binaryData))
+                {
+                    await file.WriteAsync(new (binaryData), cancellationToken);
                 }
                 else
                 {
@@ -111,7 +103,7 @@ internal static class IOHelper
                             throw new NotImplementedException();
                         case "*a":
                         case "*all":
-                            stack.Push(await file.ReadToEndAsync(cancellationToken));
+                            stack.Push((await file.ReadToEndAsync(cancellationToken)).ToLuaValue());
                             break;
                         case "*l":
                         case "*line":
@@ -140,7 +132,7 @@ internal static class IOHelper
                 }
                 else
                 {
-                    LuaRuntimeException.BadArgument(thread, i + 1,  ["string", "integer"] , format.TypeToString());
+                    LuaRuntimeException.BadArgument(thread, i + 1, ["string", "integer"], format.TypeToString());
                 }
             }
 

@@ -1,19 +1,38 @@
-﻿using System.Buffers;
+﻿using Lua.IO;
 
 namespace Lua;
 
 public enum LuaFileContentType
 {
+    Unknown = 0,
     Text,
-    Bytes
+    Binary
 }
 
-public readonly struct LuaFileContent : IDisposable
+public readonly struct LuaFileContent
 {
     public LuaFileContentType Type => type;
 
     readonly LuaFileContentType type;
     readonly object referenceValue;
+
+    public LuaFileContent(ReadOnlyMemory<char> memory)
+    {
+        type = LuaFileContentType.Text;
+        referenceValue = memory;
+    }
+
+    public LuaFileContent(ReadOnlyMemory<byte> memory)
+    {
+        type = LuaFileContentType.Text;
+        referenceValue = new BinaryData(memory);
+    }
+
+    public LuaFileContent(IBinaryData data)
+    {
+        type = LuaFileContentType.Binary;
+        referenceValue = data;
+    }
 
     public LuaFileContent(string text)
     {
@@ -21,51 +40,35 @@ public readonly struct LuaFileContent : IDisposable
         referenceValue = text;
     }
 
-    public LuaFileContent(byte[] bytes)
-    {
-        type = LuaFileContentType.Bytes;
-        referenceValue = bytes;
-    }
-
-    public LuaFileContent(IMemoryOwner<char> bytes)
-    {
-        type = LuaFileContentType.Text;
-        referenceValue = bytes;
-    }
-
-    public LuaFileContent(IMemoryOwner<byte> bytes)
-    {
-        type = LuaFileContentType.Bytes;
-        referenceValue = bytes;
-    }
-
-    public ReadOnlySpan<char> ReadText()
+    public ReadOnlyMemory<char> ReadText()
     {
         if (type != LuaFileContentType.Text) throw new InvalidOperationException("Cannot read text from a LuaFileContent of type Bytes.");
-        if (referenceValue is IMemoryOwner<char> mem)
-        {
-            return mem.Memory.Span;
-        }
-
-        return ((string)referenceValue);
+        if (referenceValue is string str) return str.AsMemory();
+        return ((ReadOnlyMemory<char>)referenceValue);
     }
 
-    public ReadOnlySpan<byte> ReadBytes()
+    public string ReadString()
     {
-        if (type != LuaFileContentType.Bytes) throw new InvalidOperationException("Cannot read bytes from a LuaFileContent of type Text.");
-        if (referenceValue is IMemoryOwner<byte> mem)
-        {
-            return mem.Memory.Span;
-        }
-
-        return (byte[])referenceValue;
+        if (type != LuaFileContentType.Text) throw new InvalidOperationException("Cannot read text from a LuaFileContent of type Bytes.");
+        if (referenceValue is string str) return str;
+        return ((ReadOnlyMemory<char>)referenceValue).ToString();
     }
 
-    public void Dispose()
+    public ReadOnlyMemory<byte> ReadBytes()
     {
-        if (referenceValue is IDisposable memoryOwner)
+        if (type != LuaFileContentType.Binary) throw new InvalidOperationException("Cannot read bytes from a LuaFileContent of type Text.");
+        return ((IBinaryData)referenceValue).Memory;
+    }
+
+    public LuaValue ToLuaValue()
+    {
+        if (type == LuaFileContentType.Binary)
         {
-            memoryOwner.Dispose();
+            return LuaValue.FromObject(referenceValue);
+        }
+        else
+        {
+            return ReadString();
         }
     }
 }

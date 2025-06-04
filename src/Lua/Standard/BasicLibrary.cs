@@ -1,5 +1,6 @@
 using System.Globalization;
 using Lua.Internal;
+using Lua.IO;
 using Lua.Runtime;
 
 // ReSharper disable MethodHasAsyncOverloadWithCancellation
@@ -185,7 +186,7 @@ public sealed class BasicLibrary
 
         var arg3 = context.HasArgument(3)
             ? context.GetArgument<LuaTable>(3)
-            : context.State.Environment;
+            : null;
 
         // do not use LuaState.DoFileAsync as it uses the newExecutionContext
         try
@@ -199,9 +200,13 @@ public sealed class BasicLibrary
                 // TODO: 
                 throw new NotImplementedException();
             }
+            else if (arg0.TryRead<IBinaryData>(out var binaryData))
+            {
+                return new(context.Return(context.State.Load(binaryData.Memory.Span, name, "bt", arg3)));
+            }
             else
             {
-                LuaRuntimeException.BadArgument(context.Thread, 1, [LuaValueType.String, LuaValueType.Function], arg0.Type);
+                LuaRuntimeException.BadArgument(context.Thread, 1, ["string", "function,binary data"], arg0.TypeToString());
                 return default; // dummy
             }
         }
