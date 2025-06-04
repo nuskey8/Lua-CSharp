@@ -57,16 +57,15 @@ public sealed class LuaChunkStream : ILuaIOStream
     }
 
     public LuaFileOpenMode Mode => LuaFileOpenMode.Read;
-    public LuaFileContentType ContentType => LuaFileContentType.Unknown;
+    public LuaFileContentType ContentType =>  
+        bytes.Span.StartsWith(LuaCompiler.LuaByteCodeSignature) ? LuaFileContentType.Binary : LuaFileContentType.Text;
 
     public ValueTask<LuaFileContent> ReadAllAsync(CancellationToken cancellationToken)
     {
         var span = bytes.Span;
-        if (span.StartsWith(LuaCompiler.LuaByteCodeSignature))
+        if (ContentType == LuaFileContentType.Binary)
         {
-            var array = ArrayPool<byte>.Shared.Rent(span.Length);
-            bytesToReturnToPool = array;
-            return new(new LuaFileContent(array.AsMemory(span.Length)));
+            return new(new LuaFileContent(bytes));
         }
         else
         {

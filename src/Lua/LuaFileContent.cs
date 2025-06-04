@@ -4,7 +4,6 @@ namespace Lua;
 
 public enum LuaFileContentType
 {
-    Unknown = 0,
     Text,
     Binary
 }
@@ -24,20 +23,20 @@ public readonly struct LuaFileContent
 
     public LuaFileContent(ReadOnlyMemory<byte> memory)
     {
-        type = LuaFileContentType.Text;
+        type = LuaFileContentType.Binary;
         referenceValue = new BinaryData(memory);
     }
 
     public LuaFileContent(IBinaryData data)
     {
         type = LuaFileContentType.Binary;
-        referenceValue = data;
+        referenceValue = data ?? throw new ArgumentNullException(nameof(data), "Binary data cannot be null.");
     }
 
     public LuaFileContent(string text)
     {
         type = LuaFileContentType.Text;
-        referenceValue = text;
+        referenceValue = text ?? throw new ArgumentNullException(nameof(text), "Text cannot be null.");
     }
 
     public ReadOnlyMemory<char> ReadText()
