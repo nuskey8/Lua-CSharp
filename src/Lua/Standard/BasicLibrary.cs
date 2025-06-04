@@ -200,13 +200,13 @@ public sealed class BasicLibrary
                 // TODO: 
                 throw new NotImplementedException();
             }
-            else if (arg0.TryRead<ByteArrayData>(out var rawBytes))
+            else if (arg0.TryRead<IBinaryData>(out var binaryData))
             {
-                return new(context.Return(context.State.Load(rawBytes.Bytes, name, "bt", arg3)));
+                return new(context.Return(context.State.Load(binaryData.Memory.Span, name, "bt", arg3)));
             }
             else
             {
-                LuaRuntimeException.BadArgument(context.Thread, 1, [LuaValueType.String, LuaValueType.Function], arg0.Type);
+                LuaRuntimeException.BadArgument(context.Thread, 1, ["string", "function,binary data"], arg0.TypeToString());
                 return default; // dummy
             }
         }

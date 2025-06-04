@@ -49,11 +49,11 @@ internal static class IOHelper
                     using var fileBuffer = new PooledArray<char>(64);
                     var span = fileBuffer.AsSpan();
                     d.TryFormat(span, out var charsWritten);
-                    await file.WriteAsync(new(fileBuffer.UnderlyingArray, charsWritten), cancellationToken);
+                    await file.WriteAsync(new(fileBuffer.UnderlyingArray.AsMemory(0,charsWritten) ), cancellationToken);
                 }
-                else if (arg.TryRead<ByteArrayData>(out var rawBytes))
+                else if (arg.TryRead<IBinaryData>(out var binaryData))
                 {
-                    await file.WriteAsync(rawBytes.AsLuaFileContent(), cancellationToken);
+                    await file.WriteAsync(new (binaryData), cancellationToken);
                 }
                 else
                 {

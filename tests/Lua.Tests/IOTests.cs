@@ -13,7 +13,7 @@ public class IOTests : IDisposable
     {
         testDirectory = Path.Combine(Path.GetTempPath(), $"LuaIOTests_{Guid.NewGuid()}");
         Directory.CreateDirectory(testDirectory);
-        fileSystem = new FileSystem();
+        fileSystem = new();
     }
 
     public void Dispose()
@@ -76,8 +76,8 @@ public class IOTests : IDisposable
     {
         Assert.That(LuaFileMode.Read.GetContentType(), Is.EqualTo(LuaFileContentType.Text));
         Assert.That(LuaFileMode.ReadText.GetContentType(), Is.EqualTo(LuaFileContentType.Text));
-        Assert.That(LuaFileMode.ReadBinary.GetContentType(), Is.EqualTo(LuaFileContentType.Bytes));
-        Assert.That(LuaFileMode.WriteBinary.GetContentType(), Is.EqualTo(LuaFileContentType.Bytes));
+        Assert.That(LuaFileMode.ReadBinary.GetContentType(), Is.EqualTo(LuaFileContentType.Binary));
+        Assert.That(LuaFileMode.WriteBinary.GetContentType(), Is.EqualTo(LuaFileContentType.Binary));
     }
 
     [Test]
@@ -90,14 +90,14 @@ public class IOTests : IDisposable
         using (var stream = fileSystem.Open(testFile, LuaFileMode.WriteText))
         {
             Assert.That(stream.ContentType, Is.EqualTo(LuaFileContentType.Text));
-            await stream.WriteAsync(new LuaFileContent(testContent), CancellationToken.None);
+            await stream.WriteAsync(new(testContent), CancellationToken.None);
         }
 
         // Read text
         using (var stream = fileSystem.Open(testFile, LuaFileMode.ReadText))
         {
             Assert.That(stream.ContentType, Is.EqualTo(LuaFileContentType.Text));
-            using var content = await stream.ReadToEndAsync(CancellationToken.None);
+            var content = await stream.ReadAllAsync(CancellationToken.None);
             Assert.That(content.Type, Is.EqualTo(LuaFileContentType.Text));
             Assert.That(content.ReadString(), Is.EqualTo(testContent));
         }
@@ -112,16 +112,16 @@ public class IOTests : IDisposable
         // Write bytes
         using (var stream = fileSystem.Open(testFile, LuaFileMode.WriteBinary))
         {
-            Assert.That(stream.ContentType, Is.EqualTo(LuaFileContentType.Bytes));
-            await stream.WriteAsync(new LuaFileContent(testBytes), CancellationToken.None);
+            Assert.That(stream.ContentType, Is.EqualTo(LuaFileContentType.Binary));
+            await stream.WriteAsync(new(testBytes), CancellationToken.None);
         }
 
         // Read bytes
         using (var stream = fileSystem.Open(testFile, LuaFileMode.ReadBinary))
         {
-            Assert.That(stream.ContentType, Is.EqualTo(LuaFileContentType.Bytes));
-            using var content = await stream.ReadToEndAsync(CancellationToken.None);
-            Assert.That(content.Type, Is.EqualTo(LuaFileContentType.Bytes));
+            Assert.That(stream.ContentType, Is.EqualTo(LuaFileContentType.Binary));
+            var content = await stream.ReadAllAsync(CancellationToken.None);
+            Assert.That(content.Type, Is.EqualTo(LuaFileContentType.Binary));
             Assert.That(content.ReadBytes().ToArray(), Is.EqualTo(testBytes));
         }
     }
@@ -130,10 +130,10 @@ public class IOTests : IDisposable
     public async Task TextStream_Cannot_Write_Binary_Content()
     {
         var testFile = GetTestFilePath("text_binary_mix.txt");
-        
+
         using var stream = fileSystem.Open(testFile, LuaFileMode.WriteText);
         var binaryContent = new LuaFileContent(new byte[] { 0x00, 0x01 });
-        
+
         Assert.ThrowsAsync<InvalidOperationException>(
             async () => await stream.WriteAsync(binaryContent, CancellationToken.None)
         );
@@ -143,10 +143,10 @@ public class IOTests : IDisposable
     public async Task BinaryStream_Cannot_Write_Text_Content()
     {
         var testFile = GetTestFilePath("binary_text_mix.bin");
-        
+
         using var stream = fileSystem.Open(testFile, LuaFileMode.WriteBinary);
         var textContent = new LuaFileContent("Hello");
-        
+
         Assert.ThrowsAsync<InvalidOperationException>(
             async () => await stream.WriteAsync(textContent, CancellationToken.None)
         );
@@ -157,11 +157,11 @@ public class IOTests : IDisposable
     {
         var testFile = GetTestFilePath("multiline.txt");
         var lines = new[] { "Line 1", "Line 2", "Line 3" };
-        
+
         // Write multiple lines
         using (var stream = fileSystem.Open(testFile, LuaFileMode.WriteText))
         {
-            await stream.WriteAsync(new LuaFileContent(string.Join("\n", lines)), CancellationToken.None);
+            await stream.WriteAsync(new(string.Join("\n", lines)), CancellationToken.None);
         }
 
         // Read lines one by one
@@ -172,7 +172,7 @@ public class IOTests : IDisposable
                 var line = await stream.ReadLineAsync(CancellationToken.None);
                 Assert.That(line, Is.EqualTo(lines[i]));
             }
-            
+
             // EOF should return null
             var eofLine = await stream.ReadLineAsync(CancellationToken.None);
             Assert.That(eofLine, Is.Null);
@@ -184,11 +184,11 @@ public class IOTests : IDisposable
     {
         var testFile = GetTestFilePath("read_string.txt");
         var testContent = "Hello, World!";
-        
+
         // Write content
         using (var stream = fileSystem.Open(testFile, LuaFileMode.WriteText))
         {
-            await stream.WriteAsync(new LuaFileContent(testContent), CancellationToken.None);
+            await stream.WriteAsync(new(testContent), CancellationToken.None);
         }
 
         // Read partial strings
@@ -196,13 +196,13 @@ public class IOTests : IDisposable
         {
             var part1 = await stream.ReadStringAsync(5, CancellationToken.None);
             Assert.That(part1, Is.EqualTo("Hello"));
-            
+
             var part2 = await stream.ReadStringAsync(7, CancellationToken.None);
             Assert.That(part2, Is.EqualTo(", World"));
-            
+
             var part3 = await stream.ReadStringAsync(1, CancellationToken.None);
             Assert.That(part3, Is.EqualTo("!")); // Only 1 char left
-            
+
             var eof = await stream.ReadStringAsync(10, CancellationToken.None);
             Assert.That(eof, Is.Null);
         }
@@ -212,10 +212,10 @@ public class IOTests : IDisposable
     public async Task BinaryStream_Cannot_Use_Text_Operations()
     {
         var testFile = GetTestFilePath("binary_no_text.bin");
-        
+
         using (var stream = fileSystem.Open(testFile, LuaFileMode.WriteBinary))
         {
-            await stream.WriteAsync(new LuaFileContent(new byte[] { 0x01, 0x02 }), CancellationToken.None);
+            await stream.WriteAsync(new(new byte[] { 0x01, 0x02 }), CancellationToken.None);
         }
 
         using (var stream = fileSystem.Open(testFile, LuaFileMode.ReadBinary))
@@ -223,7 +223,7 @@ public class IOTests : IDisposable
             Assert.ThrowsAsync<InvalidOperationException>(
                 async () => await stream.ReadLineAsync(CancellationToken.None)
             );
-            
+
             Assert.ThrowsAsync<InvalidOperationException>(
                 async () => await stream.ReadStringAsync(10, CancellationToken.None)
             );
@@ -234,23 +234,23 @@ public class IOTests : IDisposable
     public async Task Append_Mode_Appends_Content()
     {
         var testFile = GetTestFilePath("append_test.txt");
-        
+
         // Write initial content
         using (var stream = fileSystem.Open(testFile, LuaFileMode.WriteText))
         {
-            await stream.WriteAsync(new LuaFileContent("Hello"), CancellationToken.None);
+            await stream.WriteAsync(new("Hello"), CancellationToken.None);
         }
-        
+
         // Append content
         using (var stream = fileSystem.Open(testFile, LuaFileMode.AppendText))
         {
-            await stream.WriteAsync(new LuaFileContent(" World"), CancellationToken.None);
+            await stream.WriteAsync(new(" World"), CancellationToken.None);
         }
-        
+
         // Read and verify
         using (var stream = fileSystem.Open(testFile, LuaFileMode.ReadText))
         {
-            using var content = await stream.ReadToEndAsync(CancellationToken.None);
+            var content = await stream.ReadAllAsync(CancellationToken.None);
             Assert.That(content.ReadString(), Is.EqualTo("Hello World"));
         }
     }
@@ -260,11 +260,11 @@ public class IOTests : IDisposable
     {
         var testFile = GetTestFilePath("seek_test.txt");
         var testContent = "0123456789";
-        
+
         // Write content
         using (var stream = fileSystem.Open(testFile, LuaFileMode.WriteText))
         {
-            await stream.WriteAsync(new LuaFileContent(testContent), CancellationToken.None);
+            await stream.WriteAsync(new(testContent), CancellationToken.None);
         }
 
         // Test seeking
@@ -274,12 +274,12 @@ public class IOTests : IDisposable
             stream.Seek(5, SeekOrigin.Begin);
             var afterBegin = await stream.ReadStringAsync(3, CancellationToken.None);
             Assert.That(afterBegin, Is.EqualTo("567"));
-            
+
             // Seek from current
             stream.Seek(-2, SeekOrigin.Current);
             var afterCurrent = await stream.ReadStringAsync(2, CancellationToken.None);
             Assert.That(afterCurrent, Is.EqualTo("67"));
-            
+
             // Seek from end
             stream.Seek(-3, SeekOrigin.End);
             var afterEnd = await stream.ReadStringAsync(3, CancellationToken.None);
@@ -292,11 +292,11 @@ public class IOTests : IDisposable
     {
         var oldPath = GetTestFilePath("old_name.txt");
         var newPath = GetTestFilePath("new_name.txt");
-        
+
         File.WriteAllText(oldPath, "test content");
-        
+
         fileSystem.Rename(oldPath, newPath);
-        
+
         Assert.That(File.Exists(oldPath), Is.False);
         Assert.That(File.Exists(newPath), Is.True);
         Assert.That(File.ReadAllText(newPath), Is.EqualTo("test content"));
@@ -306,12 +306,12 @@ public class IOTests : IDisposable
     public void FileSystem_Remove_Works()
     {
         var testFile = GetTestFilePath("remove_test.txt");
-        
+
         File.WriteAllText(testFile, "test content");
         Assert.That(File.Exists(testFile), Is.True);
-        
+
         fileSystem.Remove(testFile);
-        
+
         Assert.That(File.Exists(testFile), Is.False);
     }
 
@@ -320,9 +320,9 @@ public class IOTests : IDisposable
     {
         var existingFile = GetTestFilePath("readable.txt");
         var nonExistentFile = GetTestFilePath("non_existent.txt");
-        
+
         File.WriteAllText(existingFile, "test");
-        
+
         Assert.That(fileSystem.IsReadable(existingFile), Is.True);
         Assert.That(fileSystem.IsReadable(nonExistentFile), Is.False);
     }
@@ -331,16 +331,16 @@ public class IOTests : IDisposable
     public async Task FileSystem_TempFile_Works()
     {
         string? tempPath = null;
-        
+
         try
         {
             using (var tempStream = fileSystem.OpenTempFileStream())
             {
-                await tempStream.WriteAsync(new LuaFileContent("temp content"), CancellationToken.None);
-                
+                await tempStream.WriteAsync(new("temp content"), CancellationToken.None);
+
                 // Seek and read
                 tempStream.Seek(0, SeekOrigin.Begin);
-                using var content = await tempStream.ReadToEndAsync(CancellationToken.None);
+                var content = await tempStream.ReadAllAsync(CancellationToken.None);
                 Assert.That(content.ReadString(), Is.EqualTo("temp content"));
             }
         }
@@ -366,25 +366,25 @@ public class IOTests : IDisposable
     public async Task Buffering_Modes_Work()
     {
         var testFile = GetTestFilePath("buffer_test.txt");
-        
+
         using (var stream = fileSystem.Open(testFile, LuaFileMode.WriteText))
         {
             // Set no buffering
             stream.SetVBuf(LuaFileBufferingMode.NoBuffering, 0);
-            await stream.WriteAsync(new LuaFileContent("No buffer"), CancellationToken.None);
-            
+            await stream.WriteAsync(new("No buffer"), CancellationToken.None);
+
             // Set line buffering
             stream.SetVBuf(LuaFileBufferingMode.LineBuffering, 1024);
-            await stream.WriteAsync(new LuaFileContent("\nLine buffer"), CancellationToken.None);
-            
+            await stream.WriteAsync(new("\nLine buffer"), CancellationToken.None);
+
             // Set full buffering
             stream.SetVBuf(LuaFileBufferingMode.FullBuffering, 4096);
-            await stream.WriteAsync(new LuaFileContent("\nFull buffer"), CancellationToken.None);
-            
+            await stream.WriteAsync(new("\nFull buffer"), CancellationToken.None);
+
             // Explicit flush
             await stream.FlushAsync(CancellationToken.None);
         }
-        
+
         // Verify content was written
         var writtenContent = File.ReadAllText(testFile);
         Assert.That(writtenContent, Does.Contain("No buffer"));
@@ -396,30 +396,30 @@ public class IOTests : IDisposable
     public async Task LuaFileContent_Memory_Variations()
     {
         var testFile = GetTestFilePath("memory_test.txt");
-        
+
         // Test with char array
         var charArray = "Hello from char array".ToCharArray();
         using (var stream = fileSystem.Open(testFile, LuaFileMode.WriteText))
         {
-            await stream.WriteAsync(new LuaFileContent(charArray), CancellationToken.None);
+            await stream.WriteAsync(new(charArray), CancellationToken.None);
         }
-        
+
         using (var stream = fileSystem.Open(testFile, LuaFileMode.ReadText))
         {
-            using var content = await stream.ReadToEndAsync(CancellationToken.None);
+            var content = await stream.ReadAllAsync(CancellationToken.None);
             Assert.That(content.ReadString(), Is.EqualTo("Hello from char array"));
         }
-        
+
         // Test with partial char array
         var longCharArray = "Hello World!!!".ToCharArray();
         using (var stream = fileSystem.Open(testFile, LuaFileMode.WriteText))
         {
-            await stream.WriteAsync(new LuaFileContent(longCharArray, 11), CancellationToken.None); // Only "Hello World"
+            await stream.WriteAsync(new(longCharArray.AsMemory(0, 11)), CancellationToken.None); // Only "Hello World"
         }
-        
+
         using (var stream = fileSystem.Open(testFile, LuaFileMode.ReadText))
         {
-            using var content = await stream.ReadToEndAsync(CancellationToken.None);
+            var content = await stream.ReadAllAsync(CancellationToken.None);
             Assert.That(content.ReadString(), Is.EqualTo("Hello World"));
         }
     }

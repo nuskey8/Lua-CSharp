@@ -19,7 +19,7 @@ public interface ILuaIOStream : IDisposable
     public LuaFileOpenMode Mode { get; }
 
     public LuaFileContentType ContentType { get; }
-    public ValueTask<LuaFileContent> ReadToEndAsync(CancellationToken cancellationToken);
+    public ValueTask<LuaFileContent> ReadAllAsync(CancellationToken cancellationToken);
     public ValueTask<string?> ReadLineAsync(CancellationToken cancellationToken);
     public ValueTask<string?> ReadStringAsync(int count, CancellationToken cancellationToken);
     public ValueTask WriteAsync(LuaFileContent content, CancellationToken cancellationToken);
@@ -29,7 +29,7 @@ public interface ILuaIOStream : IDisposable
 
     public static ILuaIOStream CreateStreamWrapper(Stream stream, LuaFileOpenMode mode, LuaFileContentType contentType = LuaFileContentType.Text)
     {
-        return contentType == LuaFileContentType.Bytes
+        return contentType == LuaFileContentType.Binary
             ? new BinaryLuaIOStream(mode, stream)
             : new TextLuaIOStream(mode, stream);
     }
@@ -87,7 +87,7 @@ public sealed class FileSystem : ILuaFileSystem
             stream = File.Open(path, mode, access, FileShare.ReadWrite | FileShare.Delete);
         }
 
-        ILuaIOStream wrapper = contentType == LuaFileContentType.Bytes
+        ILuaIOStream wrapper = contentType == LuaFileContentType.Binary
             ? new BinaryLuaIOStream(luaMode, stream)
             : new TextLuaIOStream(luaMode, stream);
 
@@ -101,6 +101,11 @@ public sealed class FileSystem : ILuaFileSystem
 
     public ILuaIOStream Open(string path, LuaFileMode mode)
     {
+        if (mode is LuaFileMode.ReadBinaryOrText)
+        {
+            return new LuaChunkStream(File.OpenRead(path));
+        }
+
         var openMode = mode.GetOpenMode();
         var contentType = mode.GetContentType();
         return Open(path, openMode, contentType);

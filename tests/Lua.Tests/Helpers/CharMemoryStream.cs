@@ -45,16 +45,10 @@ internal sealed class ReadOnlyCharMemoryLuaIOStream(ReadOnlyMemory<char> buffer,
         return new(line);
     }
 
-    public override ValueTask<LuaFileContent> ReadToEndAsync(CancellationToken cancellationToken)
+    public override ValueTask<LuaFileContent> ReadAllAsync(CancellationToken cancellationToken)
     {
-        if (position >= Buffer.Length)
-        {
-            return new(new LuaFileContent(string.Empty));
-        }
-
-        var remaining = Buffer[position..];
         position = Buffer.Length;
-        return new( new LuaFileContent(remaining.ToString()));
+        return new( new LuaFileContent(Buffer.ToArray()));
     }
 
     public override ValueTask<string?> ReadStringAsync(int count, CancellationToken cancellationToken)

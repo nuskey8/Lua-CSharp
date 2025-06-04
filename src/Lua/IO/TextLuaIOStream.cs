@@ -19,7 +19,7 @@ internal sealed class TextLuaIOStream(LuaFileOpenMode mode, Stream innerStream) 
         return new(reader.ReadLine(innerStream));
     }
 
-    public ValueTask<LuaFileContent> ReadToEndAsync(CancellationToken cancellationToken)
+    public ValueTask<LuaFileContent> ReadAllAsync(CancellationToken cancellationToken)
     {
         ThrowIfNotReadable();
         reader ??= new();
@@ -40,7 +40,7 @@ internal sealed class TextLuaIOStream(LuaFileOpenMode mode, Stream innerStream) 
         {
             throw new InvalidOperationException("Cannot write binary content to a text stream. Use a binary stream instead.");
         }
-        
+
         return WriteAsync(content.ReadText(), cancellationToken);
     }
 
@@ -97,10 +97,11 @@ internal sealed class TextLuaIOStream(LuaFileOpenMode mode, Stream innerStream) 
 
     public long Seek(long offset, SeekOrigin origin)
     {
-        if (reader != null&&origin== SeekOrigin.Current)
+        if (reader != null && origin == SeekOrigin.Current)
         {
             offset -= reader.Remain;
         }
+
         reader?.Clear();
         return innerStream.Seek(offset, origin);
     }
@@ -123,8 +124,18 @@ internal sealed class TextLuaIOStream(LuaFileOpenMode mode, Stream innerStream) 
 
     public void Dispose()
     {
-        if (innerStream.CanWrite) innerStream.Flush();
-        innerStream.Dispose();
-        reader?.Dispose();
+        try
+        {
+            if (innerStream.CanWrite)
+            {
+                innerStream.Flush();
+            }
+
+            innerStream.Dispose();
+        }
+        finally
+        {
+            reader?.Dispose();
+        }
     }
 }

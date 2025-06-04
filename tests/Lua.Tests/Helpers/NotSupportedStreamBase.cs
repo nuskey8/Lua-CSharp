@@ -16,7 +16,7 @@ namespace Lua.Tests.Helpers
             throw IOThrowHelpers.GetNotSupportedException();
         }
 
-        public virtual ValueTask<LuaFileContent> ReadToEndAsync(CancellationToken cancellationToken)
+        public virtual ValueTask<LuaFileContent> ReadAllAsync(CancellationToken cancellationToken)
         {
             throw IOThrowHelpers.GetNotSupportedException();
         }

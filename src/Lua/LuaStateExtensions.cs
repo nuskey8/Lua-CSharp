@@ -51,9 +51,9 @@ public static class LuaStateExtensions
         }
 
         using var stream = state.FileSystem.Open(fileName, openFlags);
-        using var content = await stream.ReadToEndAsync(cancellationToken);
+        var content = await stream.ReadAllAsync(cancellationToken);
             
-        if (content.Type == LuaFileContentType.Bytes)
+        if (content.Type == LuaFileContentType.Binary)
         {
             closure = state.Load(content.ReadBytes().Span, name, mode, environment);
         }

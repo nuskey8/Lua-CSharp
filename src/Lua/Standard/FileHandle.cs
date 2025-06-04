@@ -60,7 +60,7 @@ public class FileHandle : ILuaUserData
 
     public ValueTask<LuaFileContent> ReadToEndAsync(CancellationToken cancellationToken)
     {
-        return stream.ReadToEndAsync(cancellationToken);
+        return stream.ReadAllAsync(cancellationToken);
     }
 
     public ValueTask<string?> ReadStringAsync(int count, CancellationToken cancellationToken)

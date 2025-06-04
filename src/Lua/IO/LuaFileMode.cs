@@ -33,7 +33,11 @@ public enum LuaFileMode
     ReadUpdateBinary = Read | Update | Binary, // r+b or rb+
     WriteUpdateBinary = Write | Update | Binary, // w+b or wb+
     AppendUpdateBinary = Append | Update | Binary, // a+b or ab+
-    
+
+    /// <summary>
+    /// This is used for load files. bt mode.
+    /// </summary>
+    ReadBinaryOrText = Read | Binary | Text, //(default is text, but can be binary)
 }
 
 public static class LuaFileModeExtensions
@@ -56,7 +60,7 @@ public static class LuaFileModeExtensions
     {
         // If binary flag is set, it's binary mode
         if ((mode & LuaFileMode.Binary) != 0)
-            return LuaFileContentType.Bytes;
+            return LuaFileContentType.Binary;
 
         // Otherwise it's text mode (even if Text flag is not explicitly set)
         return LuaFileContentType.Text;
