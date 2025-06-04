@@ -78,6 +78,7 @@
         public void Rename(string oldName, string newName)
         {
             if (oldName == newName) return;
+            if (File.Exists(newName)) File.Delete(newName);
             File.Move(oldName, newName);
             File.Delete(oldName);
         }
