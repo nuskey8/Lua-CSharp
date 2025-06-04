@@ -36,7 +36,7 @@ public sealed class LuaState
     public LuaTable PreloadModules => registry[ModuleLibrary.PreloadKeyForRegistry].Read<LuaTable>();
     public LuaMainThread MainThread => mainThread;
 
-    public LuaThreadAccess TopLevelAccess => new(mainThread, 0);
+    public LuaThreadAccess RootAccess => new(mainThread, 0);
     
     public  ILuaPlatform Platform { get; }
 

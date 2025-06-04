@@ -8,7 +8,7 @@ state.OpenStandardLibraries();
 {
     var closure = state.Load("return function (a,b,...)  print('a : '..a..' b :'..'args : ',...) end", "@simple");
     using var threadLease = state.MainThread.RentUseThread();
-    var access = threadLease.Thread.TopLevelAccess;
+    var access = threadLease.Thread.RootAccess;
     {
         var count = await access.RunAsync(closure, 0);
         var results = access.ReadReturnValues(count);

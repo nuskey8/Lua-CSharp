@@ -93,7 +93,7 @@ public abstract class LuaThread
     public int CallStackFrameCount => CoreData == null ? 0 : CoreData!.CallStack.Count;
 
     internal LuaThreadAccess CurrentAccess => new(this, CurrentVersion);
-    public LuaThreadAccess TopLevelAccess => new(this, 0);
+    public LuaThreadAccess RootAccess => new(this, 0);
 
     public ref readonly CallStackFrame GetCurrentFrame()
     {

@@ -31,10 +31,10 @@ try
 
     Console.WriteLine("Output " + new string('-', 50));
 
-    var count = await state.TopLevelAccess.RunAsync(closure);
+    var count = await state.RootAccess.RunAsync(closure);
 
     Console.WriteLine("Result " + new string('-', 50));
-    using var results = state.TopLevelAccess.ReadReturnValues(count);
+    using var results = state.RootAccess.ReadReturnValues(count);
     for (int i = 0; i < count; i++)
     {
         Console.WriteLine(results[i]);

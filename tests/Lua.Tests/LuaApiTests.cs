@@ -34,7 +34,7 @@ public class LuaApiTests
                      setmetatable(a, metatable)
                      return a, b
                      """;
-        var access = state.TopLevelAccess;
+        var access = state.RootAccess;
         var result = await access.DoStringAsync(source);
         var a = result[0].Read<LuaTable>();
         var b = result[1].Read<LuaTable>();
@@ -68,7 +68,7 @@ public class LuaApiTests
                      setmetatable(a, metatable)
                      return a
                      """;
-        var access = state.TopLevelAccess;
+        var access = state.RootAccess;
 
         var result = await access.DoStringAsync(source);
         var a = result[0].Read<LuaTable>();
@@ -106,7 +106,7 @@ public class LuaApiTests
                      setmetatable(a, metatable)
                      return a, b, c
                      """;
-        var access = state.TopLevelAccess;
+        var access = state.RootAccess;
         var result = await access.DoStringAsync(source);
         var a = result[0].Read<LuaTable>();
         var b = result[1].Read<LuaTable>();
@@ -129,7 +129,7 @@ public class LuaApiTests
                      setmetatable(a, metatable)
                      return a
                      """;
-        var access = state.TopLevelAccess;
+        var access = state.RootAccess;
         var result = await access.DoStringAsync(source);
         var a = result[0].Read<LuaTable>();
         Assert.That(await access.GetTable(a, "x"), Is.EqualTo(new LuaValue(1)));
@@ -150,7 +150,7 @@ public class LuaApiTests
                      setmetatable(a, metatable)
                      return a
                      """;
-        var access = state.TopLevelAccess;
+        var access = state.RootAccess;
         var result = await access.DoStringAsync(source);
         var a = result[0].Read<LuaTable>();
         await access.SetTable(a, "a", "b");
@@ -183,7 +183,7 @@ setmetatable(c, metatable)
 
 return a,b,c
 ";
-        var access = state.TopLevelAccess;
+        var access = state.RootAccess;
         var result = await access.DoStringAsync(source);
         Assert.That(result, Has.Length.EqualTo(3));
 
@@ -229,7 +229,7 @@ return a,b,c
                      local c ={name ="c"}
                      return a,b,c
                      """;
-        var access = state.TopLevelAccess;
+        var access = state.RootAccess;
         var result = await access.DoStringAsync(source);
         var a = result[0];
         var b = result[1];
@@ -272,7 +272,7 @@ return a,b,c
                      local c ={name ="c"}
                      return a,b,c
                      """;
-        var access = state.TopLevelAccess;
+        var access = state.RootAccess;
         var result = await access.DoStringAsync(source);
         var a = result[0];
         var b = result[1];
