@@ -4,6 +4,7 @@ using System.Runtime.CompilerServices;
 using Lua.Internal;
 using Lua.IO;
 using Lua.Loaders;
+using Lua.Platforms;
 using Lua.Runtime;
 using Lua.Standard;
 using System.Buffers;
@@ -36,10 +37,16 @@ public sealed class LuaState
     public LuaMainThread MainThread => mainThread;
 
     public LuaThreadAccess TopLevelAccess => new(mainThread, 0);
+    
+    public  ILuaPlatform Platform { get; }
 
     public ILuaModuleLoader ModuleLoader { get; set; } = FileModuleLoader.Instance;
 
-    public ILuaFileSystem FileSystem { get; set; } = Lua.IO.FileSystem.Instance;
+    public ILuaFileSystem FileSystem => Platform.FileSystem ?? throw new InvalidOperationException("FileSystem is not set. Please set it before using LuaState.");
+
+    public ILuaOperatingSystem OperatingSystem   => Platform.OperatingSystem ?? throw new InvalidOperationException("OperatingSystem is not set. Please set it before using LuaState.");
+
+    public ILuaStandardIO StandardIO => Platform.StandardIO;
 
     // metatables
     LuaTable? nilMetatable;
@@ -51,16 +58,23 @@ public sealed class LuaState
 
     public static LuaState Create()
     {
-        return new();
+        return Create(LuaPlatform.Default);
+    }
+    
+    public static LuaState Create(ILuaPlatform platform)
+    {
+        var state = new LuaState(platform);
+        return state;
     }
 
-    LuaState()
+    LuaState(ILuaPlatform platform)
     {
         mainThread = new(this);
         environment = new();
         envUpValue = UpValue.Closed(environment);
         registry[ModuleLibrary.LoadedKeyForRegistry] = new LuaTable(0, 8);
         registry[ModuleLibrary.PreloadKeyForRegistry] = new LuaTable(0, 8);
+        Platform = platform;
     }
 
 

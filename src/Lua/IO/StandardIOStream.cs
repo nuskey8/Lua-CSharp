@@ -1,0 +1,37 @@
+﻿namespace Lua.IO
+{
+    /// <summary>
+    /// Wrapper for standard IO streams that prevents closing
+    /// </summary>
+    internal sealed class StandardIOStream(ILuaIOStream innerStream) : ILuaIOStream
+    {
+        public LuaFileOpenMode Mode => innerStream.Mode;
+        public LuaFileContentType ContentType => innerStream.ContentType;
+
+        public ValueTask<LuaFileContent> ReadAllAsync(CancellationToken cancellationToken)
+            => innerStream.ReadAllAsync(cancellationToken);
+
+        public ValueTask<string?> ReadLineAsync(CancellationToken cancellationToken)
+            => innerStream.ReadLineAsync(cancellationToken);
+
+        public ValueTask<string?> ReadStringAsync(int count, CancellationToken cancellationToken)
+            => innerStream.ReadStringAsync(count, cancellationToken);
+
+        public ValueTask WriteAsync(LuaFileContent content, CancellationToken cancellationToken)
+            => innerStream.WriteAsync(content, cancellationToken);
+
+        public ValueTask FlushAsync(CancellationToken cancellationToken)
+            => innerStream.FlushAsync(cancellationToken);
+
+        public void SetVBuf(LuaFileBufferingMode mode, int size)
+            => innerStream.SetVBuf(mode, size);
+
+        public long Seek(long offset, SeekOrigin origin)
+            => innerStream.Seek(offset, origin);
+
+        public void Dispose()
+        {
+            throw new IOException("cannot close standard file");
+        }
+    }
+}

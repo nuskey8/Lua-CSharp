@@ -46,7 +46,7 @@ public class FileHandle : ILuaUserData
         fileHandleMetatable[Metamethods.Index] = IndexMetamethod;
     }
 
-    public FileHandle(Stream stream,LuaFileOpenMode mode, LuaFileContentType type =LuaFileContentType.Text) : this(ILuaIOStream.CreateStreamWrapper( stream,mode,type)) { }
+    public FileHandle(Stream stream, LuaFileOpenMode mode, LuaFileContentType type = LuaFileContentType.Text) : this(ILuaIOStream.CreateStreamWrapper(stream, mode, type)) { }
 
     public FileHandle(ILuaIOStream stream)
     {
@@ -71,6 +71,21 @@ public class FileHandle : ILuaUserData
     public ValueTask WriteAsync(LuaFileContent content, CancellationToken cancellationToken)
     {
         return stream.WriteAsync(content, cancellationToken);
+    }
+
+    public ValueTask WriteAsync(string content, CancellationToken cancellationToken)
+    {
+        return stream.WriteAsync(new(content), cancellationToken);
+    }
+
+    public ValueTask WriteAsync(ReadOnlyMemory<char> content, CancellationToken cancellationToken)
+    {
+        return stream.WriteAsync(new (content), cancellationToken);
+    }
+
+    public ValueTask WriteAsync(IBinaryData content, CancellationToken cancellationToken)
+    {
+        return stream.WriteAsync(new(content), cancellationToken);
     }
 
     public long Seek(string whence, long offset) =>
