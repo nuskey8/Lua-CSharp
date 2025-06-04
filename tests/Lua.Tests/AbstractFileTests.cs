@@ -1,4 +1,5 @@
 ﻿using Lua.IO;
+using Lua.Platforms;
 using Lua.Standard;
 using Lua.Tests.Helpers;
 
@@ -26,8 +27,7 @@ public class AbstractFileTests
     {
         var fileContent = "line1\nline2\r\nline3";
         var fileSystem = new ReadOnlyFileSystem(new() { { "test.txt", fileContent } });
-        var state = LuaState.Create();
-        state.FileSystem = fileSystem;
+        var state = LuaState.Create(LuaPlatform.Default with{FileSystem = fileSystem});
         state.OpenStandardLibraries();
         try
         {
@@ -56,8 +56,7 @@ public class AbstractFileTests
     {
         var fileContent = "Hello, World!";
         var fileSystem = new ReadOnlyFileSystem(new() { { "test.txt", fileContent } });
-        var state = LuaState.Create();
-        state.FileSystem = fileSystem;
+        var state = LuaState.Create(LuaPlatform.Default with{FileSystem = fileSystem});
         state.OpenStandardLibraries();
 
         await state.DoStringAsync(

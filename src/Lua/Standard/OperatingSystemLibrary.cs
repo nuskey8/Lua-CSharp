@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using Lua.Standard.Internal;
 
 namespace Lua.Standard;
@@ -11,17 +10,17 @@ public sealed class OperatingSystemLibrary
     {
         Functions =
         [
-            new("os","clock", Clock),
-            new("os","date", Date),
-            new("os","difftime", DiffTime),
-            new("os","execute", Execute),
-            new("os","exit", Exit),
-            new("os","getenv", GetEnv),
-            new("os","remove", Remove),
-            new("os","rename", Rename),
-            new("os","setlocale", SetLocale),
-            new("os","time", Time),
-            new("os","tmpname", TmpName),
+            new("os", "clock", Clock),
+            new("os", "date", Date),
+            new("os", "difftime", DiffTime),
+            new("os", "execute", Execute),
+            new("os", "exit", Exit),
+            new("os", "getenv", GetEnv),
+            new("os", "remove", Remove),
+            new("os", "rename", Rename),
+            new("os", "setlocale", SetLocale),
+            new("os", "time", Time),
+            new("os", "tmpname", TmpName),
         ];
     }
 
@@ -29,7 +28,8 @@ public sealed class OperatingSystemLibrary
 
     public ValueTask<int> Clock(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
-        return new(context.Return(DateTimeHelper.GetUnixTime(DateTime.UtcNow, Process.GetCurrentProcess().StartTime)));
+        var os = context.State.OperatingSystem;
+        return new(context.Return(DateTimeHelper.GetUnixTime(os.GetCurrentUtcTime(), os.GetProcessStartTime())));
     }
 
     public ValueTask<int> Date(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
@@ -46,7 +46,7 @@ public sealed class OperatingSystemLibrary
         }
         else
         {
-            now = DateTime.UtcNow;
+            now = context.State.OperatingSystem.GetCurrentUtcTime();
         }
 
         var isDst = false;
@@ -56,23 +56,25 @@ public sealed class OperatingSystemLibrary
         }
         else
         {
-            now = TimeZoneInfo.ConvertTimeFromUtc(now, TimeZoneInfo.Local);
+            var offset = context.State.OperatingSystem.GetLocalTimeZoneOffset();
+            now =   now.Add(offset);
             isDst = now.IsDaylightSavingTime();
         }
 
-        if (format == "*t")
+        if (format is "*t")
         {
-            var table = new LuaTable();
-
-            table["year"] = now.Year;
-            table["month"] = now.Month;
-            table["day"] = now.Day;
-            table["hour"] = now.Hour;
-            table["min"] = now.Minute;
-            table["sec"] = now.Second;
-            table["wday"] = ((int)now.DayOfWeek) + 1;
-            table["yday"] = now.DayOfYear;
-            table["isdst"] = isDst;
+            var table = new LuaTable
+            {
+                ["year"] = now.Year,
+                ["month"] = now.Month,
+                ["day"] = now.Day,
+                ["hour"] = now.Hour,
+                ["min"] = now.Minute,
+                ["sec"] = now.Second,
+                ["wday"] = ((int)now.DayOfWeek) + 1,
+                ["yday"] = now.DayOfYear,
+                ["isdst"] = isDst
+            };
 
             return new(context.Return(table));
         }
@@ -113,11 +115,11 @@ public sealed class OperatingSystemLibrary
 
             if (code.TryRead<bool>(out var b))
             {
-                Environment.Exit(b ? 0 : 1);
+                context.State.OperatingSystem.Exit(b ? 0 : 1);
             }
             else if (code.TryRead<int>(out var d))
             {
-                Environment.Exit(d);
+                context.State.OperatingSystem.Exit(d);
             }
             else
             {
@@ -126,7 +128,7 @@ public sealed class OperatingSystemLibrary
         }
         else
         {
-            Environment.Exit(0);
+            context.State.OperatingSystem.Exit(0);
         }
 
         return new(context.Return());
@@ -135,7 +137,7 @@ public sealed class OperatingSystemLibrary
     public ValueTask<int> GetEnv(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
         var variable = context.GetArgument<string>(0);
-        return new(context.Return(Environment.GetEnvironmentVariable(variable) ?? LuaValue.Nil));
+        return new(context.Return(context.State.OperatingSystem.GetEnvironmentVariable(variable) ?? LuaValue.Nil));
     }
 
     public ValueTask<int> Remove(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
@@ -184,7 +186,7 @@ public sealed class OperatingSystemLibrary
         }
         else
         {
-            return new(context.Return(DateTimeHelper.GetUnixTime(DateTime.UtcNow)));
+            return new(context.Return(DateTimeHelper.GetUnixTime(context.State.OperatingSystem.GetCurrentUtcTime())));
         }
     }
 

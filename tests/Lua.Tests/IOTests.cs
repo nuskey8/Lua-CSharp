@@ -127,7 +127,7 @@ public class IOTests : IDisposable
     }
 
     [Test]
-    public async Task TextStream_Cannot_Write_Binary_Content()
+    public  void TextStream_Cannot_Write_Binary_Content()
     {
         var testFile = GetTestFilePath("text_binary_mix.txt");
 
@@ -140,7 +140,7 @@ public class IOTests : IDisposable
     }
 
     [Test]
-    public async Task BinaryStream_Cannot_Write_Text_Content()
+    public void BinaryStream_Cannot_Write_Text_Content()
     {
         var testFile = GetTestFilePath("binary_text_mix.bin");
 

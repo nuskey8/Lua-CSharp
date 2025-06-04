@@ -290,14 +290,20 @@ public sealed class BasicLibrary
 
     public async ValueTask<int> Print(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
+        var stdout = context.State.StandardIO.Output;
+        
         for (int i = 0; i < context.ArgumentCount; i++)
         {
             await context.Arguments[i].CallToStringAsync(context, cancellationToken);
-            Console.Write(context.Thread.Stack.Pop().Read<string>());
-            Console.Write('\t');
+            await stdout.WriteAsync(new (context.Thread.Stack.Pop().Read<string>()), cancellationToken);
+            if (i < context.ArgumentCount - 1)
+            {
+                await stdout.WriteAsync( new("\t"), cancellationToken);
+            }
         }
 
-        Console.WriteLine();
+        await stdout.WriteAsync(new("\n"), cancellationToken);
+        await stdout.FlushAsync(cancellationToken);
         return context.Return();
     }
 

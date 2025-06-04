@@ -42,18 +42,18 @@ internal static class IOHelper
                 var arg = context.Arguments[i];
                 if (arg.TryRead<string>(out var str))
                 {
-                    await file.WriteAsync(new(str), cancellationToken);
+                    await file.WriteAsync(str, cancellationToken);
                 }
                 else if (arg.TryRead<double>(out var d))
                 {
                     using var fileBuffer = new PooledArray<char>(64);
                     var span = fileBuffer.AsSpan();
                     d.TryFormat(span, out var charsWritten);
-                    await file.WriteAsync(new(fileBuffer.UnderlyingArray.AsMemory(0,charsWritten) ), cancellationToken);
+                    await file.WriteAsync(fileBuffer.UnderlyingArray.AsMemory(0,charsWritten) , cancellationToken);
                 }
                 else if (arg.TryRead<IBinaryData>(out var binaryData))
                 {
-                    await file.WriteAsync(new (binaryData), cancellationToken);
+                    await file.WriteAsync( binaryData, cancellationToken);
                 }
                 else
                 {

@@ -1,6 +1,5 @@
 using Lua.IO;
 using Lua.Runtime;
-using Lua.Standard.Internal;
 
 namespace Lua.Standard;
 
@@ -48,9 +47,10 @@ public static class OpenLibsExtensions
         }
 
         var registry = state.Registry;
-        var stdin = new LuaValue(new FileHandle(ConsoleHelper.OpenStandardInput(),LuaFileOpenMode.Read));
-        var stdout = new LuaValue(new FileHandle(ConsoleHelper.OpenStandardOutput(),LuaFileOpenMode.Write));
-        var stderr = new LuaValue(new FileHandle( ConsoleHelper.OpenStandardError(),LuaFileOpenMode.Write));
+        var standardIO = state.StandardIO;
+        var stdin = new LuaValue(new FileHandle(standardIO.Input));
+        var stdout = new LuaValue(new FileHandle(standardIO.Output));
+        var stderr = new LuaValue(new FileHandle(standardIO.Error));
         registry["_IO_input"] = stdin;
         registry["_IO_output"] = stdout;
         io["stdin"] = stdin;
