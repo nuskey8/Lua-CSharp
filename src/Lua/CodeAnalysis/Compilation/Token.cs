@@ -20,6 +20,6 @@ internal readonly struct Token(int pos, int t)
     public readonly int Pos = pos;
     public readonly int T = t;
     public readonly double N;
-    public readonly string S;
+    public readonly string S = "";
     string DebuggerDisplay => $"{Scanner.TokenToString(this)} {T} {N} {S}";
 }
