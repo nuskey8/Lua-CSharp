@@ -2,13 +2,13 @@
 
 namespace Lua.Tests.Helpers
 {
-    public class NotSupportedStreamBase : ILuaIOStream
+    public class NotSupportedStreamBase : ILuaStream
     {
         public virtual void Dispose()
         {
         }
 
-        public virtual LuaFileOpenMode Mode => throw IOThrowHelpers.GetNotSupportedException();
+        public virtual LuaFileMode Mode => throw IOThrowHelpers.GetNotSupportedException();
         public LuaFileContentType ContentType=> throw IOThrowHelpers.GetNotSupportedException();
 
         public virtual ValueTask<string?> ReadLineAsync(CancellationToken cancellationToken)

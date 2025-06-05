@@ -3,10 +3,9 @@
     /// <summary>
     /// Wrapper for standard IO streams that prevents closing
     /// </summary>
-    internal sealed class StandardIOStream(ILuaIOStream innerStream) : ILuaIOStream
+    internal sealed class StandardIOStream(ILuaStream innerStream) : ILuaStream
     {
-        public LuaFileOpenMode Mode => innerStream.Mode;
-        public LuaFileContentType ContentType => innerStream.ContentType;
+        public LuaFileMode Mode => innerStream.Mode;
 
         public ValueTask<LuaFileContent> ReadAllAsync(CancellationToken cancellationToken)
             => innerStream.ReadAllAsync(cancellationToken);

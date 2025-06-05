@@ -9,7 +9,7 @@ public class AbstractFileTests
 {
     class ReadOnlyFileSystem(Dictionary<string, string> dictionary) : NotImplementedExceptionFileSystemBase
     {
-        public override ILuaIOStream Open(string path, LuaFileMode mode)
+        public override ILuaStream Open(string path, LuaFileMode mode)
         {
             if (!dictionary.TryGetValue(path, out var value))
             {
@@ -34,7 +34,7 @@ public class AbstractFileTests
             await state.DoStringAsync(
                 """
                 local lines = {}
-                for line in io.lines("test1.txt") do
+                for line in io.lines("test.txt") do
                   table.insert(lines, line)
                   print(line)
                 end

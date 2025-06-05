@@ -1,6 +1,6 @@
 namespace Lua.IO;
 
-public sealed class ByteMemoryStream(ReadOnlyMemory<byte> bytes) : ILuaIOStream
+public sealed class ByteMemoryStream(ReadOnlyMemory<byte> bytes) : ILuaStream
 {
     private int position;
     private bool disposed;
@@ -11,9 +11,7 @@ public sealed class ByteMemoryStream(ReadOnlyMemory<byte> bytes) : ILuaIOStream
             throw new ArgumentNullException(nameof(bytes));
     }
 
-    public LuaFileOpenMode Mode => LuaFileOpenMode.Read;
-
-    public LuaFileContentType ContentType => LuaFileContentType.Binary;
+    public LuaFileMode Mode => LuaFileMode.ReadBinary;
 
     public void Dispose()
     {
@@ -87,14 +85,12 @@ public sealed class ByteMemoryStream(ReadOnlyMemory<byte> bytes) : ILuaIOStream
     }
 }
 
-public class CharMemoryStream(ReadOnlyMemory<char> contents) : ILuaIOStream
+public class CharMemoryStream(ReadOnlyMemory<char> contents) : ILuaStream
 {
     protected int Position;
     private bool disposed;
 
-    public LuaFileOpenMode Mode => LuaFileOpenMode.Read;
-
-    public LuaFileContentType ContentType => LuaFileContentType.Text;
+    public LuaFileMode Mode => LuaFileMode.ReadText;
 
     public void Dispose()
     {

@@ -7,27 +7,27 @@ namespace Lua.IO;
 /// </summary>
 public sealed class ConsoleStandardIO : ILuaStandardIO
 {
-    ILuaIOStream? standardInput;
+    ILuaStream? standardInput;
 
-    public ILuaIOStream Input => standardInput ??=
-        new StandardIOStream(ILuaIOStream.CreateStreamWrapper(
+    public ILuaStream Input => standardInput ??=
+        new StandardIOStream(ILuaStream.CreateStreamWrapper(
             ConsoleHelper.OpenStandardInput(),
             LuaFileOpenMode.Read));
 
-    ILuaIOStream? standardOutput;
+    ILuaStream? standardOutput;
 
-    public ILuaIOStream Output
+    public ILuaStream Output
 
         => standardOutput ??=
-            new StandardIOStream(ILuaIOStream.CreateStreamWrapper(
+            new StandardIOStream(ILuaStream.CreateStreamWrapper(
                 ConsoleHelper.OpenStandardOutput(),
                 LuaFileOpenMode.Write));
 
 
-    ILuaIOStream? standardError;
+    ILuaStream? standardError;
 
-    public ILuaIOStream Error => standardError ??=
-        new StandardIOStream(ILuaIOStream.CreateStreamWrapper(
+    public ILuaStream Error => standardError ??=
+        new StandardIOStream(ILuaStream.CreateStreamWrapper(
             ConsoleHelper.OpenStandardError(),
             LuaFileOpenMode.Write));
 }

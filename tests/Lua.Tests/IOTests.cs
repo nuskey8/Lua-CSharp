@@ -89,14 +89,12 @@ public class IOTests : IDisposable
         // Write text
         using (var stream = fileSystem.Open(testFile, LuaFileMode.WriteText))
         {
-            Assert.That(stream.ContentType, Is.EqualTo(LuaFileContentType.Text));
             await stream.WriteAsync(new(testContent), CancellationToken.None);
         }
 
         // Read text
         using (var stream = fileSystem.Open(testFile, LuaFileMode.ReadText))
         {
-            Assert.That(stream.ContentType, Is.EqualTo(LuaFileContentType.Text));
             var content = await stream.ReadAllAsync(CancellationToken.None);
             Assert.That(content.Type, Is.EqualTo(LuaFileContentType.Text));
             Assert.That(content.ReadString(), Is.EqualTo(testContent));
@@ -112,14 +110,12 @@ public class IOTests : IDisposable
         // Write bytes
         using (var stream = fileSystem.Open(testFile, LuaFileMode.WriteBinary))
         {
-            Assert.That(stream.ContentType, Is.EqualTo(LuaFileContentType.Binary));
             await stream.WriteAsync(new(testBytes), CancellationToken.None);
         }
 
         // Read bytes
         using (var stream = fileSystem.Open(testFile, LuaFileMode.ReadBinary))
         {
-            Assert.That(stream.ContentType, Is.EqualTo(LuaFileContentType.Binary));
             var content = await stream.ReadAllAsync(CancellationToken.None);
             Assert.That(content.Type, Is.EqualTo(LuaFileContentType.Binary));
             Assert.That(content.ReadBytes().ToArray(), Is.EqualTo(testBytes));

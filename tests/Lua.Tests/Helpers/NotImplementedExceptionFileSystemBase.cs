@@ -14,7 +14,7 @@ namespace Lua.Tests.Helpers
             throw new NotImplementedException();
         }
 
-        public virtual ILuaIOStream Open(string path, LuaFileMode mode)
+        public virtual ILuaStream Open(string path, LuaFileMode mode)
         {
             throw new NotImplementedException();
         }
@@ -36,7 +36,7 @@ namespace Lua.Tests.Helpers
             throw new NotImplementedException();
         }
 
-        public ILuaIOStream OpenTempFileStream()
+        public ILuaStream OpenTempFileStream()
         {
             throw new NotImplementedException();
         }

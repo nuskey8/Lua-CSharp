@@ -3,25 +3,24 @@ using System.Text;
 
 namespace Lua.IO;
 
-internal sealed class TextLuaIOStream(LuaFileOpenMode mode, Stream innerStream) : ILuaIOStream
+internal sealed class TextLuaStream(LuaFileMode mode, Stream innerStream) : ILuaStream
 {
     Utf8Reader? reader;
     ulong flushSize = ulong.MaxValue;
     ulong nextFlushSize = ulong.MaxValue;
 
-    public LuaFileOpenMode Mode => mode;
-    public LuaFileContentType ContentType => LuaFileContentType.Text;
+    public LuaFileMode Mode => mode;
 
     public ValueTask<string?> ReadLineAsync(CancellationToken cancellationToken)
     {
-        ThrowIfNotReadable();
+        mode.ThrowIfNotReadable();
         reader ??= new();
         return new(reader.ReadLine(innerStream));
     }
 
     public ValueTask<LuaFileContent> ReadAllAsync(CancellationToken cancellationToken)
     {
-        ThrowIfNotReadable();
+        mode.ThrowIfNotReadable();
         reader ??= new();
         var text = reader.ReadToEnd(innerStream);
         return new(new LuaFileContent(text));
@@ -29,25 +28,20 @@ internal sealed class TextLuaIOStream(LuaFileOpenMode mode, Stream innerStream) 
 
     public ValueTask<string?> ReadStringAsync(int count, CancellationToken cancellationToken)
     {
-        ThrowIfNotReadable();
+        mode.ThrowIfNotReadable();
         reader ??= new();
         return new(reader.Read(innerStream, count));
     }
 
     public ValueTask WriteAsync(LuaFileContent content, CancellationToken cancellationToken)
     {
-        if (content.Type != LuaFileContentType.Text)
-        {
-            throw new InvalidOperationException("Cannot write binary content to a text stream. Use a binary stream instead.");
-        }
-
+        mode.ThrowIfNotWritable();
         return WriteAsync(content.ReadText(), cancellationToken);
     }
 
     public ValueTask WriteAsync(ReadOnlyMemory<char> buffer, CancellationToken cancellationToken)
     {
-        ThrowIfNotWritable();
-        if (mode is LuaFileOpenMode.Append or LuaFileOpenMode.ReadAppend)
+        if (mode.IsAppend())
         {
             innerStream.Seek(0, SeekOrigin.End);
         }
@@ -104,22 +98,6 @@ internal sealed class TextLuaIOStream(LuaFileOpenMode mode, Stream innerStream) 
 
         reader?.Clear();
         return innerStream.Seek(offset, origin);
-    }
-
-    void ThrowIfNotReadable()
-    {
-        if (!innerStream.CanRead)
-        {
-            throw new IOException("Stream is not readable.");
-        }
-    }
-
-    void ThrowIfNotWritable()
-    {
-        if (!innerStream.CanWrite)
-        {
-            throw new IOException("Stream is not writable.");
-        }
     }
 
     public void Dispose()

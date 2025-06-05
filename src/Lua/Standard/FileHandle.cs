@@ -31,7 +31,7 @@ public class FileHandle : ILuaUserData
         }
     });
 
-    ILuaIOStream stream;
+    ILuaStream stream;
     bool isClosed;
 
     public bool IsClosed => Volatile.Read(ref isClosed);
@@ -46,9 +46,9 @@ public class FileHandle : ILuaUserData
         fileHandleMetatable[Metamethods.Index] = IndexMetamethod;
     }
 
-    public FileHandle(Stream stream, LuaFileOpenMode mode, LuaFileContentType type = LuaFileContentType.Text) : this(ILuaIOStream.CreateStreamWrapper(stream, mode, type)) { }
+    public FileHandle(Stream stream, LuaFileOpenMode mode, LuaFileContentType type = LuaFileContentType.Text) : this(ILuaStream.CreateStreamWrapper(stream, mode, type)) { }
 
-    public FileHandle(ILuaIOStream stream)
+    public FileHandle(ILuaStream stream)
     {
         this.stream = stream;
     }

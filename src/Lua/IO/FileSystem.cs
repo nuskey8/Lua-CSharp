@@ -31,12 +31,12 @@
         }
 
 
-        ILuaIOStream Open(string path, LuaFileOpenMode luaMode, LuaFileContentType contentType)
+        ILuaStream Open(string path, LuaFileOpenMode openMode, LuaFileContentType contentType)
         {
-            var (mode, access) = GetFileMode(luaMode);
+            var (mode, access) = GetFileMode(openMode);
             Stream stream;
 
-            if (luaMode == LuaFileOpenMode.ReadAppend)
+            if (openMode == LuaFileOpenMode.ReadAppend)
             {
                 stream = File.Open(path, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.ReadWrite | FileShare.Delete);
             }
@@ -45,11 +45,12 @@
                 stream = File.Open(path, mode, access, FileShare.ReadWrite | FileShare.Delete);
             }
 
-            ILuaIOStream wrapper = contentType == LuaFileContentType.Binary
-                ? new BinaryLuaIOStream(luaMode, stream)
-                : new TextLuaIOStream(luaMode, stream);
+            var fileMode = LuaFileModeExtensions.GetMode(openMode, contentType);
+            ILuaStream wrapper = contentType == LuaFileContentType.Binary
+                ? new BinaryLuaStream(fileMode, stream)
+                : new TextLuaStream(fileMode, stream);
 
-            if (luaMode == LuaFileOpenMode.ReadAppend)
+            if (openMode == LuaFileOpenMode.ReadAppend)
             {
                 wrapper.Seek(0, SeekOrigin.End);
             }
@@ -57,7 +58,7 @@
             return wrapper;
         }
 
-        public ILuaIOStream Open(string path, LuaFileMode mode)
+        public ILuaStream Open(string path, LuaFileMode mode)
         {
             if (mode is LuaFileMode.ReadBinaryOrText)
             {
@@ -69,7 +70,7 @@
             return Open(path, openMode, contentType);
         }
 
-        public ILuaIOStream Open(string path, string mode)
+        public ILuaStream Open(string path, string mode)
         {
             var flags = LuaFileModeExtensions.ParseModeString(mode);
             return Open(path, flags);
@@ -96,9 +97,9 @@
             return Path.GetTempFileName();
         }
 
-        public ILuaIOStream OpenTempFileStream()
+        public ILuaStream OpenTempFileStream()
         {
-            return new TextLuaIOStream(LuaFileOpenMode.ReadAppend, File.Open(Path.GetTempFileName(), FileMode.Open, FileAccess.ReadWrite));
+            return new TextLuaStream(LuaFileMode.ReadUpdateText, File.Open(Path.GetTempFileName(), FileMode.Open, FileAccess.ReadWrite));
         }
     }
 }

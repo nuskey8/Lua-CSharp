@@ -42,6 +42,21 @@ public enum LuaFileMode
 
 public static class LuaFileModeExtensions
 {
+    public static LuaFileMode GetMode(LuaFileOpenMode openMode, LuaFileContentType type)
+    {
+        var isBinary = type == LuaFileContentType.Binary;
+        return openMode switch
+        {
+            LuaFileOpenMode.Read => isBinary ? LuaFileMode.ReadBinary : LuaFileMode.ReadText,
+            LuaFileOpenMode.Write => isBinary ? LuaFileMode.WriteBinary : LuaFileMode.WriteText,
+            LuaFileOpenMode.Append => isBinary ? LuaFileMode.AppendBinary : LuaFileMode.AppendText,
+            LuaFileOpenMode.ReadWriteOpen => isBinary ? LuaFileMode.ReadUpdateBinary : LuaFileMode.ReadUpdateText,
+            LuaFileOpenMode.ReadWriteCreate => isBinary ? LuaFileMode.WriteUpdateBinary : LuaFileMode.WriteUpdateText,
+            LuaFileOpenMode.ReadAppend => isBinary ? LuaFileMode.AppendUpdateBinary : LuaFileMode.AppendUpdateText,
+            _ => throw new ArgumentOutOfRangeException(nameof(openMode), openMode, "Invalid file open mode")
+        };
+    }
+
     public static LuaFileOpenMode GetOpenMode(this LuaFileMode mode)
     {
         var hasUpdate = (mode & LuaFileMode.Update) != 0;
@@ -110,5 +125,71 @@ public static class LuaFileModeExtensions
         }
 
         return true;
+    }
+
+    public static bool IsAppend(this LuaFileMode mode)
+    {
+        return (mode & LuaFileMode.Append) != 0;
+    }
+
+    public static bool CanRead(this LuaFileMode mode)
+    {
+        return (mode & LuaFileMode.Read) != 0;
+    }
+
+    public static bool CanWrite(this LuaFileMode mode)
+    {
+        return (mode & LuaFileMode.Write) != 0 || (mode & LuaFileMode.Append) != 0;
+    }
+
+    public static bool IsBinary(this LuaFileMode mode)
+    {
+        return (mode & LuaFileMode.Binary) != 0;
+    }
+
+    public static bool IsText(this LuaFileMode mode)
+    {
+        return (mode & LuaFileMode.Text) != 0;
+    }
+
+
+    public static void ThrowIfNotValid(this LuaFileMode mode)
+    {
+        if (!mode.IsValid())
+        {
+            throw new ArgumentException("Invalid file mode flags", nameof(mode));
+        }
+    }
+
+    public static void ThrowIfNotReadable(this LuaFileMode mode)
+    {
+        if (!mode.CanRead())
+        {
+            throw new InvalidOperationException("This operation is only valid for readable streams.");
+        }
+    }
+
+    public static void ThrowIfNotWritable(this LuaFileMode mode)
+    {
+        if (!mode.CanWrite())
+        {
+            throw new InvalidOperationException("This operation is only valid for writable streams.");
+        }
+    }
+
+    public static void ThrowIfNotText(this LuaFileMode mode)
+    {
+        if (!mode.IsText())
+        {
+            throw new InvalidOperationException("This operation is only valid for text streams.");
+        }
+    }
+
+    public static void ThrowIfNotBinary(this LuaFileMode mode)
+    {
+        if (!mode.IsBinary())
+        {
+            throw new InvalidOperationException("This operation is only valid for binary streams.");
+        }
     }
 }

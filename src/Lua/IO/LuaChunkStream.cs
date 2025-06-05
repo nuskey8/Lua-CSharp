@@ -4,7 +4,7 @@ using System.Text;
 
 namespace Lua.IO;
 
-public sealed class LuaChunkStream : ILuaIOStream
+public sealed class LuaChunkStream : ILuaStream
 {
     public LuaChunkStream(Stream stream)
     {
@@ -56,14 +56,12 @@ public sealed class LuaChunkStream : ILuaIOStream
         disposable = null;
     }
 
-    public LuaFileOpenMode Mode => LuaFileOpenMode.Read;
-    public LuaFileContentType ContentType =>  
-        bytes.Span.StartsWith(LuaCompiler.LuaByteCodeSignature) ? LuaFileContentType.Binary : LuaFileContentType.Text;
+    public LuaFileMode Mode => LuaFileMode.Read | (bytes.Span.StartsWith(LuaCompiler.LuaByteCodeSignature) ? LuaFileMode.Binary : LuaFileMode.Text);
 
     public ValueTask<LuaFileContent> ReadAllAsync(CancellationToken cancellationToken)
     {
         var span = bytes.Span;
-        if (ContentType == LuaFileContentType.Binary)
+        if ((Mode & LuaFileMode.Binary) != 0)
         {
             return new(new LuaFileContent(bytes));
         }

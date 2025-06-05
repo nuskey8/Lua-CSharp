@@ -8,15 +8,15 @@ public interface ILuaStandardIO
     /// <summary>
     /// Open standard input stream
     /// </summary>
-    ILuaIOStream Input { get; }
+    ILuaStream Input { get; }
 
     /// <summary>
     /// Open standard output stream
     /// </summary>
-    ILuaIOStream Output { get; }
+    ILuaStream Output { get; }
 
     /// <summary>
     /// Open standard error stream
     /// </summary>
-    ILuaIOStream Error { get; }
+    ILuaStream Error { get; }
 }
