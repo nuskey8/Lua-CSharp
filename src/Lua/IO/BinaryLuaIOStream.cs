@@ -1,3 +1,5 @@
+using System.Text;
+
 namespace Lua.IO;
 
 internal sealed class BinaryLuaIOStream(LuaFileOpenMode mode, Stream innerStream) : ILuaIOStream
@@ -10,7 +12,7 @@ internal sealed class BinaryLuaIOStream(LuaFileOpenMode mode, Stream innerStream
 
     public ValueTask<string?> ReadLineAsync(CancellationToken cancellationToken)
     {
-        throw new InvalidOperationException("Cannot read lines from a binary stream. Use a text stream instead.");
+        throw new InvalidOperationException("Cannot read lines from a binary stream. Open with text mode instead.");
     }
 
     public ValueTask<LuaFileContent> ReadAllAsync(CancellationToken cancellationToken)
@@ -24,14 +26,19 @@ internal sealed class BinaryLuaIOStream(LuaFileOpenMode mode, Stream innerStream
 
     public ValueTask<string?> ReadStringAsync(int count, CancellationToken cancellationToken)
     {
-        throw new InvalidOperationException("Cannot read strings from a binary stream. Use a text stream instead.");
+        throw new InvalidOperationException("Cannot read lines string from a binary stream. Open with text mode instead.");
     }
 
     public ValueTask WriteAsync(LuaFileContent content, CancellationToken cancellationToken)
     {
         if (content.Type != LuaFileContentType.Binary)
         {
-            throw new InvalidOperationException("Cannot write string to a binary stream.");
+            var encoding = Encoding.UTF8;
+            var span = content.ReadText().Span;
+            var byteCount = encoding.GetByteCount(span);
+            var bytes = new byte[byteCount];
+            encoding.GetBytes(span, bytes);
+            return WriteBytesAsync(bytes, cancellationToken);
         }
 
         return WriteBytesAsync(content.ReadBytes().Span, cancellationToken);
