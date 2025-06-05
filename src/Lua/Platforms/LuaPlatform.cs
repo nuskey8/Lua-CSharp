@@ -7,9 +7,9 @@ namespace Lua.Platforms;
 ///  Platform abstraction for Lua.
 /// </summary>
 /// <param name="FileSystem"></param>
-/// <param name="OperatingSystem"></param>
+/// <param name="OsEnvironment"></param>
 /// <param name="StandardIO"></param>
-public sealed record LuaPlatform(ILuaFileSystem FileSystem , ILuaOperatingSystem OperatingSystem,ILuaStandardIO StandardIO): ILuaPlatform
+public sealed record LuaPlatform(ILuaFileSystem FileSystem , ILuaOsEnvironment OsEnvironment,ILuaStandardIO StandardIO): ILuaPlatform
 {
     /// <summary>
     /// Standard console platform implementation.
@@ -17,6 +17,6 @@ public sealed record LuaPlatform(ILuaFileSystem FileSystem , ILuaOperatingSystem
     /// </summary>
     public static  LuaPlatform Default => new( 
         FileSystem: new FileSystem(),
-        OperatingSystem: new OperatingSystem(),
+        OsEnvironment: new SystemOsEnvironment(),
         StandardIO:  new ConsoleStandardIO());
 }

@@ -3,23 +3,24 @@
 namespace Lua.Platforms
 {
     /// <summary>
-    /// Default implementation of ILuaOperatingSystem
+    /// Default implementation of ILuaEnvironment
     /// </summary>
-    public sealed class OperatingSystem : ILuaOperatingSystem
+    public sealed class SystemOsEnvironment : ILuaOsEnvironment
     {
         public string? GetEnvironmentVariable(string name)
         {
             return Environment.GetEnvironmentVariable(name);
         }
 
-        public void Exit(int exitCode)
+        public ValueTask Exit(int exitCode ,CancellationToken cancellationToken)
         {
             Environment.Exit(exitCode);
+            return default;
         }
 
-        public DateTime GetProcessStartTime()
+        public double GetTotalProcessorTime()
         {
-            return Process.GetCurrentProcess().StartTime;
+            return Process.GetCurrentProcess().TotalProcessorTime.TotalSeconds;
         }
 
         public DateTime GetCurrentUtcTime()

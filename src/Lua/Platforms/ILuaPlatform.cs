@@ -14,9 +14,9 @@ public interface ILuaPlatform
     ILuaFileSystem FileSystem { get; }
     
     /// <summary>
-    /// Gets the operating system abstraction for this platform
+    /// Gets the operating system environment abstraction for this platform
     /// </summary>
-    ILuaOperatingSystem OperatingSystem { get; }
+    ILuaOsEnvironment OsEnvironment { get; }
     
     /// <summary>
     /// Gets the standard I/O implementation for this platform

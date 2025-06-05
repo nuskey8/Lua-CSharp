@@ -3,7 +3,7 @@
 /// <summary>
 /// Interface for operating system operations beyond file system
 /// </summary>
-public interface ILuaOperatingSystem
+public interface ILuaOsEnvironment
 {
     /// <summary>
     /// Get environment variable value
@@ -13,12 +13,12 @@ public interface ILuaOperatingSystem
     /// <summary>
     /// Exit the application with specified code
     /// </summary>
-    void Exit(int exitCode);
+    ValueTask Exit(int exitCode, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Get current process start time for clock calculations
+    /// Get current process start time for clock calculations (units: seconds)
     /// </summary>
-    DateTime GetProcessStartTime();
+    double GetTotalProcessorTime();
 
     /// <summary>
     /// Get current UTC time

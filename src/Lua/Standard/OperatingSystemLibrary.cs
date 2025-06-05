@@ -28,8 +28,7 @@ public sealed class OperatingSystemLibrary
 
     public ValueTask<int> Clock(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
-        var os = context.State.OperatingSystem;
-        return new(context.Return(DateTimeHelper.GetUnixTime(os.GetCurrentUtcTime(), os.GetProcessStartTime())));
+        return new(context.Return(context.State.OsEnvironment.GetTotalProcessorTime()));
     }
 
     public ValueTask<int> Date(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
@@ -46,7 +45,7 @@ public sealed class OperatingSystemLibrary
         }
         else
         {
-            now = context.State.OperatingSystem.GetCurrentUtcTime();
+            now = context.State.OsEnvironment.GetCurrentUtcTime();
         }
 
         var isDst = false;
@@ -56,8 +55,8 @@ public sealed class OperatingSystemLibrary
         }
         else
         {
-            var offset = context.State.OperatingSystem.GetLocalTimeZoneOffset();
-            now =   now.Add(offset);
+            var offset = context.State.OsEnvironment.GetLocalTimeZoneOffset();
+            now = now.Add(offset);
             isDst = now.IsDaylightSavingTime();
         }
 
@@ -105,39 +104,36 @@ public sealed class OperatingSystemLibrary
         }
     }
 
-    public ValueTask<int> Exit(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    public async ValueTask<int> Exit(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
         // Ignore 'close' parameter
-
+        int exitCode = 0;
         if (context.HasArgument(0))
         {
             var code = context.Arguments[0];
 
             if (code.TryRead<bool>(out var b))
             {
-                context.State.OperatingSystem.Exit(b ? 0 : 1);
+                exitCode = b ? 0 : 1;
             }
             else if (code.TryRead<int>(out var d))
             {
-                context.State.OperatingSystem.Exit(d);
+                exitCode = d;
             }
             else
             {
                 LuaRuntimeException.BadArgument(context.Thread, 1, LuaValueType.Nil, code.Type);
             }
         }
-        else
-        {
-            context.State.OperatingSystem.Exit(0);
-        }
 
-        return new(context.Return());
+        await context.State.OsEnvironment.Exit(exitCode, cancellationToken);
+        throw new InvalidOperationException("Unreachable code.. reached.");
     }
 
     public ValueTask<int> GetEnv(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
         var variable = context.GetArgument<string>(0);
-        return new(context.Return(context.State.OperatingSystem.GetEnvironmentVariable(variable) ?? LuaValue.Nil));
+        return new(context.Return(context.State.OsEnvironment.GetEnvironmentVariable(variable) ?? LuaValue.Nil));
     }
 
     public ValueTask<int> Remove(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
@@ -186,7 +182,7 @@ public sealed class OperatingSystemLibrary
         }
         else
         {
-            return new(context.Return(DateTimeHelper.GetUnixTime(context.State.OperatingSystem.GetCurrentUtcTime())));
+            return new(context.Return(DateTimeHelper.GetUnixTime(context.State.OsEnvironment.GetCurrentUtcTime())));
         }
     }
 
