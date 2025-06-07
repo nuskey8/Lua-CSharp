@@ -4,7 +4,7 @@ using System.Text;
 
 namespace Lua.IO;
 
-public sealed class LuaChunkStream : ILuaStream
+internal sealed class LuaChunkStream : ILuaStream
 {
     public LuaChunkStream(Stream stream)
     {
