@@ -374,7 +374,8 @@ internal unsafe ref struct UnDumpState(ReadOnlySpan<byte> span, ReadOnlySpan<cha
         var lineInfo = new int[lineInfoLength];
         ReadInToIntSpan(lineInfo.AsSpan());
         var localVariables = ReadLocalVariables();
-
+        var upValueCount = ReadInt();
+        Debug.Assert(upValueCount == upValues.Length, $"upvalue count mismatch: {upValueCount} != {upValues.Length}");
         foreach (ref var desc in upValues.AsSpan())
         {
             var name = ReadString();
