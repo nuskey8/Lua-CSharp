@@ -51,7 +51,7 @@ public class CompositeLoaderFileSystem(ILuaFileLoader[] loaders, ILuaFileSystem?
                 {
                     if (mode.CanWrite())
                         throw new NotSupportedException("Cannot write to a file opened with a loader.");
-                    return ILuaStream.CreateFromFileContent(await loaders[cachedValue.index].LoadAsync(path, cancellationToken));
+                    return (await loaders[cachedValue.index].LoadAsync(path, cancellationToken));
                 }
             }
         }
@@ -63,7 +63,7 @@ public class CompositeLoaderFileSystem(ILuaFileLoader[] loaders, ILuaFileSystem?
                 {
                     if (mode.CanWrite())
                         throw new NotSupportedException("Cannot write to a file opened with a loader.");
-                    return ILuaStream.CreateFromFileContent(await loader.LoadAsync(path, cancellationToken));
+                    return (await loader.LoadAsync(path, cancellationToken));
                 }
             }
         }
