@@ -6,13 +6,13 @@ namespace Lua.Standard.Internal;
 
 internal static class IOHelper
 {
-    public static int Open(LuaThread thread, string fileName, string mode, bool throwError)
+    public static async ValueTask<int> Open(LuaThread thread, string fileName, string mode, bool throwError,CancellationToken cancellationToken)
     {
         var fileMode = LuaFileModeExtensions.ParseModeString(mode);
         if (!fileMode.IsValid()) throw new LuaRuntimeException(thread, "bad argument #2 to 'open' (invalid mode)");
         try
         {
-            var stream = thread.State.FileSystem.Open(fileName, fileMode);
+            var stream =await thread.State.FileSystem.Open(fileName, fileMode,cancellationToken);
 
             thread.Stack.Push(new LuaValue(new FileHandle(stream)));
             return 1;

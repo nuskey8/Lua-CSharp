@@ -1,5 +1,10 @@
 namespace Lua.IO;
-
+public enum LuaFileContentTypeFlags
+{
+    None = 0,
+    Binary = 1 << 0, // b
+    Text = 1 << 1, // t (default if neither specified)
+}
 [Flags]
 public enum LuaFileMode
 {
@@ -38,6 +43,7 @@ public enum LuaFileMode
     /// This is used for load files. bt mode.
     /// </summary>
     ReadBinaryOrText = Read | Binary | Text, //(default is text, but can be binary)
+    Load = ReadBinaryOrText, // Mode for loading files to compile Lua scripts
 }
 
 public static class LuaFileModeExtensions

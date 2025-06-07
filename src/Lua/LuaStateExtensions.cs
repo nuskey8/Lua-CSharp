@@ -39,20 +39,21 @@ public static class LuaStateExtensions
     {
         var name = "@" + fileName;
         LuaClosure closure;
-        
+
         var openFlags = LuaFileMode.Read;
         if (mode.Contains('b'))
         {
             openFlags |= LuaFileMode.Binary;
         }
+
         if (mode.Contains('t'))
         {
             openFlags |= LuaFileMode.Text;
         }
 
-        using var stream = state.FileSystem.Open(fileName, openFlags);
+        using var stream = await state.FileSystem.Open(fileName, openFlags, cancellationToken);
         var content = await stream.ReadAllAsync(cancellationToken);
-            
+
         if (content.Type == LuaFileContentType.Binary)
         {
             closure = state.Load(content.ReadBytes().Span, name, mode, environment);

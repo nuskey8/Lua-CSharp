@@ -3,10 +3,10 @@
 public interface ILuaFileSystem
 {
     public bool IsReadable(string path);
-    public ILuaStream Open(string path, LuaFileMode mode);
-    public void Rename(string oldName, string newName);
-    public void Remove(string path);
-    public string DirectorySeparator { get; }
+    public ValueTask<ILuaStream> Open(string path, LuaFileMode mode, CancellationToken cancellationToken);
+    public ValueTask Rename(string oldName, string newName, CancellationToken cancellationToken);
+    public ValueTask Remove(string path, CancellationToken cancellationToken);
+    public string DirectorySeparator => "/";
     public string GetTempFileName();
-    public ILuaStream OpenTempFileStream();
+    public ValueTask<ILuaStream> OpenTempFileStream(CancellationToken cancellationToken);
 }

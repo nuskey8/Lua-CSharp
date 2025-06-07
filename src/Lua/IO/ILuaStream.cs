@@ -69,6 +69,18 @@
                 ? new BinaryLuaStream(mode, stream)
                 : new TextLuaStream(mode, stream);
         }
+        
+        public static ILuaStream CreateFromFileContent(LuaFileContent content)
+        {
+            if (content.Type == LuaFileContentType.Binary)
+            {
+                return new ByteMemoryStream(content.ReadBytes() );
+            }
+            else
+            {
+                return new StringStream(content.ReadString());
+            }
+        }
 
 
         public void Close()

@@ -56,7 +56,7 @@ public sealed class OperatingSystemLibrary
         else
         {
             var offset = context.State.OsEnvironment.GetLocalTimeZoneOffset();
-            now = now.Add(offset);
+            now += offset;
             isDst = now.IsDaylightSavingTime();
         }
 
@@ -70,7 +70,7 @@ public sealed class OperatingSystemLibrary
                 ["hour"] = now.Hour,
                 ["min"] = now.Minute,
                 ["sec"] = now.Second,
-                ["wday"] = ((int)now.DayOfWeek) + 1,
+                ["wday"] = (int)now.DayOfWeek + 1,
                 ["yday"] = now.DayOfYear,
                 ["isdst"] = isDst
             };
@@ -136,32 +136,32 @@ public sealed class OperatingSystemLibrary
         return new(context.Return(context.State.OsEnvironment.GetEnvironmentVariable(variable) ?? LuaValue.Nil));
     }
 
-    public ValueTask<int> Remove(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    public async ValueTask<int> Remove(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
         var fileName = context.GetArgument<string>(0);
         try
         {
-            context.State.FileSystem.Remove(fileName);
-            return new(context.Return(true));
+            await context.State.FileSystem.Remove(fileName, cancellationToken);
+            return context.Return(true);
         }
         catch (IOException ex)
         {
-            return new(context.Return(LuaValue.Nil, ex.Message, ex.HResult));
+            return context.Return(LuaValue.Nil, ex.Message, ex.HResult);
         }
     }
 
-    public ValueTask<int> Rename(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    public async ValueTask<int> Rename(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
         var oldName = context.GetArgument<string>(0);
         var newName = context.GetArgument<string>(1);
         try
         {
-            context.State.FileSystem.Rename(oldName, newName);
-            return new(context.Return(true));
+            await context.State.FileSystem.Rename(oldName, newName, cancellationToken);
+            return context.Return(true);
         }
         catch (IOException ex)
         {
-            return new(context.Return(LuaValue.Nil, ex.Message, ex.HResult));
+            return context.Return(LuaValue.Nil, ex.Message, ex.HResult);
         }
     }
 

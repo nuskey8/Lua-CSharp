@@ -28,9 +28,15 @@
         public long Seek(long offset, SeekOrigin origin)
             => innerStream.Seek(offset, origin);
 
-        public void Dispose()
+        public void Close()
         {
             throw new IOException("cannot close standard file");
+        }
+
+        public void Dispose()
+        {
+            // Do not dispose inner stream to prevent closing standard IO streams
+            innerStream.Dispose();
         }
     }
 }

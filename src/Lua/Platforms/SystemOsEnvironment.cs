@@ -12,7 +12,7 @@ namespace Lua.Platforms
             return Environment.GetEnvironmentVariable(name);
         }
 
-        public ValueTask Exit(int exitCode ,CancellationToken cancellationToken)
+        public ValueTask Exit(int exitCode, CancellationToken cancellationToken)
         {
             Environment.Exit(exitCode);
             return default;

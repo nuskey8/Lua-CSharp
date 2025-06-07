@@ -37,14 +37,14 @@ public sealed class LuaState
     public LuaMainThread MainThread => mainThread;
 
     public LuaThreadAccess RootAccess => new(mainThread, 0);
-    
-    public  ILuaPlatform Platform { get; }
+
+    public LuaPlatform Platform { get; }
 
     public ILuaModuleLoader ModuleLoader { get; set; } = FileModuleLoader.Instance;
 
-    public ILuaFileSystem FileSystem => Platform.FileSystem ?? throw new InvalidOperationException("FileSystem is not set. Please set it before using LuaState.");
+    public ILuaFileSystem FileSystem => Platform.FileSystem ?? throw new InvalidOperationException("FileSystem is not set. Please set it before access.");
 
-    public ILuaOsEnvironment OsEnvironment   => Platform.OsEnvironment ?? throw new InvalidOperationException("OperatingSystem is not set. Please set it before using LuaState.");
+    public ILuaOsEnvironment OsEnvironment => Platform.OsEnvironment ?? throw new InvalidOperationException("OperatingSystem is not set. Please set it before access.");
 
     public ILuaStandardIO StandardIO => Platform.StandardIO;
 
@@ -56,18 +56,13 @@ public sealed class LuaState
     LuaTable? functionMetatable;
     LuaTable? threadMetatable;
 
-    public static LuaState Create()
+    public static LuaState Create(LuaPlatform? platform = null)
     {
-        return Create(LuaPlatform.Default);
-    }
-    
-    public static LuaState Create(ILuaPlatform platform)
-    {
-        var state = new LuaState(platform);
+        var state = new LuaState(platform ?? LuaPlatform.Default);
         return state;
     }
 
-    LuaState(ILuaPlatform platform)
+    LuaState(LuaPlatform platform)
     {
         mainThread = new(this);
         environment = new();

@@ -58,35 +58,31 @@
             return wrapper;
         }
 
-        public ILuaStream Open(string path, LuaFileMode mode)
+        public ValueTask<ILuaStream> Open(string path, LuaFileMode mode, CancellationToken cancellationToken)
         {
-            if (mode is LuaFileMode.ReadBinaryOrText)
+            if (mode is LuaFileMode.Load)
             {
-                return new LuaChunkStream(File.OpenRead(path));
+                return new ( new LuaChunkStream(File.OpenRead(path)));
             }
 
             var openMode = mode.GetOpenMode();
             var contentType = mode.GetContentType();
-            return Open(path, openMode, contentType);
+            return new(Open(path, openMode, contentType));
         }
 
-        public ILuaStream Open(string path, string mode)
+        public ValueTask Rename(string oldName, string newName,CancellationToken cancellationToken)
         {
-            var flags = LuaFileModeExtensions.ParseModeString(mode);
-            return Open(path, flags);
-        }
-
-        public void Rename(string oldName, string newName)
-        {
-            if (oldName == newName) return;
+            if (oldName == newName) return default;
             if (File.Exists(newName)) File.Delete(newName);
             File.Move(oldName, newName);
             File.Delete(oldName);
+            return default;
         }
 
-        public void Remove(string path)
+        public ValueTask Remove(string path,CancellationToken cancellationToken)
         {
             File.Delete(path);
+            return default;
         }
 
         static readonly string directorySeparator = Path.DirectorySeparatorChar.ToString();
@@ -97,9 +93,9 @@
             return Path.GetTempFileName();
         }
 
-        public ILuaStream OpenTempFileStream()
+        public ValueTask<ILuaStream> OpenTempFileStream(CancellationToken cancellationToken)
         {
-            return new TextLuaStream(LuaFileMode.ReadUpdateText, File.Open(Path.GetTempFileName(), FileMode.Open, FileAccess.ReadWrite));
+            return new( new TextLuaStream(LuaFileMode.ReadUpdateText, File.Open(Path.GetTempFileName(), FileMode.Open, FileAccess.ReadWrite)));
         }
     }
 }

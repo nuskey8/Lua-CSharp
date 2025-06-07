@@ -9,22 +9,17 @@ namespace Lua.Tests.Helpers
             throw new NotImplementedException();
         }
 
-        public virtual ValueTask<LuaFileContent> ReadFileContentAsync(string fileName, CancellationToken cancellationToken)
+        public virtual ValueTask<ILuaStream> Open(string path, LuaFileMode mode, CancellationToken cancellationToken)
         {
             throw new NotImplementedException();
         }
 
-        public virtual ILuaStream Open(string path, LuaFileMode mode)
+        public virtual ValueTask Rename(string oldName, string newName, CancellationToken cancellationToken)
         {
             throw new NotImplementedException();
         }
 
-        public virtual void Rename(string oldName, string newName)
-        {
-            throw new NotImplementedException();
-        }
-
-        public virtual void Remove(string path)
+        public virtual ValueTask Remove(string path, CancellationToken cancellationToken)
         {
             throw new NotImplementedException();
         }
@@ -36,7 +31,7 @@ namespace Lua.Tests.Helpers
             throw new NotImplementedException();
         }
 
-        public ILuaStream OpenTempFileStream()
+        public ValueTask<ILuaStream> OpenTempFileStream(CancellationToken cancellationToken)
         {
             throw new NotImplementedException();
         }

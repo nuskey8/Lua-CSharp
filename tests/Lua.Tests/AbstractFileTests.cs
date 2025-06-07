@@ -9,7 +9,7 @@ public class AbstractFileTests
 {
     class ReadOnlyFileSystem(Dictionary<string, string> dictionary) : NotImplementedExceptionFileSystemBase
     {
-        public override ILuaStream Open(string path, LuaFileMode mode)
+        public override  ValueTask<ILuaStream> Open(string path, LuaFileMode mode,CancellationToken cancellationToken)
         {
             if (!dictionary.TryGetValue(path, out var value))
             {
@@ -18,7 +18,7 @@ public class AbstractFileTests
 
             if (mode != LuaFileMode.ReadText)
                 throw new IOException($"File {path} not opened in read mode");
-            return new ReadOnlyCharMemoryLuaIOStream(value.AsMemory());
+            return new (new ReadOnlyCharMemoryLuaIOStream(value.AsMemory()));
         }
     }
 
@@ -27,7 +27,10 @@ public class AbstractFileTests
     {
         var fileContent = "line1\nline2\r\nline3";
         var fileSystem = new ReadOnlyFileSystem(new() { { "test.txt", fileContent } });
-        var state = LuaState.Create(LuaPlatform.Default with{FileSystem = fileSystem});
+        var state = LuaState.Create(new(
+            fileSystem: fileSystem,
+            osEnvironment: null!,
+            standardIO: new ConsoleStandardIO()));
         state.OpenStandardLibraries();
         try
         {
@@ -56,7 +59,10 @@ public class AbstractFileTests
     {
         var fileContent = "Hello, World!";
         var fileSystem = new ReadOnlyFileSystem(new() { { "test.txt", fileContent } });
-        var state = LuaState.Create(LuaPlatform.Default with{FileSystem = fileSystem});
+        var state = LuaState.Create(new(
+            fileSystem: fileSystem,
+            osEnvironment: null!,
+            standardIO: new ConsoleStandardIO()));
         state.OpenStandardLibraries();
 
         await state.DoStringAsync(

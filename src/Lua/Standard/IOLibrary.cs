@@ -60,36 +60,36 @@ public sealed class IOLibrary
         }
     }
 
-    public ValueTask<int> Input(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    public async ValueTask<int> Input(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
         var registry = context.State.Registry;
 
         if (context.ArgumentCount == 0 || context.Arguments[0].Type is LuaValueType.Nil)
         {
-            return new(context.Return(registry["_IO_input"]));
+            return context.Return(registry["_IO_input"]);
         }
 
         var arg = context.Arguments[0];
         if (arg.TryRead<FileHandle>(out var file))
         {
             registry["_IO_input"] = new(file);
-            return new(context.Return(new LuaValue(file)));
+            return context.Return(new LuaValue(file));
         }
         else
         {
-            var stream = context.State.FileSystem.Open(arg.ToString(), LuaFileMode.ReadUpdateText);
+            var stream =await context.State.FileSystem.Open(arg.ToString(), LuaFileMode.ReadUpdateText, cancellationToken);
             var handle = new FileHandle(stream);
             registry["_IO_input"] = new(handle);
-            return new(context.Return(new LuaValue(handle)));
+            return context.Return(new LuaValue(handle));
         }
     }
 
-    public ValueTask<int> Lines(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    public async ValueTask<int> Lines(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
         if (context.ArgumentCount == 0)
         {
             var file = context.State.Registry["_IO_input"].Read<FileHandle>();
-            return new(context.Return(new CSharpClosure("iterator", [new(file)], static async (context, cancellationToken) =>
+            return context.Return(new CSharpClosure("iterator", [new(file)], static async (context, cancellationToken) =>
             {
                 var file = context.GetCsClosure()!.UpValues[0].Read<FileHandle>();
                 context.Return();
@@ -100,7 +100,7 @@ public sealed class IOLibrary
                 }
 
                 return resultCount;
-            })));
+            }));
         }
         else
         {
@@ -108,14 +108,14 @@ public sealed class IOLibrary
             var stack = context.Thread.Stack;
             context.Return();
 
-            IOHelper.Open(context.Thread, fileName, "r", true);
+            await IOHelper.Open(context.Thread, fileName, "r", true,cancellationToken);
 
             var file = stack.Get(context.ReturnFrameBase).Read<FileHandle>();
             var upValues = new LuaValue[context.Arguments.Length];
             upValues[0] = new(file);
             context.Arguments[1..].CopyTo(upValues[1..]);
 
-            return new(context.Return(new CSharpClosure("iterator", upValues, static async (context, cancellationToken) =>
+            return context.Return(new CSharpClosure("iterator", upValues, static async (context, cancellationToken) =>
             {
                 var upValues = context.GetCsClosure()!.UpValues;
                 var file = upValues[0].Read<FileHandle>();
@@ -129,11 +129,11 @@ public sealed class IOLibrary
                 }
 
                 return resultCount;
-            })));
+            }));
         }
     }
 
-    public ValueTask<int> Open(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    public async ValueTask<int> Open(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
         var fileName = context.GetArgument<string>(0);
         var mode = context.HasArgument(1)
@@ -142,36 +142,36 @@ public sealed class IOLibrary
         context.Return();
         try
         {
-            var resultCount = IOHelper.Open(context.Thread, fileName, mode, true);
-            return new(resultCount);
+            var resultCount = await IOHelper.Open(context.Thread, fileName, mode, true, cancellationToken);
+            return resultCount;
         }
         catch (IOException ex)
         {
-            return new(context.Return(LuaValue.Nil, ex.Message, ex.HResult));
+            return context.Return(LuaValue.Nil, ex.Message, ex.HResult);
         }
     }
 
-    public ValueTask<int> Output(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    public async ValueTask<int> Output(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
         var io = context.State.Registry;
 
         if (context.ArgumentCount == 0 || context.Arguments[0].Type is LuaValueType.Nil)
         {
-            return new(context.Return(io["_IO_output"]));
+            return context.Return(io["_IO_output"]);
         }
 
         var arg = context.Arguments[0];
         if (arg.TryRead<FileHandle>(out var file))
         {
             io["_IO_output"] = new(file);
-            return new(context.Return(new LuaValue(file)));
+            return context.Return(new LuaValue(file));
         }
         else
         {
-            var stream = context.State.FileSystem.Open(arg.ToString(), LuaFileMode.WriteUpdateText);
+            var stream = await context.State.FileSystem.Open(arg.ToString(), LuaFileMode.WriteUpdateText, cancellationToken);
             var handle = new FileHandle(stream);
             io["_IO_output"] = new(handle);
-            return new(context.Return(new LuaValue(handle)));
+            return context.Return(new LuaValue(handle));
         }
     }
 
@@ -206,8 +206,8 @@ public sealed class IOLibrary
         return resultCount;
     }
 
-    public ValueTask<int> TmpFile(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    public async ValueTask<int> TmpFile(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
-        return new(context.Return(LuaValue.FromUserData(new FileHandle(context.State.FileSystem.OpenTempFileStream()))));
+        return context.Return(LuaValue.FromUserData(new FileHandle(await context.State.FileSystem.OpenTempFileStream( cancellationToken))));
     }
 }
