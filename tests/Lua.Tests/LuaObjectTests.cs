@@ -6,8 +6,9 @@ namespace Lua.Tests;
 public partial class TestUserData
 {
     [LuaMember]
-    public double Property { get; set; }
-
+    public int Property { get; set; }
+    [LuaMember]
+    public LuaValue LuaValueProperty { get; set; }
     [LuaMember("p2")]
     public string PropertyWithName { get; set; } = "";
 
@@ -26,6 +27,7 @@ public partial class TestUserData
     [LuaMember]
     public static double StaticMethodWithReturnValue(double a, double b)
     {
+        Console.WriteLine($"HEY! {a} {b}");
         return a + b;
     }
 
@@ -33,6 +35,13 @@ public partial class TestUserData
     public double InstanceMethodWithReturnValue()
     {
         return Property;
+    }
+
+    [LuaMember]
+    public async ValueTask<LuaValue> InstanceMethodWithReturnValueAsync(LuaValue value,CancellationToken ct)
+    {
+        await Task.Delay(1,ct);
+        return value;
     }
 
     [LuaMetamethod(LuaObjectMetamethod.Call)]
@@ -47,10 +56,7 @@ public class LuaObjectTests
     [Test]
     public async Task Test_Property()
     {
-        var userData = new TestUserData()
-        {
-            Property = 1
-        };
+        var userData = new TestUserData() { Property = 1 };
 
         var state = LuaState.Create();
         state.Environment["test"] = userData;
@@ -63,10 +69,7 @@ public class LuaObjectTests
     [Test]
     public async Task Test_PropertyWithName()
     {
-        var userData = new TestUserData()
-        {
-            PropertyWithName = "foo",
-        };
+        var userData = new TestUserData() { PropertyWithName = "foo", };
 
         var state = LuaState.Create();
         state.Environment["test"] = userData;
@@ -116,10 +119,7 @@ public class LuaObjectTests
     [Test]
     public async Task Test_InstanceMethodWithReturnValue()
     {
-        var userData = new TestUserData()
-        {
-            Property = 1
-        };
+        var userData = new TestUserData() { Property = 1 };
 
         var state = LuaState.Create();
         state.Environment["test"] = userData;
@@ -127,6 +127,19 @@ public class LuaObjectTests
 
         Assert.That(results, Has.Length.EqualTo(1));
         Assert.That(results[0], Is.EqualTo(new LuaValue(1)));
+    }
+    
+    [Test]
+    public async Task Test_InstanceMethodWithReturnValueAsync()
+    {
+        var userData = new TestUserData() { Property = 1 };
+
+        var state = LuaState.Create();
+        state.Environment["test"] = userData;
+        var results = await state.DoStringAsync("return test:InstanceMethodWithReturnValueAsync(2)");
+
+        Assert.That(results, Has.Length.EqualTo(1));
+        Assert.That(results[0], Is.EqualTo(new LuaValue(2)));
     }
 
     [Test]

@@ -30,10 +30,7 @@ public partial class LVec3
     [LuaMember("create")]
     public static LVec3 Create(float x, float y, float z)
     {
-        return new LVec3()
-        {
-            value = new Vector3(x, y, z)
-        };
+        return new LVec3() { value = new Vector3(x, y, z) };
     }
 
     public override string ToString()
