@@ -1,12 +1,13 @@
 {
   "dependencies": {
     "com.github-glitchenzo.nugetforunity": "https://github.com/GlitchEnzo/NuGetForUnity.git?path=/src/NuGetForUnity",
+    "com.nuskey8.lua.unity.internal": "file:../../Lua/bin/Debug/netstandard2.1",
     "com.unity.addressables": "2.2.2",
-    "com.unity.ai.navigation": "2.0.4",
+    "com.unity.ai.navigation": "2.0.5",
     "com.unity.collab-proxy": "2.6.0",
     "com.unity.ide.rider": "3.0.31",
     "com.unity.ide.visualstudio": "2.0.22",
-    "com.unity.inputsystem": "1.11.1",
+    "com.unity.inputsystem": "1.11.2",
     "com.unity.multiplayer.center": "1.0.0",
     "com.unity.render-pipelines.universal": "17.0.3",
     "com.unity.test-framework": "1.4.5",

@@ -1,4 +1,5 @@
 #if LUA_UNITY_ADDRESSABLES
+using Lua.IO;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -10,35 +11,36 @@ using UnityEngine.ResourceManagement.AsyncOperations;
 
 namespace Lua.Unity
 {
-    public sealed class AddressablesModuleLoader : ILuaModuleLoader
+    public sealed class AddressablesLuaFileLoader : ILuaFileLoader
     {
-        readonly Dictionary<string, LuaAsset> cache = new();
+        readonly Dictionary<string, LuaAssetBase> cache = new();
 
-        public bool Exists(string moduleName)
+        public bool Exists(string path)
         {
-            if (cache.TryGetValue(moduleName, out _)) return true;
+            if(!LuaFileLoaderUtility.TryGetLuaAssetType(path,out _))return false;
+            if (cache.ContainsKey(path)) return true;
 
-            var location = Addressables.LoadResourceLocationsAsync(moduleName).WaitForCompletion();
+            var location = Addressables.LoadResourceLocationsAsync(path,typeof(LuaAssetBase)).WaitForCompletion();
             return location.Any();
         }
 
-        public async ValueTask<LuaModule> LoadAsync(string moduleName, CancellationToken cancellationToken = default)
+        public async ValueTask<ILuaStream> LoadAsync(string path, CancellationToken cancellationToken = default)
         {
-            if (cache.TryGetValue(moduleName, out var asset))
+            if (cache.TryGetValue(path, out var asset))
             {
-                return new LuaModule(moduleName, asset.text);
+                return ILuaStream.CreateFromFileContent(asset.Content);
             }
 
-            var asyncOperation = Addressables.LoadAssetAsync<LuaAsset>(moduleName);
+            var asyncOperation = Addressables.LoadAssetAsync<LuaAssetBase>(path);
             asset = await asyncOperation;
 
             if (asset == null)
             {
-                throw new LuaModuleNotFoundException(moduleName);
+                throw new LuaModuleNotFoundException(path);
             }
 
-            cache.Add(moduleName, asset);
-            return new LuaModule(moduleName, asset.text);
+            cache.Add(path, asset);
+            return ILuaStream.CreateFromFileContent(asset.Content);
         }
     }
     internal static class AsyncOperationHandleExtensions

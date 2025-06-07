@@ -1,0 +1,1 @@
+print("streaming_asset.lua ", "is", "loaded")

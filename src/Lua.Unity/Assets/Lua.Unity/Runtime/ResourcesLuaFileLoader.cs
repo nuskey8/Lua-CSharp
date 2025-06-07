@@ -1,3 +1,4 @@
+using Lua.IO;
 using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
@@ -7,39 +8,35 @@ using UnityEngine;
 
 namespace Lua.Unity
 {
-    public sealed class ResourcesModuleLoader : ILuaModuleLoader
+    public sealed class ResourcesLuaFileLoader : ILuaFileLoader
     {
-        readonly Dictionary<string, LuaAsset> cache = new();
+        readonly Dictionary<string, LuaAssetBase> cache = new();
 
-        public bool Exists(string moduleName)
+        public bool Exists(string path)
         {
-            if (cache.TryGetValue(moduleName, out _)) return true;
-
-            var asset = Resources.Load<LuaAsset>(moduleName);
-            if (asset == null) return false;
-
-            cache.Add(moduleName, asset);
-            return true;
+            if (!LuaFileLoaderUtility.TryGetLuaAssetType(path, out var type)) return false;
+            if (cache.ContainsKey(path)) return true;
+            var asset = Resources.Load(path[..^(type == LuaFileContentType.Binary ? 5 : 4)]); // Remove the ".lua" or .luac extension for loading
+            if (asset == null || asset is not LuaAssetBase luaAsset) return false;
+            cache.Add(path, luaAsset);
+            switch (type)
+            {
+                case LuaFileContentType.Binary when luaAsset is LuacAsset:
+                case LuaFileContentType.Text when luaAsset is LuaAsset:
+                    return true;
+                default:
+                    return false;
+            }
         }
 
-        public async ValueTask<LuaModule> LoadAsync(string moduleName, CancellationToken cancellationToken = default)
+        public ValueTask<ILuaStream> LoadAsync(string path, CancellationToken cancellationToken = default)
         {
-            if (cache.TryGetValue(moduleName, out var asset))
+            if (cache.TryGetValue(path, out var asset))
             {
-                return new LuaModule(moduleName, asset.text);
+                return new(ILuaStream.CreateFromFileContent(asset.Content));
             }
 
-            var request = Resources.LoadAsync<LuaAsset>(moduleName);
-            await request;
-
-            if (request.asset == null)
-            {
-                throw new LuaModuleNotFoundException(moduleName);
-            }
-
-            asset = (LuaAsset)request.asset;
-            cache.Add(moduleName, asset);
-            return new LuaModule(moduleName, asset.text);
+            throw new LuaModuleNotFoundException(path);
         }
     }
 
