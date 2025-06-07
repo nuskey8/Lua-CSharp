@@ -2,7 +2,7 @@
 
 public class CompositeLoaderFileSystem(ILuaFileLoader[] loaders, ILuaFileSystem? system = null) : ILuaFileSystem
 {
-    public static CompositeLoaderFileSystem Create(ILuaFileLoader[] loaders, ILuaFileSystem? system)
+    public static CompositeLoaderFileSystem Create(ILuaFileSystem system, params ILuaFileLoader[] loaders)
     {
         if (loaders == null || loaders.Length == 0)
         {

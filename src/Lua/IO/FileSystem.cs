@@ -18,16 +18,7 @@
 
         public bool IsReadable(string path)
         {
-            if (!File.Exists(path)) return false;
-            try
-            {
-                File.Open(path, FileMode.Open, FileAccess.Read).Dispose();
-                return true;
-            }
-            catch (Exception)
-            {
-                return false;
-            }
+            return File.Exists(path);
         }
 
 
