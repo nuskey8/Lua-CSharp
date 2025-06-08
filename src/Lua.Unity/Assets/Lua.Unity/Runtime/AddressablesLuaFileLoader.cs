@@ -8,20 +8,24 @@ using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine.AddressableAssets;
 using UnityEngine.ResourceManagement.AsyncOperations;
+using UnityEngine.ResourceManagement.ResourceLocations;
 
 namespace Lua.Unity
 {
     public sealed class AddressablesLuaFileLoader : ILuaFileLoader
     {
         readonly Dictionary<string, LuaAssetBase> cache = new();
+        readonly Dictionary<string, IResourceLocation> resourceLocations = new();
 
         public bool Exists(string path)
         {
-            if(!LuaFileLoaderUtility.TryGetLuaAssetType(path,out _))return false;
+            if (!LuaFileLoaderUtility.TryGetLuaAssetType(path, out _)) return false;
             if (cache.ContainsKey(path)) return true;
-
-            var location = Addressables.LoadResourceLocationsAsync(path,typeof(LuaAssetBase)).WaitForCompletion();
-            return location.Any();
+            var location = Addressables.LoadResourceLocationsAsync(path, typeof(LuaAssetBase)).WaitForCompletion();
+            var asset = location.FirstOrDefault();
+            if (asset == null) return false;
+            resourceLocations[path] = asset;
+            return true;
         }
 
         public async ValueTask<ILuaStream> LoadAsync(string path, CancellationToken cancellationToken = default)
@@ -31,7 +35,15 @@ namespace Lua.Unity
                 return ILuaStream.CreateFromFileContent(asset.Content);
             }
 
-            var asyncOperation = Addressables.LoadAssetAsync<LuaAssetBase>(path);
+            AsyncOperationHandle<LuaAssetBase> asyncOperation;
+            if (resourceLocations.TryGetValue(path, out var location))
+            {
+                asyncOperation = Addressables.LoadAssetAsync<LuaAssetBase>(location);
+                resourceLocations.Remove(path);
+            }
+
+            else asyncOperation = Addressables.LoadAssetAsync<LuaAssetBase>(path);
+
             asset = await asyncOperation;
 
             if (asset == null)
@@ -43,6 +55,7 @@ namespace Lua.Unity
             return ILuaStream.CreateFromFileContent(asset.Content);
         }
     }
+
     internal static class AsyncOperationHandleExtensions
     {
         public static AsyncOperationHandleAwaiter<T> GetAwaiter<T>(this AsyncOperationHandle<T> asyncOperationHandle)

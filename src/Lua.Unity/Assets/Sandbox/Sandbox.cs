@@ -17,7 +17,7 @@ public class Sandbox : MonoBehaviour
                 new AddressablesLuaFileLoader(),
                 new ResourcesLuaFileLoader()
             ),
-            osEnvironment: new UnityApplicationOsEnvironment(),
+            osEnvironment: new UnityApplicationOsEnvironment(allowToQuitOnExitCall:true),
             standardIO: new UnityStandardIO()
         ));
         state.OpenStandardLibraries();
@@ -35,12 +35,16 @@ bar.greet()
 
 require 'test'
 require 'streaming_asset'
-
+os.exit(0)
 ", cancellationToken: destroyCancellationToken);
         }
         catch (Exception ex)
         {
-            Debug.LogException(ex);
+            if (ex is LuaCanceledException exception)
+            {
+                Debug.LogError(exception.LuaTraceback?.ToString());
+            }
+            else Debug.LogException(ex);
         }
     }
 }
