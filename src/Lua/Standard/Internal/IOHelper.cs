@@ -6,13 +6,13 @@ namespace Lua.Standard.Internal;
 
 internal static class IOHelper
 {
-    public static async ValueTask<int> Open(LuaThread thread, string fileName, string mode, bool throwError,CancellationToken cancellationToken)
+    public static async ValueTask<int> Open(LuaThread thread, string fileName, string mode, bool throwError, CancellationToken cancellationToken)
     {
-        var fileMode = LuaFileModeExtensions.ParseModeString(mode);
+        var fileMode = LuaFileOpenModeExtensions.ParseModeFromString(mode);
         if (!fileMode.IsValid()) throw new LuaRuntimeException(thread, "bad argument #2 to 'open' (invalid mode)");
         try
         {
-            var stream =await thread.State.FileSystem.Open(fileName, fileMode,cancellationToken);
+            var stream = await thread.State.FileSystem.Open(fileName, fileMode, cancellationToken);
 
             thread.Stack.Push(new LuaValue(new FileHandle(stream)));
             return 1;
@@ -49,11 +49,7 @@ internal static class IOHelper
                     using var fileBuffer = new PooledArray<char>(64);
                     var span = fileBuffer.AsSpan();
                     d.TryFormat(span, out var charsWritten);
-                    await file.WriteAsync(fileBuffer.UnderlyingArray.AsMemory(0,charsWritten) , cancellationToken);
-                }
-                else if (arg.TryRead<IBinaryData>(out var binaryData))
-                {
-                    await file.WriteAsync( binaryData, cancellationToken);
+                    await file.WriteAsync(fileBuffer.UnderlyingArray.AsMemory(0, charsWritten), cancellationToken);
                 }
                 else
                 {
@@ -103,7 +99,7 @@ internal static class IOHelper
                             throw new NotImplementedException();
                         case "*a":
                         case "*all":
-                            stack.Push((await file.ReadToEndAsync(cancellationToken)).ToLuaValue());
+                            stack.Push((await file.ReadToEndAsync(cancellationToken)));
                             break;
                         case "*l":
                         case "*line":

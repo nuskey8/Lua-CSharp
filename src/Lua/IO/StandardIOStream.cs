@@ -5,9 +5,9 @@
     /// </summary>
     internal sealed class StandardIOStream(ILuaStream innerStream) : ILuaStream
     {
-        public LuaFileMode Mode => innerStream.Mode;
+        public LuaFileOpenMode Mode => innerStream.Mode;
 
-        public ValueTask<LuaFileContent> ReadAllAsync(CancellationToken cancellationToken)
+        public ValueTask<string> ReadAllAsync(CancellationToken cancellationToken)
             => innerStream.ReadAllAsync(cancellationToken);
 
         public ValueTask<string?> ReadLineAsync(CancellationToken cancellationToken)
@@ -16,7 +16,7 @@
         public ValueTask<string?> ReadStringAsync(int count, CancellationToken cancellationToken)
             => innerStream.ReadStringAsync(count, cancellationToken);
 
-        public ValueTask WriteAsync(LuaFileContent content, CancellationToken cancellationToken)
+        public ValueTask WriteAsync(ReadOnlyMemory<char> content, CancellationToken cancellationToken)
             => innerStream.WriteAsync(content, cancellationToken);
 
         public ValueTask FlushAsync(CancellationToken cancellationToken)

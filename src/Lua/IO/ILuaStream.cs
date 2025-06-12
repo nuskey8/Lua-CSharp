@@ -2,9 +2,9 @@
 {
     public interface ILuaStream : IDisposable
     {
-        public LuaFileMode Mode { get; }
+        public LuaFileOpenMode Mode { get; }
 
-        public ValueTask<LuaFileContent> ReadAllAsync(CancellationToken cancellationToken)
+        public ValueTask<string> ReadAllAsync(CancellationToken cancellationToken)
         {
             Mode.ThrowIfNotReadable();
 
@@ -16,7 +16,6 @@
         {
             Mode.ThrowIfNotReadable();
 
-            Mode.ThrowIfNotText();
 
             // Default implementation using ReadStringAsync
             throw new NotImplementedException($"ReadLineAsync must be implemented by {GetType().Name}");
@@ -26,25 +25,18 @@
         {
             Mode.ThrowIfNotReadable();
 
-            Mode.ThrowIfNotText();
             // Default implementation using ReadAllAsync
             throw new NotImplementedException($"ReadStringAsync must be implemented by {GetType().Name}");
         }
 
-        public ValueTask WriteAsync(LuaFileContent content, CancellationToken cancellationToken)
+        public ValueTask WriteAsync(ReadOnlyMemory<char> content, CancellationToken cancellationToken)
         {
             Mode.ThrowIfNotWritable();
-            if (content.Type == LuaFileContentType.Binary)
-            {
-                Mode.ThrowIfNotBinary();
-            }
-            else
-            {
-                Mode.ThrowIfNotText();
-            }
 
             throw new NotImplementedException($"WriteAsync must be implemented by {GetType().Name}");
         }
+
+        public ValueTask WriteAsync(string content, CancellationToken cancellationToken) => WriteAsync(content.AsMemory(), cancellationToken);
 
         public ValueTask FlushAsync(CancellationToken cancellationToken)
         {
@@ -62,24 +54,19 @@
             throw new NotSupportedException($"Seek is not supported by {GetType().Name}");
         }
 
-        public static ILuaStream CreateStreamWrapper(Stream stream, LuaFileOpenMode openMode, LuaFileContentType contentType = LuaFileContentType.Text)
+        public static ILuaStream CreateStreamWrapper(Stream stream, LuaFileOpenMode openMode)
         {
-            var mode = LuaFileModeExtensions.GetMode(openMode, contentType);
-            return contentType == LuaFileContentType.Binary
-                ? new BinaryLuaStream(mode, stream)
-                : new TextLuaStream(mode, stream);
+            return new TextLuaStream(openMode, stream);
         }
-        
-        public static ILuaStream CreateFromFileContent(LuaFileContent content)
+
+        public static ILuaStream CreateFromFileString(string content)
         {
-            if (content.Type == LuaFileContentType.Binary)
-            {
-                return new ByteMemoryStream(content.ReadBytes() );
-            }
-            else
-            {
-                return new StringStream(content.ReadString());
-            }
+            return new StringStream(content);
+        }
+
+        public static ILuaStream CreateFromMemory(ReadOnlyMemory<char> content)
+        {
+            return new CharMemoryStream(content);
         }
 
 

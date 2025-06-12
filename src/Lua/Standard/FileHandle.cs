@@ -46,7 +46,7 @@ public class FileHandle : ILuaUserData
         fileHandleMetatable[Metamethods.Index] = IndexMetamethod;
     }
 
-    public FileHandle(Stream stream, LuaFileOpenMode mode, LuaFileContentType type = LuaFileContentType.Text) : this(ILuaStream.CreateStreamWrapper(stream, mode, type)) { }
+    public FileHandle(Stream stream, LuaFileOpenMode mode) : this(ILuaStream.CreateStreamWrapper(stream, mode)) { }
 
     public FileHandle(ILuaStream stream)
     {
@@ -58,7 +58,7 @@ public class FileHandle : ILuaUserData
         return stream.ReadLineAsync(cancellationToken);
     }
 
-    public ValueTask<LuaFileContent> ReadToEndAsync(CancellationToken cancellationToken)
+    public ValueTask<string> ReadToEndAsync(CancellationToken cancellationToken)
     {
         return stream.ReadAllAsync(cancellationToken);
     }
@@ -68,25 +68,17 @@ public class FileHandle : ILuaUserData
         return stream.ReadStringAsync(count, cancellationToken);
     }
 
-    public ValueTask WriteAsync(LuaFileContent content, CancellationToken cancellationToken)
-    {
-        return stream.WriteAsync(content, cancellationToken);
-    }
 
     public ValueTask WriteAsync(string content, CancellationToken cancellationToken)
     {
-        return stream.WriteAsync(new(content), cancellationToken);
+        return stream.WriteAsync(content.AsMemory(), cancellationToken);
     }
 
     public ValueTask WriteAsync(ReadOnlyMemory<char> content, CancellationToken cancellationToken)
     {
-        return stream.WriteAsync(new (content), cancellationToken);
+        return stream.WriteAsync(content, cancellationToken);
     }
 
-    public ValueTask WriteAsync(IBinaryData content, CancellationToken cancellationToken)
-    {
-        return stream.WriteAsync(new(content), cancellationToken);
-    }
 
     public long Seek(string whence, long offset) =>
         whence switch
@@ -148,7 +140,7 @@ public class FileHandle : ILuaUserData
         }
         catch (IOException ex)
         {
-            return (context.Return(LuaValue.Nil, ex.Message, ex.HResult));
+            return context.Return(LuaValue.Nil, ex.Message, ex.HResult);
         }
     });
 

@@ -8,15 +8,14 @@ namespace Lua.Tests.Helpers
         {
         }
 
-        public virtual LuaFileMode Mode => throw IOThrowHelpers.GetNotSupportedException();
-        public LuaFileContentType ContentType=> throw IOThrowHelpers.GetNotSupportedException();
+        public virtual LuaFileOpenMode Mode => throw IOThrowHelpers.GetNotSupportedException();
 
         public virtual ValueTask<string?> ReadLineAsync(CancellationToken cancellationToken)
         {
             throw IOThrowHelpers.GetNotSupportedException();
         }
 
-        public virtual ValueTask<LuaFileContent> ReadAllAsync(CancellationToken cancellationToken)
+        public virtual ValueTask<string> ReadAllAsync(CancellationToken cancellationToken)
         {
             throw IOThrowHelpers.GetNotSupportedException();
         }
@@ -26,7 +25,7 @@ namespace Lua.Tests.Helpers
             throw IOThrowHelpers.GetNotSupportedException();
         }
 
-        public virtual ValueTask WriteAsync(LuaFileContent content, CancellationToken cancellationToken)
+        public virtual ValueTask WriteAsync(ReadOnlyMemory<char> content, CancellationToken cancellationToken)
         {
             throw IOThrowHelpers.GetNotSupportedException();
         }

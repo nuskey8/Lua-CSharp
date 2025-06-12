@@ -1,77 +1,54 @@
 using System.Buffers;
+using System.Runtime.CompilerServices;
 
 namespace Lua;
 
 public enum LuaModuleType
 {
     Text,
-    Bytes
+    Bytes,
 }
 
-public readonly struct LuaModule : IDisposable
+public readonly struct LuaModule
 {
     public string Name => name;
     public LuaModuleType Type => type;
 
     readonly string name;
     readonly LuaModuleType type;
-    readonly object referenceValue;
+    readonly ReadOnlyMemory<char> text;
+    readonly ReadOnlyMemory<byte> bytes;
 
-    public LuaModule(string name, string text)
+    public LuaModule(string name, ReadOnlyMemory<char> text)
     {
         this.name = name;
         type = LuaModuleType.Text;
-        referenceValue = text;
+        this.text = text;
     }
+
+    public LuaModule(string name, ReadOnlyMemory<byte> bytes)
+    {
+        this.name = name;
+        type = LuaModuleType.Bytes;
+        this.bytes = bytes;
+    }
+
+    public LuaModule(string name, string text) : this(name, text.AsMemory()) { }
 
     public LuaModule(string name, byte[] bytes)
+        : this(name, new ReadOnlyMemory<byte>(bytes))
     {
-        this.name = name;
-        type = LuaModuleType.Bytes;
-        referenceValue = bytes;
-    }
-
-    public LuaModule(string name, IMemoryOwner<char> bytes)
-    {
-        this.name = name;
-        type = LuaModuleType.Text;
-        referenceValue = bytes;
-    }
-
-    public LuaModule(string name, IMemoryOwner<byte> bytes)
-    {
-        this.name = name;
-        type = LuaModuleType.Bytes;
-        referenceValue = bytes;
     }
 
     public ReadOnlySpan<char> ReadText()
     {
         if (type != LuaModuleType.Text) throw new Exception(); // TODO: add message
-        if (referenceValue is IMemoryOwner<char> mem)
-        {
-            return mem.Memory.Span;
-        }
-
-        return ((string)referenceValue);
+        return text.Span;
     }
 
     public ReadOnlySpan<byte> ReadBytes()
     {
         if (type != LuaModuleType.Bytes) throw new Exception(); // TODO: add message
-        if (referenceValue is IMemoryOwner<byte> mem)
-        {
-            return mem.Memory.Span;
-        }
-
-        return (byte[])referenceValue;
-    }
-
-    public void Dispose()
-    {
-        if (referenceValue is IDisposable memoryOwner)
-        {
-            memoryOwner.Dispose();
-        }
+        return bytes.Span;
     }
 }

@@ -40,7 +40,7 @@ public class CompositeLoaderFileSystem(ILuaFileLoader[] loaders, ILuaFileSystem?
         return false;
     }
 
-    public async ValueTask<ILuaStream> Open(string path, LuaFileMode mode, CancellationToken cancellationToken)
+    public async ValueTask<ILuaStream> Open(string path, LuaFileOpenMode mode, CancellationToken cancellationToken)
     {
         if (cached != null)
         {

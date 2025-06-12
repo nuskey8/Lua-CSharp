@@ -24,7 +24,20 @@ public sealed class ModuleLibrary
 
         if (!loaded.TryGetValue(arg0, out var loadedTable))
         {
-            var loader = await FindLoader(context.Access, arg0, cancellationToken);
+            LuaFunction loader;
+            var moduleLoader = context.State.ModuleLoader;
+            if (moduleLoader != null && moduleLoader.Exists(arg0))
+            {
+                var module = await moduleLoader.LoadAsync(arg0, cancellationToken);
+                loader = module.Type == LuaModuleType.Bytes
+                    ? context.State.Load(module.ReadBytes(), module.Name)
+                    : context.State.Load(module.ReadText(), module.Name);
+            }
+            else
+            {
+                loader = await FindLoader(context.Access, arg0, cancellationToken);
+            }
+
             await context.Access.RunAsync(loader, 0, context.ReturnFrameBase, cancellationToken);
             loadedTable = context.Thread.Stack.Get(context.ReturnFrameBase);
             loaded[arg0] = loadedTable;

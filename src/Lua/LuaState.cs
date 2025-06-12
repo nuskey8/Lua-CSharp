@@ -40,8 +40,7 @@ public sealed class LuaState
 
     public LuaPlatform Platform { get; }
 
-    public ILuaModuleLoader ModuleLoader { get; set; } = FileModuleLoader.Instance;
-
+    public ILuaModuleLoader? ModuleLoader { get; set; } 
     public ILuaFileSystem FileSystem => Platform.FileSystem ?? throw new InvalidOperationException("FileSystem is not set. Please set it before access.");
 
     public ILuaOsEnvironment OsEnvironment => Platform.OsEnvironment ?? throw new InvalidOperationException("OperatingSystem is not set. Please set it before access.");

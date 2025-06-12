@@ -3,13 +3,13 @@ using System.Text;
 
 namespace Lua.IO;
 
-internal sealed class TextLuaStream(LuaFileMode mode, Stream innerStream) : ILuaStream
+internal sealed class TextLuaStream(LuaFileOpenMode mode, Stream innerStream) : ILuaStream
 {
     Utf8Reader? reader;
     ulong flushSize = ulong.MaxValue;
     ulong nextFlushSize = ulong.MaxValue;
 
-    public LuaFileMode Mode => mode;
+    public LuaFileOpenMode Mode => mode;
 
     public ValueTask<string?> ReadLineAsync(CancellationToken cancellationToken)
     {
@@ -18,12 +18,12 @@ internal sealed class TextLuaStream(LuaFileMode mode, Stream innerStream) : ILua
         return new(reader.ReadLine(innerStream));
     }
 
-    public ValueTask<LuaFileContent> ReadAllAsync(CancellationToken cancellationToken)
+    public ValueTask<string> ReadAllAsync(CancellationToken cancellationToken)
     {
         mode.ThrowIfNotReadable();
         reader ??= new();
         var text = reader.ReadToEnd(innerStream);
-        return new(new LuaFileContent(text));
+        return new(text);
     }
 
     public ValueTask<string?> ReadStringAsync(int count, CancellationToken cancellationToken)
@@ -33,11 +33,6 @@ internal sealed class TextLuaStream(LuaFileMode mode, Stream innerStream) : ILua
         return new(reader.Read(innerStream, count));
     }
 
-    public ValueTask WriteAsync(LuaFileContent content, CancellationToken cancellationToken)
-    {
-        mode.ThrowIfNotWritable();
-        return WriteAsync(content.ReadText(), cancellationToken);
-    }
 
     public ValueTask WriteAsync(ReadOnlyMemory<char> buffer, CancellationToken cancellationToken)
     {

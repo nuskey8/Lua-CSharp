@@ -1,113 +1,28 @@
 namespace Lua.IO;
 
-public sealed class ByteMemoryStream(ReadOnlyMemory<byte> bytes) : ILuaStream
-{
-    private int position;
-    private bool disposed;
-
-    public ByteMemoryStream(byte[] bytes) : this(bytes.AsMemory())
-    {
-        if (bytes is null)
-            throw new ArgumentNullException(nameof(bytes));
-    }
-
-    public LuaFileMode Mode => LuaFileMode.ReadBinary;
-
-    public void Dispose()
-    {
-        disposed = true;
-    }
-
-    public ValueTask<LuaFileContent> ReadAllAsync(CancellationToken cancellationToken)
-    {
-        ThrowIfDisposed();
-        cancellationToken.ThrowIfCancellationRequested();
-
-        var remaining = bytes.Slice(position);
-        position = bytes.Length;
-        return new(new LuaFileContent(remaining));
-    }
-
-    public ValueTask<string?> ReadLineAsync(CancellationToken cancellationToken)
-    {
-        ThrowIfDisposed();
-        cancellationToken.ThrowIfCancellationRequested();
-
-        throw new InvalidOperationException("Cannot read lines string from a binary stream.");
-    }
-
-    public ValueTask<string?> ReadStringAsync(int count, CancellationToken cancellationToken)
-    {
-        ThrowIfDisposed();
-        cancellationToken.ThrowIfCancellationRequested();
-        throw new InvalidOperationException("Cannot read lines string from a binary stream.");
-    }
-
-    public ValueTask WriteAsync(LuaFileContent content, CancellationToken cancellationToken)
-    {
-        throw new NotSupportedException("Stream is read-only");
-    }
-
-    public ValueTask FlushAsync(CancellationToken cancellationToken)
-    {
-        ThrowIfDisposed();
-        return default;
-    }
-
-    public void SetVBuf(LuaFileBufferingMode mode, int size)
-    {
-        // No-op for memory streams
-    }
-
-    public long Seek(long offset, SeekOrigin origin)
-    {
-        ThrowIfDisposed();
-
-        long newPosition = origin switch
-        {
-            SeekOrigin.Begin => offset,
-            SeekOrigin.Current => position + offset,
-            SeekOrigin.End => bytes.Length + offset,
-            _ => throw new ArgumentException("Invalid seek origin", nameof(origin))
-        };
-
-        if (newPosition < 0 || newPosition > bytes.Length)
-            throw new ArgumentOutOfRangeException(nameof(offset), "Seek position is out of range");
-
-        position = (int)newPosition;
-        return position;
-    }
-
-    private void ThrowIfDisposed()
-    {
-        if (disposed)
-            throw new ObjectDisposedException(nameof(ByteMemoryStream));
-    }
-}
-
 public class CharMemoryStream(ReadOnlyMemory<char> contents) : ILuaStream
 {
     protected int Position;
     private bool disposed;
 
-    public LuaFileMode Mode => LuaFileMode.ReadText;
+    public LuaFileOpenMode Mode => LuaFileOpenMode.Read;
 
     public void Dispose()
     {
         disposed = true;
     }
 
-    public virtual ValueTask<LuaFileContent> ReadAllAsync(CancellationToken cancellationToken)
+    public virtual ValueTask<string> ReadAllAsync(CancellationToken cancellationToken)
     {
         ThrowIfDisposed();
 
         cancellationToken.ThrowIfCancellationRequested();
         if (Position >= contents.Length)
-            return new(new LuaFileContent(""));
+            return new("");
 
         var remaining = contents[Position..];
         Position = contents.Length;
-        return new(new LuaFileContent(remaining));
+        return new(remaining.ToString());
     }
 
     public ValueTask<string?> ReadLineAsync(CancellationToken cancellationToken)
@@ -160,9 +75,9 @@ public class CharMemoryStream(ReadOnlyMemory<char> contents) : ILuaStream
         return new(result);
     }
 
-    public ValueTask WriteAsync(LuaFileContent content, CancellationToken cancellationToken)
+    public ValueTask WriteAsync(ReadOnlyMemory<char> content, CancellationToken cancellationToken)
     {
-        throw new NotSupportedException("Stream is read-only");
+        throw new IOException("Stream is read-only");
     }
 
     public ValueTask FlushAsync(CancellationToken cancellationToken)
@@ -204,12 +119,12 @@ public class CharMemoryStream(ReadOnlyMemory<char> contents) : ILuaStream
 
 public sealed class StringStream(string content) : CharMemoryStream(content.AsMemory())
 {
-    public override ValueTask<LuaFileContent> ReadAllAsync(CancellationToken cancellationToken)
+    public override ValueTask<string> ReadAllAsync(CancellationToken cancellationToken)
     {
         ThrowIfDisposed();
         cancellationToken.ThrowIfCancellationRequested();
         if (Position == 0)
-            return new(new LuaFileContent(content));
+            return new((content));
         return base.ReadAllAsync(cancellationToken);
     }
 }
