@@ -77,7 +77,7 @@ public sealed class IOLibrary
         }
         else
         {
-            var stream = await context.State.FileSystem.Open(arg.ToString(), LuaFileOpenMode.AppendUpdate, cancellationToken);
+            var stream = await context.State.FileSystem.Open(arg.ToString(), LuaFileOpenMode.Read, cancellationToken);
             var handle = new FileHandle(stream);
             registry["_IO_input"] = new(handle);
             return context.Return(new LuaValue(handle));

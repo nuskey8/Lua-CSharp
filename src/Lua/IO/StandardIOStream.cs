@@ -6,15 +6,19 @@
     internal sealed class StandardIOStream(ILuaStream innerStream) : ILuaStream
     {
         public LuaFileOpenMode Mode => innerStream.Mode;
+        public bool IsOpen => innerStream.IsOpen;
 
         public ValueTask<string> ReadAllAsync(CancellationToken cancellationToken)
             => innerStream.ReadAllAsync(cancellationToken);
 
-        public ValueTask<string?> ReadLineAsync(CancellationToken cancellationToken)
-            => innerStream.ReadLineAsync(cancellationToken);
+        public ValueTask<string?> ReadLineAsync(bool keepEol, CancellationToken cancellationToken)
+            => innerStream.ReadLineAsync(keepEol, cancellationToken);
 
-        public ValueTask<string?> ReadStringAsync(int count, CancellationToken cancellationToken)
-            => innerStream.ReadStringAsync(count, cancellationToken);
+        public ValueTask<string?> ReadAsync(int count, CancellationToken cancellationToken)
+            => innerStream.ReadAsync(count, cancellationToken);
+
+        public ValueTask<double?> ReadNumberAsync(CancellationToken cancellationToken)
+            => innerStream.ReadNumberAsync(cancellationToken);
 
         public ValueTask WriteAsync(ReadOnlyMemory<char> content, CancellationToken cancellationToken)
             => innerStream.WriteAsync(content, cancellationToken);
@@ -25,10 +29,15 @@
         public void SetVBuf(LuaFileBufferingMode mode, int size)
             => innerStream.SetVBuf(mode, size);
 
-        public long Seek(long offset, SeekOrigin origin)
-            => innerStream.Seek(offset, origin);
+        public long Seek(SeekOrigin origin, long offset)
+            => innerStream.Seek(origin, offset);
 
         public void Close()
+        {
+            throw new IOException("cannot close standard file");
+        }
+
+        public ValueTask CloseAsync()
         {
             throw new IOException("cannot close standard file");
         }

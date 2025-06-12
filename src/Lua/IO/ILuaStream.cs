@@ -2,6 +2,7 @@
 {
     public interface ILuaStream : IDisposable
     {
+        public bool IsOpen { get; }
         public LuaFileOpenMode Mode { get; }
 
         public ValueTask<string> ReadAllAsync(CancellationToken cancellationToken)
@@ -12,7 +13,15 @@
             throw new NotImplementedException($"ReadAllAsync must be implemented by {GetType().Name}");
         }
 
-        public ValueTask<string?> ReadLineAsync(CancellationToken cancellationToken)
+        public ValueTask<double?> ReadNumberAsync(CancellationToken cancellationToken)
+        {
+            Mode.ThrowIfNotReadable();
+
+            // Default implementation using ReadStringAsync
+            throw new NotImplementedException($"ReadNumberAsync must be implemented by {GetType().Name}");
+        }
+
+        public ValueTask<string?> ReadLineAsync(bool keepEol, CancellationToken cancellationToken)
         {
             Mode.ThrowIfNotReadable();
 
@@ -21,7 +30,7 @@
             throw new NotImplementedException($"ReadLineAsync must be implemented by {GetType().Name}");
         }
 
-        public ValueTask<string?> ReadStringAsync(int count, CancellationToken cancellationToken)
+        public ValueTask<string?> ReadAsync(int count, CancellationToken cancellationToken)
         {
             Mode.ThrowIfNotReadable();
 
@@ -49,17 +58,17 @@
             // Default implementation does nothing (no configurable buffering)
         }
 
-        public long Seek(long offset, SeekOrigin origin)
+        public long Seek(SeekOrigin origin, long offset)
         {
             throw new NotSupportedException($"Seek is not supported by {GetType().Name}");
         }
 
-        public static ILuaStream CreateStreamWrapper(Stream stream, LuaFileOpenMode openMode)
+        public static ILuaStream CreateFromStream(Stream stream, LuaFileOpenMode openMode)
         {
-            return new TextLuaStream(openMode, stream);
+            return new LuaStream(openMode, stream);
         }
 
-        public static ILuaStream CreateFromFileString(string content)
+        public static ILuaStream CreateFromString(string content)
         {
             return new StringStream(content);
         }
@@ -70,9 +79,10 @@
         }
 
 
-        public void Close()
+        public ValueTask CloseAsync()
         {
             Dispose();
+            return default;
         }
     }
 }

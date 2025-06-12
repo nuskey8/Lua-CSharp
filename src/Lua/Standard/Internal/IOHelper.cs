@@ -95,19 +95,19 @@ internal static class IOHelper
                     {
                         case "*n":
                         case "*number":
-                            // TODO: support number format
-                            throw new NotImplementedException();
+                            stack.Push(await file.ReadNumberAsync(cancellationToken)?? LuaValue.Nil);
+                            break;
                         case "*a":
                         case "*all":
                             stack.Push((await file.ReadToEndAsync(cancellationToken)));
                             break;
                         case "*l":
                         case "*line":
-                            stack.Push(await file.ReadLineAsync(cancellationToken) ?? LuaValue.Nil);
+                            stack.Push(await file.ReadLineAsync(false,cancellationToken) ?? LuaValue.Nil);
                             break;
                         case "L":
                         case "*L":
-                            var text = await file.ReadLineAsync(cancellationToken);
+                            var text = await file.ReadLineAsync(true,cancellationToken);
                             stack.Push(text == null ? LuaValue.Nil : text + Environment.NewLine);
                             break;
                     }

@@ -113,3 +113,14 @@ dotnet pack -c Release
 - Uses C# 13 language features
 - Heavy use of unsafe code for performance
 - Strings are UTF-16 (differs from standard Lua)
+
+## TODO
+
+- **ILuaStream Interface Changes**: The ILuaStream interface has been updated with new methods:
+  - Added `IsOpen` property to track stream state
+  - Added `ReadNumberAsync()` for reading numeric values (supports formats like "6.0", "-3.23", "15e12", hex numbers)
+  - Changed `ReadLineAsync()` to accept a `keepEol` parameter for controlling line ending behavior
+  - Renamed `ReadStringAsync()` to `ReadAsync()`
+  - Added `CloseAsync()` method for async stream closing
+  - ✅ Implemented `ReadNumberAsync()` in all implementations
+  - Need to properly implement the `keepEol` parameter in `ReadLineAsync()` for TextLuaStream

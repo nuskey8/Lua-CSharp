@@ -10,7 +10,7 @@ public sealed class ConsoleStandardIO : ILuaStandardIO
     ILuaStream? standardInput;
 
     public ILuaStream Input => standardInput ??=
-        new StandardIOStream(ILuaStream.CreateStreamWrapper(
+        new StandardIOStream(ILuaStream.CreateFromStream(
             ConsoleHelper.OpenStandardInput(),
             LuaFileOpenMode.Read));
 
@@ -19,7 +19,7 @@ public sealed class ConsoleStandardIO : ILuaStandardIO
     public ILuaStream Output
 
         => standardOutput ??=
-            new StandardIOStream(ILuaStream.CreateStreamWrapper(
+            new StandardIOStream(ILuaStream.CreateFromStream(
                 ConsoleHelper.OpenStandardOutput(),
                 LuaFileOpenMode.Write));
 
@@ -27,7 +27,7 @@ public sealed class ConsoleStandardIO : ILuaStandardIO
     ILuaStream? standardError;
 
     public ILuaStream Error => standardError ??=
-        new StandardIOStream(ILuaStream.CreateStreamWrapper(
+        new StandardIOStream(ILuaStream.CreateFromStream(
             ConsoleHelper.OpenStandardError(),
             LuaFileOpenMode.Write));
 }

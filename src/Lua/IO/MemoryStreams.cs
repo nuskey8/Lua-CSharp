@@ -6,6 +6,7 @@ public class CharMemoryStream(ReadOnlyMemory<char> contents) : ILuaStream
     private bool disposed;
 
     public LuaFileOpenMode Mode => LuaFileOpenMode.Read;
+    public bool IsOpen => !disposed;
 
     public void Dispose()
     {
@@ -25,7 +26,7 @@ public class CharMemoryStream(ReadOnlyMemory<char> contents) : ILuaStream
         return new(remaining.ToString());
     }
 
-    public ValueTask<string?> ReadLineAsync(CancellationToken cancellationToken)
+    public ValueTask<string?> ReadLineAsync(bool keepEol, CancellationToken cancellationToken)
     {
         ThrowIfDisposed();
         cancellationToken.ThrowIfCancellationRequested();
@@ -33,8 +34,8 @@ public class CharMemoryStream(ReadOnlyMemory<char> contents) : ILuaStream
         if (Position >= contents.Length)
             return new((string?)null);
 
-        var remainingSpan = contents.Slice(Position).Span;
-        var newlineIndex = remainingSpan.IndexOf('\n');
+        var remainingSpan = contents[Position..].Span;
+        var newlineIndex = remainingSpan.IndexOfAny('\r', '\n');
 
         string result;
         if (newlineIndex == -1)
@@ -45,20 +46,34 @@ public class CharMemoryStream(ReadOnlyMemory<char> contents) : ILuaStream
         }
         else
         {
-            // Read up to newline
             var lineSpan = remainingSpan[..newlineIndex];
-            // Remove CR if present
-            if (lineSpan.Length > 0 && lineSpan[^1] == '\r')
-                lineSpan = lineSpan[..^1];
-
-            result = lineSpan.ToString();
-            Position += newlineIndex + 1;
+            var nlChar = remainingSpan[newlineIndex];
+            var endOfLineLength = 1;
+            
+            // Check for CRLF
+            if (nlChar == '\r' && newlineIndex + 1 < remainingSpan.Length && remainingSpan[newlineIndex + 1] == '\n')
+            {
+                endOfLineLength = 2; // \r\n
+            }
+            
+            if (keepEol)
+            {
+                // Include the newline character(s)
+                result = remainingSpan[..(newlineIndex + endOfLineLength)].ToString();
+            }
+            else
+            {
+                // Just the line content without newlines
+                result = lineSpan.ToString();
+            }
+            
+            Position += newlineIndex + endOfLineLength;
         }
 
         return new(result);
     }
 
-    public ValueTask<string?> ReadStringAsync(int count, CancellationToken cancellationToken)
+    public ValueTask<string?> ReadAsync(int count, CancellationToken cancellationToken)
     {
         ThrowIfDisposed();
         cancellationToken.ThrowIfCancellationRequested();
@@ -72,6 +87,41 @@ public class CharMemoryStream(ReadOnlyMemory<char> contents) : ILuaStream
         var result = contents.Slice(Position, toRead).ToString();
         Position += toRead;
 
+        return new(result);
+    }
+
+    public ValueTask<double?> ReadNumberAsync(CancellationToken cancellationToken)
+    {
+        ThrowIfDisposed();
+        cancellationToken.ThrowIfCancellationRequested();
+        
+        if (Position >= contents.Length)
+            return new((double?)null);
+        
+        var remaining = contents[Position..].Span;
+        var startPos = Position;
+        
+        // Use the shared utility to scan for a number
+        var numberLength = NumberReaderHelper.ScanNumberLength(remaining, skipWhitespace: true);
+        
+        if (numberLength == 0)
+        {
+            Position = contents.Length;
+            return new((double?)null);
+        }
+        
+        // Find where the actual number starts (after whitespace)
+        var whitespaceLength = 0;
+        while (whitespaceLength < remaining.Length && char.IsWhiteSpace(remaining[whitespaceLength]))
+        {
+            whitespaceLength++;
+        }
+        
+        var numberSpan = remaining.Slice(whitespaceLength, numberLength);
+        Position = startPos + whitespaceLength + numberLength;
+        
+        // Parse using shared utility
+        var result = NumberReaderHelper.ParseNumber(numberSpan);
         return new(result);
     }
 
@@ -91,7 +141,13 @@ public class CharMemoryStream(ReadOnlyMemory<char> contents) : ILuaStream
         // No-op for memory streams
     }
 
-    public long Seek(long offset, SeekOrigin origin)
+    public ValueTask CloseAsync()
+    {
+        Dispose();
+        return default;
+    }
+
+    public long Seek(SeekOrigin origin,long offset)
     {
         ThrowIfDisposed();
 

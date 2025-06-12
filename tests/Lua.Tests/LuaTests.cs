@@ -1,5 +1,5 @@
 using Lua.Standard;
-using System.Globalization;
+using Lua.Tests.Helpers;
 
 namespace Lua.Tests;
 
@@ -30,6 +30,7 @@ public class LuaTests
     public async Task Test_Lua(string file)
     {
         var state = LuaState.Create();
+        state.Platform.StandardIO = new TestStandardIO();
         state.OpenStandardLibraries();
         var path = FileHelper.GetAbsolutePath(file);
         Directory.SetCurrentDirectory(Path.GetDirectoryName(path)!);

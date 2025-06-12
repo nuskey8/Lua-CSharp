@@ -37,11 +37,11 @@
             }
 
             ILuaStream wrapper =
-                new TextLuaStream(openMode, stream);
+                new LuaStream(openMode, stream);
 
             if (openMode == LuaFileOpenMode.AppendUpdate)
             {
-                wrapper.Seek(0, SeekOrigin.End);
+                wrapper.Seek(SeekOrigin.End,0);
             }
 
             return new(wrapper);
@@ -72,7 +72,7 @@
 
         public ValueTask<ILuaStream> OpenTempFileStream(CancellationToken cancellationToken)
         {
-            return new(new TextLuaStream(LuaFileOpenMode.WriteUpdate, File.Open(Path.GetTempFileName(), FileMode.Open, FileAccess.ReadWrite)));
+            return new(new LuaStream(LuaFileOpenMode.WriteUpdate, File.Open(Path.GetTempFileName(), FileMode.Open, FileAccess.ReadWrite)));
         }
     }
 }

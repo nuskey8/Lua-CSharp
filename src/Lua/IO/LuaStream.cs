@@ -3,19 +3,21 @@ using System.Text;
 
 namespace Lua.IO;
 
-internal sealed class TextLuaStream(LuaFileOpenMode mode, Stream innerStream) : ILuaStream
+internal sealed class LuaStream(LuaFileOpenMode mode, Stream innerStream) : ILuaStream
 {
     Utf8Reader? reader;
     ulong flushSize = ulong.MaxValue;
     ulong nextFlushSize = ulong.MaxValue;
+    bool disposed;
 
     public LuaFileOpenMode Mode => mode;
+    public bool IsOpen => !disposed;
 
-    public ValueTask<string?> ReadLineAsync(CancellationToken cancellationToken)
+    public ValueTask<string?> ReadLineAsync(bool keepEol, CancellationToken cancellationToken)
     {
         mode.ThrowIfNotReadable();
         reader ??= new();
-        return new(reader.ReadLine(innerStream));
+        return new(reader.ReadLine(innerStream, keepEol));
     }
 
     public ValueTask<string> ReadAllAsync(CancellationToken cancellationToken)
@@ -26,11 +28,26 @@ internal sealed class TextLuaStream(LuaFileOpenMode mode, Stream innerStream) : 
         return new(text);
     }
 
-    public ValueTask<string?> ReadStringAsync(int count, CancellationToken cancellationToken)
+    public ValueTask<string?> ReadAsync(int count, CancellationToken cancellationToken)
     {
         mode.ThrowIfNotReadable();
         reader ??= new();
         return new(reader.Read(innerStream, count));
+    }
+
+    public ValueTask<double?> ReadNumberAsync(CancellationToken cancellationToken)
+    {
+        mode.ThrowIfNotReadable();
+        reader ??= new();
+        
+        // Use the Utf8Reader's ReadNumber method which handles positioning correctly
+        var numberStr = reader.ReadNumber(innerStream);
+        if (numberStr == null)
+            return new((double?)null);
+            
+        // Parse using the shared utility
+        var result = NumberReaderHelper.ParseNumber(numberStr.AsSpan());
+        return new(result);
     }
 
 
@@ -84,7 +101,7 @@ internal sealed class TextLuaStream(LuaFileOpenMode mode, Stream innerStream) : 
         }
     }
 
-    public long Seek(long offset, SeekOrigin origin)
+    public long Seek(SeekOrigin origin,long offset)
     {
         if (reader != null && origin == SeekOrigin.Current)
         {
@@ -97,6 +114,9 @@ internal sealed class TextLuaStream(LuaFileOpenMode mode, Stream innerStream) : 
 
     public void Dispose()
     {
+        if (disposed) return;
+        disposed = true;
+        
         try
         {
             if (innerStream.CanWrite)

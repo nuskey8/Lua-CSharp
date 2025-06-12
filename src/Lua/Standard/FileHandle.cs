@@ -46,16 +46,20 @@ public class FileHandle : ILuaUserData
         fileHandleMetatable[Metamethods.Index] = IndexMetamethod;
     }
 
-    public FileHandle(Stream stream, LuaFileOpenMode mode) : this(ILuaStream.CreateStreamWrapper(stream, mode)) { }
+    public FileHandle(Stream stream, LuaFileOpenMode mode) : this(ILuaStream.CreateFromStream(stream, mode)) { }
 
     public FileHandle(ILuaStream stream)
     {
         this.stream = stream;
     }
-
-    public ValueTask<string?> ReadLineAsync(CancellationToken cancellationToken)
+    public ValueTask<double?> ReadNumberAsync(CancellationToken cancellationToken)
     {
-        return stream.ReadLineAsync(cancellationToken);
+        return stream.ReadNumberAsync( cancellationToken);
+    }
+
+    public ValueTask<string?> ReadLineAsync(bool keepEol,CancellationToken cancellationToken)
+    {
+        return stream.ReadLineAsync(keepEol, cancellationToken);
     }
 
     public ValueTask<string> ReadToEndAsync(CancellationToken cancellationToken)
@@ -65,7 +69,7 @@ public class FileHandle : ILuaUserData
 
     public ValueTask<string?> ReadStringAsync(int count, CancellationToken cancellationToken)
     {
-        return stream.ReadStringAsync(count, cancellationToken);
+        return stream.ReadAsync(count, cancellationToken);
     }
 
 
@@ -83,9 +87,9 @@ public class FileHandle : ILuaUserData
     public long Seek(string whence, long offset) =>
         whence switch
         {
-            "set" => stream.Seek(offset, SeekOrigin.Begin),
-            "cur" => stream.Seek(offset, SeekOrigin.Current),
-            "end" => stream.Seek(offset, SeekOrigin.End),
+            "set" => stream.Seek(SeekOrigin.Begin,offset),
+            "cur" => stream.Seek(SeekOrigin.Current,offset),
+            "end" => stream.Seek( SeekOrigin.End,offset),
             _ => throw new ArgumentException($"Invalid option '{whence}'")
         };
 
@@ -109,7 +113,7 @@ public class FileHandle : ILuaUserData
     public void Close()
     {
         if (isClosed) throw new ObjectDisposedException(nameof(FileHandle));
-        stream.Close();
+        stream.CloseAsync().AsTask().Wait();
         Volatile.Write(ref isClosed, true);
         stream = null!;
     }
