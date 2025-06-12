@@ -200,10 +200,6 @@ public sealed class BasicLibrary
                 // TODO: 
                 throw new NotImplementedException();
             }
-            else if (arg0.TryRead<IBinaryData>(out var binaryData))
-            {
-                return new(context.Return(context.State.Load(binaryData.Memory.Span, name, "bt", arg3)));
-            }
             else
             {
                 LuaRuntimeException.BadArgument(context.Thread, 1, ["string", "function,binary data"], arg0.TypeToString());
@@ -291,18 +287,18 @@ public sealed class BasicLibrary
     public async ValueTask<int> Print(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
         var stdout = context.State.StandardIO.Output;
-        
+
         for (int i = 0; i < context.ArgumentCount; i++)
         {
             await context.Arguments[i].CallToStringAsync(context, cancellationToken);
-            await stdout.WriteAsync(new (context.Thread.Stack.Pop().Read<string>()), cancellationToken);
+            await stdout.WriteAsync(context.Thread.Stack.Pop().Read<string>(), cancellationToken);
             if (i < context.ArgumentCount - 1)
             {
-                await stdout.WriteAsync( new("\t"), cancellationToken);
+                await stdout.WriteAsync("\t", cancellationToken);
             }
         }
 
-        await stdout.WriteAsync(new("\n"), cancellationToken);
+        await stdout.WriteAsync("\n", cancellationToken);
         await stdout.FlushAsync(cancellationToken);
         return context.Return();
     }

@@ -13,16 +13,16 @@ public sealed class IOLibrary
         var libraryName = "io";
         Functions =
         [
-            new(libraryName,"close", Close),
-            new(libraryName,"flush", Flush),
-            new(libraryName,"input", Input),
-            new(libraryName,"lines", Lines),
-            new(libraryName,"open", Open),
-            new(libraryName,"output", Output),
-            new(libraryName,"read", Read),
-            new(libraryName,"type", Type),
-            new(libraryName,"write", Write),
-            new(libraryName,"tmpfile", TmpFile),
+            new(libraryName, "close", Close),
+            new(libraryName, "flush", Flush),
+            new(libraryName, "input", Input),
+            new(libraryName, "lines", Lines),
+            new(libraryName, "open", Open),
+            new(libraryName, "output", Output),
+            new(libraryName, "read", Read),
+            new(libraryName, "type", Type),
+            new(libraryName, "write", Write),
+            new(libraryName, "tmpfile", TmpFile),
         ];
     }
 
@@ -77,7 +77,7 @@ public sealed class IOLibrary
         }
         else
         {
-            var stream =await context.State.FileSystem.Open(arg.ToString(), LuaFileMode.ReadUpdateText, cancellationToken);
+            var stream = await context.State.FileSystem.Open(arg.ToString(), LuaFileOpenMode.AppendUpdate, cancellationToken);
             var handle = new FileHandle(stream);
             registry["_IO_input"] = new(handle);
             return context.Return(new LuaValue(handle));
@@ -108,7 +108,7 @@ public sealed class IOLibrary
             var stack = context.Thread.Stack;
             context.Return();
 
-            await IOHelper.Open(context.Thread, fileName, "r", true,cancellationToken);
+            await IOHelper.Open(context.Thread, fileName, "r", true, cancellationToken);
 
             var file = stack.Get(context.ReturnFrameBase).Read<FileHandle>();
             var upValues = new LuaValue[context.Arguments.Length];
@@ -168,7 +168,7 @@ public sealed class IOLibrary
         }
         else
         {
-            var stream = await context.State.FileSystem.Open(arg.ToString(), LuaFileMode.WriteUpdateText, cancellationToken);
+            var stream = await context.State.FileSystem.Open(arg.ToString(), LuaFileOpenMode.WriteUpdate, cancellationToken);
             var handle = new FileHandle(stream);
             io["_IO_output"] = new(handle);
             return context.Return(new LuaValue(handle));
@@ -208,6 +208,6 @@ public sealed class IOLibrary
 
     public async ValueTask<int> TmpFile(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
-        return context.Return(LuaValue.FromUserData(new FileHandle(await context.State.FileSystem.OpenTempFileStream( cancellationToken))));
+        return context.Return(LuaValue.FromUserData(new FileHandle(await context.State.FileSystem.OpenTempFileStream(cancellationToken))));
     }
 }

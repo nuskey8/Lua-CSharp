@@ -38,30 +38,9 @@ public static class LuaStateExtensions
     public static async ValueTask<LuaClosure> LoadFileAsync(this LuaState state, string fileName, string mode, LuaTable? environment, CancellationToken cancellationToken)
     {
         var name = "@" + fileName;
-        LuaClosure closure;
-
-        var openFlags = LuaFileMode.Read;
-        if (mode.Contains('b'))
-        {
-            openFlags |= LuaFileMode.Binary;
-        }
-
-        if (mode.Contains('t'))
-        {
-            openFlags |= LuaFileMode.Text;
-        }
-
-        using var stream = await state.FileSystem.Open(fileName, openFlags, cancellationToken);
-        var content = await stream.ReadAllAsync(cancellationToken);
-
-        if (content.Type == LuaFileContentType.Binary)
-        {
-            closure = state.Load(content.ReadBytes().Span, name, mode, environment);
-        }
-        else
-        {
-            closure = state.Load(content.ReadText().Span, name, environment);
-        }
+        using var stream = await state.FileSystem.Open(fileName, LuaFileOpenMode.Read, cancellationToken);
+        var source = await stream.ReadAllAsync(cancellationToken);
+        LuaClosure closure = state.Load(source, name, environment);
 
         return closure;
     }
