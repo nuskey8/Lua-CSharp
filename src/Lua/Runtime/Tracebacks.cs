@@ -1,37 +1,68 @@
 using System.Globalization;
-using System.Runtime.CompilerServices;
-using Lua.CodeAnalysis;
 using Lua.Internal;
 
 namespace Lua.Runtime;
 
-public class Traceback(LuaState state)
+public class Traceback(LuaState state, ReadOnlySpan<CallStackFrame> stackFrames)
 {
     public LuaState State => state;
-    public required LuaClosure RootFunc { get; init; }
-    public required CallStackFrame[] StackFrames { get; init; }
+    public LuaFunction RootFunc => StackFrames[0].Function;
+    readonly CallStackFrame[] stackFramesArray = stackFrames.ToArray();
+    public ReadOnlySpan<CallStackFrame> StackFrames => stackFramesArray;
 
-    internal string RootChunkName => RootFunc.Proto.Name;
+    internal static void WriteLastLuaTrace(ReadOnlySpan<CallStackFrame> stackFrames, ref PooledList<char> list)
+    {
+        var intFormatBuffer = (stackalloc char[15]);
+        var shortSourceBuffer = (stackalloc char[59]);
+        for (var index = stackFrames.Length - 1; index >= 1; index--)
+        {
+            LuaFunction lastFunc = stackFrames[index - 1].Function;
+            var frame = stackFrames[index];
+            if (!frame.IsTailCall && lastFunc is LuaClosure closure)
+            {
+                var p = closure.Proto;
+                var len = LuaDebug.WriteShortSource(p.ChunkName, shortSourceBuffer);
+                list.AddRange(shortSourceBuffer[..len]);
+                list.AddRange(":");
+                if (p.LineInfo.Length <= frame.CallerInstructionIndex)
+                {
+                    list.AddRange("Trace back error");
+                }
+                else
+                {
+                    p.LineInfo[frame.CallerInstructionIndex].TryFormat(intFormatBuffer, out var charsWritten, provider: CultureInfo.InvariantCulture);
+                    list.AddRange(intFormatBuffer[..charsWritten]);
+                }
 
-    internal SourcePosition LastPosition
+                return;
+            }
+        }
+    }
+
+    internal void WriteLastLuaTrace(ref PooledList<char> list)
+    {
+        WriteLastLuaTrace(StackFrames, ref list);
+    }
+
+    public int LastLine
     {
         get
         {
-            var stackFrames = StackFrames.AsSpan();
-            for (var index = stackFrames.Length - 1; index >= 0; index--)
+            var stackFrames = StackFrames;
+            for (var index = stackFrames.Length - 1; index >= 1; index--)
             {
-                LuaFunction lastFunc = index > 0 ? stackFrames[index - 1].Function : RootFunc;
+                LuaFunction lastFunc = stackFrames[index - 1].Function;
                 var frame = stackFrames[index];
                 if (!frame.IsTailCall && lastFunc is LuaClosure closure)
                 {
                     var p = closure.Proto;
-                    if (frame.CallerInstructionIndex < 0 || p.SourcePositions.Length <= frame.CallerInstructionIndex)
+                    if (frame.CallerInstructionIndex < 0 || p.LineInfo.Length <= frame.CallerInstructionIndex)
                     {
                         Console.WriteLine($"Trace back error");
                         return default;
                     }
 
-                    return p.SourcePositions[frame.CallerInstructionIndex];
+                    return p.LineInfo[frame.CallerInstructionIndex];
                 }
             }
 
@@ -40,21 +71,53 @@ public class Traceback(LuaState state)
         }
     }
 
+    public int FirstLine
+    {
+        get
+        {
+            var stackFrames = StackFrames;
+            for (var index = 1; index <= stackFrames.Length; index++)
+            {
+                LuaFunction lastFunc = stackFrames[index - 1].Function;
+                var frame = stackFrames[index];
+                if (!frame.IsTailCall && lastFunc is LuaClosure closure)
+                {
+                    var p = closure.Proto;
+                    if (frame.CallerInstructionIndex < 0 || p.LineInfo.Length <= frame.CallerInstructionIndex)
+                    {
+                        Console.WriteLine($"Trace back error");
+                        return default;
+                    }
+
+                    return p.LineInfo[frame.CallerInstructionIndex];
+                }
+            }
+
+            return default;
+        }
+    }
+
     public override string ToString()
     {
-        return GetTracebackString(State, RootFunc, StackFrames, LuaValue.Nil);
+        return CreateTracebackMessage(State, StackFrames, LuaValue.Nil);
     }
-    
+
     public string ToString(int skipFrames)
     {
-        if(skipFrames < 0 || skipFrames >= StackFrames.Length)
+        if (skipFrames < 0 || skipFrames >= StackFrames.Length)
         {
             return "stack traceback:\n";
         }
-        return GetTracebackString(State, RootFunc, StackFrames[..^skipFrames], LuaValue.Nil);
+
+        return CreateTracebackMessage(State, StackFrames, LuaValue.Nil, skipFrames);
     }
 
-    internal static string GetTracebackString(LuaState state, LuaClosure rootFunc, ReadOnlySpan<CallStackFrame> stackFrames, LuaValue message, bool skipFirstCsharpCall = false)
+    public static string CreateTracebackMessage(LuaThread thread, LuaValue message, int stackFramesSkipCount = 0)
+    {
+        return CreateTracebackMessage(thread.State, thread.GetCallStackFrames(), message, stackFramesSkipCount);
+    }
+
+    internal static string CreateTracebackMessage(LuaState state, ReadOnlySpan<CallStackFrame> stackFrames, LuaValue message, int skipCount = 0)
     {
         using var list = new PooledList<char>(64);
         if (message.Type is not LuaValueType.Nil)
@@ -66,27 +129,29 @@ public class Traceback(LuaState state)
         list.AddRange("stack traceback:\n");
         var intFormatBuffer = (stackalloc char[15]);
         var shortSourceBuffer = (stackalloc char[59]);
-        {
-            if (0 < stackFrames.Length && !skipFirstCsharpCall && stackFrames[^1].Function is { } f and not LuaClosure)
-            {
-                list.AddRange("\t[C#]: in function '");
-                list.AddRange(f.Name);
-                list.AddRange("'\n");
-            }
-        }
 
         for (var index = stackFrames.Length - 1; index >= 0; index--)
         {
-            LuaFunction lastFunc = index > 0 ? stackFrames[index - 1].Function : rootFunc;
+            LuaFunction lastFunc = stackFrames[index].Function;
             if (lastFunc is not null and not LuaClosure)
             {
+                if (1 <= skipCount--)
+                {
+                    continue;
+                }
+
                 list.AddRange("\t[C#]: in function '");
                 list.AddRange(lastFunc.Name);
                 list.AddRange("'\n");
             }
             else if (lastFunc is LuaClosure closure)
             {
-                var frame = stackFrames[index];
+                if (index == stackFrames.Length - 1 || 1 <= skipCount--)
+                {
+                    continue;
+                }
+
+                var frame = stackFrames[index + 1];
 
                 if (frame.IsTailCall)
                 {
@@ -94,31 +159,30 @@ public class Traceback(LuaState state)
                 }
 
                 var p = closure.Proto;
-                var root = p.GetRoot();
                 list.AddRange("\t");
-                var len = LuaDebug.WriteShortSource(root.Name, shortSourceBuffer);
+                var len = LuaDebug.WriteShortSource(p.ChunkName, shortSourceBuffer);
                 list.AddRange(shortSourceBuffer[..len]);
                 list.AddRange(":");
-                if (p.SourcePositions.Length <= frame.CallerInstructionIndex)
+                if (p.LineInfo.Length <= frame.CallerInstructionIndex)
                 {
                     list.AddRange("Trace back error");
                 }
                 else
                 {
-                    p.SourcePositions[frame.CallerInstructionIndex].Line.TryFormat(intFormatBuffer, out var charsWritten, provider: CultureInfo.InvariantCulture);
+                    p.LineInfo[frame.CallerInstructionIndex].TryFormat(intFormatBuffer, out var charsWritten, provider: CultureInfo.InvariantCulture);
                     list.AddRange(intFormatBuffer[..charsWritten]);
                 }
 
 
                 list.AddRange(": in ");
-                if (root == p)
+                if (p.LineDefined == 0)
                 {
                     list.AddRange("main chunk");
-                    list.AddRange("\n");
+                    list.Add('\n');
                     goto Next;
                 }
 
-                if (0 < index && stackFrames[index - 1].Flags.HasFlag(CallStackFrameFlags.InHook))
+                if (stackFrames[index].Flags.HasFlag(CallStackFrameFlags.InHook))
                 {
                     list.AddRange("hook");
                     list.AddRange(" '");
@@ -140,10 +204,10 @@ public class Traceback(LuaState state)
                     }
                 }
 
-                var caller = index > 1 ? stackFrames[index - 2].Function : rootFunc;
+                var caller = index > 0 ? stackFrames[index - 1].Function : stackFrames[0].Function;
                 if (index > 0 && caller is LuaClosure callerClosure)
                 {
-                    var t = LuaDebug.GetFuncName(callerClosure.Proto, stackFrames[index - 1].CallerInstructionIndex, out var name);
+                    var t = LuaDebug.GetFuncName(callerClosure.Proto, stackFrames[index].CallerInstructionIndex, out var name);
                     if (t is not null)
                     {
                         if (t is "global")
