@@ -355,7 +355,7 @@ public class DebugLibrary
 
         var skipCount = Math.Min(Math.Max(level - 1, 0), callStack.Length - 1);
         var frames = callStack[..^skipCount];
-        return new(context.Return(Runtime.Traceback.GetTracebackString(context.State, frames, message, level == 1 ? 1 : 0)));
+        return new(context.Return(Runtime.Traceback.CreateTracebackMessage(context.State, frames, message, level == 1 ? 1 : 0)));
     }
 
     public ValueTask<int> GetRegistry(LuaFunctionExecutionContext context, CancellationToken cancellationToken)

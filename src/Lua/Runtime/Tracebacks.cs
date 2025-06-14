@@ -99,7 +99,7 @@ public class Traceback(LuaState state, ReadOnlySpan<CallStackFrame> stackFrames)
 
     public override string ToString()
     {
-        return GetTracebackString(State, StackFrames, LuaValue.Nil);
+        return CreateTracebackMessage(State, StackFrames, LuaValue.Nil);
     }
 
     public string ToString(int skipFrames)
@@ -109,10 +109,10 @@ public class Traceback(LuaState state, ReadOnlySpan<CallStackFrame> stackFrames)
             return "stack traceback:\n";
         }
 
-        return GetTracebackString(State, StackFrames, LuaValue.Nil, skipFrames);
+        return CreateTracebackMessage(State, StackFrames, LuaValue.Nil, skipFrames);
     }
 
-    internal static string GetTracebackString(LuaState state, ReadOnlySpan<CallStackFrame> stackFrames, LuaValue message, int skipCount = 0)
+    public static string CreateTracebackMessage(LuaState state, ReadOnlySpan<CallStackFrame> stackFrames, LuaValue message, int skipCount = 0)
     {
         using var list = new PooledList<char>(64);
         if (message.Type is not LuaValueType.Nil)
