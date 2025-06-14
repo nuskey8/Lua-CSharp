@@ -6,7 +6,7 @@ public static class CompositeModuleLoader
     {
         public bool Exists(string moduleName)
         {
-            return loader0.Exists(moduleName) &&
+            return loader0.Exists(moduleName) ||
                    loader1.Exists(moduleName);
         }
 
@@ -30,8 +30,8 @@ public static class CompositeModuleLoader
     {
         public bool Exists(string moduleName)
         {
-            return loader0.Exists(moduleName) &&
-                   loader1.Exists(moduleName) &&
+            return loader0.Exists(moduleName) ||
+                   loader1.Exists(moduleName) ||
                    loader2.Exists(moduleName);
         }
 
@@ -60,9 +60,9 @@ public static class CompositeModuleLoader
     {
         public bool Exists(string moduleName)
         {
-            return loader0.Exists(moduleName) &&
-                   loader1.Exists(moduleName) &&
-                   loader2.Exists(moduleName) &&
+            return loader0.Exists(moduleName) ||
+                   loader1.Exists(moduleName) ||
+                   loader2.Exists(moduleName) ||
                    loader3.Exists(moduleName);
         }
 
@@ -96,10 +96,10 @@ public static class CompositeModuleLoader
     {
         public bool Exists(string moduleName)
         {
-            return loader0.Exists(moduleName) &&
-                   loader1.Exists(moduleName) &&
-                   loader2.Exists(moduleName) &&
-                   loader3.Exists(moduleName) &&
+            return loader0.Exists(moduleName) ||
+                   loader1.Exists(moduleName) ||
+                   loader2.Exists(moduleName) ||
+                   loader3.Exists(moduleName) ||
                    loader4.Exists(moduleName);
         }
 
@@ -138,11 +138,11 @@ public static class CompositeModuleLoader
     {
         public bool Exists(string moduleName)
         {
-            return loader0.Exists(moduleName) &&
-                   loader1.Exists(moduleName) &&
-                   loader2.Exists(moduleName) &&
-                   loader3.Exists(moduleName) &&
-                   loader4.Exists(moduleName) &&
+            return loader0.Exists(moduleName) ||
+                   loader1.Exists(moduleName) ||
+                   loader2.Exists(moduleName) ||
+                   loader3.Exists(moduleName) ||
+                   loader4.Exists(moduleName) ||
                    loader5.Exists(moduleName);
         }
 
