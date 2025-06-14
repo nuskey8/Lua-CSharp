@@ -153,7 +153,7 @@ public sealed class LuaCoroutine : LuaThread, IValueTaskSource<LuaCoroutine.Yiel
                 {
                     Stack.PushRange(stack.AsSpan()[^argCount..]);
                     //functionTask = Function.InvokeAsync(new() { Access = this.CurrentAccess, ArgumentCount = Stack.Count, ReturnFrameBase = 0 }, cancellationToken);
-                    functionTask =CurrentAccess.RunAsync(Function,Stack.Count, cancellationToken);
+                    functionTask = CurrentAccess.RunAsync(Function, Stack.Count, cancellationToken);
                     Volatile.Write(ref isFirstCall, false);
                     if (!functionTask.IsCompleted)
                     {

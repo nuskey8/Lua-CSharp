@@ -694,13 +694,13 @@ public sealed class StringLibrary
         }
 
         init--; // Convert from 1-based to 0-based
-        
+
         // Check if init is beyond string bounds
         if (init > s.Length)
         {
             return new(context.Return(LuaValue.Nil));
         }
-        
+
         init = Math.Max(0, init); // Clamp to 0 if negative
 
         // Check for plain search mode (4th parameter = true)

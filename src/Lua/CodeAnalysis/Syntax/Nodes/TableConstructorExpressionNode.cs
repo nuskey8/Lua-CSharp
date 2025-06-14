@@ -9,6 +9,9 @@ public record TableConstructorExpressionNode(TableConstructorField[] Fields, Sou
 }
 
 public abstract record TableConstructorField(SourcePosition Position);
+
 public record GeneralTableConstructorField(ExpressionNode KeyExpression, ExpressionNode ValueExpression, SourcePosition Position) : TableConstructorField(Position);
+
 public record RecordTableConstructorField(string Key, ExpressionNode ValueExpression, SourcePosition Position) : TableConstructorField(Position);
+
 public record ListTableConstructorField(ExpressionNode Expression, SourcePosition Position) : TableConstructorField(Position);

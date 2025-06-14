@@ -15,6 +15,7 @@ public struct PooledArray<T>(int sizeHint) : IDisposable
             return ref array![index];
         }
     }
+
     public T[] UnderlyingArray
     {
         get

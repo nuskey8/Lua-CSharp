@@ -126,6 +126,7 @@ public static partial class LuaVirtualMachine
                 context.Thread.PopCallStackFrameWithStackPop();
             }
         }
+
         context.Thread.ThrowIfCancellationRequested(cancellationToken);
 
         {
@@ -136,6 +137,7 @@ public static partial class LuaVirtualMachine
             {
                 return r;
             }
+
             context.Thread.ThrowIfCancellationRequested(cancellationToken);
             var top = stack.Count;
             stack.Push("return");

@@ -63,7 +63,7 @@ public readonly record struct LuaFunctionExecutionContext
             }
             else if (LuaValue.TryGetLuaValueType(t, out var type))
             {
-                LuaRuntimeException.BadArgument(Thread, index + 1,type, arg.Type);
+                LuaRuntimeException.BadArgument(Thread, index + 1, type, arg.Type);
             }
             else if (arg.Type is LuaValueType.UserData or LuaValueType.LightUserData)
             {

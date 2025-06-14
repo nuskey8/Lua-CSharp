@@ -150,6 +150,7 @@ public ref struct Lexer
                 {
                     current = SyntaxToken.Assignment(position);
                 }
+
                 return true;
             case '~':
                 if (c2 == '=')
@@ -161,6 +162,7 @@ public ref struct Lexer
                 {
                     throw new LuaParseException(ChunkName, position, $"error: Invalid '~' token");
                 }
+
                 return true;
             case '>':
                 if (c2 == '=')
@@ -172,6 +174,7 @@ public ref struct Lexer
                 {
                     current = SyntaxToken.GreaterThan(position);
                 }
+
                 return true;
             case '<':
                 if (c2 == '=')
@@ -183,6 +186,7 @@ public ref struct Lexer
                 {
                     current = SyntaxToken.LessThan(position);
                 }
+
                 return true;
             case '.':
                 if (c2 == '.')
@@ -328,8 +332,8 @@ public ref struct Lexer
                     if (span.Length <= offset) break;
                     if (span[offset] == '\r')
                     {
-                        if (span.Length<=offset +1) continue;
-                        if (span[offset+1] == '\n')Advance(1);
+                        if (span.Length <= offset + 1) continue;
+                        if (span[offset + 1] == '\n') Advance(1);
                     }
                 }
                 else if (c == quote)
@@ -439,6 +443,7 @@ public ref struct Lexer
                     Advance(1);
                     readCount++;
                 }
+
                 flag = false;
             }
 

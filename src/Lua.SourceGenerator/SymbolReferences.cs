@@ -26,17 +26,17 @@ public sealed class SymbolReferences
         };
     }
 
-    public INamedTypeSymbol LuaObjectAttribute { get; private set; } = default!;
-    public INamedTypeSymbol LuaMemberAttribute { get; private set; } = default!;
-    public INamedTypeSymbol LuaIgnoreMemberAttribute { get; private set; } = default!;
-    public INamedTypeSymbol LuaMetamethodAttribute { get; private set; } = default!;
-    public INamedTypeSymbol LuaValue { get; private set; } = default!;
-    public INamedTypeSymbol Boolean { get; private set; } = default!;
-    public INamedTypeSymbol String { get; private set; } = default!;
-    public INamedTypeSymbol Double { get; private set; } = default!;
-    public INamedTypeSymbol LuaFunction { get; private set; } = default!;
-    public INamedTypeSymbol LuaThread { get; private set; } = default!;
-    public INamedTypeSymbol LuaTable { get; private set; } = default!;
-    public INamedTypeSymbol LuaUserData { get; private set; } = default!;
-    public INamedTypeSymbol CancellationToken { get; private set; } = default!;
+    public INamedTypeSymbol LuaObjectAttribute { get; private set; } = null!;
+    public INamedTypeSymbol LuaMemberAttribute { get; private set; } = null!;
+    public INamedTypeSymbol LuaIgnoreMemberAttribute { get; private set; } = null!;
+    public INamedTypeSymbol LuaMetamethodAttribute { get; private set; } = null!;
+    public INamedTypeSymbol LuaValue { get; private set; } = null!;
+    public INamedTypeSymbol Boolean { get; private set; } = null!;
+    public INamedTypeSymbol String { get; private set; } = null!;
+    public INamedTypeSymbol Double { get; private set; } = null!;
+    public INamedTypeSymbol LuaFunction { get; private set; } = null!;
+    public INamedTypeSymbol LuaThread { get; private set; } = null!;
+    public INamedTypeSymbol LuaTable { get; private set; } = null!;
+    public INamedTypeSymbol LuaUserData { get; private set; } = null!;
+    public INamedTypeSymbol CancellationToken { get; private set; } = null!;
 }

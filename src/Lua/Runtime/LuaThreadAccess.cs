@@ -91,7 +91,7 @@ public readonly struct LuaThreadAccess
         }
         finally
         {
-            this.Thread.PopCallStackFrameUntil(callStackTop-1);
+            this.Thread.PopCallStackFrameUntil(callStackTop - 1);
         }
     }
 

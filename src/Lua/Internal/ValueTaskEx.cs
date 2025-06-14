@@ -44,7 +44,7 @@ internal static class ValueTaskEx
     public static ValueTask<(int winArgumentIndex, T0 result0, T1 result1, IDisposable promis)> WhenAnyPooled<T0, T1>(ValueTask<T0> task0, ValueTask<T1> task1)
     {
         var promise = WhenAnyPromise<T0, T1>.Get(task0, task1);
-        return new (promise, 0);
+        return new(promise, 0);
     }
 
     class WhenAnyPromise<T0, T1> : IValueTaskSource<(int winArgumentIndex, T0 result0, T1 result1, IDisposable)>, IPoolNode<WhenAnyPromise<T0, T1>>, IDisposable

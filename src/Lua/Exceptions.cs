@@ -72,7 +72,7 @@ internal class LuaStackOverflowException() : Exception("stack overflow")
 {
     public override string ToString()
     {
-        return  "stack overflow";
+        return "stack overflow";
     }
 }
 

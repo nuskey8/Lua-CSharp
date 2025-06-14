@@ -13,21 +13,21 @@ public class DebugLibrary
         var libraryName = "debug";
         Functions =
         [
-            new(libraryName,"getlocal", GetLocal),
-            new(libraryName,"setlocal", SetLocal),
-            new(libraryName,"getupvalue", GetUpValue),
-            new(libraryName,"setupvalue", SetUpValue),
-            new(libraryName,"getmetatable", GetMetatable),
-            new(libraryName,"setmetatable", SetMetatable),
-            new(libraryName,"getuservalue", GetUserValue),
-            new(libraryName,"setuservalue", SetUserValue),
-            new(libraryName,"traceback", Traceback),
-            new(libraryName,"getregistry", GetRegistry),
-            new(libraryName,"upvalueid", UpValueId),
-            new(libraryName,"upvaluejoin", UpValueJoin),
-            new(libraryName,"gethook", GetHook),
-            new(libraryName,"sethook", SetHook),
-            new(libraryName,"getinfo", GetInfo),
+            new(libraryName, "getlocal", GetLocal),
+            new(libraryName, "setlocal", SetLocal),
+            new(libraryName, "getupvalue", GetUpValue),
+            new(libraryName, "setupvalue", SetUpValue),
+            new(libraryName, "getmetatable", GetMetatable),
+            new(libraryName, "setmetatable", SetMetatable),
+            new(libraryName, "getuservalue", GetUserValue),
+            new(libraryName, "setuservalue", SetUserValue),
+            new(libraryName, "traceback", Traceback),
+            new(libraryName, "getregistry", GetRegistry),
+            new(libraryName, "upvalueid", UpValueId),
+            new(libraryName, "upvaluejoin", UpValueJoin),
+            new(libraryName, "gethook", GetHook),
+            new(libraryName, "sethook", SetHook),
+            new(libraryName, "getinfo", GetInfo),
         ];
     }
 
@@ -379,7 +379,7 @@ public class DebugLibrary
             return new(context.Return(LuaValue.Nil));
         }
 
-        return new(context.Return( LuaValue.FromObject(upValues[n1 - 1])));
+        return new(context.Return(LuaValue.FromObject(upValues[n1 - 1])));
     }
 
     public ValueTask<int> UpValueJoin(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
@@ -414,7 +414,7 @@ public class DebugLibrary
     {
         var thread = GetLuaThread(context, out var argOffset);
         LuaFunction? hook = context.GetArgumentOrDefault<LuaFunction?>(argOffset);
-        var mask = context.GetArgumentOrDefault<string?>(argOffset + 1)??"";
+        var mask = context.GetArgumentOrDefault<string?>(argOffset + 1) ?? "";
         var count = context.GetArgumentOrDefault<int>(argOffset + 2);
         thread.SetHook(hook, mask, count);
         if (hook is null)

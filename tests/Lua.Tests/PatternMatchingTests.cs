@@ -789,7 +789,7 @@ public class PatternMatchingTests
     }
 
     [Test]
-    public async Task Test_PatternMatching_ErrorCases()
+    public void Test_PatternMatching_ErrorCases()
     {
         var state = LuaState.Create();
         state.OpenStringLibrary();

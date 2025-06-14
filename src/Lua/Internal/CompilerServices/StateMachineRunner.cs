@@ -30,11 +30,11 @@ SOFTWARE.
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks.Sources;
+
 // ReSharper disable ArrangeTypeMemberModifiers
 
 namespace Lua.Internal.CompilerServices
 {
-
     internal interface IStateMachineRunnerPromise : IValueTaskSource
     {
         Action MoveNext { get; }
