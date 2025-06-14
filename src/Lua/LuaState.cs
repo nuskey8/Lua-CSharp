@@ -44,6 +44,9 @@ public sealed class LuaState
     public ILuaFileSystem FileSystem => Platform.FileSystem ?? throw new InvalidOperationException("FileSystem is not set. Please set it before access.");
 
     public ILuaOsEnvironment OsEnvironment => Platform.OsEnvironment ?? throw new InvalidOperationException("OperatingSystem is not set. Please set it before access.");
+    
+    
+    public TimeProvider TimeProvider => Platform.TimeProvider ?? throw new InvalidOperationException("TimeProvider is not set. Please set it before access.");
 
     public ILuaStandardIO StandardIO => Platform.StandardIO;
 

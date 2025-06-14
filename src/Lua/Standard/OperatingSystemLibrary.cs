@@ -45,7 +45,7 @@ public sealed class OperatingSystemLibrary
         }
         else
         {
-            now = context.State.OsEnvironment.GetCurrentUtcTime();
+            now = context.State.TimeProvider.GetUtcNow().DateTime;
         }
 
         var isDst = false;
@@ -55,8 +55,7 @@ public sealed class OperatingSystemLibrary
         }
         else
         {
-            var offset = context.State.OsEnvironment.GetLocalTimeZoneOffset();
-            now += offset;
+            now = context.State.TimeProvider.GetLocalNow().DateTime;
             isDst = now.IsDaylightSavingTime();
         }
 
@@ -182,7 +181,7 @@ public sealed class OperatingSystemLibrary
         }
         else
         {
-            return new(context.Return(DateTimeHelper.GetUnixTime(context.State.OsEnvironment.GetCurrentUtcTime())));
+            return new(context.Return(DateTimeHelper.GetUnixTime(context.State.TimeProvider.GetUtcNow().DateTime)));
         }
     }
 

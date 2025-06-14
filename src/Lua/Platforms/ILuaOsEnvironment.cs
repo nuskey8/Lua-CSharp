@@ -19,14 +19,4 @@ public interface ILuaOsEnvironment
     /// Get current process start time for clock calculations (units: seconds)
     /// </summary>
     double GetTotalProcessorTime();
-
-    /// <summary>
-    /// Get current UTC time
-    /// </summary>
-    DateTime GetCurrentUtcTime();
-
-    /// <summary>
-    /// Get local time zone offset from UTC
-    /// </summary>
-    TimeSpan GetLocalTimeZoneOffset();
 }

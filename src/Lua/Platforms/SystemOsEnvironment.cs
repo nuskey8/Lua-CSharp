@@ -22,15 +22,5 @@ namespace Lua.Platforms
         {
             return Process.GetCurrentProcess().TotalProcessorTime.TotalSeconds;
         }
-
-        public DateTime GetCurrentUtcTime()
-        {
-            return DateTime.UtcNow;
-        }
-
-        public TimeSpan GetLocalTimeZoneOffset()
-        {
-            return TimeZoneInfo.Local.BaseUtcOffset;
-        }
     }
 }
