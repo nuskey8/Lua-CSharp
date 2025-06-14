@@ -79,7 +79,7 @@
         }
 
 
-        public ValueTask CloseAsync()
+        public ValueTask CloseAsync(CancellationToken cancellationToken)
         {
             Dispose();
             return default;

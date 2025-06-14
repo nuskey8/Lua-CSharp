@@ -37,7 +37,7 @@
             throw new IOException("cannot close standard file");
         }
 
-        public ValueTask CloseAsync()
+        public ValueTask CloseAsync(CancellationToken cancellationToken)
         {
             throw new IOException("cannot close standard file");
         }

@@ -22,6 +22,7 @@ public class FileHandle : ILuaUserData
                 "seek" => SeekFunction!,
                 "setvbuf" => SetVBufFunction!,
                 "write" => WriteFunction!,
+
                 _ => LuaValue.Nil,
             }));
         }
@@ -32,9 +33,8 @@ public class FileHandle : ILuaUserData
     });
 
     ILuaStream stream;
-    bool isClosed;
 
-    public bool IsClosed => Volatile.Read(ref isClosed);
+    public bool IsOpen => stream?.IsOpen ?? false;
 
     LuaTable? ILuaUserData.Metatable { get => fileHandleMetatable; set => fileHandleMetatable = value; }
 
@@ -44,6 +44,7 @@ public class FileHandle : ILuaUserData
     {
         fileHandleMetatable = new LuaTable(0, 1);
         fileHandleMetatable[Metamethods.Index] = IndexMetamethod;
+        fileHandleMetatable["__tostring"] = ToStringFunction;
     }
 
     public FileHandle(Stream stream, LuaFileOpenMode mode) : this(ILuaStream.CreateFromStream(stream, mode)) { }
@@ -52,12 +53,13 @@ public class FileHandle : ILuaUserData
     {
         this.stream = stream;
     }
+
     public ValueTask<double?> ReadNumberAsync(CancellationToken cancellationToken)
     {
-        return stream.ReadNumberAsync( cancellationToken);
+        return stream.ReadNumberAsync(cancellationToken);
     }
 
-    public ValueTask<string?> ReadLineAsync(bool keepEol,CancellationToken cancellationToken)
+    public ValueTask<string?> ReadLineAsync(bool keepEol, CancellationToken cancellationToken)
     {
         return stream.ReadLineAsync(keepEol, cancellationToken);
     }
@@ -87,9 +89,9 @@ public class FileHandle : ILuaUserData
     public long Seek(string whence, long offset) =>
         whence switch
         {
-            "set" => stream.Seek(SeekOrigin.Begin,offset),
-            "cur" => stream.Seek(SeekOrigin.Current,offset),
-            "end" => stream.Seek( SeekOrigin.End,offset),
+            "set" => stream.Seek(SeekOrigin.Begin, offset),
+            "cur" => stream.Seek(SeekOrigin.Current, offset),
+            "end" => stream.Seek(SeekOrigin.End, offset),
             _ => throw new ArgumentException($"Invalid option '{whence}'")
         };
 
@@ -110,26 +112,25 @@ public class FileHandle : ILuaUserData
         stream.SetVBuf(bufferingMode, size);
     }
 
-    public void Close()
+    public async ValueTask Close(CancellationToken cancellationToken)
     {
-        if (isClosed) throw new ObjectDisposedException(nameof(FileHandle));
-        stream.CloseAsync().AsTask().Wait();
-        Volatile.Write(ref isClosed, true);
+        if (!stream.IsOpen) throw new ObjectDisposedException(nameof(FileHandle));
+        await stream.CloseAsync(cancellationToken);
         stream = null!;
     }
 
-    static readonly LuaFunction CloseFunction = new("close", (context, cancellationToken) =>
+    static readonly LuaFunction CloseFunction = new("close", async (context, cancellationToken) =>
     {
         var file = context.GetArgument<FileHandle>(0);
 
         try
         {
-            file.Close();
-            return new(context.Return(true));
+            await file.Close(cancellationToken);
+            return context.Return(true);
         }
         catch (IOException ex)
         {
-            return new(context.Return(LuaValue.Nil, ex.Message, ex.HResult));
+            return context.Return(LuaValue.Nil, ex.Message, ex.HResult);
         }
     });
 
@@ -218,5 +219,11 @@ public class FileHandle : ILuaUserData
         var file = context.GetArgument<FileHandle>(0);
         var resultCount = await IOHelper.WriteAsync(file, "io.write", context with { ArgumentCount = context.ArgumentCount - 1 }, cancellationToken);
         return resultCount;
+    });
+
+    static readonly LuaFunction ToStringFunction = new("file.__tostring", (context, cancellationToken) =>
+    {
+        var file = context.GetArgument<FileHandle>(0);
+        return new(context.Return($"file ({(file.IsOpen ? file.stream.GetHashCode() : "closed")})"));
     });
 }
