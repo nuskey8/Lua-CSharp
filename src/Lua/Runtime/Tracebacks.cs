@@ -112,7 +112,12 @@ public class Traceback(LuaState state, ReadOnlySpan<CallStackFrame> stackFrames)
         return CreateTracebackMessage(State, StackFrames, LuaValue.Nil, skipFrames);
     }
 
-    public static string CreateTracebackMessage(LuaState state, ReadOnlySpan<CallStackFrame> stackFrames, LuaValue message, int skipCount = 0)
+    public static string CreateTracebackMessage(LuaThread thread, LuaValue message, int stackFramesSkipCount = 0)
+    {
+        return CreateTracebackMessage(thread.State, thread.GetCallStackFrames(), message, stackFramesSkipCount);
+    }
+
+    internal static string CreateTracebackMessage(LuaState state, ReadOnlySpan<CallStackFrame> stackFrames, LuaValue message, int skipCount = 0)
     {
         using var list = new PooledList<char>(64);
         if (message.Type is not LuaValueType.Nil)
