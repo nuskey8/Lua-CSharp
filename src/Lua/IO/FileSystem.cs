@@ -1,7 +1,9 @@
 ﻿namespace Lua.IO
 {
-    public sealed class FileSystem : ILuaFileSystem
+    public sealed class FileSystem(string? baseDirectory = null) : ILuaFileSystem
     {
+        public string BaseDirectory => baseDirectory ?? Directory.GetCurrentDirectory();
+
         public static (FileMode, FileAccess access) GetFileMode(LuaFileOpenMode luaFileOpenMode)
         {
             return luaFileOpenMode switch
@@ -16,9 +18,19 @@
             };
         }
 
+        public string GetFullPath(string path)
+        {
+            if (baseDirectory == null || Path.IsPathFullyQualified(path))
+            {
+                return path;
+            }
+
+            return Path.Combine(baseDirectory, path);
+        }
+
         public bool IsReadable(string path)
         {
-            return File.Exists(path);
+            return File.Exists(GetFullPath(path));
         }
 
 
@@ -26,7 +38,7 @@
         {
             var (mode, access) = GetFileMode(openMode);
             Stream stream;
-
+            path = GetFullPath(path);
             if (openMode == LuaFileOpenMode.AppendUpdate)
             {
                 stream = File.Open(path, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.ReadWrite | FileShare.Delete);
@@ -41,7 +53,7 @@
 
             if (openMode == LuaFileOpenMode.AppendUpdate)
             {
-                wrapper.Seek(SeekOrigin.End,0);
+                wrapper.Seek(SeekOrigin.End, 0);
             }
 
             return new(wrapper);
@@ -49,6 +61,8 @@
 
         public ValueTask Rename(string oldName, string newName, CancellationToken cancellationToken)
         {
+            oldName = GetFullPath(oldName);
+            newName = GetFullPath(newName);
             if (oldName == newName) return default;
             if (File.Exists(newName)) File.Delete(newName);
             File.Move(oldName, newName);
@@ -58,6 +72,7 @@
 
         public ValueTask Remove(string path, CancellationToken cancellationToken)
         {
+            path = GetFullPath(path);
             File.Delete(path);
             return default;
         }
