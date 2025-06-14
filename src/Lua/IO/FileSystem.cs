@@ -20,7 +20,7 @@
 
         public string GetFullPath(string path)
         {
-            if (baseDirectory == null || Path.IsPathFullyQualified(path))
+            if (baseDirectory == null || Path.IsPathRooted(path))
             {
                 return path;
             }
