@@ -11,7 +11,7 @@ internal sealed class CodeBuilder
         public IndentScope(CodeBuilder source, string? startLine = null)
         {
             this.source = source;
-            source.AppendLine(startLine);
+            if(startLine!=null) source.AppendLine(startLine);
             source.IncreaseIndent();
         }
 
@@ -28,7 +28,7 @@ internal sealed class CodeBuilder
         public BlockScope(CodeBuilder source, string? startLine = null)
         {
             this.source = source;
-            source.AppendLine(startLine);
+            if(startLine!=null) source.AppendLine(startLine);
             source.BeginBlock();
         }
 
@@ -82,9 +82,11 @@ internal sealed class CodeBuilder
             {
                 buffer.Append(", ");
             }
+
             buffer.Append(x);
             first = false;
         }
+
         buffer.Append(" }");
     }
 

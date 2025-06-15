@@ -9,13 +9,14 @@ namespace Lua.Unity
 {
     public sealed class ResourcesModuleLoader : ILuaModuleLoader
     {
-        readonly Dictionary<string, LuaAsset> cache = new();
+        readonly Dictionary<string, LuaAssetBase> cache = new();
 
         public bool Exists(string moduleName)
         {
+            Debug.Log(moduleName);
             if (cache.TryGetValue(moduleName, out _)) return true;
 
-            var asset = Resources.Load<LuaAsset>(moduleName);
+            var asset = Resources.Load<LuaAssetBase>(moduleName);
             if (asset == null) return false;
 
             cache.Add(moduleName, asset);
@@ -26,7 +27,7 @@ namespace Lua.Unity
         {
             if (cache.TryGetValue(moduleName, out var asset))
             {
-                return new LuaModule(moduleName, asset.text);
+                return asset.GetModule(moduleName);
             }
 
             var request = Resources.LoadAsync<LuaAsset>(moduleName);
@@ -37,10 +38,9 @@ namespace Lua.Unity
                 throw new LuaModuleNotFoundException(moduleName);
             }
 
-            asset = (LuaAsset)request.asset;
+            asset = (LuaAssetBase)request.asset;
             cache.Add(moduleName, asset);
-            return new LuaModule(moduleName, asset.text);
-        }
+            return asset.GetModule(moduleName);        }
     }
 
 #if !UNITY_2023_1_OR_NEWER

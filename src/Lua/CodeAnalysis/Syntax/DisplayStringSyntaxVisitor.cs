@@ -36,6 +36,7 @@ public sealed class DisplayStringSyntaxVisitor : ISyntaxNodeVisitor<DisplayStrin
                 buffer.Append(' ', indentLevel * 4);
                 isNewLine = false;
             }
+
             buffer.Append(value);
         }
 
@@ -133,6 +134,7 @@ public sealed class DisplayStringSyntaxVisitor : ISyntaxNodeVisitor<DisplayStrin
                 context.AppendLine();
             }
         }
+
         context.AppendLine("end");
 
         return true;
@@ -147,6 +149,7 @@ public sealed class DisplayStringSyntaxVisitor : ISyntaxNodeVisitor<DisplayStrin
             if (node.ParameterNodes.Length > 0) context.Append(", ");
             context.Append("...");
         }
+
         context.AppendLine(")");
 
         using (context.BeginIndentScope())
@@ -174,6 +177,7 @@ public sealed class DisplayStringSyntaxVisitor : ISyntaxNodeVisitor<DisplayStrin
             if (node.ParameterNodes.Length > 0) context.Append(", ");
             context.Append("...");
         }
+
         context.AppendLine(")");
 
         using (context.BeginIndentScope())
@@ -215,6 +219,7 @@ public sealed class DisplayStringSyntaxVisitor : ISyntaxNodeVisitor<DisplayStrin
             if (node.ParameterNodes.Length > 0) context.Append(", ");
             context.Append("...");
         }
+
         context.AppendLine(")");
 
         using (context.BeginIndentScope())
@@ -246,6 +251,7 @@ public sealed class DisplayStringSyntaxVisitor : ISyntaxNodeVisitor<DisplayStrin
                 context.AppendLine();
             }
         }
+
         context.AppendLine("end");
 
         return true;
@@ -371,6 +377,7 @@ public sealed class DisplayStringSyntaxVisitor : ISyntaxNodeVisitor<DisplayStrin
                 context.AppendLine();
             }
         }
+
         context.AppendLine("end");
 
         return true;
@@ -423,6 +430,7 @@ public sealed class DisplayStringSyntaxVisitor : ISyntaxNodeVisitor<DisplayStrin
             context.Append(node.Text.ToString());
             context.Append("]]");
         }
+
         return true;
     }
 
@@ -466,6 +474,7 @@ public sealed class DisplayStringSyntaxVisitor : ISyntaxNodeVisitor<DisplayStrin
                 context.AppendLine(i == node.Fields.Length - 1 ? "" : ",");
             }
         }
+
         context.AppendLine("}");
 
         return true;
