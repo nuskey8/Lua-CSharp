@@ -12,7 +12,7 @@ public class Sandbox : MonoBehaviour
     async void Start()
     {
         var state = LuaState.Create( new LuaPlatform(
-            fileSystem: new FileSystem(),
+            fileSystem: new FileSystem(Application.streamingAssetsPath),
             osEnvironment: new UnityApplicationOsEnvironment(),
             standardIO: new UnityStandardIO(),
             timeProvider: TimeProvider.System
@@ -35,7 +35,9 @@ foo.greet()
 local bar = require 'bar'
 bar.greet()
 require 'test'
-os.exit(0)
+
+local s =require 'streaming'
+s.f()
 ", cancellationToken: destroyCancellationToken);
         }
         catch (Exception ex)
