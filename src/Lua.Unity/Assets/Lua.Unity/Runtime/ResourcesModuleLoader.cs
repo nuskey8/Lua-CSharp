@@ -4,7 +4,6 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
-
 namespace Lua.Unity
 {
     public sealed class ResourcesModuleLoader : ILuaModuleLoader
@@ -30,7 +29,7 @@ namespace Lua.Unity
                 return asset.GetModule(moduleName);
             }
 
-            var request = Resources.LoadAsync<LuaAsset>(moduleName);
+            var request = Resources.LoadAsync<LuaAssetBase>(moduleName);
             await request;
 
             if (request.asset == null)
