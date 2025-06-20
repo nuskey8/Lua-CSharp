@@ -1,27 +1,30 @@
+using Lua.CodeAnalysis.Compilation;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Lua.Internal;
+using Lua.IO;
 using Lua.Loaders;
+using Lua.Platforms;
 using Lua.Runtime;
+using Lua.Standard;
+using System.Buffers;
 
 namespace Lua;
 
 public sealed class LuaState
 {
-    public const string DefaultChunkName = "chunk";
-
     // states
-    readonly LuaMainThread mainThread = new();
+    readonly LuaMainThread mainThread;
     FastListCore<UpValue> openUpValues;
     FastStackCore<LuaThread> threadStack;
-    readonly LuaTable packages = new();
     readonly LuaTable environment;
     readonly LuaTable registry = new();
     readonly UpValue envUpValue;
-    bool isRunning;
+
 
     FastStackCore<LuaDebug.LuaDebugBuffer> debugBufferPool;
 
+    internal int CallCount;
     internal UpValue EnvUpValue => envUpValue;
     internal ref FastStackCore<LuaThread> ThreadStack => ref threadStack;
     internal ref FastListCore<UpValue> OpenUpValues => ref openUpValues;
@@ -29,18 +32,23 @@ public sealed class LuaState
 
     public LuaTable Environment => environment;
     public LuaTable Registry => registry;
-    public LuaTable LoadedModules => packages;
+    public LuaTable LoadedModules => registry[ModuleLibrary.LoadedKeyForRegistry].Read<LuaTable>();
+    public LuaTable PreloadModules => registry[ModuleLibrary.PreloadKeyForRegistry].Read<LuaTable>();
     public LuaMainThread MainThread => mainThread;
-    public LuaThread CurrentThread
-    {
-        get
-        {
-            if (threadStack.TryPeek(out var thread)) return thread;
-            return mainThread;
-        }
-    }
 
-    public ILuaModuleLoader ModuleLoader { get; set; } = FileModuleLoader.Instance;
+    public LuaThreadAccess RootAccess => new(mainThread, 0);
+
+    public LuaPlatform Platform { get; }
+
+    public ILuaModuleLoader? ModuleLoader { get; set; } 
+    public ILuaFileSystem FileSystem => Platform.FileSystem ?? throw new InvalidOperationException("FileSystem is not set. Please set it before access.");
+
+    public ILuaOsEnvironment OsEnvironment => Platform.OsEnvironment ?? throw new InvalidOperationException("OperatingSystem is not set. Please set it before access.");
+    
+    
+    public TimeProvider TimeProvider => Platform.TimeProvider ?? throw new InvalidOperationException("TimeProvider is not set. Please set it before access.");
+
+    public ILuaStandardIO StandardIO => Platform.StandardIO;
 
     // metatables
     LuaTable? nilMetatable;
@@ -50,104 +58,22 @@ public sealed class LuaState
     LuaTable? functionMetatable;
     LuaTable? threadMetatable;
 
-    public static LuaState Create()
+    public static LuaState Create(LuaPlatform? platform = null)
     {
-        return new();
+        var state = new LuaState(platform ?? LuaPlatform.Default);
+        return state;
     }
 
-    LuaState()
+    LuaState(LuaPlatform platform)
     {
+        mainThread = new(this);
         environment = new();
         envUpValue = UpValue.Closed(environment);
+        registry[ModuleLibrary.LoadedKeyForRegistry] = new LuaTable(0, 8);
+        registry[ModuleLibrary.PreloadKeyForRegistry] = new LuaTable(0, 8);
+        Platform = platform;
     }
 
-    public async ValueTask<int> RunAsync(Chunk chunk, Memory<LuaValue> buffer, CancellationToken cancellationToken = default)
-    {
-        ThrowIfRunning();
-
-        Volatile.Write(ref isRunning, true);
-        try
-        {
-            var closure = new LuaClosure(this, chunk);
-            return await closure.InvokeAsync(new()
-            {
-                State = this,
-                Thread = CurrentThread,
-                ArgumentCount = 0,
-                FrameBase = 0,
-                SourcePosition = null,
-                RootChunkName = chunk.Name,
-                ChunkName = chunk.Name,
-            }, buffer, cancellationToken);
-        }
-        finally
-        {
-            Volatile.Write(ref isRunning, false);
-        }
-    }
-
-    public void Push(LuaValue value)
-    {
-        CurrentThread.Stack.Push(value);
-    }
-
-    public Traceback GetTraceback()
-    {
-        if (threadStack.Count == 0)
-        {
-            return new(this)
-            {
-                RootFunc = (LuaClosure)MainThread.GetCallStackFrames()[0].Function,
-                StackFrames = MainThread.GetCallStackFrames()[1..]
-                    .ToArray()
-            };
-        }
-
-        using var list = new PooledList<CallStackFrame>(8);
-        foreach (var frame in MainThread.GetCallStackFrames()[1..])
-        {
-            list.Add(frame);
-        }
-
-        foreach (var thread in threadStack.AsSpan())
-        {
-            if (thread.CallStack.Count == 0) continue;
-            foreach (var frame in thread.GetCallStackFrames()[1..])
-            {
-                list.Add(frame);
-            }
-        }
-
-        return new(this)
-        {
-            RootFunc = (LuaClosure)MainThread.GetCallStackFrames()[0].Function,
-            StackFrames = list.AsSpan().ToArray()
-        };
-    }
-
-    internal Traceback GetTraceback(LuaThread thread)
-    {
-        using var list = new PooledList<CallStackFrame>(8);
-        foreach (var frame in thread.GetCallStackFrames()[1..])
-        {
-            list.Add(frame);
-        }
-        LuaClosure rootFunc;
-        if (thread.GetCallStackFrames()[0].Function is LuaClosure closure)
-        {
-            rootFunc = closure;
-        }
-        else
-        {
-            rootFunc = (LuaClosure)MainThread.GetCallStackFrames()[0].Function;
-        }
-
-        return new(this)
-        {
-            RootFunc = rootFunc,
-            StackFrames = list.AsSpan().ToArray()
-        };
-    }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal bool TryGetMetatable(LuaValue value, [NotNullWhen(true)] out LuaTable? result)
@@ -225,17 +151,48 @@ public sealed class LuaState
             if (upValue.RegisterIndex >= frameBase)
             {
                 upValue.Close();
-                openUpValues.RemoveAtSwapback(i);
+                openUpValues.RemoveAtSwapBack(i);
                 i--;
             }
         }
     }
 
-    void ThrowIfRunning()
+    public unsafe LuaClosure Load(ReadOnlySpan<char> chunk, string chunkName, LuaTable? environment = null)
     {
-        if (Volatile.Read(ref isRunning))
+        Prototype prototype;
+        fixed (char* ptr = chunk)
         {
-            throw new InvalidOperationException("the lua state is currently running");
+            prototype = Parser.Parse(this, new(ptr, chunk.Length), chunkName);
+        }
+
+        return new LuaClosure(MainThread, prototype, environment);
+    }
+
+    public LuaClosure Load(ReadOnlySpan<byte> chunk, string? chunkName = null, string mode = "bt", LuaTable? environment = null)
+    {
+        if (chunk.Length > 4)
+        {
+            if (chunk[0] == '\e')
+            {
+                return new LuaClosure(MainThread, Parser.UnDump(chunk, chunkName), environment);
+            }
+        }
+
+        chunk = BomUtility.GetEncodingFromBytes(chunk, out var encoding);
+
+        var charCount = encoding.GetCharCount(chunk);
+        var pooled = ArrayPool<char>.Shared.Rent(charCount);
+        try
+        {
+            var chars = pooled.AsSpan(0, charCount);
+            encoding.GetChars(chunk, chars);
+            chunkName ??= chars.ToString();
+
+            return Load(chars, chunkName, environment);
+        }
+        finally
+        {
+            ArrayPool<char>.Shared.Return(pooled);
         }
     }
 }

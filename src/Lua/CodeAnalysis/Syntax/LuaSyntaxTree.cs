@@ -1,6 +1,6 @@
 namespace Lua.CodeAnalysis.Syntax;
 
-public record LuaSyntaxTree(SyntaxNode[] Nodes,SourcePosition Position) : SyntaxNode(Position)
+public record LuaSyntaxTree(SyntaxNode[] Nodes, SourcePosition Position) : SyntaxNode(Position)
 {
     public override TResult Accept<TContext, TResult>(ISyntaxNodeVisitor<TContext, TResult> visitor, TContext context)
     {
@@ -9,16 +9,9 @@ public record LuaSyntaxTree(SyntaxNode[] Nodes,SourcePosition Position) : Syntax
 
     public static LuaSyntaxTree Parse(string source, string? chunkName = null)
     {
-        var lexer = new Lexer
-        {
-            Source = source.AsMemory(),
-            ChunkName = chunkName,
-        };
+        var lexer = new Lexer { Source = source.AsMemory(), ChunkName = chunkName, };
 
-        var parser = new Parser
-        {
-            ChunkName = chunkName
-        };
+        var parser = new Parser { ChunkName = chunkName };
 
         while (lexer.MoveNext())
         {
