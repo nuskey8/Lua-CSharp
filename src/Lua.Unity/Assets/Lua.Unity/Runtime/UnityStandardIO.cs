@@ -32,27 +32,6 @@ namespace Lua.Unity
         public bool IsOpen { get; } = true;
         public LuaFileOpenMode Mode => LuaFileOpenMode.Read;
 
-        public ValueTask<string> ReadAllAsync(CancellationToken cancellationToken)
-        {
-            // Simulate reading all input from the console
-            UnityEngine.Debug.Log("Reading all input (simulated)");
-            return new ValueTask<string>(("input"));
-        }
-
-        public ValueTask<string> ReadLineAsync(CancellationToken cancellationToken)
-        {
-            // Simulate reading a line from the console
-            UnityEngine.Debug.Log("Reading a line (simulated)");
-            return new ValueTask<string>(default(string));
-        }
-
-        public ValueTask<string> ReadStringAsync(int count, CancellationToken cancellationToken)
-        {
-            // Simulate reading a specific number of characters from the console
-            UnityEngine.Debug.Log($"Reading {count} characters (simulated)");
-            return new ValueTask<string>(default(string));
-        }
-
         public void Dispose() { }
     }
 
