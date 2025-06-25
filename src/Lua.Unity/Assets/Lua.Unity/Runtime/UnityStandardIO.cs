@@ -1,7 +1,5 @@
 ﻿using Lua.IO;
 using System;
-using System.Buffers.Text;
-using System.IO;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -27,7 +25,7 @@ namespace Lua.Unity
         public ILuaStream Error { get; } = new DebugLogStream(true);
     }
 
-    public class DummyInputStream : ILuaStream
+    internal class DummyInputStream : ILuaStream
     {
         public bool IsOpen { get; } = true;
         public LuaFileOpenMode Mode => LuaFileOpenMode.Read;
