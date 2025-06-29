@@ -9,14 +9,14 @@ internal static class LuaRuntimeExtensions
     {
         result = default;
         return state.TryGetMetatable(value, out var metatable) &&
-            metatable.TryGetValue(methodName, out result);
+               metatable.TryGetValue(methodName, out result);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static int GetVariableArgumentCount(this LuaFunction function, int argumentCount)
     {
         return function is LuaClosure { Proto.HasVariableArguments: true } luaClosure
-            ?argumentCount - luaClosure.Proto.ParameterCount
+            ? argumentCount - luaClosure.Proto.ParameterCount
             : 0;
     }
 }
