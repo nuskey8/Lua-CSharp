@@ -34,7 +34,7 @@ try
     var count = await state.RootAccess.RunAsync(closure);
 
     Console.WriteLine("Result " + new string('-', 50));
-    using var results = state.RootAccess.ReadReturnValues(count);
+    using var results = state.RootAccess.ReadTopValues(count);
     for (int i = 0; i < count; i++)
     {
         Console.WriteLine(results[i]);

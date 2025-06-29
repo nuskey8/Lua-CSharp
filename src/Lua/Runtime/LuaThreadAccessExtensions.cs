@@ -39,7 +39,7 @@ public static class LuaThreadAccessAccessExtensions
         access.ThrowIfInvalid();
         var closure = await access.State.LoadFileAsync(path, "bt", null, cancellationToken);
         var count = await access.RunAsync(closure, 0, cancellationToken);
-        using var results = access.ReadReturnValues(count);
+        using var results = access.ReadTopValues(count);
         results.AsSpan()[..Math.Min(buffer.Length, results.Length)].CopyTo(buffer.Span);
         return results.Count;
     }
@@ -48,7 +48,7 @@ public static class LuaThreadAccessAccessExtensions
     {
         var closure = await access.State.LoadFileAsync(path, "bt", null, cancellationToken);
         var count = await access.RunAsync(closure, 0, cancellationToken);
-        using var results = access.ReadReturnValues(count);
+        using var results = access.ReadTopValues(count);
         return results.AsSpan().ToArray();
     }
 
@@ -56,7 +56,7 @@ public static class LuaThreadAccessAccessExtensions
     {
         access.ThrowIfInvalid();
         var count = await access.RunAsync(closure, 0, cancellationToken);
-        using var results = access.ReadReturnValues(count);
+        using var results = access.ReadTopValues(count);
         results.AsSpan()[..Math.Min(buffer.Length, results.Length)].CopyTo(buffer.Span);
         return results.Count;
     }
@@ -65,7 +65,7 @@ public static class LuaThreadAccessAccessExtensions
     {
         access.ThrowIfInvalid();
         var count = await access.RunAsync(closure, 0, cancellationToken);
-        using var results = access.ReadReturnValues(count);
+        using var results = access.ReadTopValues(count);
         return results.AsSpan().ToArray();
     }
 
@@ -93,11 +93,11 @@ public static class LuaThreadAccessAccessExtensions
         return access.Stack.Pop();
     }
 
-    public static LuaReturnValuesReader ReadReturnValues(this LuaThreadAccess access, int argumentCount)
+    public static LuaTopValuesReader ReadTopValues(this LuaThreadAccess access, int argumentCount)
     {
         access.ThrowIfInvalid();
         var stack = access.Stack;
-        return new LuaReturnValuesReader(stack, stack.Count - argumentCount);
+        return new LuaTopValuesReader(stack, stack.Count - argumentCount);
     }
 
     public static ValueTask<LuaValue> Add(this LuaThreadAccess access, LuaValue x, LuaValue y, CancellationToken cancellationToken = default)
@@ -313,7 +313,7 @@ public static class LuaThreadAccessAccessExtensions
         {
             await LuaVirtualMachine.Call(access.Thread, funcIndex, funcIndex, cancellationToken);
             var count = access.Stack.Count - funcIndex;
-            using var results = access.ReadReturnValues(count);
+            using var results = access.ReadTopValues(count);
             return results.AsSpan().ToArray();
         }
     }
