@@ -15,14 +15,14 @@ public static class LuaStateExtensions
         return state.RootAccess.DoStringAsync(source, chunkName, cancellationToken);
     }
 
-    public static ValueTask<int> DoBytesAsync(this LuaState state, ReadOnlySpan<byte> source, Memory<LuaValue> buffer, string chunkName, CancellationToken cancellationToken = default)
+    public static ValueTask<int> ExecuteAsync(this LuaState state, ReadOnlySpan<byte> source, Memory<LuaValue> buffer, string chunkName, CancellationToken cancellationToken = default)
     {
-        return state.RootAccess.DoBytesAsync(source, buffer, chunkName, cancellationToken);
+        return state.RootAccess.ExecuteAsync(source, buffer, chunkName, cancellationToken);
     }
 
-    public static ValueTask<LuaValue[]> DoBytesAsync(this LuaState state, ReadOnlySpan<byte> source, string chunkName, CancellationToken cancellationToken = default)
+    public static ValueTask<LuaValue[]> ExecuteAsync(this LuaState state, ReadOnlySpan<byte> source, string chunkName, CancellationToken cancellationToken = default)
     {
-        return state.RootAccess.DoBytesAsync(source, chunkName, cancellationToken);
+        return state.RootAccess.ExecuteAsync(source, chunkName, cancellationToken);
     }
 
     public static ValueTask<int> DoFileAsync(this LuaState state, string path, Memory<LuaValue> buffer, CancellationToken cancellationToken = default)
