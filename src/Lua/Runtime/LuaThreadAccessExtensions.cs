@@ -10,28 +10,28 @@ public static class LuaThreadAccessAccessExtensions
     {
         access.ThrowIfInvalid();
         var closure = access.State.Load(source, chunkName ?? source);
-        return DoClosureAsync(access, closure, results, cancellationToken);
+        return ExecuteAsync(access, closure, results, cancellationToken);
     }
 
     public static ValueTask<LuaValue[]> DoStringAsync(this LuaThreadAccess access, string source, string? chunkName = null, CancellationToken cancellationToken = default)
     {
         access.ThrowIfInvalid();
         var closure = access.State.Load(source, chunkName ?? source);
-        return DoClosureAsync(access, closure, cancellationToken);
+        return ExecuteAsync(access, closure, cancellationToken);
     }
 
-    public static ValueTask<int> DoBytesAsync(this LuaThreadAccess access, ReadOnlySpan<byte> source, Memory<LuaValue> results, string chunkName, CancellationToken cancellationToken = default)
+    public static ValueTask<int> ExecuteAsync(this LuaThreadAccess access, ReadOnlySpan<byte> source, Memory<LuaValue> results, string chunkName, CancellationToken cancellationToken = default)
     {
         access.ThrowIfInvalid();
         var closure = access.State.Load(source, chunkName);
-        return DoClosureAsync(access, closure, results, cancellationToken);
+        return ExecuteAsync(access, closure, results, cancellationToken);
     }
 
-    public static ValueTask<LuaValue[]> DoBytesAsync(this LuaThreadAccess access, ReadOnlySpan<byte> source, string chunkName, CancellationToken cancellationToken = default)
+    public static ValueTask<LuaValue[]> ExecuteAsync(this LuaThreadAccess access, ReadOnlySpan<byte> source, string chunkName, CancellationToken cancellationToken = default)
     {
         access.ThrowIfInvalid();
         var closure = access.State.Load(source, chunkName);
-        return DoClosureAsync(access, closure, cancellationToken);
+        return ExecuteAsync(access, closure, cancellationToken);
     }
 
     public static async ValueTask<int> DoFileAsync(this LuaThreadAccess access, string path, Memory<LuaValue> buffer, CancellationToken cancellationToken = default)
@@ -52,7 +52,7 @@ public static class LuaThreadAccessAccessExtensions
         return results.AsSpan().ToArray();
     }
 
-    private static async ValueTask<int> DoClosureAsync(LuaThreadAccess access, LuaClosure closure, Memory<LuaValue> buffer, CancellationToken cancellationToken = default)
+    public static async ValueTask<int> ExecuteAsync(this LuaThreadAccess access, LuaClosure closure, Memory<LuaValue> buffer, CancellationToken cancellationToken = default)
     {
         access.ThrowIfInvalid();
         var count = await access.RunAsync(closure, 0, cancellationToken);
@@ -61,7 +61,7 @@ public static class LuaThreadAccessAccessExtensions
         return results.Count;
     }
 
-    public static async ValueTask<LuaValue[]> DoClosureAsync(this LuaThreadAccess access, LuaClosure closure, CancellationToken cancellationToken = default)
+    public static async ValueTask<LuaValue[]> ExecuteAsync(this LuaThreadAccess access, LuaClosure closure, CancellationToken cancellationToken = default)
     {
         access.ThrowIfInvalid();
         var count = await access.RunAsync(closure, 0, cancellationToken);
