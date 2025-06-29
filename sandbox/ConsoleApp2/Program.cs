@@ -11,7 +11,7 @@ state.OpenStandardLibraries();
     var access = threadLease.Thread.RootAccess;
     {
         var count = await access.RunAsync(closure, 0);
-        var results = access.ReadReturnValues(count);
+        var results = access.ReadTopValues(count);
         for (int i = 0; i < results.Length; i++)
         {
             Console.WriteLine(results[i]);
@@ -21,7 +21,7 @@ state.OpenStandardLibraries();
         results.Dispose();
         access.Push("hello", "world", 1, 2, 3);
         count = await access.RunAsync(f, 5);
-        results = access.ReadReturnValues(count);
+        results = access.ReadTopValues(count);
         for (int i = 0; i < results.Length; i++)
         {
             Console.WriteLine(results[i]);
