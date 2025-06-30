@@ -416,7 +416,14 @@ partial class LuaObjectGenerator
 
             if (methodMetadata.HasReturnValue)
             {
-                if (SymbolEqualityComparer.Default.Equals(methodMetadata.Symbol.ReturnType, references.LuaValue))
+                var returnType = methodMetadata.Symbol.ReturnType;
+
+                if (returnType is INamedTypeSymbol named && named.OriginalDefinition.ToString() == "System.Threading.Tasks.Task<TResult>")
+                {
+                    returnType = named.TypeArguments[0];
+                }
+
+                if (SymbolEqualityComparer.Default.Equals(returnType, references.LuaValue))
                 {
                     builder.AppendLine("buffer.Span[0] = result;");
                 }
