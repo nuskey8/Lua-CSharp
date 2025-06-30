@@ -24,6 +24,13 @@ public partial class TestUserData
     }
 
     [LuaMember]
+    public static async Task<LuaValue> MethodLuaValueAsync(bool condition)
+    {
+        await Task.Yield();
+        return condition ? new LuaValue(12) : LuaValue.Nil;
+    }
+
+    [LuaMember]
     public static double StaticMethodWithReturnValue(double a, double b)
     {
         return a + b;
@@ -98,6 +105,22 @@ public class LuaObjectTests
         var results = await state.DoStringAsync("return test.MethodAsync()");
 
         Assert.That(results, Has.Length.EqualTo(0));
+    }
+
+    [Test]
+    public async Task Test_MethodLuaValueAsync()
+    {
+        var userData = new TestUserData();
+
+        var state = LuaState.Create();
+        state.Environment["test"] = userData;
+        var resultsNumber = await state.DoStringAsync("return test.MethodLuaValueAsync(true)");
+        var resultsNill = await state.DoStringAsync("return test.MethodLuaValueAsync(false)");
+
+        Assert.That(resultsNumber, Has.Length.EqualTo(1));
+        Assert.That(resultsNumber[0], Is.EqualTo(new LuaValue(12)));
+        Assert.That(resultsNill, Has.Length.EqualTo(1));
+        Assert.That(resultsNill[0], Is.EqualTo(LuaValue.Nil));
     }
 
     [Test]
