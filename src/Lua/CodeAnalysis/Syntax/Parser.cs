@@ -33,9 +33,10 @@ public ref struct Parser
             var node = ParseStatement(ref enumerator);
             root.Add(node);
         }
+
         var tokensSpan = tokens.AsSpan();
         var lastToken = tokensSpan[0];
-        for (int i = tokensSpan.Length-1; 0<i;i--)
+        for (int i = tokensSpan.Length - 1; 0 < i; i--)
         {
             var t = tokensSpan[i];
             if (t.Type is not SyntaxTokenType.EndOfLine)
@@ -45,7 +46,7 @@ public ref struct Parser
             }
         }
 
-        var tree = new LuaSyntaxTree(root.AsSpan().ToArray(),lastToken.Position);
+        var tree = new LuaSyntaxTree(root.AsSpan().ToArray(), lastToken.Position);
         Dispose();
 
         return tree;
@@ -293,21 +294,11 @@ public ref struct Parser
                 switch (state)
                 {
                     case 0:
-                        ifNodes = new()
-                        {
-                            Position = thenToken.Position,
-                            ConditionNode = condition,
-                            ThenNodes = builder.AsSpan().ToArray(),
-                        };
+                        ifNodes = new() { Position = thenToken.Position, ConditionNode = condition, ThenNodes = builder.AsSpan().ToArray(), };
                         builder.Clear();
                         break;
                     case 1:
-                        elseIfBuilder.Add(new()
-                        {
-                            Position = thenToken.Position,
-                            ConditionNode = condition,
-                            ThenNodes = builder.AsSpan().ToArray(),
-                        });
+                        elseIfBuilder.Add(new() { Position = thenToken.Position, ConditionNode = condition, ThenNodes = builder.AsSpan().ToArray(), });
                         builder.Clear();
                         break;
                     case 2:

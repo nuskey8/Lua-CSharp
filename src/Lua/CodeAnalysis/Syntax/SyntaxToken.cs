@@ -172,8 +172,8 @@ public readonly struct SyntaxToken(SyntaxTokenType type, ReadOnlyMemory<char> te
     public bool Equals(SyntaxToken other)
     {
         return other.Type == Type &&
-            other.Text.Span.SequenceEqual(Text.Span) &&
-            other.Position == Position;
+               other.Text.Span.SequenceEqual(Text.Span) &&
+               other.Position == Position;
     }
 
     public override bool Equals(object? obj)
@@ -214,6 +214,7 @@ public enum SyntaxTokenType
     /// Left parenthesis '('
     /// </summary>
     LParen,
+
     /// <summary>
     /// Right parenthesis ')'
     /// </summary>
@@ -223,6 +224,7 @@ public enum SyntaxTokenType
     /// Left curly bracket '{'
     /// </summary>
     LCurly,
+
     /// <summary>
     /// Right curly bracket '}'
     /// </summary>
@@ -232,6 +234,7 @@ public enum SyntaxTokenType
     /// Left square bracket '['
     /// </summary>
     LSquare,
+
     /// <summary>
     /// Right square bracket ']'
     /// </summary>
@@ -281,6 +284,7 @@ public enum SyntaxTokenType
     /// Boolean literal (true)
     /// </summary>
     True,
+
     /// <summary>
     /// Boolean literal (false)
     /// </summary>
@@ -300,65 +304,70 @@ public enum SyntaxTokenType
     /// Addition operator (+)
     /// </summary>
     Addition,
+
     /// <summary>
     /// Subtraction operator (-)
     /// </summary>
     Subtraction,
+
     /// <summary>
     /// Multiplication operator (*)
     /// </summary>
     Multiplication,
+
     /// <summary>
     /// Division operator (/)
     /// </summary>
     Division,
+
     /// <summary>
     /// Modulo operator (%)
     /// </summary>
     Modulo,
+
     /// <summary>
     /// Exponentiation operator (^)
     /// </summary>
     Exponentiation,
 
-    Equality,          // ==
-    Inequality,       // ~=
-    GreaterThan,        // >
-    LessThan,           // <
+    Equality, // ==
+    Inequality, // ~=
+    GreaterThan, // >
+    LessThan, // <
     GreaterThanOrEqual, // >=
-    LessThanOrEqual,    // <=
+    LessThanOrEqual, // <=
 
-    And,            // and
-    Not,            // not
-    Or,             // or
+    And, // and
+    Not, // not
+    Or, // or
 
     /// <summary>
     /// Assignment operator (=)
     /// </summary>
     Assignment,
 
-    Concat,         // ..
-    Length,         // #
+    Concat, // ..
+    Length, // #
 
-    VarArg,         // ...
+    VarArg, // ...
 
-    Break,          // break
-    Do,             // do
-    For,            // for
-    Goto,           // goto
+    Break, // break
+    Do, // do
+    For, // for
+    Goto, // goto
 
-    If,             // if
-    ElseIf,         // elseif
-    Else,           // else
-    Function,       // function
+    If, // if
+    ElseIf, // elseif
+    Else, // else
+    Function, // function
 
-    End,            // end
-    Then,           // then
+    End, // end
+    Then, // then
 
-    In,             // in
-    Local,          // local
-    Repeat,         // repeat
-    Return,         // return
-    Until,          // until
-    While,          // while
+    In, // in
+    Local, // local
+    Repeat, // repeat
+    Return, // return
+    Until, // until
+    While, // while
 }

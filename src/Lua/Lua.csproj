@@ -1,44 +1,46 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <TargetFrameworks>net8.0; net6.0; netstandard2.1</TargetFrameworks>
-    <LangVersion>13</LangVersion>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <PropertyGroup>
+        <TargetFrameworks>net8.0; net6.0; netstandard2.1</TargetFrameworks>
+        <LangVersion>13</LangVersion>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+        <NoWarn>CS0436</NoWarn>
+        <!-- NuGet Packaging -->
+        <PackageId>LuaCSharp</PackageId>
+        <PackageTags>lua;interpreter</PackageTags>
+        <Description>High performance Lua interpreter implemented in C# for .NET and Unity</Description>
+    </PropertyGroup>
 
-    <!-- NuGet Packaging -->
-    <PackageId>LuaCSharp</PackageId>
-    <PackageTags>lua;interpreter</PackageTags>
-    <Description>High performance Lua interpreter implemented in C# for .NET and Unity</Description>
-  </PropertyGroup>
+    <ItemGroup>
+        <PackageReference Include="PolySharp" Version="1.14.1">
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+            <PrivateAssets>all</PrivateAssets>
+        </PackageReference>
 
-  <ItemGroup>
-    <PackageReference Include="PolySharp" Version="1.14.1">
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-      <PrivateAssets>all</PrivateAssets>
-    </PackageReference>
+        <None Include="..\Lua.SourceGenerator\bin\$(Configuration)\netstandard2.0\Lua.SourceGenerator.dll"
+              PackagePath="analyzers\dotnet\cs"
+              Pack="true"
+              Visible="false"/>
+    </ItemGroup>
+    <ItemGroup Condition="$(TargetFramework) == 'net6.0' Or $(TargetFramework) == 'netstandard2.1'">
+        <PackageReference Include="Microsoft.Bcl.TimeProvider" Version="8.0.0"/>
+    </ItemGroup>
+    <ItemGroup Condition="$(TargetFramework) == 'netstandard2.1'">
+        <PackageReference Include="System.Runtime.CompilerServices.Unsafe" Version="6.0.0"/>
+    </ItemGroup>
 
-    <None Include="..\Lua.SourceGenerator\bin\$(Configuration)\netstandard2.0\Lua.SourceGenerator.dll"
-          PackagePath="analyzers\dotnet\cs"
-          Pack="true"
-          Visible="false" />
-  </ItemGroup>
+    <ItemGroup>
+        <None Include="../../Icon.png" Pack="true" PackagePath="/"/>
+        <None Include="..\..\README.md" Pack="true" PackagePath="README.md"/>
+        <EmbeddedResource Include="..\..\LICENSE"/>
+    </ItemGroup>
 
-  <ItemGroup Condition="$(TargetFramework) == 'netstandard2.1'">
-      <PackageReference Include="System.Runtime.CompilerServices.Unsafe" Version="6.0.0" />
-  </ItemGroup>
-  
-  <ItemGroup>
-      <None Include="../../Icon.png" Pack="true" PackagePath="/" />
-      <None Include="..\..\README.md" Pack="true" PackagePath="README.md" />
-      <EmbeddedResource Include="..\..\LICENSE" />
-  </ItemGroup>
-  
-  <ItemGroup>
-    <ProjectReference Include="..\Lua.SourceGenerator\Lua.SourceGenerator.csproj"
-      OutputItemType="Analyzer"
-      ReferenceOutputAssembly="false"/>
-  </ItemGroup>
+    <ItemGroup>
+        <ProjectReference Include="..\Lua.SourceGenerator\Lua.SourceGenerator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false"/>
+    </ItemGroup>
 
 </Project>

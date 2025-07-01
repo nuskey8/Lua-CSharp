@@ -146,12 +146,14 @@ internal static class FarmHash
                 ulong d = (Rotate64(a, 25) + b) * mul;
                 return HashLen16(c, d, mul);
             }
+
             if (len >= 4)
             {
                 ulong mul = k2 + len * 2;
                 ulong a = Fetch32(s);
                 return HashLen16(len + (a << 3), Fetch32(s + len - 4), mul);
             }
+
             if (len > 0)
             {
                 ushort a = s[0];
@@ -161,6 +163,7 @@ internal static class FarmHash
                 uint z = len + ((uint)c << 2);
                 return ShiftMix(y * k2 ^ z * k0) * k2;
             }
+
             return k2;
         }
     }
@@ -177,7 +180,7 @@ internal static class FarmHash
             ulong c = Fetch64(s + len - 8) * mul;
             ulong d = Fetch64(s + len - 16) * k2;
             return HashLen16(Rotate64(a + b, 43) + Rotate64(c, 30) + d,
-                             a + Rotate64(b + k2, 18) + c, mul);
+                a + Rotate64(b + k2, 18) + c, mul);
         }
     }
 
@@ -254,11 +257,11 @@ internal static class FarmHash
     static unsafe Pair WeakHashLen32WithSeeds(byte* s, ulong a, ulong b)
     {
         return WeakHashLen32WithSeeds(Fetch64(s),
-                                      Fetch64(s + 8),
-                                      Fetch64(s + 16),
-                                      Fetch64(s + 24),
-                                      a,
-                                      b);
+            Fetch64(s + 8),
+            Fetch64(s + 16),
+            Fetch64(s + 24),
+            a,
+            b);
     }
 
     // na(97-256) farmhashna.cc
@@ -294,6 +297,7 @@ internal static class FarmHash
                 swap(ref z, ref x);
                 s += 64;
             } while (s != end);
+
             ulong mul = k1 + ((z & 0xff) << 1);
             // Make s point to the last 64 bytes of input.
             s = last64;
@@ -309,8 +313,8 @@ internal static class FarmHash
             w = WeakHashLen32WithSeeds(s + 32, z + w.second, y + Fetch64(s + 16));
             swap(ref z, ref x);
             return HashLen16(HashLen16(v.first, w.first, mul) + ShiftMix(y) * k0 + z,
-                             HashLen16(v.second, w.second, mul) + x,
-                             mul);
+                HashLen16(v.second, w.second, mul) + x,
+                mul);
         }
     }
 
@@ -401,6 +405,7 @@ internal static class FarmHash
                 swap(ref u, ref z);
                 s += 64;
             } while (s != end);
+
             // Make s point to the last 64 bytes of input.
             s = last64;
             u *= 9;
@@ -417,9 +422,9 @@ internal static class FarmHash
             v = WeakHashLen32WithSeeds(s, v.second * mul, x + w.first);
             w = WeakHashLen32WithSeeds(s + 32, z + w.second, y + Fetch64(s + 16));
             return H(HashLen16(v.first + x, w.first ^ y, mul) + z - u,
-                     H(v.second + y, w.second + z, k2, 30) ^ x,
-                     k2,
-                     31);
+                H(v.second + y, w.second + z, k2, 30) ^ x,
+                k2,
+                31);
         }
     }
 }

@@ -12,7 +12,7 @@ namespace Lua.Unity
 {
     public sealed class AddressablesModuleLoader : ILuaModuleLoader
     {
-        readonly Dictionary<string, LuaAsset> cache = new();
+        readonly Dictionary<string, LuaAssetBase> cache = new();
 
         public bool Exists(string moduleName)
         {
@@ -26,7 +26,8 @@ namespace Lua.Unity
         {
             if (cache.TryGetValue(moduleName, out var asset))
             {
-                return new LuaModule(moduleName, asset.text);
+                
+                return asset .GetModule( moduleName);
             }
 
             var asyncOperation = Addressables.LoadAssetAsync<LuaAsset>(moduleName);
@@ -38,7 +39,7 @@ namespace Lua.Unity
             }
 
             cache.Add(moduleName, asset);
-            return new LuaModule(moduleName, asset.text);
+            return asset .GetModule( moduleName);
         }
     }
     internal static class AsyncOperationHandleExtensions
