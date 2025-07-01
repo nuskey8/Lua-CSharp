@@ -703,34 +703,16 @@ public sealed class StringLibrary
 
         init = Math.Max(0, init); // Clamp to 0 if negative
 
-        // Check for plain search mode (4th parameter = true)
-        if (find && context.GetArgumentOrDefault(3).ToBoolean())
+        // Check for plain search mode (4th parameter = true) or if pattern has no special characters
+        if (find && (context.GetArgumentOrDefault(3).ToBoolean() || MatchState.NoSpecials(pattern)))
         {
             return PlainSearch(context, s, pattern, init);
-        }
-
-        // Fast path for simple patterns without special characters
-        if (find && MatchState.NoSpecials(pattern))
-        {
-            return SimplePatternSearch(context, s, pattern, init);
         }
 
         return PatternSearch(context, s, pattern, init, find);
     }
 
     private static ValueTask<int> PlainSearch(LuaFunctionExecutionContext context, string s, string pattern, int init)
-    {
-        var index = s.AsSpan(init).IndexOf(pattern);
-        if (index == -1)
-        {
-            return new(context.Return(LuaValue.Nil));
-        }
-
-        var actualStart = init + index;
-        return new(context.Return(actualStart + 1, actualStart + pattern.Length)); // Convert to 1-based
-    }
-
-    private static ValueTask<int> SimplePatternSearch(LuaFunctionExecutionContext context, string s, string pattern, int init)
     {
         var index = s.AsSpan(init).IndexOf(pattern);
         if (index == -1)
