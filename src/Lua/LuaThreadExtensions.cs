@@ -4,7 +4,7 @@ namespace Lua;
 
 public static class LuaThreadExtensions
 {
-    public static UseThreadLease RentUseThread(this LuaThread thread)
+    public static UserThreadLease RentUserThread(this LuaThread thread)
     {
         return new(LuaUserThread.Create(thread));
     }

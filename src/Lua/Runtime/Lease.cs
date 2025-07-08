@@ -1,6 +1,6 @@
 ﻿namespace Lua.Runtime
 {
-    public readonly struct UseThreadLease(LuaUserThread thread) : IDisposable
+    public readonly struct UserThreadLease(LuaUserThread thread) : IDisposable
     {
         public LuaUserThread Thread { get; } = thread;
 

@@ -7,7 +7,7 @@ var state = LuaState.Create();
 state.OpenStandardLibraries();
 {
     var closure = state.Load("return function (a,b,...)  print('a : '..a..' b :'..'args : ',...) end", "@simple");
-    using var threadLease = state.MainThread.RentUseThread();
+    using var threadLease = state.MainThread.RentUserThread();
     var access = threadLease.Thread.RootAccess;
     {
         var count = await access.RunAsync(closure, 0);
