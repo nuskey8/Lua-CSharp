@@ -1867,7 +1867,7 @@ public static partial class LuaVirtualMachine
             stack.Push(vc);
             var (argCount, variableArgumentCount) = PrepareForFunctionCall(context.Thread, func, newBase);
             newBase += variableArgumentCount;
-            var newFrame = func.CreateNewFrame(context, newBase, context.FrameBase + context.Instruction.A, variableArgumentCount);
+            var newFrame = func.CreateNewFrame(context, newBase, newBase, variableArgumentCount);
 
             var access = context.Thread.PushCallStackFrame(newFrame);
             if (context.Thread.CallOrReturnHookMask.Value != 0 && !context.Thread.IsInHook)
@@ -1895,20 +1895,12 @@ public static partial class LuaVirtualMachine
                 return false;
             }
 
-            task.GetAwaiter().GetResult();
-
-            var RA = context.Instruction.A + context.FrameBase;
-
-            var results = stack.GetBuffer()[newFrame.ReturnBase..];
-            LuaValue result = default;
-            if (results.Length != 0)
-            {
-                result = results[0];
-                results.Clear();
-            }
-
-            stack.Get(RA) = result;
-            context.Thread.PopCallStackFrameWithStackPop();
+            stack.Get(context.Instruction.A + context.FrameBase)
+                = task.GetAwaiter().GetResult() != 0
+                    ? stack.FastGet(newFrame.ReturnBase)
+                    : default;
+            stack.PopUntil(newBase - variableArgumentCount);
+            context.Thread.PopCallStackFrame();
             return true;
         }
 
@@ -2002,7 +1994,7 @@ public static partial class LuaVirtualMachine
             var (argCount, variableArgumentCount) = PrepareForFunctionCall(context.Thread, func, newBase);
             newBase += variableArgumentCount;
 
-            var newFrame = func.CreateNewFrame(context, newBase, context.FrameBase + context.Instruction.A, variableArgumentCount);
+            var newFrame = func.CreateNewFrame(context, newBase, newBase, variableArgumentCount);
 
             var access = context.Thread.PushCallStackFrame(newFrame);
             if (context.Thread.CallOrReturnHookMask.Value != 0 && !context.Thread.IsInHook)
@@ -2030,7 +2022,11 @@ public static partial class LuaVirtualMachine
                 return false;
             }
 
-            stack.PopUntil(newFrame.ReturnBase + 1);
+            var result = stack.Count > newFrame.ReturnBase
+                ? stack.Get(newFrame.ReturnBase)
+                : default;
+            stack.Get(context.Instruction.A + context.FrameBase) = result;
+            stack.PopUntil(newBase - variableArgumentCount);
             context.Thread.PopCallStackFrame();
             return true;
         }
