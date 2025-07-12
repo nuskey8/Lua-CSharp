@@ -299,15 +299,14 @@ public class LuaRuntimeException : Exception, ILuaTracebackBuildable
         }
     }
 
-    static string CreateMessage(Traceback traceback, LuaValue errorObject)
+    static string CreateMessage(Traceback traceback, LuaValue errorObject, int level)
     {
         var pooledList = new PooledList<char>(64);
         pooledList.Clear();
         try
         {
             pooledList.AddRange("Lua-CSharp: ");
-            traceback.WriteLastLuaTrace(ref pooledList);
-            pooledList.AddRange(": ");
+            traceback.WriteLastLuaTrace(ref pooledList, level);
             pooledList.AddRange($"{errorObject}");
             return pooledList.AsSpan().ToString();
         }
@@ -366,7 +365,6 @@ public class LuaRuntimeException : Exception, ILuaTracebackBuildable
                     try
                     {
                         Traceback.WriteLastLuaTrace(callStack, ref pooledList);
-                        if (pooledList.Length != 0) pooledList.AddRange(": ");
                         pooledList.AddRange(message);
                         return pooledList.AsSpan().ToString();
                     }
@@ -385,8 +383,7 @@ public class LuaRuntimeException : Exception, ILuaTracebackBuildable
             pooledList.Clear();
             try
             {
-                luaTraceback.WriteLastLuaTrace(ref pooledList);
-                if (pooledList.Length != 0) pooledList.AddRange(": ");
+                luaTraceback.WriteLastLuaTrace(ref pooledList, level);
                 pooledList.AddRange(message);
                 return pooledList.AsSpan().ToString();
             }
@@ -407,7 +404,7 @@ public class LuaRuntimeException : Exception, ILuaTracebackBuildable
                 return ErrorObject.ToString();
             }
 
-            return CreateMessage(LuaTraceback, ErrorObject);
+            return CreateMessage(LuaTraceback, ErrorObject, level);
         }
     }
 
