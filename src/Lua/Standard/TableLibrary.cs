@@ -130,18 +130,14 @@ public sealed class TableLibrary
 
         var n = (int)n_arg;
 
-        if (n <= 0 || n > table.GetArraySpan().Length)
-        {
-            if (!context.HasArgument(1) && n == 0)
-            {
-                return new(context.Return(LuaValue.Nil));
-            }
-
-            throw new LuaRuntimeException(context.Thread, "bad argument #2 to 'remove' (position out of bounds)");
-        }
-        else if (n > table.ArrayLength)
+        if ((!context.HasArgument(1) && n == 0) || n == table.GetArraySpan().Length + 1)
         {
             return new(context.Return(LuaValue.Nil));
+        }
+
+        if (n <= 0 || n > table.GetArraySpan().Length)
+        {
+            throw new LuaRuntimeException(context.Thread, "bad argument #2 to 'remove' (position out of bounds)");
         }
 
         return new(context.Return(table.RemoveAt(n)));
