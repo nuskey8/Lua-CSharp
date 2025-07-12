@@ -12,7 +12,7 @@ public sealed class LuaTable : IEnumerable<KeyValuePair<LuaValue, LuaValue>>
 
     public LuaTable(int arrayCapacity, int dictionaryCapacity)
     {
-        array = arrayCapacity>1?new LuaValue[arrayCapacity] :[];
+        array = arrayCapacity > 1 ? new LuaValue[arrayCapacity] : [];
         dictionary = new(dictionaryCapacity);
     }
 
@@ -249,6 +249,7 @@ public sealed class LuaTable : IEnumerable<KeyValuePair<LuaValue, LuaValue>>
 
     public void Clear()
     {
+        array.AsSpan().Clear();
         dictionary.Clear();
     }
 
