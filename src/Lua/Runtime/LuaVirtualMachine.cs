@@ -93,7 +93,7 @@ public static partial class LuaVirtualMachine
                 var returnBase = frames[^1].ReturnBase;
                 if (src != returnBase)
                 {
-                    result.CopyTo(Stack.GetBuffer()[returnBase..]);
+                    result.CopyTo(Stack.AsSpan()[returnBase..]);
                 }
 
                 Stack.PopUntil(returnBase + srcCount);
@@ -1583,7 +1583,7 @@ public static partial class LuaVirtualMachine
 
         var awaiter = task.GetAwaiter();
         awaiter.GetResult();
-        var results = stack.GetBuffer()[newFrame.Base..];
+        var results = stack.GetBuffer()[newFrame.ReturnBase..];
         result = results.Length == 0 ? default : results[0];
         context.Thread.PopCallStackFrameWithStackPop();
         return true;
@@ -1652,7 +1652,6 @@ public static partial class LuaVirtualMachine
         await indexTable.Func(functionContext, ct);
         var results = stack.GetBuffer()[newFrame.ReturnBase..];
         var result = results.Length == 0 ? default : results[0];
-        results.Clear();
         thread.PopCallStackFrameWithStackPop();
         return result;
     }
@@ -1836,8 +1835,6 @@ public static partial class LuaVirtualMachine
         }
 
         await newIndexFunction.Func(functionContext, ct);
-        var results = stack.GetBuffer()[newFrame.ReturnBase..];
-        results.Clear();
         thread.PopCallStackFrameWithStackPop();
     }
 
@@ -1903,8 +1900,14 @@ public static partial class LuaVirtualMachine
             var RA = context.Instruction.A + context.FrameBase;
 
             var results = stack.GetBuffer()[newFrame.ReturnBase..];
-            stack.Get(RA) = results.Length == 0 ? default : results[0];
-            results.Clear();
+            LuaValue result = default;
+            if (results.Length != 0)
+            {
+                result = results[0];
+                results.Clear();
+            }
+
+            stack.Get(RA) = result;
             context.Thread.PopCallStackFrameWithStackPop();
             return true;
         }
@@ -1955,9 +1958,8 @@ public static partial class LuaVirtualMachine
 
 
                 await func.Func(functionContext, ct);
-                var results = stack.GetBuffer()[newFrame.ReturnBase..];
+                var results = stack.AsSpan()[newFrame.ReturnBase..];
                 var result = results.Length == 0 ? default : results[0];
-                results.Clear();
                 return result;
             }
             finally
@@ -2028,11 +2030,8 @@ public static partial class LuaVirtualMachine
                 return false;
             }
 
-            var RA = context.Instruction.A + context.FrameBase;
-            var results = stack.GetBuffer()[newFrame.Base..];
-            stack.Get(RA) = results.Length == 0 ? default : results[0];
-            results.Clear();
-            context.Thread.PopCallStackFrameWithStackPop();
+            stack.PopUntil(newFrame.ReturnBase + 1);
+            context.Thread.PopCallStackFrame();
             return true;
         }
 
@@ -2092,7 +2091,7 @@ public static partial class LuaVirtualMachine
                 }
 
                 thread.ThrowIfCancellationRequested(cancellationToken);
-                var results = stack.GetBuffer()[newFrame.ReturnBase..];
+                var results = stack.AsSpan()[newFrame.ReturnBase..];
                 var result = results.Length == 0 ? default : results[0];
                 results.Clear();
                 return result;
@@ -2165,7 +2164,7 @@ public static partial class LuaVirtualMachine
                 return false;
             }
 
-            var results = stack.GetBuffer()[newFrame.Base..];
+            var results = stack.AsSpan()[newFrame.ReturnBase..];
             var compareResult = results.Length == 0 && results[0].ToBoolean();
             compareResult = reverseLe ? !compareResult : compareResult;
             if (compareResult != (context.Instruction.A == 1))
@@ -2173,8 +2172,8 @@ public static partial class LuaVirtualMachine
                 context.Pc++;
             }
 
-            results.Clear();
-            context.Thread.PopCallStackFrameWithStackPop();
+            stack.PopUntil(newFrame.ReturnBase + 1);
+            context.Thread.PopCallStackFrame();
 
             return true;
         }
@@ -2254,14 +2253,14 @@ public static partial class LuaVirtualMachine
                 }
 
                 thread.ThrowIfCancellationRequested(cancellationToken);
-                var results = stack.GetBuffer()[newFrame.ReturnBase..];
+                var results = stack.AsSpan()[newFrame.ReturnBase..];
                 var result = results.Length == 0 ? default : results[0];
                 results.Clear();
                 return result.ToBoolean();
             }
             finally
             {
-                thread.PopCallStackFrameWithStackPop();
+                thread.PopCallStackFrame();
             }
         }
 
