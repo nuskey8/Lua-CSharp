@@ -35,6 +35,7 @@ public class Traceback(LuaState state, ReadOnlySpan<CallStackFrame> stackFrames)
                     list.AddRange(intFormatBuffer[..charsWritten]);
                 }
 
+                list.AddRange(": ");
                 return;
             }
         }
