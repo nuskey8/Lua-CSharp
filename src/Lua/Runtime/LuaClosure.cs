@@ -8,8 +8,8 @@ public sealed class LuaClosure : LuaFunction
 {
     FastListCore<UpValue> upValues;
 
-    public LuaClosure(LuaThread thread, Prototype proto, LuaTable? environment = null)
-        : base(proto.ChunkName, static (context, ct) => LuaVirtualMachine.ExecuteClosureAsync(context.Thread, ct))
+    public LuaClosure(LuaState thread, Prototype proto, LuaTable? environment = null)
+        : base(proto.ChunkName, static (context, ct) => LuaVirtualMachine.ExecuteClosureAsync(context.State, ct))
     {
         Proto = proto;
         if (environment != null)
@@ -20,7 +20,7 @@ public sealed class LuaClosure : LuaFunction
 
         if (thread.CallStackFrameCount == 0)
         {
-            upValues.Add(thread.State.EnvUpValue);
+            upValues.Add(thread.GlobalState.EnvUpValue);
             return;
         }
 
@@ -30,7 +30,7 @@ public sealed class LuaClosure : LuaFunction
         for (var i = 0; i < proto.UpValues.Length; i++)
         {
             var description = proto.UpValues[i];
-            var upValue = GetUpValueFromDescription(thread.State, thread, description, baseIndex);
+            var upValue = GetUpValueFromDescription(thread.GlobalState, thread, description, baseIndex);
             upValues.Add(upValue);
         }
     }
@@ -62,16 +62,16 @@ public sealed class LuaClosure : LuaFunction
         upValues[index].SetValue(value);
     }
 
-    static UpValue GetUpValueFromDescription(LuaState state, LuaThread thread, UpValueDesc description, int baseIndex = 0)
+    static UpValue GetUpValueFromDescription(LuaGlobalState globalState, LuaState thread, UpValueDesc description, int baseIndex = 0)
     {
         if (description.IsLocal)
         {
             if (description is { Index: 0, Name: "_ENV" })
             {
-                return state.EnvUpValue;
+                return globalState.EnvUpValue;
             }
 
-            return state.GetOrAddUpValue(thread, baseIndex + description.Index);
+            return globalState.GetOrAddUpValue(thread, baseIndex + description.Index);
         }
 
 

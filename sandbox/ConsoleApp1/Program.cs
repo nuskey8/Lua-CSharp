@@ -6,24 +6,24 @@ using System.Text.RegularExpressions;
 using System;
 using System.IO;
 using System.Text;
-var state = LuaState.Create();
-state.OpenStandardLibraries();
 
+var state = LuaGlobalState.Create();
+state.OpenStandardLibraries();
 state.Environment["escape"] = new LuaFunction("escape",
     (c, _) =>
     {
         var arg = c.HasArgument(0) ? c.GetArgument<string>(0) : "";
         return new(c.Return(Regex.Escape(arg)));
     });
-string source = "";
+var source = "";
 try
 {
     source = File.ReadAllText(GetAbsolutePath("test.lua"));
 
 
-    Console.WriteLine("Source Code " + new string('-', 50));
+    //Console.WriteLine("Source Code " + new string('-', 50));
 
-    Console.WriteLine(source);
+    // Console.WriteLine(source);
 
     var closure = state.Load(source, "@test.lua");
 
@@ -31,14 +31,27 @@ try
 
     Console.WriteLine("Output " + new string('-', 50));
 
-    var count = await state.RootAccess.RunAsync(closure);
-
-    Console.WriteLine("Result " + new string('-', 50));
-    using var results = state.RootAccess.ReadTopValues(count);
-    for (int i = 0; i < count; i++)
+    //Console.Read();
+    var timer = new System.Diagnostics.Stopwatch();
+    timer.Start();
+    for (var i = 0; i < 1000; i++)
     {
-        Console.WriteLine(results[i]);
+        var count = await state.RootAccess.RunAsync(closure);
+        state.RootAccess.Pop(count);
+        if (i % 100 == 0)
+        {
+            Console.WriteLine($"Iteration {i} completed. Time elapsed: {timer.ElapsedMilliseconds} ms");
+            Thread.Sleep(100);
+        }
     }
+
+
+    // Console.WriteLine("Result " + new string('-', 50));
+    // using var results = state.RootAccess.ReadTopValues(count);
+    // for (var i = 0; i < count; i++)
+    // {
+    //     Console.WriteLine(results[i]);
+    // }
 
     Console.WriteLine("End " + new string('-', 50));
 }
@@ -47,7 +60,8 @@ catch (Exception ex)
     if (ex is LuaCompileException luaCompileException)
     {
         Console.WriteLine("CompileError " + new string('-', 50));
-        Console.WriteLine(RustLikeExceptionHook.OnCatch(source, luaCompileException)); ;
+        Console.WriteLine(RustLikeExceptionHook.OnCatch(source, luaCompileException));
+        ;
         Console.WriteLine(new string('-', 55));
     }
 
@@ -124,19 +138,21 @@ class RustLikeExceptionHook //: ILuaCompileHook
         {
             lineOffset = 0;
         }
+
         foreach (var c in source[lineOffset..])
         {
             if (c is '\n' or '\r')
             {
                 break;
             }
-       
+
             length++;
         }
+
         var builder = new StringBuilder();
         builder.AppendLine();
-        builder.AppendLine("[error]: "+exception.MessageWithNearToken);
-        builder.AppendLine("-->"+exception.ChunkName + ":" + exception.Position.Line + ":" + exception.Position.Column);
+        builder.AppendLine("[error]: " + exception.MessageWithNearToken);
+        builder.AppendLine("-->" + exception.ChunkName + ":" + exception.Position.Line + ":" + exception.Position.Column);
         var line = source.Slice(lineOffset, length).ToString();
         var lineNumString = exception.Position.Line.ToString();
         builder.AppendLine(new string(' ', lineNumString.Length) + " |");

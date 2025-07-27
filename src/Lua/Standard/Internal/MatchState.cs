@@ -2,7 +2,7 @@ using System.Buffers;
 
 namespace Lua.Standard.Internal;
 
-class MatchState(LuaThread thread, string source, string pattern)
+class MatchState(LuaState thread, string source, string pattern)
 {
     internal const int LuaMaxCaptures = 32;
     const int CapUnfinished = -1;
@@ -19,7 +19,7 @@ class MatchState(LuaThread thread, string source, string pattern)
         public bool IsPosition => Len == CapPosition;
     }
 
-    public readonly LuaThread Thread = thread;
+    public readonly LuaState State = thread;
     public readonly string Source = source;
     public readonly string Pattern = pattern;
     public int Level = 0;
@@ -39,7 +39,7 @@ class MatchState(LuaThread thread, string source, string pattern)
     {
         if (Level >= LuaMaxCaptures)
         {
-            throw new LuaRuntimeException(Thread, "too many captures");
+            throw new LuaRuntimeException(State, "too many captures");
         }
 
         Captures[Level].Init = sIdx;
@@ -71,7 +71,7 @@ class MatchState(LuaThread thread, string source, string pattern)
     {
         if (MatchDepth-- == 0)
         {
-            throw new LuaRuntimeException(Thread, "pattern too complex");
+            throw new LuaRuntimeException(State, "pattern too complex");
         }
 
         var endIdx = Pattern.Length;
@@ -331,7 +331,7 @@ class MatchState(LuaThread thread, string source, string pattern)
             }
         }
 
-        throw new LuaRuntimeException(Thread, "invalid pattern capture");
+        throw new LuaRuntimeException(State, "invalid pattern capture");
     }
 
     int MatchCapture(int sIdx, int l)
@@ -354,7 +354,7 @@ class MatchState(LuaThread thread, string source, string pattern)
     {
         if (l < 0 || l >= Level || Captures[l].Len == CapUnfinished)
         {
-            throw new LuaRuntimeException(Thread, $"invalid capture index %{l + 1}");
+            throw new LuaRuntimeException(State, $"invalid capture index %{l + 1}");
         }
 
         return l;
@@ -364,7 +364,7 @@ class MatchState(LuaThread thread, string source, string pattern)
     {
         if (pIdx + 1 >= Pattern.Length)
         {
-            throw new LuaRuntimeException(Thread, "malformed pattern (missing arguments to '%b')");
+            throw new LuaRuntimeException(State, "malformed pattern (missing arguments to '%b')");
         }
 
         if (sIdx >= Source.Length || Source[sIdx] != Pattern[pIdx])
@@ -404,7 +404,7 @@ class MatchState(LuaThread thread, string source, string pattern)
             case LEsc:
                 if (pIdx >= pattern.Length)
                 {
-                    throw new LuaRuntimeException(Thread, "malformed pattern (ends with %)");
+                    throw new LuaRuntimeException(State, "malformed pattern (ends with %)");
                 }
 
                 return pIdx + 1;
@@ -425,7 +425,7 @@ class MatchState(LuaThread thread, string source, string pattern)
 
                     if (pIdx >= pattern.Length)
                     {
-                        throw new LuaRuntimeException(Thread, "malformed pattern (missing ']')");
+                        throw new LuaRuntimeException(State, "malformed pattern (missing ']')");
                     }
                 } while (pIdx < pattern.Length && pattern[pIdx] != ']');
 

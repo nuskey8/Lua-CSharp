@@ -4,15 +4,15 @@ namespace Lua.Tests;
 
 public class AsyncTests
 {
-    LuaState state = default!;
+    LuaGlobalState globalState = default!;
 
     [SetUp]
     public void SetUp()
     {
-        state = LuaState.Create();
-        state.OpenStandardLibraries();
-        var assert = state.Environment["assert"].Read<LuaFunction>();
-        state.Environment["assert"] = new LuaFunction("assert_with_wait",
+        globalState = LuaGlobalState.Create();
+        globalState.OpenStandardLibraries();
+        var assert = globalState.Environment["assert"].Read<LuaFunction>();
+        globalState.Environment["assert"] = new LuaFunction("assert_with_wait",
             async (context, ct) =>
             {
                 await Task.Delay(1, ct);
@@ -26,7 +26,7 @@ public class AsyncTests
                         message = context.GetArgument<string>(1);
                     }
 
-                    throw new LuaAssertionException(context.Thread, message);
+                    throw new LuaAssertionException(context.State, message);
                 }
 
                 return context.Return(context.Arguments);
@@ -42,7 +42,7 @@ public class AsyncTests
         var path = FileHelper.GetAbsolutePath(file);
         try
         {
-            await state.DoFileAsync(path);
+            await globalState.DoFileAsync(path);
         }
         catch (LuaRuntimeException e)
         {

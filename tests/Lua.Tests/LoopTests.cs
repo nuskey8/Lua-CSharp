@@ -11,7 +11,7 @@ for i = 1, 10 do
     n = n + i
 end
 return n";
-        var result = await LuaState.Create().DoStringAsync(source);
+        var result = await LuaGlobalState.Create().DoStringAsync(source);
 
         Assert.That(result, Has.Length.EqualTo(1));
         Assert.That(result[0], Is.EqualTo(new LuaValue(55)));
@@ -26,7 +26,7 @@ for i = 0, 10, 2 do
     n = n + i
 end
 return n";
-        var result = await LuaState.Create().DoStringAsync(source);
+        var result = await LuaGlobalState.Create().DoStringAsync(source);
 
         Assert.That(result, Has.Length.EqualTo(1));
         Assert.That(result[0], Is.EqualTo(new LuaValue(30)));
@@ -41,7 +41,7 @@ while n < 100 do
     n = n + 1
 end
 return n";
-        var result = await LuaState.Create().DoStringAsync(source);
+        var result = await LuaGlobalState.Create().DoStringAsync(source);
 
         Assert.That(result, Has.Length.EqualTo(1));
         Assert.That(result[0], Is.EqualTo(new LuaValue(100)));

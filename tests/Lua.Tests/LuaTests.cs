@@ -29,7 +29,7 @@ public class LuaTests
     [TestCase("tests-lua/verybig.lua")]
     public async Task Test_Lua(string file)
     {
-        var state = LuaState.Create();
+        var state = LuaGlobalState.Create();
         state.Platform.StandardIO = new TestStandardIO();
         state.OpenStandardLibraries();
         var path = FileHelper.GetAbsolutePath(file);

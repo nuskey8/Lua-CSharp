@@ -12,7 +12,7 @@ end
 
 return clamp(0, 1, 25), clamp(10, 1, 25), clamp(30, 1, 25)
 ";
-        var result = await LuaState.Create().DoStringAsync(source);
+        var result = await LuaGlobalState.Create().DoStringAsync(source);
 
         Assert.That(result, Has.Length.EqualTo(3));
         Assert.That(result[0], Is.EqualTo(new LuaValue(1)));

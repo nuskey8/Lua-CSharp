@@ -88,7 +88,7 @@ interface ILuaTracebackBuildable
 
 public class LuaRuntimeException : Exception, ILuaTracebackBuildable
 {
-    public LuaRuntimeException(LuaThread? thread, Exception innerException) : base(innerException.Message, innerException)
+    public LuaRuntimeException(LuaState? thread, Exception innerException) : base(innerException.Message, innerException)
     {
         if (thread != null)
         {
@@ -100,7 +100,7 @@ public class LuaRuntimeException : Exception, ILuaTracebackBuildable
         Thread = thread;
     }
 
-    public LuaRuntimeException(LuaThread? thread, LuaValue errorObject, int level = 1)
+    public LuaRuntimeException(LuaState? thread, LuaValue errorObject, int level = 1)
     {
         if (thread != null)
         {
@@ -132,10 +132,10 @@ public class LuaRuntimeException : Exception, ILuaTracebackBuildable
         }
     }
 
-    internal LuaThread? Thread { get; private set; } = default!;
+    internal LuaState? Thread { get; private set; } = default!;
     public LuaValue ErrorObject { get; }
 
-    public static void AttemptInvalidOperation(LuaThread? thread, string op, LuaValue a, LuaValue b)
+    public static void AttemptInvalidOperation(LuaState? thread, string op, LuaValue a, LuaValue b)
     {
         var typeA = a.TypeToString();
         var typeB = b.TypeToString();
@@ -147,12 +147,12 @@ public class LuaRuntimeException : Exception, ILuaTracebackBuildable
         throw new LuaRuntimeException(thread, $"attempt to {op} a {typeA} value with a {typeB} value");
     }
 
-    public static void AttemptInvalidOperation(LuaThread? thread, string op, LuaValue a)
+    public static void AttemptInvalidOperation(LuaState? thread, string op, LuaValue a)
     {
         throw new LuaRuntimeException(thread, $"attempt to {op} a {a.TypeToString()} value");
     }
 
-    internal static void AttemptInvalidOperationOnLuaStack(LuaThread thread, string op, int lastPc, int regA, int regB)
+    internal static void AttemptInvalidOperationOnLuaStack(LuaState thread, string op, int lastPc, int regA, int regB)
     {
         var caller = thread.GetCurrentFrame();
         var luaValueA = regA < 255 ? thread.Stack[caller.Base + regA] : ((LuaClosure)caller.Function).Proto.Constants[regA - 256];
@@ -184,7 +184,7 @@ public class LuaRuntimeException : Exception, ILuaTracebackBuildable
         throw new LuaRuntimeException(thread, builder.AsSpan().ToString());
     }
 
-    internal static void AttemptInvalidOperationOnLuaStack(LuaThread thread, string op, int lastPc, int reg)
+    internal static void AttemptInvalidOperationOnLuaStack(LuaState thread, string op, int lastPc, int reg)
     {
         var caller = thread.GetCurrentFrame();
         var luaValue = reg < 255 ? thread.Stack[caller.Base + reg] : ((LuaClosure)caller.Function).Proto.Constants[reg - 256];
@@ -206,7 +206,7 @@ public class LuaRuntimeException : Exception, ILuaTracebackBuildable
         throw new LuaRuntimeException(thread, builder.AsSpan().ToString());
     }
 
-    internal static void AttemptInvalidOperationOnUpValues(LuaThread thread, string op, int reg)
+    internal static void AttemptInvalidOperationOnUpValues(LuaState thread, string op, int reg)
     {
         var caller = thread.GetCurrentFrame();
         var closure = (LuaClosure)caller.Function;
@@ -219,7 +219,7 @@ public class LuaRuntimeException : Exception, ILuaTracebackBuildable
         throw new LuaRuntimeException(thread, $"attempt to {op} a {luaValue.TypeToString()} value (upvalue '{name}')");
     }
 
-    internal static (string NameWhat, string Name) GetCurrentFunctionName(LuaThread thread)
+    internal static (string NameWhat, string Name) GetCurrentFunctionName(LuaState thread)
     {
         var current = thread.GetCurrentFrame();
         var pc = current.CallerInstructionIndex;
@@ -243,29 +243,29 @@ public class LuaRuntimeException : Exception, ILuaTracebackBuildable
         return (LuaDebug.GetFuncName(callerClosure.Proto, pc, out var name) ?? "", name ?? current.Function.Name);
     }
 
-    public static void BadArgument(LuaThread thread, int argumentId)
+    public static void BadArgument(LuaState thread, int argumentId)
     {
         BadArgument(thread, argumentId, "value expected");
     }
 
 
-    public static void BadArgument(LuaThread thread, int argumentId, LuaValueType expected, LuaValueType actual)
+    public static void BadArgument(LuaState thread, int argumentId, LuaValueType expected, LuaValueType actual)
     {
         BadArgument(thread, argumentId, $"{LuaValue.ToString(expected)} expected, got {LuaValue.ToString(actual)})");
     }
 
-    public static void BadArgument(LuaThread thread, int argumentId, LuaValueType[] expected, LuaValueType actual)
+    public static void BadArgument(LuaState thread, int argumentId, LuaValueType[] expected, LuaValueType actual)
     {
         BadArgument(thread, argumentId, $"({string.Join(" or ", expected.Select(LuaValue.ToString))} expected, got {LuaValue.ToString(actual)})");
     }
 
 
-    public static void BadArgument(LuaThread thread, int argumentId, string expected, string actual)
+    public static void BadArgument(LuaState thread, int argumentId, string expected, string actual)
     {
         BadArgument(thread, argumentId, $"({expected} expected, got {actual})");
     }
 
-    public static void BadArgument(LuaThread thread, int argumentId, string[] expected, string actual)
+    public static void BadArgument(LuaState thread, int argumentId, string[] expected, string actual)
     {
         if (expected.Length == 0)
         {
@@ -276,7 +276,7 @@ public class LuaRuntimeException : Exception, ILuaTracebackBuildable
     }
 
 
-    public static void BadArgument(LuaThread thread, int argumentId, string message)
+    public static void BadArgument(LuaState thread, int argumentId, string message)
     {
         var (nameWhat, name) = GetCurrentFunctionName(thread);
         if (nameWhat == "method")
@@ -291,12 +291,12 @@ public class LuaRuntimeException : Exception, ILuaTracebackBuildable
         throw new LuaRuntimeException(thread, $"bad argument #{argumentId} to '{name}' ({message})");
     }
 
-    public static void BadArgumentNumberIsNotInteger(LuaThread thread, int argumentId)
+    public static void BadArgumentNumberIsNotInteger(LuaState thread, int argumentId)
     {
         BadArgument(thread, argumentId, "number has no integer representation");
     }
 
-    public static void ThrowBadArgumentIfNumberIsNotInteger(LuaThread thread, int argumentId, double value)
+    public static void ThrowBadArgumentIfNumberIsNotInteger(LuaState thread, int argumentId, double value)
     {
         if (!MathEx.IsInteger(value))
         {
@@ -338,7 +338,7 @@ public class LuaRuntimeException : Exception, ILuaTracebackBuildable
                 return null;
             }
 
-            luaTraceback = new(Thread.State, callStack);
+            luaTraceback = new(Thread.GlobalState, callStack);
             Thread.ExceptionTrace.Clear();
             Thread = null;
         }
@@ -450,7 +450,7 @@ public class LuaRuntimeException : Exception, ILuaTracebackBuildable
     }
 }
 
-public class LuaAssertionException(LuaThread? traceback, string message) : LuaRuntimeException(traceback, message);
+public class LuaAssertionException(LuaState? traceback, string message) : LuaRuntimeException(traceback, message);
 
 public class LuaModuleNotFoundException(string moduleName) : Exception($"module '{moduleName}' not found");
 
@@ -471,14 +471,14 @@ public sealed class LuaCanceledException : OperationCanceledException, ILuaTrace
         }
     }
 
-    internal LuaThread? Thread { get; private set; }
+    internal LuaState? State { get; private set; }
 
-    internal LuaCanceledException(LuaThread thread, CancellationToken cancellationToken, Exception? innerException = null) : base("The operation was cancelled during execution on Lua.", innerException, cancellationToken)
+    internal LuaCanceledException(LuaState thread, CancellationToken cancellationToken, Exception? innerException = null) : base("The operation was cancelled during execution on Lua.", innerException, cancellationToken)
     {
         thread.CurrentException?.BuildOrGet();
         thread.ExceptionTrace.Clear();
         thread.CurrentException = this;
-        Thread = thread;
+        State = thread;
     }
 
 
@@ -490,17 +490,17 @@ public sealed class LuaCanceledException : OperationCanceledException, ILuaTrace
             return luaTraceback;
         }
 
-        if (Thread != null)
+        if (State != null)
         {
-            var callStack = Thread.ExceptionTrace.AsSpan();
+            var callStack = State.ExceptionTrace.AsSpan();
             if (callStack.IsEmpty)
             {
                 return null;
             }
 
-            luaTraceback = new(Thread.State, callStack);
-            Thread.ExceptionTrace.Clear();
-            Thread = null!;
+            luaTraceback = new(State.GlobalState, callStack);
+            State.ExceptionTrace.Clear();
+            State = null!;
         }
 
         return luaTraceback;

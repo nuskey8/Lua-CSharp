@@ -10,7 +10,7 @@ public class StringTests
     [TestCase("\r\n")]
     public async Task Test_ShortString_RealNewLine(string newLine)
     {
-        var result = await LuaState.Create().DoStringAsync($"return \"\\{newLine}\"");
+        var result = await LuaGlobalState.Create().DoStringAsync($"return \"\\{newLine}\"");
         Assert.That(result, Has.Length.EqualTo(1));
         Assert.That(result[0], Is.EqualTo(new LuaValue("\n")));
     }
@@ -18,7 +18,7 @@ public class StringTests
     [TestCase("fr-FR")]
     public async Task Test_StringFormat_Culture(string newLine)
     {
-        var state = LuaState.Create();
+        var state = LuaGlobalState.Create();
         state.OpenBasicLibrary();
         state.OpenStringLibrary();
         var culture = CultureInfo.CurrentCulture;

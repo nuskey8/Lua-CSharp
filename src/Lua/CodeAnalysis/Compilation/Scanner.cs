@@ -9,7 +9,7 @@ using static Constants;
 
 struct Scanner
 {
-    public LuaState L;
+    public LuaGlobalState L;
     public PooledList<char> Buffer;
     public TextReader R;
     public int Current;

@@ -1,211 +1,251 @@
-using Lua.CodeAnalysis.Compilation;
-using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Lua.Internal;
-using Lua.IO;
-using Lua.Loaders;
-using Lua.Platforms;
 using Lua.Runtime;
-using Lua.Standard;
-using System.Buffers;
-using System.Text;
 
 namespace Lua;
 
-public sealed class LuaState
+public class LuaState:IDisposable
 {
-    // states
-    readonly LuaMainThread mainThread;
-    FastListCore<UpValue> openUpValues;
-    FastStackCore<LuaThread> threadStack;
-    readonly LuaTable environment;
-    readonly LuaTable registry = new();
-    readonly UpValue envUpValue;
+    protected LuaState() { }
 
-
-    FastStackCore<LuaDebug.LuaDebugBuffer> debugBufferPool;
-
-    internal int CallCount;
-
-    internal UpValue EnvUpValue => envUpValue;
-
-    internal ref FastStackCore<LuaThread> ThreadStack => ref threadStack;
-
-    internal ref FastListCore<UpValue> OpenUpValues => ref openUpValues;
-
-    internal ref FastStackCore<LuaDebug.LuaDebugBuffer> DebugBufferPool => ref debugBufferPool;
-
-    public LuaTable Environment => environment;
-
-    public LuaTable Registry => registry;
-
-    public LuaTable LoadedModules => registry[ModuleLibrary.LoadedKeyForRegistry].Read<LuaTable>();
-
-    public LuaTable PreloadModules => registry[ModuleLibrary.PreloadKeyForRegistry].Read<LuaTable>();
-
-    public LuaMainThread MainThread => mainThread;
-
-    public LuaThreadAccess RootAccess => new(mainThread, 0);
-
-    public LuaPlatform Platform { get; }
-
-    public ILuaModuleLoader? ModuleLoader { get; set; }
-
-    public ILuaFileSystem FileSystem => Platform.FileSystem ?? throw new InvalidOperationException("FileSystem is not set. Please set it before access.");
-
-    public ILuaOsEnvironment OsEnvironment => Platform.OsEnvironment ?? throw new InvalidOperationException("OperatingSystem is not set. Please set it before access.");
-
-
-    public TimeProvider TimeProvider => Platform.TimeProvider ?? throw new InvalidOperationException("TimeProvider is not set. Please set it before access.");
-
-    public ILuaStandardIO StandardIO => Platform.StandardIO;
-
-    // metatables
-    LuaTable? nilMetatable;
-    LuaTable? numberMetatable;
-    LuaTable? stringMetatable;
-    LuaTable? booleanMetatable;
-    LuaTable? functionMetatable;
-    LuaTable? threadMetatable;
-
-    public static LuaState Create(LuaPlatform? platform = null)
+    internal LuaState(LuaGlobalState globalState)
     {
-        LuaState state = new(platform ?? LuaPlatform.Default);
-        return state;
+        GlobalState = globalState;
+        CoreData = ThreadCoreData.Create();
     }
 
-    LuaState(LuaPlatform platform)
+    public virtual LuaThreadStatus GetStatus()
     {
-        mainThread = new(this);
-        environment = new();
-        envUpValue = UpValue.Closed(environment);
-        registry[ModuleLibrary.LoadedKeyForRegistry] = new LuaTable(0, 8);
-        registry[ModuleLibrary.PreloadKeyForRegistry] = new LuaTable(0, 8);
-        Platform = platform;
+        return LuaThreadStatus.Running;
+    }
+
+    public virtual void UnsafeSetStatus(LuaThreadStatus status) { }
+
+    public virtual ValueTask<int> ResumeAsync(LuaFunctionExecutionContext context, CancellationToken cancellationToken = default)
+    {
+        return new(context.Return(false, "cannot resume non-suspended coroutine"));
+    }
+
+    public virtual ValueTask<int> YieldAsync(LuaFunctionExecutionContext context, CancellationToken cancellationToken = default)
+    {
+        throw new LuaRuntimeException(context.State, "attempt to yield from outside a coroutine");
+    }
+
+    protected class ThreadCoreData : IPoolNode<ThreadCoreData>
+    {
+        //internal  LuaCoroutineData? coroutineData;
+        internal readonly LuaStack Stack = new();
+        internal FastStackCore<CallStackFrame> CallStack;
+
+        public void Clear()
+        {
+            Stack.Clear();
+            CallStack.Clear();
+        }
+
+        static LinkedPool<ThreadCoreData> pool;
+        ThreadCoreData? nextNode;
+
+        public ref ThreadCoreData? NextNode => ref nextNode;
+
+        public static ThreadCoreData Create()
+        {
+            if (!pool.TryPop(out var result))
+            {
+                result = new();
+            }
+
+            return result;
+        }
+
+        public void Release()
+        {
+            Clear();
+            pool.TryPush(this);
+        }
+    }
+
+    public LuaGlobalState GlobalState { get; protected set; } = null!;
+    protected ThreadCoreData? CoreData = new();
+    internal bool IsLineHookEnabled;
+    internal BitFlags2 CallOrReturnHookMask;
+    internal bool IsInHook;
+    internal long HookCount;
+    internal int BaseHookCount;
+    internal int LastPc;
+
+    internal int LastVersion;
+    internal int CurrentVersion;
+
+    internal ILuaTracebackBuildable? CurrentException;
+    internal readonly ReversedStack<CallStackFrame> ExceptionTrace = new();
+    internal LuaFunction? LastCallerFunction;
+
+    public bool IsRunning => CallStackFrameCount != 0;
+
+    internal LuaFunction? Hook { get; set; }
+
+    public LuaStack Stack => CoreData!.Stack;
+
+    internal bool IsCallHookEnabled
+    {
+        get => CallOrReturnHookMask.Flag0;
+        set => CallOrReturnHookMask.Flag0 = value;
+    }
+
+    internal bool IsReturnHookEnabled
+    {
+        get => CallOrReturnHookMask.Flag1;
+        set => CallOrReturnHookMask.Flag1 = value;
+    }
+
+    public int CallStackFrameCount => CoreData == null ? 0 : CoreData!.CallStack.Count;
+
+    internal LuaThreadAccess CurrentAccess => new(this, CurrentVersion);
+
+    public LuaThreadAccess RootAccess => new(this, 0);
+
+    public ref readonly CallStackFrame GetCurrentFrame()
+    {
+        return ref CoreData!.CallStack.PeekRef();
+    }
+
+    public ReadOnlySpan<LuaValue> GetStackValues()
+    {
+        return CoreData == null ? default : CoreData!.Stack.AsSpan();
+    }
+
+    public ReadOnlySpan<CallStackFrame> GetCallStackFrames()
+    {
+        return CoreData == null ? default : CoreData!.CallStack.AsSpan();
+    }
+
+    void UpdateCurrentVersion(ref FastStackCore<CallStackFrame> callStack)
+    {
+        CurrentVersion = callStack.Count == 0 ? 0 : callStack.PeekRef().Version;
     }
 
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal bool TryGetMetatable(LuaValue value, [NotNullWhen(true)] out LuaTable? result)
+    internal LuaThreadAccess PushCallStackFrame(in CallStackFrame frame)
     {
-        result = value.Type switch
-        {
-            LuaValueType.Nil => nilMetatable,
-            LuaValueType.Boolean => booleanMetatable,
-            LuaValueType.String => stringMetatable,
-            LuaValueType.Number => numberMetatable,
-            LuaValueType.Function => functionMetatable,
-            LuaValueType.Thread => threadMetatable,
-            LuaValueType.UserData => value.UnsafeRead<ILuaUserData>().Metatable,
-            LuaValueType.Table => value.UnsafeRead<LuaTable>().Metatable,
-            _ => null
-        };
-
-        return result != null;
+        CurrentException?.BuildOrGet();
+        CurrentException = null;
+        ref var callStack = ref CoreData!.CallStack;
+        callStack.Push(frame);
+        callStack.PeekRef().Version = CurrentVersion = ++LastVersion;
+        return new(this, CurrentVersion);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal void SetMetatable(LuaValue value, LuaTable metatable)
+    internal void PopCallStackFrameWithStackPop()
     {
-        switch (value.Type)
+        var coreData = CoreData!;
+        ref var callStack = ref coreData.CallStack;
+        var popFrame = callStack.Pop();
+        UpdateCurrentVersion(ref callStack);
+        if (CurrentException != null)
         {
-            case LuaValueType.Nil:
-                nilMetatable = metatable;
-                break;
-            case LuaValueType.Boolean:
-                booleanMetatable = metatable;
-                break;
-            case LuaValueType.String:
-                stringMetatable = metatable;
-                break;
-            case LuaValueType.Number:
-                numberMetatable = metatable;
-                break;
-            case LuaValueType.Function:
-                functionMetatable = metatable;
-                break;
-            case LuaValueType.Thread:
-                threadMetatable = metatable;
-                break;
-            case LuaValueType.UserData:
-                value.UnsafeRead<ILuaUserData>().Metatable = metatable;
-                break;
-            case LuaValueType.Table:
-                value.UnsafeRead<LuaTable>().Metatable = metatable;
-                break;
+            ExceptionTrace.Push(popFrame);
+        }
+
+        coreData.Stack.PopUntil(popFrame.ReturnBase);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal void PopCallStackFrameWithStackPop(int frameBase)
+    {
+        var coreData = CoreData!;
+        ref var callStack = ref coreData.CallStack;
+        var popFrame = callStack.Pop();
+        UpdateCurrentVersion(ref callStack);
+        if (CurrentException != null)
+        {
+            ExceptionTrace.Push(popFrame);
+        }
+
+        {
+            coreData.Stack.PopUntil(frameBase);
         }
     }
 
-    internal UpValue GetOrAddUpValue(LuaThread thread, int registerIndex)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal void PopCallStackFrame()
     {
-        foreach (var upValue in openUpValues.AsSpan())
+        var coreData = CoreData!;
+        ref var callStack = ref coreData.CallStack;
+        var popFrame = callStack.Pop();
+        UpdateCurrentVersion(ref callStack);
+        if (CurrentException != null)
         {
-            if (upValue.RegisterIndex == registerIndex && upValue.Thread == thread)
-            {
-                return upValue;
-            }
-        }
-
-        var newUpValue = UpValue.Open(thread, registerIndex);
-        openUpValues.Add(newUpValue);
-        return newUpValue;
-    }
-
-    internal void CloseUpValues(LuaThread thread, int frameBase)
-    {
-        for (var i = 0; i < openUpValues.Length; i++)
-        {
-            var upValue = openUpValues[i];
-            if (upValue.Thread != thread)
-            {
-                continue;
-            }
-
-            if (upValue.RegisterIndex >= frameBase)
-            {
-                upValue.Close();
-                openUpValues.RemoveAtSwapBack(i);
-                i--;
-            }
+            ExceptionTrace.Push(popFrame);
         }
     }
 
-    public unsafe LuaClosure Load(ReadOnlySpan<char> chunk, string chunkName, LuaTable? environment = null)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal void PopCallStackFrameUntil(int top)
     {
-        Prototype prototype;
-        fixed (char* ptr = chunk)
+        var coreData = CoreData!;
+        ref var callStack = ref coreData.CallStack;
+        if (CurrentException != null)
         {
-            prototype = Parser.Parse(this, new(ptr, chunk.Length), chunkName);
+            ExceptionTrace.Push(callStack.AsSpan()[top..]);
         }
 
-        return new(MainThread, prototype, environment);
+        callStack.PopUntil(top);
+        UpdateCurrentVersion(ref callStack);
     }
 
-    public LuaClosure Load(ReadOnlySpan<byte> chunk, string? chunkName = null, string mode = "bt", LuaTable? environment = null)
+    public void SetHook(LuaFunction? hook, string mask, int count = 0)
     {
-        if (chunk.Length > 4)
+        if (hook is null)
         {
-            if (chunk[0] == '\e')
-            {
-                return new(MainThread, Parser.UnDump(chunk, chunkName), environment);
-            }
+            HookCount = 0;
+            BaseHookCount = 0;
+            Hook = null;
+            IsLineHookEnabled = false;
+            IsCallHookEnabled = false;
+            IsReturnHookEnabled = false;
+            return;
         }
 
-        chunk = BomUtility.GetEncodingFromBytes(chunk, out var encoding);
+        HookCount = count > 0 ? count + 1 : 0;
+        BaseHookCount = count;
 
-        var charCount = encoding.GetCharCount(chunk);
-        var pooled = ArrayPool<char>.Shared.Rent(charCount);
-        try
-        {
-            var chars = pooled.AsSpan(0, charCount);
-            encoding.GetChars(chunk, chars);
-            chunkName ??= chars.ToString();
+        IsLineHookEnabled = mask.Contains('l');
+        IsCallHookEnabled = mask.Contains('c');
+        IsReturnHookEnabled = mask.Contains('r');
 
-            return Load(chars, chunkName, environment);
-        }
-        finally
+        if (IsLineHookEnabled)
         {
-            ArrayPool<char>.Shared.Return(pooled);
+            LastPc = CallStackFrameCount > 0 ? GetCurrentFrame().CallerInstructionIndex : -1;
         }
+
+        Hook = hook;
+    }
+
+    internal void DumpStackValues()
+    {
+        var span = GetStackValues();
+        for (var i = 0; i < span.Length; i++)
+        {
+            Console.WriteLine($"LuaStack [{i}]\t{span[i]}");
+        }
+    }
+
+    public Traceback GetTraceback()
+    {
+        return new(GlobalState, GetCallStackFrames());
+    }
+    
+    public void Dispose()
+    {
+        if (CoreData!.CallStack.Count != 0)
+        {
+            throw new InvalidOperationException("This thread is running! Call stack is not empty!!");
+        }
+
+        CoreData.Release();
+        CoreData = null!;
     }
 }

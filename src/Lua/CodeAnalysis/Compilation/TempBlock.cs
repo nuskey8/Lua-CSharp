@@ -1,9 +1,9 @@
 ﻿namespace Lua.CodeAnalysis.Compilation;
 
-readonly ref struct TempBlock(LuaState state)
+readonly ref struct TempBlock(LuaGlobalState globalState)
 {
     public void Dispose()
     {
-        state.CallCount--;
+        globalState.CallCount--;
     }
 }

@@ -7,7 +7,7 @@ namespace Lua.Standard.Internal;
 
 static class IOHelper
 {
-    public static async ValueTask<int> Open(LuaThread thread, string fileName, string mode, bool throwError, CancellationToken cancellationToken)
+    public static async ValueTask<int> Open(LuaState thread, string fileName, string mode, bool throwError, CancellationToken cancellationToken)
     {
         var fileMode = LuaFileOpenModeExtensions.ParseModeFromString(mode);
         if (!fileMode.IsValid())
@@ -17,7 +17,7 @@ static class IOHelper
 
         try
         {
-            var stream = await thread.State.FileSystem.Open(fileName, fileMode, cancellationToken);
+            var stream = await thread.GlobalState.FileSystem.Open(fileName, fileMode, cancellationToken);
 
             thread.Stack.Push(new(new FileHandle(stream)));
             return 1;
@@ -58,28 +58,28 @@ static class IOHelper
                 }
                 else
                 {
-                    LuaRuntimeException.BadArgument(context.Thread, i + 1, name);
+                    LuaRuntimeException.BadArgument(context.State, i + 1, name);
                 }
             }
         }
         catch (IOException ex)
         {
-            context.Thread.Stack.PopUntil(context.ReturnFrameBase);
-            var stack = context.Thread.Stack;
+            context.State.Stack.PopUntil(context.ReturnFrameBase);
+            var stack = context.State.Stack;
             stack.Push(LuaValue.Nil);
             stack.Push(ex.Message);
             stack.Push(ex.HResult);
             return 3;
         }
 
-        context.Thread.Stack.PopUntil(context.ReturnFrameBase);
-        context.Thread.Stack.Push(new(file));
+        context.State.Stack.PopUntil(context.ReturnFrameBase);
+        context.State.Stack.Push(new(file));
         return 1;
     }
 
     static readonly LuaValue[] defaultReadFormat = ["*l"];
 
-    public static async ValueTask<int> ReadAsync(LuaThread thread, FileHandle file, string name, int startArgumentIndex, ReadOnlyMemory<LuaValue> formats, bool throwError, CancellationToken cancellationToken)
+    public static async ValueTask<int> ReadAsync(LuaState thread, FileHandle file, string name, int startArgumentIndex, ReadOnlyMemory<LuaValue> formats, bool throwError, CancellationToken cancellationToken)
     {
         if (formats.Length == 0)
         {

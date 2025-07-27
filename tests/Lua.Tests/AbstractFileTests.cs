@@ -30,7 +30,7 @@ public class AbstractFileTests
     {
         var fileContent = "line1\nline2\r\nline3";
         var fileSystem = new ReadOnlyFileSystem(new() { { "test.txt", fileContent } });
-        var state = LuaState.Create(new(
+        var state = LuaGlobalState.Create(new(
             fileSystem: fileSystem,
             osEnvironment: null!,
             standardIO: new ConsoleStandardIO(),
@@ -64,7 +64,7 @@ public class AbstractFileTests
     {
         var fileContent = "Hello, World!";
         var fileSystem = new ReadOnlyFileSystem(new() { { "test.txt", fileContent } });
-        var state = LuaState.Create(new(
+        var state = LuaGlobalState.Create(new(
             fileSystem: fileSystem,
             osEnvironment: null!,
             standardIO: new ConsoleStandardIO(),

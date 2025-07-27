@@ -5,13 +5,13 @@ public class BenchmarkCore : IDisposable
 {
     public NLua.Lua NLuaState => nLuaState;
     public Script MoonSharpState => moonSharpState;
-    public LuaState LuaCSharpState => luaCSharpState;
+    public LuaGlobalState LuaGlobalCSharpState => luaGlobalCSharpState;
     public string FilePath => filePath;
     public string SourceText => sourceText;
 
     NLua.Lua nLuaState = default!;
     Script moonSharpState = default!;
-    LuaState luaCSharpState = default!;
+    LuaGlobalState luaGlobalCSharpState = default!;
     string filePath = default!;
     string sourceText = default!;
 
@@ -25,7 +25,7 @@ public class BenchmarkCore : IDisposable
         nLuaState = new();
 
         // Lua-CSharp
-        luaCSharpState = LuaState.Create();
+        luaGlobalCSharpState = LuaGlobalState.Create();
 
         filePath = FileHelper.GetAbsolutePath(fileName);
         sourceText = File.ReadAllText(filePath);

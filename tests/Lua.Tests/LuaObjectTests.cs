@@ -60,7 +60,7 @@ public class LuaObjectTests
     {
         var userData = new TestUserData { Property = 1 };
 
-        var state = LuaState.Create();
+        var state = LuaGlobalState.Create();
         state.Environment["test"] = userData;
         var results = await state.DoStringAsync("return test.Property");
 
@@ -73,7 +73,7 @@ public class LuaObjectTests
     {
         var userData = new TestUserData { PropertyWithName = "foo" };
 
-        var state = LuaState.Create();
+        var state = LuaGlobalState.Create();
         state.Environment["test"] = userData;
         var results = await state.DoStringAsync("return test.p2");
 
@@ -86,7 +86,7 @@ public class LuaObjectTests
     {
         var userData = new TestUserData();
 
-        var state = LuaState.Create();
+        var state = LuaGlobalState.Create();
         state.Environment["test"] = userData;
         var results = await state.DoStringAsync("return test.MethodVoid()");
 
@@ -98,7 +98,7 @@ public class LuaObjectTests
     {
         var userData = new TestUserData();
 
-        var state = LuaState.Create();
+        var state = LuaGlobalState.Create();
         state.Environment["test"] = userData;
         var results = await state.DoStringAsync("return test.MethodAsync()");
 
@@ -110,7 +110,7 @@ public class LuaObjectTests
     {
         var userData = new TestUserData();
 
-        var state = LuaState.Create();
+        var state = LuaGlobalState.Create();
         state.Environment["test"] = userData;
         var results = await state.DoStringAsync("return test.StaticMethodWithReturnValue(1, 2)");
 
@@ -123,7 +123,7 @@ public class LuaObjectTests
     {
         var userData = new TestUserData { Property = 1 };
 
-        var state = LuaState.Create();
+        var state = LuaGlobalState.Create();
         state.Environment["test"] = userData;
         var results = await state.DoStringAsync("return test:InstanceMethodWithReturnValue()");
 
@@ -136,7 +136,7 @@ public class LuaObjectTests
     {
         var userData = new TestUserData { Property = 1 };
 
-        var state = LuaState.Create();
+        var state = LuaGlobalState.Create();
         state.Environment["test"] = userData;
         var results = await state.DoStringAsync("return test:InstanceMethodWithReturnValueAsync(2)");
 
@@ -149,7 +149,7 @@ public class LuaObjectTests
     {
         var userData = new TestUserData();
 
-        var state = LuaState.Create();
+        var state = LuaGlobalState.Create();
         state.OpenBasicLibrary();
         state.Environment["test"] = userData;
         var results = await state.DoStringAsync("""

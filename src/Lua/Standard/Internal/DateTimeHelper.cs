@@ -30,9 +30,9 @@ static class DateTimeHelper
         return DateTime.UnixEpoch + ts;
     }
 
-    public static DateTime ParseTimeTable(LuaThread thread, LuaTable table)
+    public static DateTime ParseTimeTable(LuaState thread, LuaTable table)
     {
-        static int GetTimeField(LuaThread thread, LuaTable table, string key, bool required = true, int defaultValue = 0)
+        static int GetTimeField(LuaState thread, LuaTable table, string key, bool required = true, int defaultValue = 0)
         {
             if (!table.TryGetValue(key, out var value))
             {
@@ -64,7 +64,7 @@ static class DateTimeHelper
         return new(year, month, day, hour, min, sec);
     }
 
-    public static string StrFTime(LuaThread thread, ReadOnlySpan<char> format, DateTime d)
+    public static string StrFTime(LuaState thread, ReadOnlySpan<char> format, DateTime d)
     {
         // reference: http://www.cplusplus.com/reference/ctime/strftime/
 

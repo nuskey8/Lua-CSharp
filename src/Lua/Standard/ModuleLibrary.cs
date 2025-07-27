@@ -20,18 +20,18 @@ public sealed class ModuleLibrary
     public async ValueTask<int> Require(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
         var arg0 = context.GetArgument<string>(0);
-        var loaded = context.State.LoadedModules;
+        var loaded = context.GlobalState.LoadedModules;
 
         if (!loaded.TryGetValue(arg0, out var loadedTable))
         {
             LuaFunction loader;
-            var moduleLoader = context.State.ModuleLoader;
+            var moduleLoader = context.GlobalState.ModuleLoader;
             if (moduleLoader != null && moduleLoader.Exists(arg0))
             {
                 var module = await moduleLoader.LoadAsync(arg0, cancellationToken);
                 loader = module.Type == LuaModuleType.Bytes
-                    ? context.State.Load(module.ReadBytes(), module.Name)
-                    : context.State.Load(module.ReadText(), module.Name);
+                    ? context.GlobalState.Load(module.ReadBytes(), module.Name)
+                    : context.GlobalState.Load(module.ReadText(), module.Name);
             }
             else
             {
@@ -39,7 +39,7 @@ public sealed class ModuleLibrary
             }
 
             await context.Access.RunAsync(loader, 0, context.ReturnFrameBase, cancellationToken);
-            loadedTable = context.Thread.Stack.Get(context.ReturnFrameBase);
+            loadedTable = context.State.Stack.Get(context.ReturnFrameBase);
             loaded[arg0] = loadedTable;
         }
 
@@ -48,8 +48,8 @@ public sealed class ModuleLibrary
 
     internal static async ValueTask<string?> FindFile(LuaThreadAccess access, string name, string pName, string dirSeparator)
     {
-        var thread = access.Thread;
-        var state = thread.State;
+        var thread = access.State;
+        var state = thread.GlobalState;
         var package = state.Environment["package"];
         var p = await access.GetTable(package, pName);
         if (!p.TryReadString(out var path))
@@ -66,11 +66,11 @@ public sealed class ModuleLibrary
         var path = context.GetArgument<string>(1);
         var separator = context.GetArgument<string>(2);
         var dirSeparator = context.GetArgument<string>(3);
-        var fileName = SearchPath(context.State, name, path, separator, dirSeparator);
+        var fileName = SearchPath(context.GlobalState, name, path, separator, dirSeparator);
         return new(context.Return(fileName ?? LuaValue.Nil));
     }
 
-    internal static string? SearchPath(LuaState state, string name, string path, string separator, string dirSeparator)
+    internal static string? SearchPath(LuaGlobalState globalState, string name, string path, string separator, string dirSeparator)
     {
         if (separator != "")
         {
@@ -88,7 +88,7 @@ public sealed class ModuleLibrary
         {
             path = pathSpan[..nextIndex].ToString();
             var fileName = path.Replace("?", name);
-            if (state.FileSystem.IsReadable(fileName))
+            if (globalState.FileSystem.IsReadable(fileName))
             {
                 return fileName;
             }
@@ -111,7 +111,7 @@ public sealed class ModuleLibrary
 
     internal static async ValueTask<LuaFunction> FindLoader(LuaThreadAccess access, string name, CancellationToken cancellationToken)
     {
-        var state = access.State;
+        var state = access.GlobalState;
         var package = state.Environment["package"].Read<LuaTable>();
         var searchers = package["searchers"].Read<LuaTable>();
         for (var i = 0; i < searchers.GetArraySpan().Length; i++)
@@ -140,13 +140,13 @@ public sealed class ModuleLibrary
             access.Stack.SetTop(top);
         }
 
-        throw new LuaRuntimeException(access.Thread, $"Module '{name}' not found");
+        throw new LuaRuntimeException(access.State, $"Module '{name}' not found");
     }
 
     public ValueTask<int> SearcherPreload(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
         var name = context.GetArgument<string>(0);
-        var preload = context.State.PreloadModules[name];
+        var preload = context.GlobalState.PreloadModules[name];
         if (preload == LuaValue.Nil)
         {
             return new(context.Return());
@@ -158,12 +158,12 @@ public sealed class ModuleLibrary
     public async ValueTask<int> SearcherLua(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
         var name = context.GetArgument<string>(0);
-        var fileName = await FindFile(context.Access, name, "path", context.State.FileSystem.DirectorySeparator);
+        var fileName = await FindFile(context.Access, name, "path", context.GlobalState.FileSystem.DirectorySeparator);
         if (fileName == null)
         {
             return context.Return(LuaValue.Nil);
         }
 
-        return context.Return(await context.State.LoadFileAsync(fileName, "bt", null, cancellationToken));
+        return context.Return(await context.GlobalState.LoadFileAsync(fileName, "bt", null, cancellationToken));
     }
 }

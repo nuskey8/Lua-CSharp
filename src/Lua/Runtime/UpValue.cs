@@ -6,16 +6,16 @@ public sealed class UpValue
 {
     LuaValue value;
 
-    public LuaThread? Thread { get; }
+    public LuaState? Thread { get; }
     public bool IsClosed { get; private set; }
     public int RegisterIndex { get; private set; }
 
-    UpValue(LuaThread? thread)
+    UpValue(LuaState? thread)
     {
         Thread = thread;
     }
 
-    public static UpValue Open(LuaThread thread, int registerIndex)
+    public static UpValue Open(LuaState thread, int registerIndex)
     {
         return new(thread) { RegisterIndex = registerIndex };
     }

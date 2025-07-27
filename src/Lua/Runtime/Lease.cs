@@ -2,11 +2,11 @@
 
 public readonly struct UserThreadLease(LuaUserThread thread) : IDisposable
 {
-    public LuaUserThread Thread { get; } = thread;
+    public LuaUserThread State { get; } = thread;
 
     public void Dispose()
     {
-        Thread.Release();
+        State.Release();
     }
 }
 

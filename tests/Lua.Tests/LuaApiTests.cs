@@ -5,13 +5,13 @@ namespace Lua.Tests;
 
 public class LuaApiTests
 {
-    LuaState state = default!;
+    LuaGlobalState globalState = default!;
 
     [OneTimeSetUp]
     public void SetUp()
     {
-        state = LuaState.Create();
-        state.OpenStandardLibraries();
+        globalState = LuaGlobalState.Create();
+        globalState.OpenStandardLibraries();
     }
 
     [Test]
@@ -34,7 +34,7 @@ public class LuaApiTests
                      setmetatable(a, metatable)
                      return a, b
                      """;
-        var access = state.RootAccess;
+        var access = globalState.RootAccess;
         var result = await access.DoStringAsync(source);
         var a = result[0].Read<LuaTable>();
         var b = result[1].Read<LuaTable>();
@@ -68,7 +68,7 @@ public class LuaApiTests
                      setmetatable(a, metatable)
                      return a
                      """;
-        var access = state.RootAccess;
+        var access = globalState.RootAccess;
 
         var result = await access.DoStringAsync(source);
         var a = result[0].Read<LuaTable>();
@@ -106,7 +106,7 @@ public class LuaApiTests
                      setmetatable(a, metatable)
                      return a, b, c
                      """;
-        var access = state.RootAccess;
+        var access = globalState.RootAccess;
         var result = await access.DoStringAsync(source);
         var a = result[0].Read<LuaTable>();
         var b = result[1].Read<LuaTable>();
@@ -129,11 +129,11 @@ public class LuaApiTests
                      setmetatable(a, metatable)
                      return a
                      """;
-        var access = state.RootAccess;
+        var access = globalState.RootAccess;
         var result = await access.DoStringAsync(source);
         var a = result[0].Read<LuaTable>();
         Assert.That(await access.GetTable(a, "x"), Is.EqualTo(new LuaValue(1)));
-        a.Metatable!["__index"] = state.DoStringAsync("return function(a,b) return b end").Result[0];
+        a.Metatable!["__index"] = globalState.DoStringAsync("return function(a,b) return b end").Result[0];
         Assert.That(await access.GetTable(a, "x"), Is.EqualTo(new LuaValue("x")));
     }
 
@@ -150,7 +150,7 @@ public class LuaApiTests
                      setmetatable(a, metatable)
                      return a
                      """;
-        var access = state.RootAccess;
+        var access = globalState.RootAccess;
         var result = await access.DoStringAsync(source);
         var a = result[0].Read<LuaTable>();
         await access.SetTable(a, "a", "b");
@@ -183,7 +183,7 @@ setmetatable(c, metatable)
 
 return a,b,c
 ";
-        var access = state.RootAccess;
+        var access = globalState.RootAccess;
         var result = await access.DoStringAsync(source);
         Assert.That(result, Has.Length.EqualTo(3));
 
@@ -229,7 +229,7 @@ return a,b,c
                      local c ={name ="c"}
                      return a,b,c
                      """;
-        var access = state.RootAccess;
+        var access = globalState.RootAccess;
         var result = await access.DoStringAsync(source);
         var a = result[0];
         var b = result[1];
@@ -272,7 +272,7 @@ return a,b,c
                      local c ={name ="c"}
                      return a,b,c
                      """;
-        var access = state.RootAccess;
+        var access = globalState.RootAccess;
         var result = await access.DoStringAsync(source);
         var a = result[0];
         var b = result[1];

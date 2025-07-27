@@ -74,7 +74,7 @@ public sealed class BasicLibrary
                 message = context.GetArgument<string>(1);
             }
 
-            throw new LuaAssertionException(context.Thread, message);
+            throw new LuaAssertionException(context.State, message);
         }
 
         return new(context.Return(context.Arguments));
@@ -94,8 +94,8 @@ public sealed class BasicLibrary
     public async ValueTask<int> DoFile(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
         var arg0 = context.GetArgument<string>(0);
-        context.Thread.Stack.PopUntil(context.ReturnFrameBase);
-        var closure = await context.State.LoadFileAsync(arg0, "bt", null, cancellationToken);
+        context.State.Stack.PopUntil(context.ReturnFrameBase);
+        var closure = await context.GlobalState.LoadFileAsync(arg0, "bt", null, cancellationToken);
         return await context.Access.RunAsync(closure, cancellationToken);
     }
 
@@ -108,14 +108,14 @@ public sealed class BasicLibrary
             ? context.GetArgument<int>(1)
             : 1;
 
-        throw new LuaRuntimeException(context.Thread, value, level);
+        throw new LuaRuntimeException(context.State, value, level);
     }
 
     public ValueTask<int> GetMetatable(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
         var arg0 = context.GetArgument(0);
 
-        if (context.State.TryGetMetatable(arg0, out var metatable))
+        if (context.GlobalState.TryGetMetatable(arg0, out var metatable))
         {
             if (metatable.TryGetValue(Metamethods.Metatable, out var metaMetatable))
             {
@@ -141,12 +141,12 @@ public sealed class BasicLibrary
         // If table has a metamethod __ipairs, calls it with table as argument and returns the first three results from the call.
         if (arg0.Metatable != null && arg0.Metatable.TryGetValue(Metamethods.IPairs, out var metamethod))
         {
-            var stack = context.Thread.Stack;
+            var stack = context.State.Stack;
             var top = stack.Count;
             stack.Push(metamethod);
             stack.Push(arg0);
 
-            await LuaVirtualMachine.Call(context.Access.Thread, top, context.ReturnFrameBase, cancellationToken);
+            await LuaVirtualMachine.Call(context.Access.State, top, context.ReturnFrameBase, cancellationToken);
             stack.SetTop(context.ReturnFrameBase + 3);
             return 3;
         }
@@ -167,7 +167,7 @@ public sealed class BasicLibrary
         // do not use LuaState.DoFileAsync as it uses the newExecutionContext
         try
         {
-            return context.Return(await context.State.LoadFileAsync(arg0, mode, arg2, cancellationToken));
+            return context.Return(await context.GlobalState.LoadFileAsync(arg0, mode, arg2, cancellationToken));
         }
         catch (Exception ex)
         {
@@ -197,7 +197,7 @@ public sealed class BasicLibrary
         {
             if (arg0.TryRead<string>(out var str))
             {
-                return new(context.Return(context.State.Load(str, name ?? str, arg3)));
+                return new(context.Return(context.GlobalState.Load(str, name ?? str, arg3)));
             }
             else if (arg0.TryRead<LuaFunction>(out var function))
             {
@@ -206,7 +206,7 @@ public sealed class BasicLibrary
             }
             else
             {
-                LuaRuntimeException.BadArgument(context.Thread, 1, ["string", "function,binary data"], arg0.TypeToString());
+                LuaRuntimeException.BadArgument(context.State, 1, ["string", "function,binary data"], arg0.TypeToString());
                 return default; // dummy
             }
         }
@@ -238,12 +238,12 @@ public sealed class BasicLibrary
         // If table has a metamethod __pairs, calls it with table as argument and returns the first three results from the call.
         if (arg0.Metatable != null && arg0.Metatable.TryGetValue(Metamethods.Pairs, out var metamethod))
         {
-            var stack = context.Thread.Stack;
+            var stack = context.State.Stack;
             var top = stack.Count;
             stack.Push(metamethod);
             stack.Push(arg0);
 
-            await LuaVirtualMachine.Call(context.Access.Thread, top, context.ReturnFrameBase, cancellationToken);
+            await LuaVirtualMachine.Call(context.Access.State, top, context.ReturnFrameBase, cancellationToken);
             stack.SetTop(context.ReturnFrameBase + 3);
             return 3;
         }
@@ -253,23 +253,23 @@ public sealed class BasicLibrary
 
     public async ValueTask<int> PCall(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
-        var frameCount = context.Thread.CallStackFrameCount;
+        var frameCount = context.State.CallStackFrameCount;
         try
         {
-            var count = await LuaVirtualMachine.Call(context.Access.Thread, context.FrameBase, context.ReturnFrameBase + 1, cancellationToken);
+            var count = await LuaVirtualMachine.Call(context.Access.State, context.FrameBase, context.ReturnFrameBase + 1, cancellationToken);
 
-            context.Thread.Stack.Get(context.ReturnFrameBase) = true;
+            context.State.Stack.Get(context.ReturnFrameBase) = true;
             return count + 1;
         }
         catch (Exception ex)
         {
-            context.Thread.PopCallStackFrameUntil(frameCount);
+            context.State.PopCallStackFrameUntil(frameCount);
             switch (ex)
             {
                 case LuaCanceledException:
                     throw;
                 case OperationCanceledException:
-                    throw new LuaCanceledException(context.Thread, cancellationToken, ex);
+                    throw new LuaCanceledException(context.State, cancellationToken, ex);
                 case LuaRuntimeException luaEx:
                     {
                         if (luaEx.InnerException == null && luaEx.ErrorObject.Type != LuaValueType.String)
@@ -290,12 +290,12 @@ public sealed class BasicLibrary
 
     public async ValueTask<int> Print(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
-        var stdout = context.State.StandardIO.Output;
+        var stdout = context.GlobalState.StandardIO.Output;
 
         for (var i = 0; i < context.ArgumentCount; i++)
         {
             await context.Arguments[i].CallToStringAsync(context, cancellationToken);
-            await stdout.WriteAsync(context.Thread.Stack.Pop().Read<string>(), cancellationToken);
+            await stdout.WriteAsync(context.State.Stack.Pop().Read<string>(), cancellationToken);
             if (i < context.ArgumentCount - 1)
             {
                 await stdout.WriteAsync("\t", cancellationToken);
@@ -336,7 +336,7 @@ public sealed class BasicLibrary
         }
         else
         {
-            LuaRuntimeException.BadArgument(context.Thread, 2, [LuaValueType.String, LuaValueType.Table], arg0.Type);
+            LuaRuntimeException.BadArgument(context.State, 2, [LuaValueType.String, LuaValueType.Table], arg0.Type);
             return default;
         }
     }
@@ -359,7 +359,7 @@ public sealed class BasicLibrary
         {
             if (Math.Abs(index) > context.ArgumentCount)
             {
-                throw new LuaRuntimeException(context.Thread, "bad argument #1 to 'select' (index out of range)");
+                throw new LuaRuntimeException(context.State, "bad argument #1 to 'select' (index out of range)");
             }
 
             var span = index >= 0
@@ -374,7 +374,7 @@ public sealed class BasicLibrary
         }
         else
         {
-            LuaRuntimeException.BadArgument(context.Thread, 1, LuaValueType.Number, arg0.Type);
+            LuaRuntimeException.BadArgument(context.State, 1, LuaValueType.Number, arg0.Type);
             return default;
         }
     }
@@ -386,12 +386,12 @@ public sealed class BasicLibrary
 
         if (arg1.Type is not (LuaValueType.Nil or LuaValueType.Table))
         {
-            LuaRuntimeException.BadArgument(context.Thread, 2, [LuaValueType.Nil, LuaValueType.Table], arg1.Type);
+            LuaRuntimeException.BadArgument(context.State, 2, [LuaValueType.Nil, LuaValueType.Table], arg1.Type);
         }
 
         if (arg0.Metatable != null && arg0.Metatable.TryGetValue(Metamethods.Metatable, out _))
         {
-            throw new LuaRuntimeException(context.Thread, "cannot change a protected metatable");
+            throw new LuaRuntimeException(context.State, "cannot change a protected metatable");
         }
         else if (arg1.Type is LuaValueType.Nil)
         {
@@ -415,7 +415,7 @@ public sealed class BasicLibrary
 
         if (toBase != null && (toBase < 2 || toBase > 36))
         {
-            throw new LuaRuntimeException(context.Thread, "bad argument #2 to 'tonumber' (base out of range)");
+            throw new LuaRuntimeException(context.State, "bad argument #2 to 'tonumber' (base out of range)");
         }
 
         double? value = null;
@@ -577,22 +577,22 @@ public sealed class BasicLibrary
 
     public async ValueTask<int> XPCall(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
-        var frameCount = context.Thread.CallStackFrameCount;
+        var frameCount = context.State.CallStackFrameCount;
         var arg0 = context.GetArgument(0);
         var arg1 = context.GetArgument<LuaFunction>(1);
 
         try
         {
-            var stack = context.Thread.Stack;
+            var stack = context.State.Stack;
             stack.Get(context.FrameBase + 1) = arg0;
-            var count = await LuaVirtualMachine.Call(context.Access.Thread, context.FrameBase + 1, context.ReturnFrameBase + 1, cancellationToken);
+            var count = await LuaVirtualMachine.Call(context.Access.State, context.FrameBase + 1, context.ReturnFrameBase + 1, cancellationToken);
 
-            context.Thread.Stack.Get(context.ReturnFrameBase) = true;
+            context.State.Stack.Get(context.ReturnFrameBase) = true;
             return count + 1;
         }
         catch (Exception ex)
         {
-            var thread = context.Thread;
+            var thread = context.State;
             thread.PopCallStackFrameUntil(frameCount);
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -610,7 +610,7 @@ public sealed class BasicLibrary
 
             // invoke error handler
             var count = await access.RunAsync(arg1, 1, context.ReturnFrameBase + 1, cancellationToken);
-            context.Thread.Stack.Get(context.ReturnFrameBase) = false;
+            context.State.Stack.Get(context.ReturnFrameBase) = false;
             return count + 1;
         }
     }

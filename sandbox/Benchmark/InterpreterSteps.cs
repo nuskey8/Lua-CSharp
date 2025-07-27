@@ -7,7 +7,7 @@ using Lua.Standard;
 public class InterpreterSteps
 {
     string sourceText = default!;
-    LuaState state = default!;
+    LuaGlobalState globalState = default!;
     LuaClosure closure = default!;
 
     [GlobalSetup]
@@ -15,37 +15,37 @@ public class InterpreterSteps
     {
         var filePath = FileHelper.GetAbsolutePath("n-body.lua");
         sourceText = File.ReadAllText(filePath);
-        state = LuaState.Create();
-        state.OpenStandardLibraries();
-        closure = state.Load(sourceText, sourceText);
+        globalState = LuaGlobalState.Create();
+        globalState.OpenStandardLibraries();
+        closure = globalState.Load(sourceText, sourceText);
     }
 
     [IterationSetup]
     public void Setup()
     {
-        state = default!;
+        globalState = default!;
         GC.Collect();
 
-        state = LuaState.Create();
-        state.OpenStandardLibraries();
+        globalState = LuaGlobalState.Create();
+        globalState.OpenStandardLibraries();
     }
 
     [Benchmark]
     public void CreateState()
     {
-        LuaState.Create();
+        LuaGlobalState.Create();
     }
 
 
     [Benchmark]
     public LuaClosure Compile()
     {
-        return state.Load(sourceText, sourceText);
+        return globalState.Load(sourceText, sourceText);
     }
 
     [Benchmark]
     public async ValueTask RunAsync()
     {
-        await state.RootAccess.Call(closure, []);
+        await globalState.RootAccess.Call(closure, []);
     }
 }

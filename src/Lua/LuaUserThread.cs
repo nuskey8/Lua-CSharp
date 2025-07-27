@@ -2,21 +2,21 @@
 
 namespace Lua;
 
-public sealed class LuaUserThread : LuaThread, IPoolNode<LuaUserThread>
+public sealed class LuaUserThread : LuaState, IPoolNode<LuaUserThread>
 {
     static LinkedPool<LuaUserThread> pool;
     LuaUserThread? nextNode;
 
     ref LuaUserThread? IPoolNode<LuaUserThread>.NextNode => ref nextNode;
 
-    public static LuaUserThread Create(LuaThread parent)
+    public static LuaUserThread Create(LuaState parent)
     {
         if (!pool.TryPop(out var result))
         {
             result = new();
         }
 
-        result.State = parent.State;
+        result.GlobalState = parent.GlobalState;
         result.CoreData = ThreadCoreData.Create();
 
         return result;

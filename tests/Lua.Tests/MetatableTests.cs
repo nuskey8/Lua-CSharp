@@ -4,13 +4,13 @@ namespace Lua.Tests;
 
 public class MetatableTests
 {
-    LuaState state = default!;
+    LuaGlobalState globalState = default!;
 
     [OneTimeSetUp]
     public void SetUp()
     {
-        state = LuaState.Create();
-        state.OpenStandardLibraries();
+        globalState = LuaGlobalState.Create();
+        globalState.OpenStandardLibraries();
     }
 
     [Test]
@@ -35,7 +35,7 @@ setmetatable(a, metatable)
 return a + b
 ";
 
-        var result = await state.DoStringAsync(source);
+        var result = await globalState.DoStringAsync(source);
         Assert.That(result, Has.Length.EqualTo(1));
 
         var table = result[0].Read<LuaTable>();
@@ -69,7 +69,7 @@ setmetatable(a, metatable)
 return a .. b
 ";
 
-        var result = await state.DoStringAsync(source);
+        var result = await globalState.DoStringAsync(source);
         Assert.That(result, Has.Length.EqualTo(1));
 
         var table = result[0].Read<LuaTable>();
@@ -97,7 +97,7 @@ assert(a.x == nil)
 metatable.__index= function(a,b) return b end
 assert(a.x == 'x')
 ";
-        await state.DoStringAsync(source);
+        await globalState.DoStringAsync(source);
     }
 
     [Test]
@@ -118,7 +118,7 @@ a.x = 2
 assert(a.x == nil)
 assert(metatable.__newindex.x == 2)
 ";
-        await state.DoStringAsync(source);
+        await globalState.DoStringAsync(source);
     }
 
     [Test]
@@ -141,7 +141,7 @@ end
 tail(a, 3)
 assert(tail(a, 3) == 4)
 ";
-        await state.DoStringAsync(source);
+        await globalState.DoStringAsync(source);
     }
 
     [Test]
@@ -169,7 +169,7 @@ t =setmetatable({},{__call = a})
 for i in t do 
 end
 ";
-        await state.DoStringAsync(source);
+        await globalState.DoStringAsync(source);
     }
 
     [Test]
@@ -184,7 +184,7 @@ end
                      debug.sethook()
                      return t
                      """;
-        var r = await state.DoStringAsync(source);
+        var r = await globalState.DoStringAsync(source);
         Assert.That(r, Has.Length.EqualTo(1));
         Assert.That(r[0].Read<LuaTable>()[1].Read<string>(), Does.Contain("stack traceback:"));
     }
@@ -211,6 +211,6 @@ end
                      assert((b + c)== "abc")
                      assert((b .. c)== "abc")
                      """;
-        await state.DoStringAsync(source);
+        await globalState.DoStringAsync(source);
     }
 }

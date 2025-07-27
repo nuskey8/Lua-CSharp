@@ -4,24 +4,24 @@ namespace Lua.Runtime;
 
 public readonly struct LuaThreadAccess
 {
-    internal LuaThreadAccess(LuaThread thread, int version)
+    internal LuaThreadAccess(LuaState thread, int version)
     {
-        Thread = thread;
+        State = thread;
         Version = version;
     }
 
-    public readonly LuaThread Thread;
+    public readonly LuaState State;
     public readonly int Version;
 
-    public bool IsValid => Version == Thread.CurrentVersion;
+    public bool IsValid => Version == State.CurrentVersion;
 
-    public LuaState State
+    public LuaGlobalState GlobalState
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         get
         {
             ThrowIfInvalid();
-            return Thread.State;
+            return State.GlobalState;
         }
     }
 
@@ -31,18 +31,18 @@ public readonly struct LuaThreadAccess
         get
         {
             ThrowIfInvalid();
-            return Thread.Stack;
+            return State.Stack;
         }
     }
 
     public ValueTask<int> RunAsync(LuaFunction function, CancellationToken cancellationToken = default)
     {
-        return RunAsync(function, 0, Thread.Stack.Count, cancellationToken);
+        return RunAsync(function, 0, State.Stack.Count, cancellationToken);
     }
 
     public ValueTask<int> RunAsync(LuaFunction function, int argumentCount, CancellationToken cancellationToken = default)
     {
-        return RunAsync(function, argumentCount, Thread.Stack.Count - argumentCount, cancellationToken);
+        return RunAsync(function, argumentCount, State.Stack.Count - argumentCount, cancellationToken);
     }
 
     public async ValueTask<int> RunAsync(LuaFunction function, int argumentCount, int returnBase, CancellationToken cancellationToken = default)
@@ -53,8 +53,8 @@ public readonly struct LuaThreadAccess
             throw new ArgumentNullException(nameof(function));
         }
 
-        Thread.ThrowIfCancellationRequested(cancellationToken);
-        var thread = Thread;
+        State.ThrowIfCancellationRequested(cancellationToken);
+        var thread = State;
         var varArgumentCount = function.GetVariableArgumentCount(argumentCount);
         if (varArgumentCount != 0)
         {
@@ -82,7 +82,7 @@ public readonly struct LuaThreadAccess
         var callStackTop = thread.CallStackFrameCount;
         try
         {
-            if (Thread.CallOrReturnHookMask.Value != 0 && !Thread.IsInHook)
+            if (State.CallOrReturnHookMask.Value != 0 && !State.IsInHook)
             {
                 return await LuaVirtualMachine.ExecuteCallHook(context, cancellationToken);
             }
@@ -91,14 +91,14 @@ public readonly struct LuaThreadAccess
         }
         finally
         {
-            Thread.PopCallStackFrameUntil(callStackTop - 1);
+            State.PopCallStackFrameUntil(callStackTop - 1);
         }
     }
 
 
     internal CallStackFrame CreateCallStackFrame(LuaFunction function, int argumentCount, int returnBase, int callerInstructionIndex)
     {
-        var thread = Thread;
+        var thread = State;
         var varArgumentCount = function.GetVariableArgumentCount(argumentCount);
         if (varArgumentCount != 0)
         {
@@ -135,7 +135,7 @@ public readonly struct LuaThreadAccess
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void ThrowIfInvalid()
     {
-        if (Version != Thread.CurrentVersion)
+        if (Version != State.CurrentVersion)
         {
             ThrowInvalid();
         }

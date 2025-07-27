@@ -9,35 +9,35 @@ public static class LuaThreadAccessAccessExtensions
     public static ValueTask<int> DoStringAsync(this LuaThreadAccess access, string source, Memory<LuaValue> results, string? chunkName = null, CancellationToken cancellationToken = default)
     {
         access.ThrowIfInvalid();
-        var closure = access.State.Load(source, chunkName ?? source);
+        var closure = access.GlobalState.Load(source, chunkName ?? source);
         return ExecuteAsync(access, closure, results, cancellationToken);
     }
 
     public static ValueTask<LuaValue[]> DoStringAsync(this LuaThreadAccess access, string source, string? chunkName = null, CancellationToken cancellationToken = default)
     {
         access.ThrowIfInvalid();
-        var closure = access.State.Load(source, chunkName ?? source);
+        var closure = access.GlobalState.Load(source, chunkName ?? source);
         return ExecuteAsync(access, closure, cancellationToken);
     }
 
     public static ValueTask<int> ExecuteAsync(this LuaThreadAccess access, ReadOnlySpan<byte> source, Memory<LuaValue> results, string chunkName, CancellationToken cancellationToken = default)
     {
         access.ThrowIfInvalid();
-        var closure = access.State.Load(source, chunkName);
+        var closure = access.GlobalState.Load(source, chunkName);
         return ExecuteAsync(access, closure, results, cancellationToken);
     }
 
     public static ValueTask<LuaValue[]> ExecuteAsync(this LuaThreadAccess access, ReadOnlySpan<byte> source, string chunkName, CancellationToken cancellationToken = default)
     {
         access.ThrowIfInvalid();
-        var closure = access.State.Load(source, chunkName);
+        var closure = access.GlobalState.Load(source, chunkName);
         return ExecuteAsync(access, closure, cancellationToken);
     }
 
     public static async ValueTask<int> DoFileAsync(this LuaThreadAccess access, string path, Memory<LuaValue> buffer, CancellationToken cancellationToken = default)
     {
         access.ThrowIfInvalid();
-        var closure = await access.State.LoadFileAsync(path, "bt", null, cancellationToken);
+        var closure = await access.GlobalState.LoadFileAsync(path, "bt", null, cancellationToken);
         var count = await access.RunAsync(closure, 0, cancellationToken);
         using var results = access.ReadTopValues(count);
         results.AsSpan()[..Math.Min(buffer.Length, results.Length)].CopyTo(buffer.Span);
@@ -46,7 +46,7 @@ public static class LuaThreadAccessAccessExtensions
 
     public static async ValueTask<LuaValue[]> DoFileAsync(this LuaThreadAccess access, string path, CancellationToken cancellationToken = default)
     {
-        var closure = await access.State.LoadFileAsync(path, "bt", null, cancellationToken);
+        var closure = await access.GlobalState.LoadFileAsync(path, "bt", null, cancellationToken);
         var count = await access.RunAsync(closure, 0, cancellationToken);
         using var results = access.ReadTopValues(count);
         return results.AsSpan().ToArray();
@@ -108,7 +108,7 @@ public static class LuaThreadAccessAccessExtensions
         }
 
         access.ThrowIfInvalid();
-        return LuaVirtualMachine.ExecuteBinaryOperationMetaMethod(access.Thread, x, y, OpCode.Add, cancellationToken);
+        return LuaVirtualMachine.ExecuteBinaryOperationMetaMethod(access.State, x, y, OpCode.Add, cancellationToken);
     }
 
     public static ValueTask<LuaValue> Sub(this LuaThreadAccess access, LuaValue x, LuaValue y, CancellationToken cancellationToken = default)
@@ -119,7 +119,7 @@ public static class LuaThreadAccessAccessExtensions
         }
 
         access.ThrowIfInvalid();
-        return LuaVirtualMachine.ExecuteBinaryOperationMetaMethod(access.Thread, x, y, OpCode.Sub, cancellationToken);
+        return LuaVirtualMachine.ExecuteBinaryOperationMetaMethod(access.State, x, y, OpCode.Sub, cancellationToken);
     }
 
     public static ValueTask<LuaValue> Mul(this LuaThreadAccess access, LuaValue x, LuaValue y, CancellationToken cancellationToken = default)
@@ -130,7 +130,7 @@ public static class LuaThreadAccessAccessExtensions
         }
 
         access.ThrowIfInvalid();
-        return LuaVirtualMachine.ExecuteBinaryOperationMetaMethod(access.Thread, x, y, OpCode.Mul, cancellationToken);
+        return LuaVirtualMachine.ExecuteBinaryOperationMetaMethod(access.State, x, y, OpCode.Mul, cancellationToken);
     }
 
     public static ValueTask<LuaValue> Div(this LuaThreadAccess access, LuaValue x, LuaValue y, CancellationToken cancellationToken = default)
@@ -141,7 +141,7 @@ public static class LuaThreadAccessAccessExtensions
         }
 
         access.ThrowIfInvalid();
-        return LuaVirtualMachine.ExecuteBinaryOperationMetaMethod(access.Thread, x, y, OpCode.Div, cancellationToken);
+        return LuaVirtualMachine.ExecuteBinaryOperationMetaMethod(access.State, x, y, OpCode.Div, cancellationToken);
     }
 
     public static ValueTask<LuaValue> Mod(this LuaThreadAccess access, LuaValue x, LuaValue y, CancellationToken cancellationToken = default)
@@ -152,7 +152,7 @@ public static class LuaThreadAccessAccessExtensions
         }
 
         access.ThrowIfInvalid();
-        return LuaVirtualMachine.ExecuteBinaryOperationMetaMethod(access.Thread, x, y, OpCode.Mod, cancellationToken);
+        return LuaVirtualMachine.ExecuteBinaryOperationMetaMethod(access.State, x, y, OpCode.Mod, cancellationToken);
     }
 
     public static ValueTask<LuaValue> Pow(this LuaThreadAccess access, LuaValue x, LuaValue y, CancellationToken cancellationToken = default)
@@ -163,7 +163,7 @@ public static class LuaThreadAccessAccessExtensions
         }
 
         access.ThrowIfInvalid();
-        return LuaVirtualMachine.ExecuteBinaryOperationMetaMethod(access.Thread, x, y, OpCode.Pow, cancellationToken);
+        return LuaVirtualMachine.ExecuteBinaryOperationMetaMethod(access.State, x, y, OpCode.Pow, cancellationToken);
     }
 
 
@@ -175,7 +175,7 @@ public static class LuaThreadAccessAccessExtensions
         }
 
         access.ThrowIfInvalid();
-        return LuaVirtualMachine.ExecuteUnaryOperationMetaMethod(access.Thread, value, OpCode.Unm, cancellationToken);
+        return LuaVirtualMachine.ExecuteUnaryOperationMetaMethod(access.State, value, OpCode.Unm, cancellationToken);
     }
 
     public static ValueTask<LuaValue> Len(this LuaThreadAccess access, LuaValue value, CancellationToken cancellationToken = default)
@@ -191,7 +191,7 @@ public static class LuaThreadAccessAccessExtensions
         }
 
         access.ThrowIfInvalid();
-        return LuaVirtualMachine.ExecuteUnaryOperationMetaMethod(access.Thread, value, OpCode.Len, cancellationToken);
+        return LuaVirtualMachine.ExecuteUnaryOperationMetaMethod(access.State, value, OpCode.Len, cancellationToken);
     }
 
 
@@ -209,7 +209,7 @@ public static class LuaThreadAccessAccessExtensions
         }
 
         access.ThrowIfInvalid();
-        return LuaVirtualMachine.ExecuteCompareOperationMetaMethod(access.Thread, x, y, OpCode.Lt, cancellationToken);
+        return LuaVirtualMachine.ExecuteCompareOperationMetaMethod(access.State, x, y, OpCode.Lt, cancellationToken);
     }
 
     public static ValueTask<bool> LessThanOrEquals(this LuaThreadAccess access, LuaValue x, LuaValue y, CancellationToken cancellationToken = default)
@@ -226,7 +226,7 @@ public static class LuaThreadAccessAccessExtensions
         }
 
         access.ThrowIfInvalid();
-        return LuaVirtualMachine.ExecuteCompareOperationMetaMethod(access.Thread, x, y, OpCode.Le, cancellationToken);
+        return LuaVirtualMachine.ExecuteCompareOperationMetaMethod(access.State, x, y, OpCode.Le, cancellationToken);
     }
 
     public static ValueTask<bool> Equals(this LuaThreadAccess access, LuaValue x, LuaValue y, CancellationToken cancellationToken = default)
@@ -237,7 +237,7 @@ public static class LuaThreadAccessAccessExtensions
         }
 
         access.ThrowIfInvalid();
-        return LuaVirtualMachine.ExecuteCompareOperationMetaMethod(access.Thread, x, y, OpCode.Eq, cancellationToken);
+        return LuaVirtualMachine.ExecuteCompareOperationMetaMethod(access.State, x, y, OpCode.Eq, cancellationToken);
     }
 
 
@@ -252,7 +252,7 @@ public static class LuaThreadAccessAccessExtensions
         }
 
         access.ThrowIfInvalid();
-        return await LuaVirtualMachine.ExecuteGetTableSlowPath(access.Thread, table, key, cancellationToken);
+        return await LuaVirtualMachine.ExecuteGetTableSlowPath(access.State, table, key, cancellationToken);
     }
 
     public static ValueTask SetTable(this LuaThreadAccess access, LuaValue table, LuaValue key, LuaValue value, CancellationToken cancellationToken = default)
@@ -263,7 +263,7 @@ public static class LuaThreadAccessAccessExtensions
         {
             if (double.IsNaN(numB))
             {
-                throw new LuaRuntimeException(access.Thread, "table index is NaN");
+                throw new LuaRuntimeException(access.State, "table index is NaN");
             }
         }
 
@@ -278,7 +278,7 @@ public static class LuaThreadAccessAccessExtensions
             }
         }
 
-        return LuaVirtualMachine.ExecuteSetTableSlowPath(access.Thread, table, key, value, cancellationToken);
+        return LuaVirtualMachine.ExecuteSetTableSlowPath(access.State, table, key, value, cancellationToken);
     }
 
     public static ValueTask<LuaValue> Concat(this LuaThreadAccess access, ReadOnlySpan<LuaValue> values, CancellationToken cancellationToken = default)
@@ -291,19 +291,19 @@ public static class LuaThreadAccessAccessExtensions
     public static ValueTask<LuaValue> Concat(this LuaThreadAccess access, int concatCount, CancellationToken cancellationToken = default)
     {
         access.ThrowIfInvalid();
-        return LuaVirtualMachine.Concat(access.Thread, concatCount, cancellationToken);
+        return LuaVirtualMachine.Concat(access.State, concatCount, cancellationToken);
     }
 
     public static ValueTask<int> Call(this LuaThreadAccess access, int funcIndex, int returnBase, CancellationToken cancellationToken = default)
     {
         access.ThrowIfInvalid();
-        return LuaVirtualMachine.Call(access.Thread, funcIndex, returnBase, cancellationToken);
+        return LuaVirtualMachine.Call(access.State, funcIndex, returnBase, cancellationToken);
     }
 
     public static ValueTask<LuaValue[]> Call(this LuaThreadAccess access, LuaValue function, ReadOnlySpan<LuaValue> arguments, CancellationToken cancellationToken = default)
     {
         access.ThrowIfInvalid();
-        var thread = access.Thread;
+        var thread = access.State;
         var funcIndex = thread.Stack.Count;
         thread.Stack.Push(function);
         thread.Stack.PushRange(arguments);
@@ -311,7 +311,7 @@ public static class LuaThreadAccessAccessExtensions
 
         static async ValueTask<LuaValue[]> Impl(LuaThreadAccess access, int funcIndex, CancellationToken cancellationToken)
         {
-            await LuaVirtualMachine.Call(access.Thread, funcIndex, funcIndex, cancellationToken);
+            await LuaVirtualMachine.Call(access.State, funcIndex, funcIndex, cancellationToken);
             var count = access.Stack.Count - funcIndex;
             using var results = access.ReadTopValues(count);
             return results.AsSpan().ToArray();

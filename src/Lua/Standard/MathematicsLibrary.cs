@@ -206,7 +206,7 @@ public sealed class MathematicsLibrary
 
     public ValueTask<int> Random(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
-        var rand = context.State.Environment[RandomInstanceKey].Read<RandomUserData>().Random;
+        var rand = context.GlobalState.Environment[RandomInstanceKey].Read<RandomUserData>().Random;
 
         if (context.ArgumentCount == 0)
         {
@@ -228,7 +228,7 @@ public sealed class MathematicsLibrary
     public ValueTask<int> RandomSeed(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
         var arg0 = context.GetArgument<double>(0);
-        context.State.Environment[RandomInstanceKey] = new(new RandomUserData(new((int)BitConverter.DoubleToInt64Bits(arg0))));
+        context.GlobalState.Environment[RandomInstanceKey] = new(new RandomUserData(new((int)BitConverter.DoubleToInt64Bits(arg0))));
         return new(context.Return());
     }
 

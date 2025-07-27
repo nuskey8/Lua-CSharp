@@ -18,7 +18,7 @@ static class Bit32Helper
         return (int)(long)Math.IEEERemainder(d, Bit32);
     }
 
-    public static void ValidateFieldAndWidth(LuaThread thread, string functionName, int argumentId, int field, int width)
+    public static void ValidateFieldAndWidth(LuaState thread, string functionName, int argumentId, int field, int width)
     {
         if (field > 31 || field + width > 32)
             throw new LuaRuntimeException(thread, "trying to access non-existent bits");

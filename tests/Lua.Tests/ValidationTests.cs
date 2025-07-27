@@ -8,7 +8,7 @@ public class ValidationTests
     [Test]
     public async Task Test_Simple()
     {
-        var state = LuaState.Create();
+        var state = LuaGlobalState.Create();
         state.OpenStandardLibraries();
         LuaThreadAccess innerAccess = default!;
         state.Environment["wait"] = new LuaFunction("wait",
@@ -42,7 +42,7 @@ public class ValidationTests
     [Test]
     public async Task Test_Recursive()
     {
-        var state = LuaState.Create();
+        var state = LuaGlobalState.Create();
         state.OpenStandardLibraries();
         state.Environment["dostring"] = new LuaFunction("dostring",
             async (context, ct) => context.Return(await context.Access.DoStringAsync(context.GetArgument<string>(0), null, ct)));

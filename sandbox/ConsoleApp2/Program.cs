@@ -3,16 +3,16 @@ using Lua;
 using Lua.Standard;
 using System;
 
-var state = LuaState.Create();
+var state = LuaGlobalState.Create();
 state.OpenStandardLibraries();
 {
     var closure = state.Load("return function (a,b,...)  print('a : '..a..' b :'..'args : ',...) end", "@simple");
     using var threadLease = state.MainThread.RentUserThread();
-    var access = threadLease.Thread.RootAccess;
+    var access = threadLease.State.RootAccess;
     {
         var count = await access.RunAsync(closure, 0);
         var results = access.ReadTopValues(count);
-        for (int i = 0; i < results.Length; i++)
+        for (var i = 0; i < results.Length; i++)
         {
             Console.WriteLine(results[i]);
         }
@@ -22,7 +22,7 @@ state.OpenStandardLibraries();
         access.Push("hello", "world", 1, 2, 3);
         count = await access.RunAsync(f, 5);
         results = access.ReadTopValues(count);
-        for (int i = 0; i < results.Length; i++)
+        for (var i = 0; i < results.Length; i++)
         {
             Console.WriteLine(results[i]);
         }
@@ -49,7 +49,7 @@ state.OpenStandardLibraries();
         var stack = new LuaStack();
         stack.PushRange("a", "b", "c", "d", "e");
 
-        for (int i = 0; coroutine.CanResume; i++)
+        for (var i = 0; coroutine.CanResume; i++)
         {
             if (i != 0)
             {
@@ -59,7 +59,7 @@ state.OpenStandardLibraries();
 
             await coroutine.ResumeAsync(stack);
             Console.Write("In C#:\t");
-            for (int j = 1; j < stack.Count; j++)
+            for (var j = 1; j < stack.Count; j++)
             {
                 Console.Write(stack[j]);
                 Console.Write('\t');

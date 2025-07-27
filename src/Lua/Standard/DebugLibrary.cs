@@ -35,26 +35,26 @@ public class DebugLibrary
     public readonly LibraryFunction[] Functions;
 
 
-    static LuaThread GetLuaThread(in LuaFunctionExecutionContext context, out int argOffset)
+    static LuaState GetLuaThread(in LuaFunctionExecutionContext context, out int argOffset)
     {
         if (context.ArgumentCount < 1)
         {
             argOffset = 0;
-            return context.Thread;
+            return context.State;
         }
 
-        if (context.GetArgument(0).TryRead<LuaThread>(out var thread))
+        if (context.GetArgument(0).TryRead<LuaState>(out var thread))
         {
             argOffset = 1;
             return thread;
         }
 
         argOffset = 0;
-        return context.Thread;
+        return context.State;
     }
 
 
-    static ref LuaValue FindLocal(LuaThread thread, int level, int index, out string? name)
+    static ref LuaValue FindLocal(LuaState thread, int level, int index, out string? name)
     {
         if (index == 0)
         {
@@ -270,7 +270,7 @@ public class DebugLibrary
     {
         var arg0 = context.GetArgument(0);
 
-        if (context.State.TryGetMetatable(arg0, out var table))
+        if (context.GlobalState.TryGetMetatable(arg0, out var table))
         {
             return new(context.Return(table));
         }
@@ -287,10 +287,10 @@ public class DebugLibrary
 
         if (arg1.Type is not (LuaValueType.Nil or LuaValueType.Table))
         {
-            LuaRuntimeException.BadArgument(context.Thread, 2, [LuaValueType.Nil, LuaValueType.Table], arg1.Type);
+            LuaRuntimeException.BadArgument(context.State, 2, [LuaValueType.Nil, LuaValueType.Table], arg1.Type);
         }
 
-        context.State.SetMetatable(arg0, arg1.UnsafeRead<LuaTable>());
+        context.GlobalState.SetMetatable(arg0, arg1.UnsafeRead<LuaTable>());
 
         return new(context.Return(arg0));
     }
@@ -364,12 +364,12 @@ public class DebugLibrary
 
         var skipCount = Math.Min(Math.Max(level - 1, 0), callStack.Length - 1);
         var frames = callStack[..^skipCount];
-        return new(context.Return(Runtime.Traceback.CreateTracebackMessage(context.State, frames, message, level == 1 ? 1 : 0)));
+        return new(context.Return(Runtime.Traceback.CreateTracebackMessage(context.GlobalState, frames, message, level == 1 ? 1 : 0)));
     }
 
     public ValueTask<int> GetRegistry(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
-        return new(context.Return(context.State.Registry));
+        return new(context.Return(context.GlobalState.Registry));
     }
 
     public ValueTask<int> UpValueId(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
@@ -431,15 +431,15 @@ public class DebugLibrary
             return 0;
         }
 
-        if (thread.IsReturnHookEnabled && context.Thread == thread)
+        if (thread.IsReturnHookEnabled && context.State == thread)
         {
             var stack = thread.Stack;
             var top = stack.Count;
             stack.Push("return");
             stack.Push(LuaValue.Nil);
-            context.Thread.IsInHook = true;
-            var frame = context.Thread.CurrentAccess.CreateCallStackFrame(hook, 2, top, 0);
-            var access = context.Thread.PushCallStackFrame(frame);
+            context.State.IsInHook = true;
+            var frame = context.State.CurrentAccess.CreateCallStackFrame(hook, 2, top, 0);
+            var access = context.State.PushCallStackFrame(frame);
             LuaFunctionExecutionContext funcContext = new() { Access = access, ArgumentCount = stack.Count - frame.Base, ReturnFrameBase = frame.ReturnBase };
             try
             {
@@ -447,8 +447,8 @@ public class DebugLibrary
             }
             finally
             {
-                context.Thread.IsInHook = false;
-                context.Thread.PopCallStackFrameWithStackPop();
+                context.State.IsInHook = false;
+                context.State.PopCallStackFrameWithStackPop();
             }
         }
 
@@ -510,7 +510,7 @@ public class DebugLibrary
             context.ThrowBadArgument(argOffset, "function or level expected");
         }
 
-        using var debug = LuaDebug.Create(context.State, previousFrame, currentFrame, functionToInspect, pc, what, out var isValid);
+        using var debug = LuaDebug.Create(context.GlobalState, previousFrame, currentFrame, functionToInspect, pc, what, out var isValid);
         if (!isValid)
         {
             context.ThrowBadArgument(argOffset + 1, "invalid option");

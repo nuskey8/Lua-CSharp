@@ -6,14 +6,14 @@ using System.Runtime.CompilerServices;
 
 namespace Lua;
 
-public sealed class LuaCoroutine : LuaThread, IValueTaskSource<LuaCoroutine.YieldContext>, IValueTaskSource<LuaCoroutine.ResumeContext>, IPoolNode<LuaCoroutine>
+public sealed class LuaCoroutine : LuaState, IValueTaskSource<LuaCoroutine.YieldContext>, IValueTaskSource<LuaCoroutine.ResumeContext>, IPoolNode<LuaCoroutine>
 {
     static LinkedPool<LuaCoroutine> pool;
     LuaCoroutine? nextNode;
 
     ref LuaCoroutine? IPoolNode<LuaCoroutine>.NextNode => ref nextNode;
 
-    public static LuaCoroutine Create(LuaThread parent, LuaFunction function, bool isProtectedMode)
+    public static LuaCoroutine Create(LuaState parent, LuaFunction function, bool isProtectedMode)
     {
         if (!pool.TryPop(out var result))
         {
@@ -55,10 +55,10 @@ public sealed class LuaCoroutine : LuaThread, IValueTaskSource<LuaCoroutine.Yiel
     ManualResetValueTaskSourceCore<YieldContext> yield;
     Traceback? traceback;
 
-    internal void Init(LuaThread parent, LuaFunction function, bool isProtectedMode)
+    internal void Init(LuaState parent, LuaFunction function, bool isProtectedMode)
     {
         CoreData = ThreadCoreData.Create();
-        State = parent.State;
+        GlobalState = parent.GlobalState;
         IsProtectedMode = isProtectedMode;
         Function = function;
     }
@@ -87,18 +87,18 @@ public sealed class LuaCoroutine : LuaThread, IValueTaskSource<LuaCoroutine.Yiel
 
     public override ValueTask<int> ResumeAsync(LuaFunctionExecutionContext context, CancellationToken cancellationToken = default)
     {
-        return ResumeAsyncCore(context.Thread.Stack, context.ArgumentCount, context.ReturnFrameBase, context.Thread, cancellationToken);
+        return ResumeAsyncCore(context.State.Stack, context.ArgumentCount, context.ReturnFrameBase, context.State, cancellationToken);
     }
 
 
     [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder<>))]
-    async ValueTask<int> ResumeAsyncCore(LuaStack stack, int argCount, int returnBase, LuaThread? baseThread, CancellationToken cancellationToken = default)
+    async ValueTask<int> ResumeAsyncCore(LuaStack stack, int argCount, int returnBase, LuaState? baseThread, CancellationToken cancellationToken = default)
     {
         if (baseThread != null)
         {
             baseThread.UnsafeSetStatus(LuaThreadStatus.Normal);
 
-            baseThread.State.ThreadStack.Push(this);
+            baseThread.GlobalState.ThreadStack.Push(this);
         }
 
         try
@@ -219,7 +219,7 @@ public sealed class LuaCoroutine : LuaThread, IValueTaskSource<LuaCoroutine.Yiel
         {
             if (baseThread != null)
             {
-                baseThread.State.ThreadStack.Pop();
+                baseThread.GlobalState.ThreadStack.Pop();
                 baseThread.UnsafeSetStatus(LuaThreadStatus.Running);
             }
         }
@@ -232,11 +232,11 @@ public sealed class LuaCoroutine : LuaThread, IValueTaskSource<LuaCoroutine.Yiel
 
     public override ValueTask<int> YieldAsync(LuaFunctionExecutionContext context, CancellationToken cancellationToken = default)
     {
-        return YieldAsyncCore(context.Thread.Stack, context.ArgumentCount, context.ReturnFrameBase, context.Thread, cancellationToken);
+        return YieldAsyncCore(context.State.Stack, context.ArgumentCount, context.ReturnFrameBase, context.State, cancellationToken);
     }
 
     [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder<>))]
-    async ValueTask<int> YieldAsyncCore(LuaStack stack, int argCount, int returnBase, LuaThread? baseThread, CancellationToken cancellationToken = default)
+    async ValueTask<int> YieldAsyncCore(LuaStack stack, int argCount, int returnBase, LuaState? baseThread, CancellationToken cancellationToken = default)
     {
         if (Volatile.Read(ref status) != (byte)LuaThreadStatus.Running)
         {

@@ -13,7 +13,7 @@ public class HookedBenchmark
     {
         core = new();
         core.Setup("hooked.lua");
-        core.LuaCSharpState.OpenStandardLibraries();
+        core.LuaGlobalCSharpState.OpenStandardLibraries();
     }
 
     [IterationCleanup]
@@ -34,7 +34,7 @@ public class HookedBenchmark
     [Benchmark(Description = "Lua-CSharp (DoString)")]
     public async Task<LuaValue> Benchmark_LuaCSharp_String()
     {
-        await core.LuaCSharpState.DoStringAsync(core.SourceText, buffer);
+        await core.LuaGlobalCSharpState.DoStringAsync(core.SourceText, buffer);
         return buffer[0];
     }
 }
