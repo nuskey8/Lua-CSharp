@@ -6,18 +6,25 @@ namespace Lua.Runtime;
 public class Traceback(LuaState state, ReadOnlySpan<CallStackFrame> stackFrames)
 {
     public LuaState State => state;
+
     public LuaFunction RootFunc => StackFrames[0].Function;
+
     readonly CallStackFrame[] stackFramesArray = stackFrames.ToArray();
+
     public ReadOnlySpan<CallStackFrame> StackFrames => stackFramesArray;
 
     internal static void WriteLastLuaTrace(ReadOnlySpan<CallStackFrame> stackFrames, ref PooledList<char> list, int level = 1)
     {
-        if (level < 1) return;
+        if (level < 1)
+        {
+            return;
+        }
+
         var intFormatBuffer = (stackalloc char[15]);
         var shortSourceBuffer = (stackalloc char[59]);
         for (var index = stackFrames.Length - level; index >= 1; index--)
         {
-            LuaFunction lastFunc = stackFrames[index - 1].Function;
+            var lastFunc = stackFrames[index - 1].Function;
             var frame = stackFrames[index];
             if (!frame.IsTailCall && lastFunc is LuaClosure closure)
             {
@@ -53,7 +60,7 @@ public class Traceback(LuaState state, ReadOnlySpan<CallStackFrame> stackFrames)
             var stackFrames = StackFrames;
             for (var index = stackFrames.Length - 1; index >= 1; index--)
             {
-                LuaFunction lastFunc = stackFrames[index - 1].Function;
+                var lastFunc = stackFrames[index - 1].Function;
                 var frame = stackFrames[index];
                 if (!frame.IsTailCall && lastFunc is LuaClosure closure)
                 {
@@ -80,7 +87,7 @@ public class Traceback(LuaState state, ReadOnlySpan<CallStackFrame> stackFrames)
             var stackFrames = StackFrames;
             for (var index = 1; index <= stackFrames.Length; index++)
             {
-                LuaFunction lastFunc = stackFrames[index - 1].Function;
+                var lastFunc = stackFrames[index - 1].Function;
                 var frame = stackFrames[index];
                 if (!frame.IsTailCall && lastFunc is LuaClosure closure)
                 {
@@ -134,7 +141,7 @@ public class Traceback(LuaState state, ReadOnlySpan<CallStackFrame> stackFrames)
 
         for (var index = stackFrames.Length - 1; index >= 0; index--)
         {
-            LuaFunction lastFunc = stackFrames[index].Function;
+            var lastFunc = stackFrames[index].Function;
             if (lastFunc is not null and not LuaClosure)
             {
                 if (1 <= skipCount--)

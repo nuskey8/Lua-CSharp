@@ -49,10 +49,15 @@ public class LuaCompileException(string chunkName, SourcePosition position, int 
 {
     public string ChunkName { get; } = chunkName;
     public int OffSet { get; } = offset;
+
     public SourcePosition Position => position;
+
     public string MainMessage => message;
+
     public string? NearToken => nearToken;
+
     public string MessageWithNearToken => base.Message;
+
     public override string Message => $"{ChunkName}:{Position.Line}: {base.Message}";
 
     static string GetMessageWithNearToken(string message, string? nearToken)
@@ -68,7 +73,7 @@ public class LuaCompileException(string chunkName, SourcePosition position, int 
 
 public class LuaUnDumpException(string message) : Exception(message);
 
-internal class LuaStackOverflowException() : Exception("stack overflow")
+class LuaStackOverflowException() : Exception("stack overflow")
 {
     public override string ToString()
     {
@@ -76,7 +81,7 @@ internal class LuaStackOverflowException() : Exception("stack overflow")
     }
 }
 
-internal interface ILuaTracebackBuildable
+interface ILuaTracebackBuildable
 {
     Traceback? BuildOrGet();
 }
@@ -153,8 +158,8 @@ public class LuaRuntimeException : Exception, ILuaTracebackBuildable
         var luaValueA = regA < 255 ? thread.Stack[caller.Base + regA] : ((LuaClosure)caller.Function).Proto.Constants[regA - 256];
         var luaValueB = regB < 255 ? thread.Stack[caller.Base + regB] : ((LuaClosure)caller.Function).Proto.Constants[regB - 256];
         var function = caller.Function;
-        var tA = LuaDebug.GetName(((LuaClosure)function).Proto, lastPc, regA, out string? nameA);
-        var tB = LuaDebug.GetName(((LuaClosure)function).Proto, lastPc, regB, out string? nameB);
+        var tA = LuaDebug.GetName(((LuaClosure)function).Proto, lastPc, regA, out var nameA);
+        var tB = LuaDebug.GetName(((LuaClosure)function).Proto, lastPc, regB, out var nameB);
 
         using var builder = new PooledList<char>(64);
         builder.Clear();
@@ -184,7 +189,7 @@ public class LuaRuntimeException : Exception, ILuaTracebackBuildable
         var caller = thread.GetCurrentFrame();
         var luaValue = reg < 255 ? thread.Stack[caller.Base + reg] : ((LuaClosure)caller.Function).Proto.Constants[reg - 256];
         var function = caller.Function;
-        var t = LuaDebug.GetName(((LuaClosure)function).Proto, lastPc, reg, out string? name);
+        var t = LuaDebug.GetName(((LuaClosure)function).Proto, lastPc, reg, out var name);
 
         using var builder = new PooledList<char>(64);
         builder.Clear();
@@ -320,12 +325,20 @@ public class LuaRuntimeException : Exception, ILuaTracebackBuildable
     [MethodImpl(MethodImplOptions.NoInlining)]
     Traceback? ILuaTracebackBuildable.BuildOrGet()
     {
-        if (luaTraceback != null) return luaTraceback;
+        if (luaTraceback != null)
+        {
+            return luaTraceback;
+        }
+
         if (Thread != null)
         {
             var callStack = Thread.ExceptionTrace.AsSpan();
-            if (callStack.IsEmpty) return null;
-            luaTraceback = new Traceback(Thread.State, callStack);
+            if (callStack.IsEmpty)
+            {
+                return null;
+            }
+
+            luaTraceback = new(Thread.State, callStack);
             Thread.ExceptionTrace.Clear();
             Thread = null;
         }
@@ -398,7 +411,11 @@ public class LuaRuntimeException : Exception, ILuaTracebackBuildable
     {
         get
         {
-            if (InnerException != null) return InnerException.Message;
+            if (InnerException != null)
+            {
+                return InnerException.Message;
+            }
+
             if (LuaTraceback == null)
             {
                 return ErrorObject.ToString();
@@ -468,13 +485,20 @@ public sealed class LuaCanceledException : OperationCanceledException, ILuaTrace
     [MethodImpl(MethodImplOptions.NoInlining)]
     Traceback? ILuaTracebackBuildable.BuildOrGet()
     {
-        if (luaTraceback != null) return luaTraceback;
+        if (luaTraceback != null)
+        {
+            return luaTraceback;
+        }
 
         if (Thread != null)
         {
             var callStack = Thread.ExceptionTrace.AsSpan();
-            if (callStack.IsEmpty) return null;
-            luaTraceback = new Traceback(Thread.State, callStack);
+            if (callStack.IsEmpty)
+            {
+                return null;
+            }
+
+            luaTraceback = new(Thread.State, callStack);
             Thread.ExceptionTrace.Clear();
             Thread = null!;
         }

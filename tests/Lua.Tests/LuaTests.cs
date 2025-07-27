@@ -47,7 +47,7 @@ public class LuaTests
             }
 
             var line = luaTraceback.FirstLine;
-            throw new Exception($"{path}:{line} \n{e.InnerException}\n {e}");
+            throw new($"{path}:{line} \n{e.InnerException}\n {e}");
         }
     }
 }

@@ -2,7 +2,7 @@ using System.Runtime.CompilerServices;
 
 namespace Lua.Standard.Internal;
 
-internal static class Bit32Helper
+static class Bit32Helper
 {
     static readonly double Bit32 = 4294967296;
 
@@ -20,9 +20,8 @@ internal static class Bit32Helper
 
     public static void ValidateFieldAndWidth(LuaThread thread, string functionName, int argumentId, int field, int width)
     {
-        if (field > 31 || (field + width) > 32)
+        if (field > 31 || field + width > 32)
             throw new LuaRuntimeException(thread, "trying to access non-existent bits");
-
         if (field < 0)
             throw new LuaRuntimeException(thread, $"bad argument #{argumentId} to '{functionName}' (field cannot be negative)");
 

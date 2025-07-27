@@ -17,7 +17,10 @@ public class AbstractFileTests
             }
 
             if (mode != LuaFileOpenMode.Read)
+            {
                 throw new IOException($"File {path} not opened in read mode");
+            }
+
             return new(ILuaStream.CreateFromMemory(value.AsMemory()));
         }
     }

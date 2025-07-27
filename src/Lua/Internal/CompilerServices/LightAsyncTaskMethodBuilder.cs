@@ -35,7 +35,7 @@ using System.Security;
 namespace Lua.Internal.CompilerServices;
 
 [StructLayout(LayoutKind.Auto)]
-internal struct LightAsyncValueTaskMethodBuilder
+struct LightAsyncValueTaskMethodBuilder
 {
     IStateMachineRunnerPromise? runnerPromise;
     Exception? ex;
@@ -141,7 +141,7 @@ internal struct LightAsyncValueTaskMethodBuilder
 }
 
 [StructLayout(LayoutKind.Auto)]
-internal struct LightAsyncValueTaskMethodBuilder<T>
+struct LightAsyncValueTaskMethodBuilder<T>
 {
     IStateMachineRunnerPromise<T>? runnerPromise;
     Exception? ex;

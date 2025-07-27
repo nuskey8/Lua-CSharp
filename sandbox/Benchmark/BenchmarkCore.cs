@@ -18,7 +18,7 @@ public class BenchmarkCore : IDisposable
     public void Setup(string fileName)
     {
         // moonsharp
-        moonSharpState = new Script();
+        moonSharpState = new();
         Script.WarmUp();
 
         // NLua

@@ -10,11 +10,12 @@ public sealed class LuaCoroutine : LuaThread, IValueTaskSource<LuaCoroutine.Yiel
 {
     static LinkedPool<LuaCoroutine> pool;
     LuaCoroutine? nextNode;
+
     ref LuaCoroutine? IPoolNode<LuaCoroutine>.NextNode => ref nextNode;
 
     public static LuaCoroutine Create(LuaThread parent, LuaFunction function, bool isProtectedMode)
     {
-        if (!pool.TryPop(out LuaCoroutine result))
+        if (!pool.TryPop(out var result))
         {
             result = new();
         }
@@ -42,6 +43,7 @@ public sealed class LuaCoroutine : LuaThread, IValueTaskSource<LuaCoroutine.Yiel
     readonly struct ResumeContext(LuaStack? stack, int argCount)
     {
         public ReadOnlySpan<LuaValue> Results => stack!.AsSpan()[^argCount..];
+
         public bool IsDead => stack == null;
     }
 
@@ -61,7 +63,10 @@ public sealed class LuaCoroutine : LuaThread, IValueTaskSource<LuaCoroutine.Yiel
         Function = function;
     }
 
-    public override LuaThreadStatus GetStatus() => (LuaThreadStatus)status;
+    public override LuaThreadStatus GetStatus()
+    {
+        return (LuaThreadStatus)status;
+    }
 
     public override void UnsafeSetStatus(LuaThreadStatus status)
     {
@@ -70,6 +75,7 @@ public sealed class LuaCoroutine : LuaThread, IValueTaskSource<LuaCoroutine.Yiel
 
     public bool IsProtectedMode { get; private set; }
     public LuaFunction Function { get; private set; } = null!;
+
     internal Traceback? LuaTraceback => traceback;
 
     public bool CanResume => status == (byte)LuaThreadStatus.Suspended;
@@ -135,7 +141,7 @@ public sealed class LuaCoroutine : LuaThread, IValueTaskSource<LuaCoroutine.Yiel
                     }
             }
 
-            var resumeTask = new ValueTask<ResumeContext>(this, resume.Version);
+            ValueTask<ResumeContext> resumeTask = new(this, resume.Version);
 
             CancellationTokenRegistration registration = default;
             if (cancellationToken.CanBeCanceled)
@@ -157,7 +163,7 @@ public sealed class LuaCoroutine : LuaThread, IValueTaskSource<LuaCoroutine.Yiel
                     Volatile.Write(ref isFirstCall, false);
                     if (!functionTask.IsCompleted)
                     {
-                        functionTask.GetAwaiter().OnCompleted(() => this.resume.SetResult(default));
+                        functionTask.GetAwaiter().OnCompleted(() => resume.SetResult(default));
                     }
                 }
 
@@ -264,7 +270,7 @@ public sealed class LuaCoroutine : LuaThread, IValueTaskSource<LuaCoroutine.Yiel
             var result = await new ValueTask<YieldContext>(this, yield.Version);
             stack.PopUntil(returnBase);
             stack.PushRange(result.Results);
-            return (result.Results).Length;
+            return result.Results.Length;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

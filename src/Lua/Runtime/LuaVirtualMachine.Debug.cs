@@ -24,7 +24,7 @@ public static partial class LuaVirtualMachine
 
         static async ValueTask<int> Impl(VirtualMachineExecutionContext context)
         {
-            bool countHookIsDone = false;
+            var countHookIsDone = false;
             var pc = context.Pc;
             var prototype = context.Prototype;
             if (context.Thread.HookCount == 0)
@@ -40,7 +40,7 @@ public static partial class LuaVirtualMachine
                 context.Thread.IsInHook = true;
                 var frame = context.Thread.CurrentAccess.CreateCallStackFrame(hook, 2, top, pc);
                 var access = context.Thread.PushCallStackFrame(frame);
-                var funcContext = new LuaFunctionExecutionContext { Access = access, ArgumentCount = stack.Count - frame.Base, ReturnFrameBase = frame.ReturnBase };
+                LuaFunctionExecutionContext funcContext = new() { Access = access, ArgumentCount = stack.Count - frame.Base, ReturnFrameBase = frame.ReturnBase };
                 await hook.Func(funcContext, context.CancellationToken);
                 context.Thread.IsInHook = false;
 
@@ -69,7 +69,7 @@ public static partial class LuaVirtualMachine
                     context.Thread.IsInHook = true;
                     var frame = context.Thread.CurrentAccess.CreateCallStackFrame(hook, 2, top, pc);
                     var access = context.Thread.PushCallStackFrame(frame);
-                    var funcContext = new LuaFunctionExecutionContext { Access = access, ArgumentCount = stack.Count - frame.Base, ReturnFrameBase = frame.ReturnBase };
+                    LuaFunctionExecutionContext funcContext = new() { Access = access, ArgumentCount = stack.Count - frame.Base, ReturnFrameBase = frame.ReturnBase };
                     try
                     {
                         await hook.Func(funcContext, context.CancellationToken);
@@ -109,13 +109,13 @@ public static partial class LuaVirtualMachine
         if (context.Thread.IsCallHookEnabled)
         {
             var top = stack.Count;
-            stack.Push((isTailCall ? "tail call" : "call"));
+            stack.Push(isTailCall ? "tail call" : "call");
 
             stack.Push(LuaValue.Nil);
             context.Thread.IsInHook = true;
             var frame = context.Thread.CurrentAccess.CreateCallStackFrame(hook, 2, top, 0);
             var access = context.Thread.PushCallStackFrame(frame);
-            var funcContext = new LuaFunctionExecutionContext { Access = access, ArgumentCount = stack.Count - frame.Base, ReturnFrameBase = frame.ReturnBase };
+            LuaFunctionExecutionContext funcContext = new() { Access = access, ArgumentCount = stack.Count - frame.Base, ReturnFrameBase = frame.ReturnBase };
             try
             {
                 await hook.Func(funcContext, cancellationToken);
@@ -131,7 +131,7 @@ public static partial class LuaVirtualMachine
 
         {
             var frame = context.Thread.GetCurrentFrame();
-            var task = frame.Function.Func(new() { Access = context.Thread.CurrentAccess, ArgumentCount = argCount, ReturnFrameBase = frame.ReturnBase, }, cancellationToken);
+            var task = frame.Function.Func(new() { Access = context.Thread.CurrentAccess, ArgumentCount = argCount, ReturnFrameBase = frame.ReturnBase }, cancellationToken);
             var r = await task;
             if (isTailCall || !context.Thread.IsReturnHookEnabled)
             {
@@ -145,7 +145,7 @@ public static partial class LuaVirtualMachine
             context.Thread.IsInHook = true;
             frame = context.Thread.CurrentAccess.CreateCallStackFrame(hook, 2, top, 0);
             var access = context.Thread.PushCallStackFrame(frame);
-            var funcContext = new LuaFunctionExecutionContext { Access = access, ArgumentCount = stack.Count - frame.Base, ReturnFrameBase = frame.ReturnBase };
+            LuaFunctionExecutionContext funcContext = new() { Access = access, ArgumentCount = stack.Count - frame.Base, ReturnFrameBase = frame.ReturnBase };
             try
             {
                 context.Thread.IsInHook = true;

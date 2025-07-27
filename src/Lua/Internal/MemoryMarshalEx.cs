@@ -3,7 +3,7 @@ using System.Runtime.InteropServices;
 
 namespace Lua.Internal;
 
-internal static class MemoryMarshalEx
+static class MemoryMarshalEx
 {
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static ref T UnsafeElementAt<T>(T[] array, int index)

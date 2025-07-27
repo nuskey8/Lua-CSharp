@@ -17,13 +17,13 @@ public class CompositeLoaderFileSystem(ILuaFileLoader[] loaders, ILuaFileSystem?
         return new(loaders);
     }
 
-    private (int index, string path)? cached;
+    (int index, string path)? cached;
 
     public bool IsReadable(string path)
     {
-        for (int index = 0; index < loaders.Length; index++)
+        for (var index = 0; index < loaders.Length; index++)
         {
-            ILuaFileLoader? loader = loaders[index];
+            var loader = loaders[index];
             if (loader.Exists(path))
             {
                 cached = (index, path);
@@ -50,8 +50,11 @@ public class CompositeLoaderFileSystem(ILuaFileLoader[] loaders, ILuaFileSystem?
                 if (cachedValue.index < loaders.Length)
                 {
                     if (mode.CanWrite())
+                    {
                         throw new NotSupportedException("Cannot write to a file opened with a loader.");
-                    return (await loaders[cachedValue.index].LoadAsync(path, cancellationToken));
+                    }
+
+                    return await loaders[cachedValue.index].LoadAsync(path, cancellationToken);
                 }
             }
         }
@@ -62,8 +65,11 @@ public class CompositeLoaderFileSystem(ILuaFileLoader[] loaders, ILuaFileSystem?
                 if (loader.Exists(path))
                 {
                     if (mode.CanWrite())
+                    {
                         throw new NotSupportedException("Cannot write to a file opened with a loader.");
-                    return (await loader.LoadAsync(path, cancellationToken));
+                    }
+
+                    return await loader.LoadAsync(path, cancellationToken);
                 }
             }
         }

@@ -189,7 +189,10 @@ public static class CompositeModuleLoader
         {
             foreach (var loader in loaders)
             {
-                if (loader.Exists(moduleName)) return true;
+                if (loader.Exists(moduleName))
+                {
+                    return true;
+                }
             }
 
             return false;

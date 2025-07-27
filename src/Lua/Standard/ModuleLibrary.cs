@@ -54,7 +54,7 @@ public sealed class ModuleLibrary
         var p = await access.GetTable(package, pName);
         if (!p.TryReadString(out var path))
         {
-            throw new LuaRuntimeException(thread, ($"package.{pName} must be a string"));
+            throw new LuaRuntimeException(thread, $"package.{pName} must be a string");
         }
 
         return SearchPath(state, name, path, ".", dirSeparator);
@@ -79,7 +79,11 @@ public sealed class ModuleLibrary
 
         var pathSpan = path.AsSpan();
         var nextIndex = pathSpan.IndexOf(';');
-        if (nextIndex == -1) nextIndex = pathSpan.Length;
+        if (nextIndex == -1)
+        {
+            nextIndex = pathSpan.Length;
+        }
+
         do
         {
             path = pathSpan[..nextIndex].ToString();
@@ -89,10 +93,17 @@ public sealed class ModuleLibrary
                 return fileName;
             }
 
-            if (pathSpan.Length <= nextIndex) break;
+            if (pathSpan.Length <= nextIndex)
+            {
+                break;
+            }
+
             pathSpan = pathSpan[(nextIndex + 1)..];
             nextIndex = pathSpan.IndexOf(';');
-            if (nextIndex == -1) nextIndex = pathSpan.Length;
+            if (nextIndex == -1)
+            {
+                nextIndex = pathSpan.Length;
+            }
         } while (nextIndex != -1);
 
         return null;
@@ -103,10 +114,14 @@ public sealed class ModuleLibrary
         var state = access.State;
         var package = state.Environment["package"].Read<LuaTable>();
         var searchers = package["searchers"].Read<LuaTable>();
-        for (int i = 0; i < searchers.GetArraySpan().Length; i++)
+        for (var i = 0; i < searchers.GetArraySpan().Length; i++)
         {
             var searcher = searchers.GetArraySpan()[i];
-            if (searcher.Type == LuaValueType.Nil) continue;
+            if (searcher.Type == LuaValueType.Nil)
+            {
+                continue;
+            }
+
             var loader = searcher;
             var top = access.Stack.Count;
             access.Stack.Push(loader);
@@ -125,7 +140,7 @@ public sealed class ModuleLibrary
             access.Stack.SetTop(top);
         }
 
-        throw new LuaRuntimeException(access.Thread, ($"Module '{name}' not found"));
+        throw new LuaRuntimeException(access.Thread, $"Module '{name}' not found");
     }
 
     public ValueTask<int> SearcherPreload(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
@@ -146,7 +161,7 @@ public sealed class ModuleLibrary
         var fileName = await FindFile(context.Access, name, "path", context.State.FileSystem.DirectorySeparator);
         if (fileName == null)
         {
-            return (context.Return(LuaValue.Nil));
+            return context.Return(LuaValue.Nil);
         }
 
         return context.Return(await context.State.LoadFileAsync(fileName, "bt", null, cancellationToken));

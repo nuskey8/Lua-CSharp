@@ -3,9 +3,10 @@ namespace Lua.IO;
 public class CharMemoryStream(ReadOnlyMemory<char> contents) : ILuaStream
 {
     protected int Position;
-    private bool disposed;
+    bool disposed;
 
     public LuaFileOpenMode Mode => LuaFileOpenMode.Read;
+
     public bool IsOpen => !disposed;
 
     public void Dispose()
@@ -19,7 +20,9 @@ public class CharMemoryStream(ReadOnlyMemory<char> contents) : ILuaStream
 
         cancellationToken.ThrowIfCancellationRequested();
         if (Position >= contents.Length)
+        {
             return new("");
+        }
 
         var remaining = contents[Position..];
         Position = contents.Length;
@@ -32,7 +35,9 @@ public class CharMemoryStream(ReadOnlyMemory<char> contents) : ILuaStream
         cancellationToken.ThrowIfCancellationRequested();
 
         if (Position >= contents.Length)
+        {
             return new((string?)null);
+        }
 
         var remainingSpan = contents[Position..].Span;
         var newlineIndex = remainingSpan.IndexOfAny('\r', '\n');
@@ -49,13 +54,13 @@ public class CharMemoryStream(ReadOnlyMemory<char> contents) : ILuaStream
             var lineSpan = remainingSpan[..newlineIndex];
             var nlChar = remainingSpan[newlineIndex];
             var endOfLineLength = 1;
-            
+
             // Check for CRLF
             if (nlChar == '\r' && newlineIndex + 1 < remainingSpan.Length && remainingSpan[newlineIndex + 1] == '\n')
             {
                 endOfLineLength = 2; // \r\n
             }
-            
+
             if (keepEol)
             {
                 // Include the newline character(s)
@@ -66,7 +71,7 @@ public class CharMemoryStream(ReadOnlyMemory<char> contents) : ILuaStream
                 // Just the line content without newlines
                 result = lineSpan.ToString();
             }
-            
+
             Position += newlineIndex + endOfLineLength;
         }
 
@@ -79,7 +84,9 @@ public class CharMemoryStream(ReadOnlyMemory<char> contents) : ILuaStream
         cancellationToken.ThrowIfCancellationRequested();
 
         if (Position >= contents.Length)
+        {
             return new((string?)null);
+        }
 
         var available = contents.Length - Position;
         var toRead = Math.Min(count, available);
@@ -94,32 +101,34 @@ public class CharMemoryStream(ReadOnlyMemory<char> contents) : ILuaStream
     {
         ThrowIfDisposed();
         cancellationToken.ThrowIfCancellationRequested();
-        
+
         if (Position >= contents.Length)
+        {
             return new((double?)null);
-        
+        }
+
         var remaining = contents[Position..].Span;
         var startPos = Position;
-        
+
         // Use the shared utility to scan for a number
-        var numberLength = NumberReaderHelper.ScanNumberLength(remaining, skipWhitespace: true);
-        
+        var numberLength = NumberReaderHelper.ScanNumberLength(remaining, true);
+
         if (numberLength == 0)
         {
             Position = contents.Length;
             return new((double?)null);
         }
-        
+
         // Find where the actual number starts (after whitespace)
         var whitespaceLength = 0;
         while (whitespaceLength < remaining.Length && char.IsWhiteSpace(remaining[whitespaceLength]))
         {
             whitespaceLength++;
         }
-        
+
         var numberSpan = remaining.Slice(whitespaceLength, numberLength);
         Position = startPos + whitespaceLength + numberLength;
-        
+
         // Parse using shared utility
         var result = NumberReaderHelper.ParseNumber(numberSpan);
         return new(result);
@@ -147,11 +156,11 @@ public class CharMemoryStream(ReadOnlyMemory<char> contents) : ILuaStream
         return default;
     }
 
-    public long Seek(SeekOrigin origin,long offset)
+    public long Seek(SeekOrigin origin, long offset)
     {
         ThrowIfDisposed();
 
-        long newPosition = origin switch
+        var newPosition = origin switch
         {
             SeekOrigin.Begin => offset,
             SeekOrigin.Current => Position + offset,
@@ -160,7 +169,9 @@ public class CharMemoryStream(ReadOnlyMemory<char> contents) : ILuaStream
         };
 
         if (newPosition < 0 || newPosition > contents.Length)
+        {
             throw new ArgumentOutOfRangeException(nameof(offset), "Seek position is out of range");
+        }
 
         Position = (int)newPosition;
         return Position;
@@ -169,7 +180,9 @@ public class CharMemoryStream(ReadOnlyMemory<char> contents) : ILuaStream
     protected void ThrowIfDisposed()
     {
         if (disposed)
+        {
             throw new ObjectDisposedException(nameof(StringStream));
+        }
     }
 }
 
@@ -180,7 +193,10 @@ public sealed class StringStream(string content) : CharMemoryStream(content.AsMe
         ThrowIfDisposed();
         cancellationToken.ThrowIfCancellationRequested();
         if (Position == 0)
-            return new((content));
+        {
+            return new(content);
+        }
+
         return base.ReadAllAsync(cancellationToken);
     }
 }

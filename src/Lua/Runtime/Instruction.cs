@@ -9,7 +9,11 @@ public partial struct Instruction(uint value)
 
 
     public uint Value = value;
-    public static implicit operator Instruction(uint value) => new(value);
+
+    public static implicit operator Instruction(uint value)
+    {
+        return new(value);
+    }
 
     public static ReadOnlySpan<string> OpNames => opNames;
 
@@ -119,15 +123,32 @@ func (i *instruction) setOpCode(op opCode)   { i.setArg(posOp, sizeOp, int(op)) 
 func (i *instruction) setArg(pos, size uint, arg int) {
     *i = *i&mask0(size, pos) | instruction(arg)<<pos&mask1(size, pos)}
      */
-    public static bool IsConstant(int x) => 0 != (x & BitRK);
-    public static int ConstantIndex(int r) => r & ~BitRK;
-    public static int AsConstant(int r) => r | BitRK;
+    public static bool IsConstant(int x)
+    {
+        return 0 != (x & BitRK);
+    }
+
+    public static int ConstantIndex(int r)
+    {
+        return r & ~BitRK;
+    }
+
+    public static int AsConstant(int r)
+    {
+        return r | BitRK;
+    }
 
     // creates a mask with 'n' 1 bits at position 'p'
-    public static uint Mask1(uint n, uint p) => (uint)(~(~0 << (int)n) << (int)p);
+    public static uint Mask1(uint n, uint p)
+    {
+        return (uint)(~(~0 << (int)n) << (int)p);
+    }
 
     // creates a mask with 'n' 0 bits at position 'p'
-    public static uint Mask0(uint n, uint p) => (~Mask1(n, p));
+    public static uint Mask0(uint n, uint p)
+    {
+        return ~Mask1(n, p);
+    }
 
     public OpCode OpCode
     {
@@ -135,11 +156,14 @@ func (i *instruction) setArg(pos, size uint, arg int) {
         set => SetArg(PosOp, SizeOp, (byte)value);
     }
 
-    public int Arg(uint pos) => (int)((Value >> (int)pos) & Mask1(1, 0));
+    public int Arg(uint pos)
+    {
+        return (int)((Value >> (int)pos) & Mask1(1, 0));
+    }
 
     public void SetArg(uint pos, uint size, int arg)
     {
-        Value = (uint)(Value & Mask0(size, pos) | arg << (int)pos & Mask1(size, pos));
+        Value = (uint)((Value & Mask0(size, pos)) | ((arg << (int)pos) & Mask1(size, pos)));
     }
 
 
@@ -160,31 +184,31 @@ func (i instruction) sbx() int { return int(i>>posBx&maxArgBx) - maxArgSBx }
 
     public int B
     {
-        get => (int)(Value >> PosB & MaxArgB);
+        get => (int)((Value >> PosB) & MaxArgB);
         set => SetArg(PosB, SizeB, value);
     }
 
     public int C
     {
-        get => (int)Value >> PosC & MaxArgC;
+        get => ((int)Value >> PosC) & MaxArgC;
         set => SetArg(PosC, SizeC, value);
     }
 
     public int Bx
     {
-        get => (int)Value >> PosBx & MaxArgBx;
+        get => ((int)Value >> PosBx) & MaxArgBx;
         set => SetArg(PosBx, SizeBx, value);
     }
 
     public int Ax
     {
-        get => (int)Value >> PosAx & MaxArgAx;
+        get => ((int)Value >> PosAx) & MaxArgAx;
         set => SetArg(PosAx, SizeAx, value);
     }
 
     public int SBx
     {
-        get => (int)(Value >> PosBx & MaxArgBx) - MaxArgSBx;
+        get => (int)((Value >> PosBx) & MaxArgBx) - MaxArgSBx;
         set => SetArg(PosBx, SizeBx, value + MaxArgSBx);
     }
 
@@ -206,10 +230,20 @@ func createABx(op opCode, a, bx int) instruction {
 func createAx(op opCode, a int) instruction { return instruction(op)<<posOp | instruction(a)<<posAx }
 
 */
-    public static uint CreateABC(OpCode op, int a, int b, int c) => (uint)(((byte)op << PosOp) | (a << PosA) | (b << PosB) | (c << PosC));
+    public static uint CreateABC(OpCode op, int a, int b, int c)
+    {
+        return (uint)(((byte)op << PosOp) | (a << PosA) | (b << PosB) | (c << PosC));
+    }
 
-    public static uint CreateABx(OpCode op, int a, int bx) => (uint)(((byte)op << PosOp) | (a << PosA) | (bx << PosBx));
-    public static uint CreateAx(OpCode op, int a) => (uint)(((byte)op << PosOp) | (a << PosAx));
+    public static uint CreateABx(OpCode op, int a, int bx)
+    {
+        return (uint)(((byte)op << PosOp) | (a << PosA) | (bx << PosBx));
+    }
+
+    public static uint CreateAx(OpCode op, int a)
+    {
+        return (uint)(((byte)op << PosOp) | (a << PosAx));
+    }
 
 
     /*
@@ -255,13 +289,23 @@ func (i instruction) String() string {
             case IABC:
                 s = $"{s} {A}";
                 if (BMode(op) == OpArgK && IsConstant(B))
+                {
                     s = $"{s} -{1 + ConstantIndex(B)}";
+                }
                 else if (BMode(op) != OpArgN)
+                {
                     s = $"{s} {B}";
+                }
+
                 if (CMode(op) == OpArgK && IsConstant(C))
+                {
                     s = $"{s} -{1 + ConstantIndex(C)}";
+                }
                 else if (CMode(op) != OpArgN)
+                {
                     s = $"{s} {C}";
+                }
+
                 // s = $"{s} {A}";
                 // if (BMode(op) == OpArgK && IsConstant(B))
                 // 	s = $"{s} constant {ConstantIndex(B)}";
@@ -275,12 +319,17 @@ func (i instruction) String() string {
             case IAsBx:
                 s = $"{s} {A}";
                 if (BMode(op) != OpArgN)
+                {
                     s = $"{s} {SBx}";
+                }
+
                 break;
             case IABx:
                 s = $"{s} {A}";
                 if (BMode(op) != OpArgN)
+                {
                     s = $"{s} {Bx}";
+                }
 
                 break;
             case IAx:
@@ -295,7 +344,10 @@ func (i instruction) String() string {
 
 func opmode(t, a, b, c, m int) byte { return byte(t<<7 | a<<6 | b<<4 | c<<2 | m) }
 */
-    public static byte OpMode(int t, int a, int b, int c, int m) => (byte)(t << 7 | a << 6 | b << 4 | c << 2 | m);
+    public static byte OpMode(int t, int a, int b, int c, int m)
+    {
+        return (byte)((t << 7) | (a << 6) | (b << 4) | (c << 2) | m);
+    }
 
     /*
 const (
@@ -319,13 +371,32 @@ func cMode(m opCode) byte     { return (opModes[m] >> 2) & 3 }
 func testAMode(m opCode) bool { return opModes[m]&(1<<6) != 0 }
 func testTMode(m opCode) bool { return opModes[m]&(1<<7) != 0 }
 */
-    public static int OpMode(OpCode m) => (int)(opModes[(byte)m] & 3);
-    public static byte BMode(OpCode m) => (byte)((opModes[(byte)m] >> 4) & 3);
-    public static byte CMode(OpCode m) => (byte)((opModes[(byte)m] >> 2) & 3);
-    public static bool TestAMode(OpCode m) => (opModes[(byte)m] & (1 << 6)) != 0;
-    public static bool TestTMode(OpCode m) => (opModes[(byte)m] & (1 << 7)) != 0;
+    public static int OpMode(OpCode m)
+    {
+        return (int)(opModes[(byte)m] & 3);
+    }
 
-/*
+    public static byte BMode(OpCode m)
+    {
+        return (byte)((opModes[(byte)m] >> 4) & 3);
+    }
+
+    public static byte CMode(OpCode m)
+    {
+        return (byte)((opModes[(byte)m] >> 2) & 3);
+    }
+
+    public static bool TestAMode(OpCode m)
+    {
+        return (opModes[(byte)m] & (1 << 6)) != 0;
+    }
+
+    public static bool TestTMode(OpCode m)
+    {
+        return (opModes[(byte)m] & (1 << 7)) != 0;
+    }
+
+    /*
 var opModes []byte = []byte{
 //     T  A    B       C     mode		    opcode
 opmode(0, 1, opArgR, opArgN, iABC),  // opMove
@@ -370,7 +441,7 @@ opmode(0, 1, opArgU, opArgN, iABC),  // opVarArg
 opmode(0, 0, opArgU, opArgU, iAx),   // opExtraArg
 }
  */
-    public static ReadOnlySpan<byte> OpModes => (opModes);
+    public static ReadOnlySpan<byte> OpModes => opModes;
 
     static readonly byte[] opModes =
     [
@@ -414,7 +485,7 @@ opmode(0, 0, opArgU, opArgU, iAx),   // opExtraArg
         OpMode(0, 0, OpArgU, OpArgU, IABC), // opSetList
         OpMode(0, 1, OpArgU, OpArgN, IABx), // opClosure
         OpMode(0, 1, OpArgU, OpArgN, IABC), // opVarArg
-        OpMode(0, 0, OpArgU, OpArgU, IAx), // opExtraArg
+        OpMode(0, 0, OpArgU, OpArgU, IAx) // opExtraArg
     ];
 
     /// <summary>
@@ -422,7 +493,7 @@ opmode(0, 0, opArgU, opArgU, iAx),   // opExtraArg
     /// </summary>
     public static Instruction Move(byte a, ushort b)
     {
-        return new() { OpCode = OpCode.Move, A = a, B = b, };
+        return new() { OpCode = OpCode.Move, A = a, B = b };
     }
 
     /// <summary>
@@ -430,7 +501,7 @@ opmode(0, 0, opArgU, opArgU, iAx),   // opExtraArg
     /// </summary>
     public static Instruction LoadK(byte a, uint bx)
     {
-        return new() { OpCode = OpCode.LoadK, A = a, Bx = (int)bx, };
+        return new() { OpCode = OpCode.LoadK, A = a, Bx = (int)bx };
     }
 
     /// <summary>
@@ -438,7 +509,7 @@ opmode(0, 0, opArgU, opArgU, iAx),   // opExtraArg
     /// </summary>
     public static Instruction LoadKX(byte a)
     {
-        return new() { OpCode = OpCode.LoadKX, A = a, };
+        return new() { OpCode = OpCode.LoadKX, A = a };
     }
 
     /// <summary>
@@ -447,10 +518,7 @@ opmode(0, 0, opArgU, opArgU, iAx),   // opExtraArg
     /// </summary>
     public static Instruction LoadBool(byte a, ushort b, ushort c)
     {
-        return new()
-        {
-            OpCode = OpCode.LoadBool, A = a, B = b, C = c,
-        };
+        return new() { OpCode = OpCode.LoadBool, A = a, B = b, C = c };
     }
 
     /// <summary>
@@ -458,7 +526,7 @@ opmode(0, 0, opArgU, opArgU, iAx),   // opExtraArg
     /// </summary>
     public static Instruction LoadNil(byte a, ushort b)
     {
-        return new() { OpCode = OpCode.LoadNil, A = a, B = b, };
+        return new() { OpCode = OpCode.LoadNil, A = a, B = b };
     }
 
     /// <summary>
@@ -466,7 +534,7 @@ opmode(0, 0, opArgU, opArgU, iAx),   // opExtraArg
     /// </summary>
     public static Instruction GetUpVal(byte a, ushort b)
     {
-        return new() { OpCode = OpCode.GetUpVal, A = a, B = b, };
+        return new() { OpCode = OpCode.GetUpVal, A = a, B = b };
     }
 
     /// <summary>
@@ -474,10 +542,7 @@ opmode(0, 0, opArgU, opArgU, iAx),   // opExtraArg
     /// </summary>
     public static Instruction GetTabUp(byte a, ushort b, ushort c)
     {
-        return new()
-        {
-            OpCode = OpCode.GetTabUp, A = a, B = b, C = c,
-        };
+        return new() { OpCode = OpCode.GetTabUp, A = a, B = b, C = c };
     }
 
     /// <summary>
@@ -485,10 +550,7 @@ opmode(0, 0, opArgU, opArgU, iAx),   // opExtraArg
     /// </summary>
     public static Instruction GetTable(byte a, ushort b, ushort c)
     {
-        return new()
-        {
-            OpCode = OpCode.GetTable, A = a, B = b, C = c,
-        };
+        return new() { OpCode = OpCode.GetTable, A = a, B = b, C = c };
     }
 
     /// <summary>
@@ -496,7 +558,7 @@ opmode(0, 0, opArgU, opArgU, iAx),   // opExtraArg
     /// </summary>
     public static Instruction SetUpVal(byte a, ushort b)
     {
-        return new() { OpCode = OpCode.SetUpVal, A = a, B = b, };
+        return new() { OpCode = OpCode.SetUpVal, A = a, B = b };
     }
 
     /// <summary>
@@ -504,10 +566,7 @@ opmode(0, 0, opArgU, opArgU, iAx),   // opExtraArg
     /// </summary>
     public static Instruction SetTabUp(byte a, ushort b, ushort c)
     {
-        return new()
-        {
-            OpCode = OpCode.SetTabUp, A = a, B = b, C = c,
-        };
+        return new() { OpCode = OpCode.SetTabUp, A = a, B = b, C = c };
     }
 
     /// <summary>
@@ -515,10 +574,7 @@ opmode(0, 0, opArgU, opArgU, iAx),   // opExtraArg
     /// </summary>
     public static Instruction SetTable(byte a, ushort b, ushort c)
     {
-        return new()
-        {
-            OpCode = OpCode.SetTable, A = a, B = b, C = c,
-        };
+        return new() { OpCode = OpCode.SetTable, A = a, B = b, C = c };
     }
 
     /// <summary>
@@ -526,10 +582,7 @@ opmode(0, 0, opArgU, opArgU, iAx),   // opExtraArg
     /// </summary>
     public static Instruction NewTable(byte a, ushort b, ushort c)
     {
-        return new()
-        {
-            OpCode = OpCode.NewTable, A = a, B = b, C = c,
-        };
+        return new() { OpCode = OpCode.NewTable, A = a, B = b, C = c };
     }
 
     /// <summary>
@@ -537,10 +590,7 @@ opmode(0, 0, opArgU, opArgU, iAx),   // opExtraArg
     /// </summary>
     public static Instruction Self(byte a, ushort b, ushort c)
     {
-        return new()
-        {
-            OpCode = OpCode.Self, A = a, B = b, C = c,
-        };
+        return new() { OpCode = OpCode.Self, A = a, B = b, C = c };
     }
 
     /// <summary>
@@ -548,10 +598,7 @@ opmode(0, 0, opArgU, opArgU, iAx),   // opExtraArg
     /// </summary>
     public static Instruction Add(byte a, ushort b, ushort c)
     {
-        return new()
-        {
-            OpCode = OpCode.Add, A = a, B = b, C = c,
-        };
+        return new() { OpCode = OpCode.Add, A = a, B = b, C = c };
     }
 
     /// <summary>
@@ -559,10 +606,7 @@ opmode(0, 0, opArgU, opArgU, iAx),   // opExtraArg
     /// </summary>
     public static Instruction Sub(byte a, ushort b, ushort c)
     {
-        return new()
-        {
-            OpCode = OpCode.Sub, A = a, B = b, C = c,
-        };
+        return new() { OpCode = OpCode.Sub, A = a, B = b, C = c };
     }
 
     /// <summary>
@@ -570,10 +614,7 @@ opmode(0, 0, opArgU, opArgU, iAx),   // opExtraArg
     /// </summary>
     public static Instruction Mul(byte a, ushort b, ushort c)
     {
-        return new()
-        {
-            OpCode = OpCode.Mul, A = a, B = b, C = c,
-        };
+        return new() { OpCode = OpCode.Mul, A = a, B = b, C = c };
     }
 
     /// <summary>
@@ -581,10 +622,7 @@ opmode(0, 0, opArgU, opArgU, iAx),   // opExtraArg
     /// </summary>
     public static Instruction Div(byte a, ushort b, ushort c)
     {
-        return new()
-        {
-            OpCode = OpCode.Div, A = a, B = b, C = c,
-        };
+        return new() { OpCode = OpCode.Div, A = a, B = b, C = c };
     }
 
     /// <summary>
@@ -592,10 +630,7 @@ opmode(0, 0, opArgU, opArgU, iAx),   // opExtraArg
     /// </summary>
     public static Instruction Mod(byte a, ushort b, ushort c)
     {
-        return new()
-        {
-            OpCode = OpCode.Mod, A = a, B = b, C = c,
-        };
+        return new() { OpCode = OpCode.Mod, A = a, B = b, C = c };
     }
 
     /// <summary>
@@ -603,10 +638,7 @@ opmode(0, 0, opArgU, opArgU, iAx),   // opExtraArg
     /// </summary>
     public static Instruction Pow(byte a, ushort b, ushort c)
     {
-        return new()
-        {
-            OpCode = OpCode.Pow, A = a, B = b, C = c,
-        };
+        return new() { OpCode = OpCode.Pow, A = a, B = b, C = c };
     }
 
     /// <summary>
@@ -614,7 +646,7 @@ opmode(0, 0, opArgU, opArgU, iAx),   // opExtraArg
     /// </summary>
     public static Instruction Unm(byte a, ushort b)
     {
-        return new() { OpCode = OpCode.Unm, A = a, B = b, };
+        return new() { OpCode = OpCode.Unm, A = a, B = b };
     }
 
     /// <summary>
@@ -622,7 +654,7 @@ opmode(0, 0, opArgU, opArgU, iAx),   // opExtraArg
     /// </summary>
     public static Instruction Not(byte a, ushort b)
     {
-        return new() { OpCode = OpCode.Not, A = a, B = b, };
+        return new() { OpCode = OpCode.Not, A = a, B = b };
     }
 
     /// <summary>
@@ -630,7 +662,7 @@ opmode(0, 0, opArgU, opArgU, iAx),   // opExtraArg
     /// </summary>
     public static Instruction Len(byte a, ushort b)
     {
-        return new() { OpCode = OpCode.Len, A = a, B = b, };
+        return new() { OpCode = OpCode.Len, A = a, B = b };
     }
 
     /// <summary>
@@ -638,10 +670,7 @@ opmode(0, 0, opArgU, opArgU, iAx),   // opExtraArg
     /// </summary>
     public static Instruction Concat(byte a, ushort b, ushort c)
     {
-        return new()
-        {
-            OpCode = OpCode.Concat, A = a, B = b, C = c,
-        };
+        return new() { OpCode = OpCode.Concat, A = a, B = b, C = c };
     }
 
     /// <summary>
@@ -650,7 +679,7 @@ opmode(0, 0, opArgU, opArgU, iAx),   // opExtraArg
     /// </summary>
     public static Instruction Jmp(byte a, int sBx)
     {
-        return new() { OpCode = OpCode.Jmp, A = a, SBx = sBx, };
+        return new() { OpCode = OpCode.Jmp, A = a, SBx = sBx };
     }
 
     /// <summary>
@@ -658,10 +687,7 @@ opmode(0, 0, opArgU, opArgU, iAx),   // opExtraArg
     /// </summary>
     public static Instruction Eq(byte a, ushort b, ushort c)
     {
-        return new()
-        {
-            OpCode = OpCode.Eq, A = a, B = b, C = c,
-        };
+        return new() { OpCode = OpCode.Eq, A = a, B = b, C = c };
     }
 
     /// <summary>
@@ -669,10 +695,7 @@ opmode(0, 0, opArgU, opArgU, iAx),   // opExtraArg
     /// </summary>
     public static Instruction Lt(byte a, ushort b, ushort c)
     {
-        return new()
-        {
-            OpCode = OpCode.Lt, A = a, B = b, C = c,
-        };
+        return new() { OpCode = OpCode.Lt, A = a, B = b, C = c };
     }
 
     /// <summary>
@@ -680,10 +703,7 @@ opmode(0, 0, opArgU, opArgU, iAx),   // opExtraArg
     /// </summary>
     public static Instruction Le(byte a, ushort b, ushort c)
     {
-        return new()
-        {
-            OpCode = OpCode.Le, A = a, B = b, C = c,
-        };
+        return new() { OpCode = OpCode.Le, A = a, B = b, C = c };
     }
 
     /// <summary>
@@ -691,7 +711,7 @@ opmode(0, 0, opArgU, opArgU, iAx),   // opExtraArg
     /// </summary>
     public static Instruction Test(byte a, ushort c)
     {
-        return new() { OpCode = OpCode.Test, A = a, C = c, };
+        return new() { OpCode = OpCode.Test, A = a, C = c };
     }
 
     /// <summary>
@@ -699,10 +719,7 @@ opmode(0, 0, opArgU, opArgU, iAx),   // opExtraArg
     /// </summary>
     public static Instruction TestSet(byte a, ushort b, ushort c)
     {
-        return new()
-        {
-            OpCode = OpCode.TestSet, A = a, B = b, C = c,
-        };
+        return new() { OpCode = OpCode.TestSet, A = a, B = b, C = c };
     }
 
     /// <summary>
@@ -710,10 +727,7 @@ opmode(0, 0, opArgU, opArgU, iAx),   // opExtraArg
     /// </summary>
     public static Instruction Call(byte a, ushort b, ushort c)
     {
-        return new()
-        {
-            OpCode = OpCode.Call, A = a, B = b, C = c,
-        };
+        return new() { OpCode = OpCode.Call, A = a, B = b, C = c };
     }
 
     /// <summary>
@@ -721,10 +735,7 @@ opmode(0, 0, opArgU, opArgU, iAx),   // opExtraArg
     /// </summary>
     public static Instruction TailCall(byte a, ushort b, ushort c)
     {
-        return new()
-        {
-            OpCode = OpCode.TailCall, A = a, B = b, C = c,
-        };
+        return new() { OpCode = OpCode.TailCall, A = a, B = b, C = c };
     }
 
     /// <summary>
@@ -732,7 +743,7 @@ opmode(0, 0, opArgU, opArgU, iAx),   // opExtraArg
     /// </summary>
     public static Instruction Return(byte a, ushort b)
     {
-        return new() { OpCode = OpCode.Return, A = a, B = b, };
+        return new() { OpCode = OpCode.Return, A = a, B = b };
     }
 
     /// <summary>
@@ -741,7 +752,7 @@ opmode(0, 0, opArgU, opArgU, iAx),   // opExtraArg
     /// </summary>
     public static Instruction ForLoop(byte a, int sBx)
     {
-        return new() { OpCode = OpCode.ForLoop, A = a, SBx = sBx, };
+        return new() { OpCode = OpCode.ForLoop, A = a, SBx = sBx };
     }
 
     /// <summary>
@@ -750,7 +761,7 @@ opmode(0, 0, opArgU, opArgU, iAx),   // opExtraArg
     /// </summary>
     public static Instruction ForPrep(byte a, int sBx)
     {
-        return new() { OpCode = OpCode.ForPrep, A = a, SBx = sBx, };
+        return new() { OpCode = OpCode.ForPrep, A = a, SBx = sBx };
     }
 
     /// <summary>
@@ -758,7 +769,7 @@ opmode(0, 0, opArgU, opArgU, iAx),   // opExtraArg
     /// </summary>
     public static Instruction TForCall(byte a, ushort c)
     {
-        return new() { OpCode = OpCode.TForCall, A = a, C = c, };
+        return new() { OpCode = OpCode.TForCall, A = a, C = c };
     }
 
     /// <summary>
@@ -766,7 +777,7 @@ opmode(0, 0, opArgU, opArgU, iAx),   // opExtraArg
     /// </summary>
     public static Instruction TForLoop(byte a, int sBx)
     {
-        return new() { OpCode = OpCode.TForLoop, A = a, SBx = sBx, };
+        return new() { OpCode = OpCode.TForLoop, A = a, SBx = sBx };
     }
 
     /// <summary>
@@ -774,10 +785,7 @@ opmode(0, 0, opArgU, opArgU, iAx),   // opExtraArg
     /// </summary>
     public static Instruction SetList(byte a, ushort b, ushort c)
     {
-        return new()
-        {
-            OpCode = OpCode.SetList, A = a, B = b, C = c,
-        };
+        return new() { OpCode = OpCode.SetList, A = a, B = b, C = c };
     }
 
     /// <summary>
@@ -785,7 +793,7 @@ opmode(0, 0, opArgU, opArgU, iAx),   // opExtraArg
     /// </summary>
     public static Instruction Closure(byte a, int sBx)
     {
-        return new() { OpCode = OpCode.Closure, A = a, SBx = sBx, };
+        return new() { OpCode = OpCode.Closure, A = a, SBx = sBx };
     }
 
     /// <summary>
@@ -793,7 +801,7 @@ opmode(0, 0, opArgU, opArgU, iAx),   // opExtraArg
     /// </summary>
     public static Instruction VarArg(byte a, ushort b)
     {
-        return new() { OpCode = OpCode.VarArg, A = a, B = b, };
+        return new() { OpCode = OpCode.VarArg, A = a, B = b };
     }
 
     /// <summary>
@@ -801,6 +809,6 @@ opmode(0, 0, opArgU, opArgU, iAx),   // opExtraArg
     /// </summary>
     public static Instruction ExtraArg(uint ax)
     {
-        return new() { OpCode = OpCode.ExtraArg, Ax = (int)ax, };
+        return new() { OpCode = OpCode.ExtraArg, Ax = (int)ax };
     }
 }

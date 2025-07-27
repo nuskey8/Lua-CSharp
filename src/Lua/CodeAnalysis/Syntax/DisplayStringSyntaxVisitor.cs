@@ -27,7 +27,10 @@ public sealed class DisplayStringSyntaxVisitor : ISyntaxNodeVisitor<DisplayStrin
         int indentLevel;
         bool isNewLine = true;
 
-        public IndentScope BeginIndentScope() => new(this);
+        public IndentScope BeginIndentScope()
+        {
+            return new(this);
+        }
 
         public void Append(string value)
         {
@@ -58,7 +61,10 @@ public sealed class DisplayStringSyntaxVisitor : ISyntaxNodeVisitor<DisplayStrin
             isNewLine = true;
         }
 
-        public override string ToString() => buffer.ToString();
+        public override string ToString()
+        {
+            return buffer.ToString();
+        }
 
         public void IncreaseIndent()
         {
@@ -68,7 +74,9 @@ public sealed class DisplayStringSyntaxVisitor : ISyntaxNodeVisitor<DisplayStrin
         public void DecreaseIndent()
         {
             if (indentLevel > 0)
+            {
                 indentLevel--;
+            }
         }
 
         public void Reset()
@@ -146,7 +154,11 @@ public sealed class DisplayStringSyntaxVisitor : ISyntaxNodeVisitor<DisplayStrin
         VisitSyntaxNodes(node.ParameterNodes, context);
         if (node.HasVariableArguments)
         {
-            if (node.ParameterNodes.Length > 0) context.Append(", ");
+            if (node.ParameterNodes.Length > 0)
+            {
+                context.Append(", ");
+            }
+
             context.Append("...");
         }
 
@@ -174,7 +186,11 @@ public sealed class DisplayStringSyntaxVisitor : ISyntaxNodeVisitor<DisplayStrin
         VisitSyntaxNodes(node.ParameterNodes, context);
         if (node.HasVariableArguments)
         {
-            if (node.ParameterNodes.Length > 0) context.Append(", ");
+            if (node.ParameterNodes.Length > 0)
+            {
+                context.Append(", ");
+            }
+
             context.Append("...");
         }
 
@@ -198,7 +214,7 @@ public sealed class DisplayStringSyntaxVisitor : ISyntaxNodeVisitor<DisplayStrin
     {
         context.Append("function ");
 
-        for (int i = 0; i < node.MemberPath.Length; i++)
+        for (var i = 0; i < node.MemberPath.Length; i++)
         {
             context.Append(node.MemberPath[i].Name.ToString());
 
@@ -216,7 +232,11 @@ public sealed class DisplayStringSyntaxVisitor : ISyntaxNodeVisitor<DisplayStrin
         VisitSyntaxNodes(node.ParameterNodes, context);
         if (node.HasVariableArguments)
         {
-            if (node.ParameterNodes.Length > 0) context.Append(", ");
+            if (node.ParameterNodes.Length > 0)
+            {
+                context.Append(", ");
+            }
+
             context.Append("...");
         }
 
@@ -450,7 +470,7 @@ public sealed class DisplayStringSyntaxVisitor : ISyntaxNodeVisitor<DisplayStrin
         context.AppendLine("{");
         using (context.BeginIndentScope())
         {
-            for (int i = 0; i < node.Fields.Length; i++)
+            for (var i = 0; i < node.Fields.Length; i++)
             {
                 var field = node.Fields[i];
 
@@ -513,7 +533,11 @@ public sealed class DisplayStringSyntaxVisitor : ISyntaxNodeVisitor<DisplayStrin
     public bool VisitUnaryExpressionNode(UnaryExpressionNode node, Context context)
     {
         context.Append(node.Operator.ToDisplayString());
-        if (node.Operator is UnaryOperator.Not) context.Append(" ");
+        if (node.Operator is UnaryOperator.Not)
+        {
+            context.Append(" ");
+        }
+
         node.Node.Accept(this, context);
 
         return true;
@@ -547,10 +571,13 @@ public sealed class DisplayStringSyntaxVisitor : ISyntaxNodeVisitor<DisplayStrin
 
     void VisitSyntaxNodes(SyntaxNode[] nodes, Context context)
     {
-        for (int i = 0; i < nodes.Length; i++)
+        for (var i = 0; i < nodes.Length; i++)
         {
             nodes[i].Accept(this, context);
-            if (i != nodes.Length - 1) context.Append(", ");
+            if (i != nodes.Length - 1)
+            {
+                context.Append(", ");
+            }
         }
     }
 

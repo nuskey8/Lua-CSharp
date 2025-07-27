@@ -33,207 +33,225 @@ using System.Threading.Tasks.Sources;
 
 // ReSharper disable ArrangeTypeMemberModifiers
 
-namespace Lua.Internal.CompilerServices
+namespace Lua.Internal.CompilerServices;
+
+interface IStateMachineRunnerPromise : IValueTaskSource
 {
-    internal interface IStateMachineRunnerPromise : IValueTaskSource
+    Action MoveNext { get; }
+    ValueTask Task { get; }
+    void SetResult();
+    void SetException(Exception exception);
+}
+
+interface IStateMachineRunnerPromise<T> : IValueTaskSource<T>
+{
+    Action MoveNext { get; }
+    ValueTask<T> Task { get; }
+    void SetResult(T result);
+    void SetException(Exception exception);
+}
+
+sealed class LightAsyncValueTask<TStateMachine> : IStateMachineRunnerPromise, IPoolNode<LightAsyncValueTask<TStateMachine>>
+    where TStateMachine : IAsyncStateMachine
+{
+    static LinkedPool<LightAsyncValueTask<TStateMachine>> pool;
+
+    public Action MoveNext { get; }
+
+    TStateMachine? stateMachine;
+    ManualResetValueTaskSourceCore<byte> core;
+
+    LightAsyncValueTask()
     {
-        Action MoveNext { get; }
-        ValueTask Task { get; }
-        void SetResult();
-        void SetException(Exception exception);
+        MoveNext = Run;
     }
 
-    internal interface IStateMachineRunnerPromise<T> : IValueTaskSource<T>
+    public static void SetStateMachine(ref TStateMachine stateMachine, ref IStateMachineRunnerPromise? runnerPromiseFieldRef)
     {
-        Action MoveNext { get; }
-        ValueTask<T> Task { get; }
-        void SetResult(T result);
-        void SetException(Exception exception);
+        if (!pool.TryPop(out var result))
+        {
+            result = new();
+        }
+
+        runnerPromiseFieldRef = result; // set runner before copied.
+        result.stateMachine = stateMachine; // copy struct StateMachine(in release build).
     }
 
+    LightAsyncValueTask<TStateMachine>? nextNode;
 
-    internal sealed class LightAsyncValueTask<TStateMachine> : IStateMachineRunnerPromise, IPoolNode<LightAsyncValueTask<TStateMachine>>
-        where TStateMachine : IAsyncStateMachine
+    public ref LightAsyncValueTask<TStateMachine>? NextNode
     {
-        static LinkedPool<LightAsyncValueTask<TStateMachine>> pool;
-
-        public Action MoveNext { get; }
-
-        TStateMachine? stateMachine;
-        ManualResetValueTaskSourceCore<byte> core;
-
-        LightAsyncValueTask()
+        get
         {
-            MoveNext = Run;
-        }
-
-        public static void SetStateMachine(ref TStateMachine stateMachine, ref IStateMachineRunnerPromise? runnerPromiseFieldRef)
-        {
-            if (!pool.TryPop(out var result))
-            {
-                result = new();
-            }
-
-            runnerPromiseFieldRef = result; // set runner before copied.
-            result.stateMachine = stateMachine; // copy struct StateMachine(in release build).
-        }
-
-        LightAsyncValueTask<TStateMachine>? nextNode;
-        public ref LightAsyncValueTask<TStateMachine>? NextNode => ref nextNode;
-
-        void Return()
-        {
-            core.Reset();
-            stateMachine = default;
-            pool.TryPush(this);
-        }
-
-
-        [DebuggerHidden]
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        void Run()
-        {
-            stateMachine!.MoveNext();
-        }
-
-        public ValueTask Task
-        {
-            [DebuggerHidden]
-            get => new(this, core.Version);
-        }
-
-        [DebuggerHidden]
-        public void SetResult()
-        {
-            core.SetResult(0);
-        }
-
-        [DebuggerHidden]
-        public void SetException(Exception exception)
-        {
-            core.SetException(exception);
-        }
-
-        [DebuggerHidden]
-        public void GetResult(short token)
-        {
-            try
-            {
-                core.GetResult(token);
-            }
-            finally
-            {
-                Return();
-            }
-        }
-
-        [DebuggerHidden]
-        public ValueTaskSourceStatus GetStatus(short token)
-        {
-            return core.GetStatus(token);
-        }
-
-
-        [DebuggerHidden]
-        public void OnCompleted(Action<object?> continuation, object? state, short token, ValueTaskSourceOnCompletedFlags flags)
-        {
-            core.OnCompleted(continuation, state, token, flags);
+            return ref nextNode;
         }
     }
 
-    internal sealed class LightAsyncValueTask<TStateMachine, T> : IStateMachineRunnerPromise<T>, IPoolNode<LightAsyncValueTask<TStateMachine, T>>
-        where TStateMachine : IAsyncStateMachine
+    void Return()
     {
-        static LinkedPool<LightAsyncValueTask<TStateMachine, T>> pool;
-
-        public Action MoveNext { get; }
-
-        TStateMachine? stateMachine;
-        ManualResetValueTaskSourceCore<T> core;
-
-        LightAsyncValueTask()
-        {
-            MoveNext = Run;
-        }
-
-        public static void SetStateMachine(ref TStateMachine stateMachine, ref IStateMachineRunnerPromise<T>? runnerPromiseFieldRef)
-        {
-            if (!pool.TryPop(out var result))
-            {
-                result = new();
-            }
-
-            runnerPromiseFieldRef = result; // set runner before copied.
-            result.stateMachine = stateMachine; // copy struct StateMachine(in release build).
-        }
-
-        LightAsyncValueTask<TStateMachine, T>? nextNode;
-        public ref LightAsyncValueTask<TStateMachine, T>? NextNode => ref nextNode;
+        core.Reset();
+        stateMachine = default;
+        pool.TryPush(this);
+    }
 
 
-        void Return()
-        {
-            core.Reset();
-            stateMachine = default!;
-            pool.TryPush(this);
-        }
+    [DebuggerHidden]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void Run()
+    {
+        stateMachine!.MoveNext();
+    }
 
-
+    public ValueTask Task
+    {
         [DebuggerHidden]
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        void Run()
+        get
         {
-            stateMachine!.MoveNext();
+            return new(this, core.Version);
+        }
+    }
+
+    [DebuggerHidden]
+    public void SetResult()
+    {
+        core.SetResult(0);
+    }
+
+    [DebuggerHidden]
+    public void SetException(Exception exception)
+    {
+        core.SetException(exception);
+    }
+
+    [DebuggerHidden]
+    public void GetResult(short token)
+    {
+        try
+        {
+            core.GetResult(token);
+        }
+        finally
+        {
+            Return();
+        }
+    }
+
+    [DebuggerHidden]
+    public ValueTaskSourceStatus GetStatus(short token)
+    {
+        return core.GetStatus(token);
+    }
+
+
+    [DebuggerHidden]
+    public void OnCompleted(Action<object?> continuation, object? state, short token, ValueTaskSourceOnCompletedFlags flags)
+    {
+        core.OnCompleted(continuation, state, token, flags);
+    }
+}
+
+sealed class LightAsyncValueTask<TStateMachine, T> : IStateMachineRunnerPromise<T>, IPoolNode<LightAsyncValueTask<TStateMachine, T>>
+    where TStateMachine : IAsyncStateMachine
+{
+    static LinkedPool<LightAsyncValueTask<TStateMachine, T>> pool;
+
+    public Action MoveNext { get; }
+
+    TStateMachine? stateMachine;
+    ManualResetValueTaskSourceCore<T> core;
+
+    LightAsyncValueTask()
+    {
+        MoveNext = Run;
+    }
+
+    public static void SetStateMachine(ref TStateMachine stateMachine, ref IStateMachineRunnerPromise<T>? runnerPromiseFieldRef)
+    {
+        if (!pool.TryPop(out var result))
+        {
+            result = new();
         }
 
-        public ValueTask<T> Task
-        {
-            [DebuggerHidden]
-            get => new(this, core.Version);
-        }
+        runnerPromiseFieldRef = result; // set runner before copied.
+        result.stateMachine = stateMachine; // copy struct StateMachine(in release build).
+    }
 
+    LightAsyncValueTask<TStateMachine, T>? nextNode;
+
+    public ref LightAsyncValueTask<TStateMachine, T>? NextNode
+    {
+        get
+        {
+            return ref nextNode;
+        }
+    }
+
+
+    void Return()
+    {
+        core.Reset();
+        stateMachine = default!;
+        pool.TryPush(this);
+    }
+
+
+    [DebuggerHidden]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void Run()
+    {
+        stateMachine!.MoveNext();
+    }
+
+    public ValueTask<T> Task
+    {
         [DebuggerHidden]
-        public void SetResult(T result)
+        get
         {
-            core.SetResult(result);
+            return new(this, core.Version);
         }
+    }
 
-        [DebuggerHidden]
-        public void SetException(Exception exception)
+    [DebuggerHidden]
+    public void SetResult(T result)
+    {
+        core.SetResult(result);
+    }
+
+    [DebuggerHidden]
+    public void SetException(Exception exception)
+    {
+        core.SetException(exception);
+    }
+
+    [DebuggerHidden]
+    public T GetResult(short token)
+    {
+        try
         {
-            core.SetException(exception);
+            return core.GetResult(token);
         }
-
-        [DebuggerHidden]
-        public T GetResult(short token)
+        finally
         {
-            try
-            {
-                return core.GetResult(token);
-            }
-            finally
-            {
-                Return();
-            }
+            Return();
         }
+    }
 
-        [DebuggerHidden]
-        T IValueTaskSource<T>.GetResult(short token)
-        {
-            return GetResult(token);
-        }
+    [DebuggerHidden]
+    T IValueTaskSource<T>.GetResult(short token)
+    {
+        return GetResult(token);
+    }
 
-        [DebuggerHidden]
-        public ValueTaskSourceStatus GetStatus(short token)
-        {
-            return core.GetStatus(token);
-        }
+    [DebuggerHidden]
+    public ValueTaskSourceStatus GetStatus(short token)
+    {
+        return core.GetStatus(token);
+    }
 
 
-        [DebuggerHidden]
-        public void OnCompleted(Action<object?> continuation, object? state, short token, ValueTaskSourceOnCompletedFlags flags)
-        {
-            core.OnCompleted(continuation, state, token, flags);
-        }
+    [DebuggerHidden]
+    public void OnCompleted(Action<object?> continuation, object? state, short token, ValueTaskSourceOnCompletedFlags flags)
+    {
+        core.OnCompleted(continuation, state, token, flags);
     }
 }

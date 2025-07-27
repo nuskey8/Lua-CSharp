@@ -9,9 +9,9 @@ public record LuaSyntaxTree(SyntaxNode[] Nodes, SourcePosition Position) : Synta
 
     public static LuaSyntaxTree Parse(string source, string? chunkName = null)
     {
-        var lexer = new Lexer { Source = source.AsMemory(), ChunkName = chunkName, };
+        Lexer lexer = new() { Source = source.AsMemory(), ChunkName = chunkName };
 
-        var parser = new Parser { ChunkName = chunkName };
+        Parser parser = new() { ChunkName = chunkName };
 
         while (lexer.MoveNext())
         {

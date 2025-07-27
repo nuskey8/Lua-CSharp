@@ -9,7 +9,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\..\src\Lua\Lua.csproj" />
+        <ProjectReference Include="..\..\src\Lua\Lua.csproj"/>
     </ItemGroup>
 
 </Project>

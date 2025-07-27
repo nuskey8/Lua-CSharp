@@ -17,7 +17,7 @@ public static class OpenLibsExtensions
 
     public static void OpenBitwiseLibrary(this LuaState state)
     {
-        var bit32 = new LuaTable(0, BitwiseLibrary.Instance.Functions.Length);
+        LuaTable bit32 = new(0, BitwiseLibrary.Instance.Functions.Length);
         foreach (var func in BitwiseLibrary.Instance.Functions)
         {
             bit32[func.Name] = func.Func;
@@ -29,7 +29,7 @@ public static class OpenLibsExtensions
 
     public static void OpenCoroutineLibrary(this LuaState state)
     {
-        var coroutine = new LuaTable(0, CoroutineLibrary.Instance.Functions.Length);
+        LuaTable coroutine = new(0, CoroutineLibrary.Instance.Functions.Length);
         foreach (var func in CoroutineLibrary.Instance.Functions)
         {
             coroutine[func.Name] = func.Func;
@@ -40,7 +40,7 @@ public static class OpenLibsExtensions
 
     public static void OpenIOLibrary(this LuaState state)
     {
-        var io = new LuaTable(0, IOLibrary.Instance.Functions.Length);
+        LuaTable io = new(0, IOLibrary.Instance.Functions.Length);
         foreach (var func in IOLibrary.Instance.Functions)
         {
             io[func.Name] = func.Func;
@@ -48,9 +48,9 @@ public static class OpenLibsExtensions
 
         var registry = state.Registry;
         var standardIO = state.StandardIO;
-        var stdin = new LuaValue(new FileHandle(standardIO.Input));
-        var stdout = new LuaValue(new FileHandle(standardIO.Output));
-        var stderr = new LuaValue(new FileHandle(standardIO.Error));
+        LuaValue stdin = new(new FileHandle(standardIO.Input));
+        LuaValue stdout = new(new FileHandle(standardIO.Output));
+        LuaValue stderr = new(new FileHandle(standardIO.Error));
         registry["_IO_input"] = stdin;
         registry["_IO_output"] = stdout;
         io["stdin"] = stdin;
@@ -63,9 +63,9 @@ public static class OpenLibsExtensions
 
     public static void OpenMathLibrary(this LuaState state)
     {
-        state.Environment[MathematicsLibrary.RandomInstanceKey] = new(new MathematicsLibrary.RandomUserData(new Random()));
+        state.Environment[MathematicsLibrary.RandomInstanceKey] = new(new MathematicsLibrary.RandomUserData(new()));
 
-        var math = new LuaTable(0, MathematicsLibrary.Instance.Functions.Length);
+        LuaTable math = new(0, MathematicsLibrary.Instance.Functions.Length);
         foreach (var func in MathematicsLibrary.Instance.Functions)
         {
             math[func.Name] = func.Func;
@@ -80,11 +80,11 @@ public static class OpenLibsExtensions
 
     public static void OpenModuleLibrary(this LuaState state)
     {
-        var package = new LuaTable(0, 8);
+        LuaTable package = new(0, 8);
         package["loaded"] = state.LoadedModules;
         package["preload"] = state.PreloadModules;
         var moduleLibrary = ModuleLibrary.Instance;
-        var searchers = new LuaTable();
+        LuaTable searchers = new();
         searchers[1] = new LuaFunction("preload", moduleLibrary.SearcherPreload);
         searchers[2] = new LuaFunction("searcher_Lua", moduleLibrary.SearcherLua);
         package["searchers"] = searchers;
@@ -97,7 +97,7 @@ public static class OpenLibsExtensions
 
     public static void OpenOperatingSystemLibrary(this LuaState state)
     {
-        var os = new LuaTable(0, OperatingSystemLibrary.Instance.Functions.Length);
+        LuaTable os = new(0, OperatingSystemLibrary.Instance.Functions.Length);
         foreach (var func in OperatingSystemLibrary.Instance.Functions)
         {
             os[func.Name] = func.Func;
@@ -109,7 +109,7 @@ public static class OpenLibsExtensions
 
     public static void OpenStringLibrary(this LuaState state)
     {
-        var @string = new LuaTable(0, StringLibrary.Instance.Functions.Length);
+        LuaTable @string = new(0, StringLibrary.Instance.Functions.Length);
         foreach (var func in StringLibrary.Instance.Functions)
         {
             @string[func.Name] = func.Func;
@@ -119,7 +119,7 @@ public static class OpenLibsExtensions
         state.LoadedModules["string"] = @string;
 
         // set __index
-        var key = new LuaValue("");
+        LuaValue key = new("");
         if (!state.TryGetMetatable(key, out var metatable))
         {
             metatable = new();
@@ -136,7 +136,7 @@ public static class OpenLibsExtensions
 
     public static void OpenTableLibrary(this LuaState state)
     {
-        var table = new LuaTable(0, TableLibrary.Instance.Functions.Length);
+        LuaTable table = new(0, TableLibrary.Instance.Functions.Length);
         foreach (var func in TableLibrary.Instance.Functions)
         {
             table[func.Name] = func.Func;
@@ -148,7 +148,7 @@ public static class OpenLibsExtensions
 
     public static void OpenDebugLibrary(this LuaState state)
     {
-        var debug = new LuaTable(0, DebugLibrary.Instance.Functions.Length);
+        LuaTable debug = new(0, DebugLibrary.Instance.Functions.Length);
         foreach (var func in DebugLibrary.Instance.Functions)
         {
             debug[func.Name] = func.Func;

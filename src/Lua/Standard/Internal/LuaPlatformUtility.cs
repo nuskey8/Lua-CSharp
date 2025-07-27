@@ -1,18 +1,19 @@
 namespace Lua.Standard.Internal;
 
-internal class LuaPlatformUtility
+class LuaPlatformUtility
 {
     public static bool IsSandBox => SupportStdio;
+
     public static bool SupportStdio => _supportStdioTryLazy.Value;
 
-    private static Lazy<bool> _supportStdioTryLazy = new Lazy<bool>(() =>
+    static Lazy<bool> _supportStdioTryLazy = new(() =>
     {
         try
         {
 #if NET6_0_OR_GREATER
-            var isDesktop = System.OperatingSystem.IsWindows() ||
-                            System.OperatingSystem.IsLinux() ||
-                            System.OperatingSystem.IsMacOS();
+            var isDesktop = OperatingSystem.IsWindows() ||
+                            OperatingSystem.IsLinux() ||
+                            OperatingSystem.IsMacOS();
             if (!isDesktop)
             {
                 return false;

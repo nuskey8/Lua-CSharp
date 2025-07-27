@@ -3,7 +3,7 @@ using System.Text;
 
 namespace Lua.Internal;
 
-internal sealed class Utf8Reader
+sealed class Utf8Reader
 {
     [ThreadStatic]
     static byte[]? scratchBuffer;
@@ -11,9 +11,9 @@ internal sealed class Utf8Reader
     [ThreadStatic]
     internal static bool scratchBufferUsed;
 
-    private readonly byte[] buffer;
-    private int bufPos, bufLen;
-    private Decoder? decoder;
+    readonly byte[] buffer;
+    int bufPos, bufLen;
+    Decoder? decoder;
 
     const int ThreadStaticBufferSize = 1024;
 
@@ -46,23 +46,25 @@ internal sealed class Utf8Reader
                     bufLen = stream.Read(buffer, 0, buffer.Length);
                     bufPos = 0;
                     if (bufLen == 0)
+                    {
                         break; // EOF
+                    }
                 }
 
-                var span = new Span<byte>(buffer, bufPos, bufLen - bufPos);
-                int idx = span.IndexOfAny((byte)'\r', (byte)'\n');
+                Span<byte> span = new(buffer, bufPos, bufLen - bufPos);
+                var idx = span.IndexOfAny((byte)'\r', (byte)'\n');
 
                 if (idx >= 0)
                 {
                     // Add the line content (before the newline)
                     AppendToBuffer(ref resultBuffer, span[..idx], ref lineLen);
 
-                    byte nl = span[idx];
+                    var nl = span[idx];
                     var eolStart = bufPos + idx;
                     bufPos += idx + 1;
 
                     // Handle CRLF - check if we have \r\n
-                    bool isCRLF = false;
+                    var isCRLF = false;
                     if (nl == (byte)'\r' && bufPos < bufLen && buffer[bufPos] == (byte)'\n')
                     {
                         isCRLF = true;
@@ -75,12 +77,12 @@ internal sealed class Utf8Reader
                         if (isCRLF)
                         {
                             // Add \r\n
-                            AppendToBuffer(ref resultBuffer, new ReadOnlySpan<byte>(new byte[] { (byte)'\r', (byte)'\n' }), ref lineLen);
+                            AppendToBuffer(ref resultBuffer, new(new byte[] { (byte)'\r', (byte)'\n' }), ref lineLen);
                         }
                         else
                         {
                             // Add just the single newline character (\r or \n)
-                            AppendToBuffer(ref resultBuffer, new ReadOnlySpan<byte>(new byte[] { nl }), ref lineLen);
+                            AppendToBuffer(ref resultBuffer, new(new byte[] { nl }), ref lineLen);
                         }
                     }
 
@@ -95,7 +97,10 @@ internal sealed class Utf8Reader
             }
 
             if (lineLen == 0)
+            {
                 return null;
+            }
+
             return Encoding.UTF8.GetString(resultBuffer, 0, lineLen);
         }
         finally
@@ -118,16 +123,21 @@ internal sealed class Utf8Reader
 
                     bufPos = 0;
                     if (bufLen == 0)
+                    {
                         break; // EOF
+                    }
                 }
 
-                var span = new Span<byte>(buffer, bufPos, bufLen - bufPos);
+                Span<byte> span = new(buffer, bufPos, bufLen - bufPos);
                 AppendToBuffer(ref resultBuffer, span, ref len);
                 bufPos = bufLen;
             }
 
             if (len == 0)
+            {
                 return "";
+            }
+
             return Encoding.UTF8.GetString(resultBuffer, 0, len);
         }
         finally
@@ -138,20 +148,30 @@ internal sealed class Utf8Reader
 
     public byte ReadByte(Stream stream)
     {
-        if (buffer.Length == 0) return 0;
+        if (buffer.Length == 0)
+        {
+            return 0;
+        }
 
         var len = 0;
         while (len < 1)
         {
             if (bufPos >= bufLen)
             {
-                
-                bufLen = stream.Read(this.buffer, 0, this.buffer.Length);
+                bufLen = stream.Read(buffer, 0, buffer.Length);
                 bufPos = 0;
-                if (bufLen == 0) break; // EOF
+                if (bufLen == 0)
+                {
+                    break; // EOF
+                }
             }
+
             var bytesToRead = Math.Min(1, bufLen - bufPos);
-            if (bytesToRead == 0) break;
+            if (bytesToRead == 0)
+            {
+                break;
+            }
+
             if (bytesToRead > 0)
             {
                 len += bytesToRead;
@@ -160,13 +180,21 @@ internal sealed class Utf8Reader
 
         return buffer[bufPos++];
     }
+
     public string? Read(Stream stream, int charCount)
     {
-        if (charCount < 0) throw new ArgumentOutOfRangeException(nameof(charCount));
-        if (charCount == 0) return string.Empty;
+        if (charCount < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(charCount));
+        }
+
+        if (charCount == 0)
+        {
+            return string.Empty;
+        }
 
         var len = 0;
-        bool dataRead = false;
+        var dataRead = false;
         var resultBuffer = ArrayPool<char>.Shared.Rent(charCount);
 
         try
@@ -177,18 +205,21 @@ internal sealed class Utf8Reader
                 {
                     bufLen = stream.Read(buffer, 0, buffer.Length);
                     bufPos = 0;
-                    if (bufLen == 0) break; // EOF
+                    if (bufLen == 0)
+                    {
+                        break; // EOF
+                    }
                 }
 
-                var byteSpan = new ReadOnlySpan<byte>(buffer, bufPos, bufLen - bufPos);
-                var charSpan = new Span<char>(resultBuffer, len, charCount - len);
+                ReadOnlySpan<byte> byteSpan = new(buffer, bufPos, bufLen - bufPos);
+                Span<char> charSpan = new(resultBuffer, len, charCount - len);
                 decoder ??= Encoding.UTF8.GetDecoder();
                 decoder.Convert(
                     byteSpan,
                     charSpan,
-                    flush: false,
-                    out int bytesUsed,
-                    out int charsUsed,
+                    false,
+                    out var bytesUsed,
+                    out var charsUsed,
                     out _);
 
                 if (charsUsed > 0)
@@ -198,10 +229,17 @@ internal sealed class Utf8Reader
                 }
 
                 bufPos += bytesUsed;
-                if (bytesUsed == 0) break;
+                if (bytesUsed == 0)
+                {
+                    break;
+                }
             }
 
-            if (!dataRead || len != charCount) return null;
+            if (!dataRead || len != charCount)
+            {
+                return null;
+            }
+
             return resultBuffer.AsSpan(0, len).ToString();
         }
         finally
@@ -211,11 +249,11 @@ internal sealed class Utf8Reader
     }
 
 
-    private static void AppendToBuffer(ref byte[] buffer, ReadOnlySpan<byte> segment, ref int length)
+    static void AppendToBuffer(ref byte[] buffer, ReadOnlySpan<byte> segment, ref int length)
     {
         if (length + segment.Length > buffer.Length)
         {
-            int newSize = Math.Max(buffer.Length * 2, length + segment.Length);
+            var newSize = Math.Max(buffer.Length * 2, length + segment.Length);
             var newBuffer = ArrayPool<byte>.Shared.Rent(newSize);
             Array.Copy(buffer, newBuffer, length);
             ArrayPool<byte>.Shared.Return(buffer);
@@ -240,21 +278,27 @@ internal sealed class Utf8Reader
         var isHex = false;
         var hasDecimal = false;
         var lastWasE = false;
-        
+
         try
         {
             // Skip leading whitespace
             while (true)
             {
                 var b = PeekByte(stream);
-                if (b == -1) return null; // EOF
-                
+                if (b == -1)
+                {
+                    return null; // EOF
+                }
+
                 var c = (char)b;
-                if (!char.IsWhiteSpace(c)) break;
-                
+                if (!char.IsWhiteSpace(c))
+                {
+                    break;
+                }
+
                 ReadByte(stream); // Consume whitespace
             }
-            
+
             // Check for hex prefix at the start
             if (PeekByte(stream) == '0')
             {
@@ -268,16 +312,19 @@ internal sealed class Utf8Reader
                     hasStarted = true;
                 }
             }
-            
+
             // Read number characters
             while (true)
             {
                 var b = PeekByte(stream);
-                if (b == -1) break; // EOF
-                
+                if (b == -1)
+                {
+                    break; // EOF
+                }
+
                 var c = (char)b;
                 var shouldConsume = false;
-                
+
                 if (!hasStarted && (c == '+' || c == '-'))
                 {
                     shouldConsume = true;
@@ -339,7 +386,7 @@ internal sealed class Utf8Reader
                         lastWasE = false;
                     }
                 }
-                
+
                 if (shouldConsume)
                 {
                     if (len >= resultBuffer.Length)
@@ -350,7 +397,7 @@ internal sealed class Utf8Reader
                         ArrayPool<char>.Shared.Return(resultBuffer);
                         resultBuffer = newBuffer;
                     }
-                    
+
                     resultBuffer[len++] = c;
                     ReadByte(stream); // Consume the byte
                 }
@@ -359,7 +406,7 @@ internal sealed class Utf8Reader
                     break; // Not part of the number
                 }
             }
-            
+
             return len == 0 ? null : resultBuffer.AsSpan(0, len).ToString();
         }
         finally
@@ -367,8 +414,8 @@ internal sealed class Utf8Reader
             ArrayPool<char>.Shared.Return(resultBuffer);
         }
     }
-    
-    private int PeekByte(Stream stream, int offset = 0)
+
+    int PeekByte(Stream stream, int offset = 0)
     {
         // Ensure we have enough data in buffer
         while (bufPos + offset >= bufLen)
@@ -377,7 +424,10 @@ internal sealed class Utf8Reader
             {
                 bufLen = stream.Read(buffer, 0, buffer.Length);
                 bufPos = 0;
-                if (bufLen == 0) return -1; // EOF
+                if (bufLen == 0)
+                {
+                    return -1; // EOF
+                }
             }
             else
             {
@@ -385,7 +435,7 @@ internal sealed class Utf8Reader
                 return -1;
             }
         }
-        
+
         return buffer[bufPos + offset];
     }
 

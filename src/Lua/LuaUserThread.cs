@@ -6,13 +6,14 @@ public sealed class LuaUserThread : LuaThread, IPoolNode<LuaUserThread>
 {
     static LinkedPool<LuaUserThread> pool;
     LuaUserThread? nextNode;
+
     ref LuaUserThread? IPoolNode<LuaUserThread>.NextNode => ref nextNode;
 
     public static LuaUserThread Create(LuaThread parent)
     {
-        if (!pool.TryPop(out LuaUserThread result))
+        if (!pool.TryPop(out var result))
         {
-            result = new LuaUserThread();
+            result = new();
         }
 
         result.State = parent.State;

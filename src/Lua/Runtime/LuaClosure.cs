@@ -27,7 +27,7 @@ public sealed class LuaClosure : LuaFunction
         var baseIndex = thread.GetCallStackFrames()[^1].Base;
 
         // add upvalues
-        for (int i = 0; i < proto.UpValues.Length; i++)
+        for (var i = 0; i < proto.UpValues.Length; i++)
         {
             var description = proto.UpValues[i];
             var upValue = GetUpValueFromDescription(thread.State, thread, description, baseIndex);
@@ -38,7 +38,11 @@ public sealed class LuaClosure : LuaFunction
     public Prototype Proto { get; }
 
     public ReadOnlySpan<UpValue> UpValues => upValues.AsSpan();
-    internal Span<UpValue> GetUpValuesSpan() => upValues.AsSpan();
+
+    internal Span<UpValue> GetUpValuesSpan()
+    {
+        return upValues.AsSpan();
+    }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal LuaValue GetUpValue(int index)
@@ -76,6 +80,6 @@ public sealed class LuaClosure : LuaFunction
             return parentClosure.UpValues[description.Index];
         }
 
-        throw new Exception();
+        throw new();
     }
 }

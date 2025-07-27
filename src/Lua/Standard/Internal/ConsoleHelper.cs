@@ -4,8 +4,8 @@ public class ConsoleHelper
 {
     public static bool SupportStandardConsole => LuaPlatformUtility.IsSandBox;
 
-    private static Stream? _inputStream;
-    private static TextReader? _inputReader;
+    static Stream? _inputStream;
+    static TextReader? _inputReader;
 
     public static Stream OpenStandardInput()
     {

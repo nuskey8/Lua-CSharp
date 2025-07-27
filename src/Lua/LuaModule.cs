@@ -6,12 +6,13 @@ namespace Lua;
 public enum LuaModuleType
 {
     Text,
-    Bytes,
+    Bytes
 }
 
 public readonly struct LuaModule
 {
     public string Name => name;
+
     public LuaModuleType Type => type;
 
     readonly string name;
@@ -42,13 +43,21 @@ public readonly struct LuaModule
 
     public ReadOnlySpan<char> ReadText()
     {
-        if (type != LuaModuleType.Text) throw new Exception(); // TODO: add message
+        if (type != LuaModuleType.Text)
+        {
+            throw new(); // TODO: add message
+        }
+
         return text.Span;
     }
 
     public ReadOnlySpan<byte> ReadBytes()
     {
-        if (type != LuaModuleType.Bytes) throw new Exception(); // TODO: add message
+        if (type != LuaModuleType.Bytes)
+        {
+            throw new(); // TODO: add message
+        }
+
         return bytes.Span;
     }
 }

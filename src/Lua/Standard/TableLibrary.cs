@@ -22,22 +22,22 @@ public sealed class TableLibrary
             new(libraryName, "pack", Pack),
             new(libraryName, "remove", Remove),
             new(libraryName, "sort", Sort),
-            new(libraryName, "unpack", Unpack),
+            new(libraryName, "unpack", Unpack)
         ];
     }
 
     public readonly LibraryFunction[] Functions;
 
     // TODO: optimize
-    private static readonly Prototype defaultComparer = new Prototype(
+    static readonly Prototype defaultComparer = new(
         "comp", 0, 0, 2, 2, false,
         [],
         [
             Instruction.Le(1, 0, 1),
             Instruction.LoadBool(2, 1, 1),
             Instruction.LoadBool(2, 0, 0),
-            Instruction.Return(2, 2),
-        ], [], [0, 0, 0, 0], [new LocalVariable() { Name = "a", StartPc = 0, EndPc = 4 }, new LocalVariable() { Name = "b", StartPc = 0, EndPc = 4 }],
+            Instruction.Return(2, 2)
+        ], [], [0, 0, 0, 0], [new() { Name = "a", StartPc = 0, EndPc = 4 }, new() { Name = "b", StartPc = 0, EndPc = 4 }],
         []
     );
 
@@ -54,9 +54,9 @@ public sealed class TableLibrary
             ? (long)context.GetArgument<double>(3)
             : arg0.ArrayLength;
 
-        using var builder = new PooledList<char>(512);
+        using PooledList<char> builder = new(512);
 
-        for (long i = arg2; i <= arg3; i++)
+        for (var i = arg2; i <= arg3; i++)
         {
             var value = arg0[i];
 
@@ -73,7 +73,10 @@ public sealed class TableLibrary
                 throw new LuaRuntimeException(context.Thread, $"invalid value ({value.Type}) at index {i} in table for 'concat'");
             }
 
-            if (i != arg3) builder.AddRange(arg1);
+            if (i != arg3)
+            {
+                builder.AddRange(arg1);
+            }
         }
 
         return new(context.Return(builder.AsSpan().ToString()));
@@ -106,10 +109,10 @@ public sealed class TableLibrary
 
     public ValueTask<int> Pack(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
-        var table = new LuaTable(context.ArgumentCount, 1);
+        LuaTable table = new(context.ArgumentCount, 1);
 
         var span = context.Arguments;
-        for (int i = 0; i < span.Length; i++)
+        for (var i = 0; i < span.Length; i++)
         {
             table[i + 1] = span[i];
         }
@@ -170,7 +173,7 @@ public sealed class TableLibrary
     {
         if (low < high)
         {
-            int pivotIndex = await PartitionAsync(context, memory, low, high, comparer, cancellationToken);
+            var pivotIndex = await PartitionAsync(context, memory, low, high, comparer, cancellationToken);
             await QuickSortAsync(context, memory, low, pivotIndex - 1, comparer, cancellationToken);
             await QuickSortAsync(context, memory, pivotIndex + 1, high, comparer, cancellationToken);
         }
@@ -179,10 +182,10 @@ public sealed class TableLibrary
     async ValueTask<int> PartitionAsync(LuaFunctionExecutionContext context, Memory<LuaValue> memory, int low, int high, LuaFunction comparer, CancellationToken cancellationToken)
     {
         var pivot = memory.Span[high];
-        int i = low - 1;
+        var i = low - 1;
         var access = context.Thread.CurrentAccess;
 
-        for (int j = low; j < high; j++)
+        for (var j = low; j < high; j++)
         {
             var stack = context.Thread.Stack;
             var top = stack.Count;
@@ -223,7 +226,7 @@ public sealed class TableLibrary
         arg1 = Math.Min(arg1, arg2 + 1);
         var count = (int)(arg2 - arg1 + 1);
         var buffer = context.GetReturnBuffer(count);
-        for (long i = arg1; i <= arg2; i++)
+        for (var i = arg1; i <= arg2; i++)
         {
             buffer[index] = arg0[i];
             index++;

@@ -30,7 +30,7 @@ public class CancellationTest
                     throw new LuaAssertionException(context.Thread, message);
                 }
 
-                return (context.Return(context.Arguments));
+                return context.Return(context.Arguments);
             });
         state.Environment["sleep"] = new LuaFunction("sleep",
             (context, _) =>
@@ -141,7 +141,7 @@ public class CancellationTest
             }
         }
     }
-    
+
     [Test]
     public async Task GoToLoopTest()
     {
@@ -178,7 +178,7 @@ public class CancellationTest
             }
         }
     }
-    
+
     [Test]
     public async Task CancelByHookTest()
     {
@@ -191,16 +191,17 @@ public class CancellationTest
                      """;
         var cancellationTokenSource = new CancellationTokenSource();
         var sw = Stopwatch.StartNew();
-        state.MainThread.SetHook(new LuaFunction("timeout",async (context, cancellationToken) =>
+        state.MainThread.SetHook(new("timeout", async (context, cancellationToken) =>
         {
             if (sw.ElapsedMilliseconds > 100)
             {
-                await Task.Delay(1,cancellationToken);
+                await Task.Delay(1, cancellationToken);
                 cancellationTokenSource.Cancel();
                 cancellationToken.ThrowIfCancellationRequested();
             }
-            return  context.Return();
-        }),"",10000);
+
+            return context.Return();
+        }), "", 10000);
         cancellationTokenSource.Token.Register(() =>
         {
             Console.WriteLine("Cancellation requested");

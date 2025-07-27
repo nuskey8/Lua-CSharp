@@ -8,6 +8,7 @@ using Lua.Platforms;
 using Lua.Runtime;
 using Lua.Standard;
 using System.Buffers;
+using System.Text;
 
 namespace Lua;
 
@@ -25,27 +26,36 @@ public sealed class LuaState
     FastStackCore<LuaDebug.LuaDebugBuffer> debugBufferPool;
 
     internal int CallCount;
+
     internal UpValue EnvUpValue => envUpValue;
+
     internal ref FastStackCore<LuaThread> ThreadStack => ref threadStack;
+
     internal ref FastListCore<UpValue> OpenUpValues => ref openUpValues;
+
     internal ref FastStackCore<LuaDebug.LuaDebugBuffer> DebugBufferPool => ref debugBufferPool;
 
     public LuaTable Environment => environment;
+
     public LuaTable Registry => registry;
+
     public LuaTable LoadedModules => registry[ModuleLibrary.LoadedKeyForRegistry].Read<LuaTable>();
+
     public LuaTable PreloadModules => registry[ModuleLibrary.PreloadKeyForRegistry].Read<LuaTable>();
+
     public LuaMainThread MainThread => mainThread;
 
     public LuaThreadAccess RootAccess => new(mainThread, 0);
 
     public LuaPlatform Platform { get; }
 
-    public ILuaModuleLoader? ModuleLoader { get; set; } 
+    public ILuaModuleLoader? ModuleLoader { get; set; }
+
     public ILuaFileSystem FileSystem => Platform.FileSystem ?? throw new InvalidOperationException("FileSystem is not set. Please set it before access.");
 
     public ILuaOsEnvironment OsEnvironment => Platform.OsEnvironment ?? throw new InvalidOperationException("OperatingSystem is not set. Please set it before access.");
-    
-    
+
+
     public TimeProvider TimeProvider => Platform.TimeProvider ?? throw new InvalidOperationException("TimeProvider is not set. Please set it before access.");
 
     public ILuaStandardIO StandardIO => Platform.StandardIO;
@@ -60,7 +70,7 @@ public sealed class LuaState
 
     public static LuaState Create(LuaPlatform? platform = null)
     {
-        var state = new LuaState(platform ?? LuaPlatform.Default);
+        LuaState state = new(platform ?? LuaPlatform.Default);
         return state;
     }
 
@@ -143,10 +153,13 @@ public sealed class LuaState
 
     internal void CloseUpValues(LuaThread thread, int frameBase)
     {
-        for (int i = 0; i < openUpValues.Length; i++)
+        for (var i = 0; i < openUpValues.Length; i++)
         {
             var upValue = openUpValues[i];
-            if (upValue.Thread != thread) continue;
+            if (upValue.Thread != thread)
+            {
+                continue;
+            }
 
             if (upValue.RegisterIndex >= frameBase)
             {
@@ -165,7 +178,7 @@ public sealed class LuaState
             prototype = Parser.Parse(this, new(ptr, chunk.Length), chunkName);
         }
 
-        return new LuaClosure(MainThread, prototype, environment);
+        return new(MainThread, prototype, environment);
     }
 
     public LuaClosure Load(ReadOnlySpan<byte> chunk, string? chunkName = null, string mode = "bt", LuaTable? environment = null)
@@ -174,7 +187,7 @@ public sealed class LuaState
         {
             if (chunk[0] == '\e')
             {
-                return new LuaClosure(MainThread, Parser.UnDump(chunk, chunkName), environment);
+                return new(MainThread, Parser.UnDump(chunk, chunkName), environment);
             }
         }
 

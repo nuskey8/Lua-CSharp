@@ -21,8 +21,9 @@ public sealed class LuaTable : IEnumerable<KeyValuePair<LuaValue, LuaValue>>
     LuaTable? metatable;
 
     internal LuaValueDictionary Dictionary => dictionary;
-    private const int MaxArraySize = 1 << 24;
-    private const int MaxDistance = 1 << 12;
+
+    const int MaxArraySize = 1 << 24;
+    const int MaxDistance = 1 << 12;
 
 
     public LuaValue this[LuaValue key]
@@ -30,7 +31,10 @@ public sealed class LuaTable : IEnumerable<KeyValuePair<LuaValue, LuaValue>>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         get
         {
-            if (key.Type is LuaValueType.Nil) ThrowIndexIsNil();
+            if (key.Type is LuaValueType.Nil)
+            {
+                ThrowIndexIsNil();
+            }
 
             if (TryGetInteger(key, out var index))
             {
@@ -41,7 +45,11 @@ public sealed class LuaTable : IEnumerable<KeyValuePair<LuaValue, LuaValue>>
                 }
             }
 
-            if (dictionary.TryGetValue(key, out var value)) return value;
+            if (dictionary.TryGetValue(key, out var value))
+            {
+                return value;
+            }
+
             return LuaValue.Nil;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -68,7 +76,10 @@ public sealed class LuaTable : IEnumerable<KeyValuePair<LuaValue, LuaValue>>
                     if (0 < index && index < MaxArraySize && index <= Math.Max(array.Length * 2, 8))
                     {
                         if (array.Length < index)
+                        {
                             EnsureArrayCapacity(index);
+                        }
+
                         array[index - 1] = value;
                         return;
                     }
@@ -79,18 +90,18 @@ public sealed class LuaTable : IEnumerable<KeyValuePair<LuaValue, LuaValue>>
         }
     }
 
-    public int HashMapCount
-    {
-        get => dictionary.Count - dictionary.NilCount;
-    }
+    public int HashMapCount => dictionary.Count - dictionary.NilCount;
 
     public int ArrayLength
     {
         get
         {
-            for (int i = 0; i < array.Length; i++)
+            for (var i = 0; i < array.Length; i++)
             {
-                if (array[i].Type is LuaValueType.Nil) return i;
+                if (array[i].Type is LuaValueType.Nil)
+                {
+                    return i;
+                }
             }
 
             return array.Length;
@@ -131,6 +142,7 @@ public sealed class LuaTable : IEnumerable<KeyValuePair<LuaValue, LuaValue>>
         {
             ThrowIndexIsNil();
         }
+
 
         if (TryGetInteger(key, out var index))
         {
@@ -217,7 +229,7 @@ public sealed class LuaTable : IEnumerable<KeyValuePair<LuaValue, LuaValue>>
         if (index != -1)
         {
             var span = array.AsSpan(index);
-            for (int i = 0; i < span.Length; i++)
+            for (var i = 0; i < span.Length; i++)
             {
                 if (span[i].Type is not LuaValueType.Nil)
                 {
@@ -265,7 +277,10 @@ public sealed class LuaTable : IEnumerable<KeyValuePair<LuaValue, LuaValue>>
 
     internal void EnsureArrayCapacity(int newCapacity)
     {
-        if (array.Length >= newCapacity) return;
+        if (array.Length >= newCapacity)
+        {
+            return;
+        }
 
         var prevLength = array.Length;
         var newLength = array.Length;
@@ -273,7 +288,7 @@ public sealed class LuaTable : IEnumerable<KeyValuePair<LuaValue, LuaValue>>
 
         Array.Resize(ref array, newLength);
 
-        using var indexList = new PooledList<(int, LuaValue)>(dictionary.Count);
+        using PooledList<(int, LuaValue)> indexList = new(dictionary.Count);
 
         // Move some of the elements of the hash part to a newly allocated array
         foreach (var kv in dictionary)
@@ -287,7 +302,7 @@ public sealed class LuaTable : IEnumerable<KeyValuePair<LuaValue, LuaValue>>
             }
         }
 
-        foreach ((var index, var value) in indexList.AsSpan())
+        foreach (var (index, value) in indexList.AsSpan())
         {
             dictionary.Remove(index);
             array[index - 1] = value;
@@ -335,6 +350,7 @@ public sealed class LuaTable : IEnumerable<KeyValuePair<LuaValue, LuaValue>>
     public struct LuaTableEnumerator(LuaTable table) : IEnumerator<KeyValuePair<LuaValue, LuaValue>>
     {
         public KeyValuePair<LuaValue, LuaValue> Current => current;
+
         int index = -1;
         readonly int version = table.dictionary.Version;
         KeyValuePair<LuaValue, LuaValue> current = default;
@@ -345,7 +361,7 @@ public sealed class LuaTable : IEnumerable<KeyValuePair<LuaValue, LuaValue>>
             {
                 var arrayIndex = -index - 1;
                 var span = table.array.AsSpan(arrayIndex);
-                for (int i = 0; i < span.Length; i++)
+                for (var i = 0; i < span.Length; i++)
                 {
                     if (span[i].Type is not LuaValueType.Nil)
                     {

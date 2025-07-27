@@ -5,7 +5,7 @@ using System.Numerics;
 
 namespace Lua;
 
-internal static class MathEx
+static class MathEx
 {
     const ulong PositiveInfinityBits = 0x7FF0_0000_0000_0000;
 
@@ -23,7 +23,7 @@ internal static class MathEx
     public static unsafe bool IsFinite(double d)
     {
 #if NET6_0_OR_GREATER
-        ulong bits = BitConverter.DoubleToUInt64Bits(d);
+        var bits = BitConverter.DoubleToUInt64Bits(d);
 #else
         ulong bits = BitCast<double, ulong>(d);
 #endif
@@ -65,7 +65,9 @@ internal static class MathEx
         var e = 0;
 
         if (exp == 0x7ff || d == 0D)
+        {
             d += d;
+        }
         else
         {
             // Not zero and finite.
@@ -96,7 +98,11 @@ internal static class MathEx
     public static int NextPowerOfTwo(int x)
     {
 #if NET6_0_OR_GREATER
-        if (x <= 0) return 0;
+        if (x <= 0)
+        {
+            return 0;
+        }
+
         return (int)BitOperations.RoundUpToPowerOf2((uint)x);
 #else
         if (x <= 0) return 0;

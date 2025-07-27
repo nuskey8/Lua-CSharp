@@ -15,5 +15,5 @@ public enum LuaFileBufferingMode
     /// <summary>
     /// No buffering. `no` in Lua
     /// </summary>
-    NoBuffering,
+    NoBuffering
 }

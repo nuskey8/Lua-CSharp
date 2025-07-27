@@ -36,7 +36,7 @@ public sealed class MathematicsLibrary
             new(libraryName, "sinh", Sinh),
             new(libraryName, "sqrt", Sqrt),
             new(libraryName, "tan", Tan),
-            new(libraryName, "tanh", Tanh),
+            new(libraryName, "tanh", Tanh)
         ];
     }
 
@@ -164,7 +164,7 @@ public sealed class MathematicsLibrary
     public ValueTask<int> Max(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
         var x = context.GetArgument<double>(0);
-        for (int i = 1; i < context.ArgumentCount; i++)
+        for (var i = 1; i < context.ArgumentCount; i++)
         {
             x = Math.Max(x, context.GetArgument<double>(i));
         }
@@ -175,7 +175,7 @@ public sealed class MathematicsLibrary
     public ValueTask<int> Min(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
         var x = context.GetArgument<double>(0);
-        for (int i = 1; i < context.ArgumentCount; i++)
+        for (var i = 1; i < context.ArgumentCount; i++)
         {
             x = Math.Min(x, context.GetArgument<double>(i));
         }
@@ -215,20 +215,20 @@ public sealed class MathematicsLibrary
         else if (context.ArgumentCount == 1)
         {
             var arg0 = context.GetArgument<double>(0);
-            return new(context.Return(rand.NextDouble() * (arg0 - 1) + 1));
+            return new(context.Return((rand.NextDouble() * (arg0 - 1)) + 1));
         }
         else
         {
             var arg0 = context.GetArgument<double>(0);
             var arg1 = context.GetArgument<double>(1);
-            return new(context.Return(rand.NextDouble() * (arg1 - arg0) + arg0));
+            return new(context.Return((rand.NextDouble() * (arg1 - arg0)) + arg0));
         }
     }
 
     public ValueTask<int> RandomSeed(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
         var arg0 = context.GetArgument<double>(0);
-        context.State.Environment[RandomInstanceKey] = new(new RandomUserData(new Random((int)BitConverter.DoubleToInt64Bits(arg0))));
+        context.State.Environment[RandomInstanceKey] = new(new RandomUserData(new((int)BitConverter.DoubleToInt64Bits(arg0))));
         return new(context.Return());
     }
 

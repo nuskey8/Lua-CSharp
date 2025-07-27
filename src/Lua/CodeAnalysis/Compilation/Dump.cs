@@ -12,10 +12,12 @@ namespace Lua.CodeAnalysis.Compilation;
 
 [SuppressMessage("ReSharper", "MemberCanBePrivate.Local")]
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
-internal unsafe struct Header
+unsafe struct Header
 {
     public static ReadOnlySpan<byte> LuaSignature => "\eLua"u8;
+
     public static ReadOnlySpan<byte> LuaTail => [0x19, 0x93, 0x0d, 0x0a, 0x1a, 0x0a];
+
     public fixed byte Signature[4];
     public byte Version, Format, Endianness, IntSize;
     public byte PointerSize, InstructionSize;
@@ -31,7 +33,7 @@ internal unsafe struct Header
             LuaSignature.CopyTo(new(signature, 4));
         }
 
-        Version = Constants.VersionMajor << 4 | Constants.VersionMinor;
+        Version = (Constants.VersionMajor << 4) | Constants.VersionMinor;
         Format = 0;
         Endianness = (byte)(isLittleEndian ? 1 : 0);
         IntSize = 4;
@@ -81,7 +83,7 @@ internal unsafe struct Header
     }
 }
 
-internal unsafe ref struct DumpState(IBufferWriter<byte> writer, bool reversedEndian)
+unsafe ref struct DumpState(IBufferWriter<byte> writer, bool reversedEndian)
 {
     public readonly IBufferWriter<byte> Writer = writer;
     Span<byte> unWritten;
@@ -107,7 +109,7 @@ internal unsafe ref struct DumpState(IBufferWriter<byte> writer, bool reversedEn
 
     void DumpHeader()
     {
-        var header = new Header(BitConverter.IsLittleEndian ^ IsReversedEndian);
+        Header header = new(BitConverter.IsLittleEndian ^ IsReversedEndian);
         Write(new(&header, Header.Size));
     }
 
@@ -173,7 +175,7 @@ internal unsafe ref struct DumpState(IBufferWriter<byte> writer, bool reversedEn
 
     void WriteDouble(double v)
     {
-        long l = BitConverter.DoubleToInt64Bits(v);
+        var l = BitConverter.DoubleToInt64Bits(v);
         WriteLong(l);
     }
 
@@ -204,9 +206,20 @@ internal unsafe ref struct DumpState(IBufferWriter<byte> writer, bool reversedEn
     {
         var bytes = Encoding.UTF8.GetBytes(v);
         var len = bytes.Length;
-        if (bytes.Length != 0) len++;
-        if (sizeof(IntPtr) == 8) WriteLong(len);
-        else WriteInt(len);
+        if (bytes.Length != 0)
+        {
+            len++;
+        }
+
+        if (sizeof(IntPtr) == 8)
+        {
+            WriteLong(len);
+        }
+        else
+        {
+            WriteInt(len);
+        }
+
         if (len != 0)
         {
             Write(bytes);
@@ -267,20 +280,31 @@ internal unsafe ref struct DumpState(IBufferWriter<byte> writer, bool reversedEn
     }
 }
 
-internal unsafe ref struct UnDumpState(ReadOnlySpan<byte> span, ReadOnlySpan<char> name)
+unsafe ref struct UnDumpState(ReadOnlySpan<byte> span, ReadOnlySpan<char> name)
 {
     public ReadOnlySpan<byte> Unread = span;
     bool otherEndian;
     int pointerSize;
     readonly ReadOnlySpan<char> name = name;
 
-    void Throw(string why) => throw new LuaUnDumpException($"{name.ToString()}: {why} precompiled chunk");
-    void ThrowTooShort() => Throw("truncate");
+    void Throw(string why)
+    {
+        throw new LuaUnDumpException($"{name.ToString()}: {why} precompiled chunk");
+    }
+
+    void ThrowTooShort()
+    {
+        Throw("truncate");
+    }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal void Read(Span<byte> dst)
     {
-        if (Unread.Length < dst.Length) ThrowTooShort();
+        if (Unread.Length < dst.Length)
+        {
+            ThrowTooShort();
+        }
+
         Unread[..dst.Length].CopyTo(dst);
 
         Unread = Unread[dst.Length..];
@@ -316,10 +340,13 @@ internal unsafe ref struct UnDumpState(ReadOnlySpan<byte> span, ReadOnlySpan<cha
     int ReadInt()
     {
         var i = 0;
-        var span = new Span<byte>(&i, sizeof(int));
+        Span<byte> span = new(&i, sizeof(int));
         Read(span);
 
-        if (otherEndian) i = BinaryPrimitives.ReverseEndianness(i);
+        if (otherEndian)
+        {
+            i = BinaryPrimitives.ReverseEndianness(i);
+        }
 
         return i;
     }
@@ -327,24 +354,28 @@ internal unsafe ref struct UnDumpState(ReadOnlySpan<byte> span, ReadOnlySpan<cha
     long ReadLong()
     {
         long i = 0;
-        var span = new Span<byte>(&i, sizeof(long));
+        Span<byte> span = new(&i, sizeof(long));
         Read(span);
 
-        if (otherEndian) i = BinaryPrimitives.ReverseEndianness(i);
+        if (otherEndian)
+        {
+            i = BinaryPrimitives.ReverseEndianness(i);
+        }
+
         return i;
     }
 
     double ReadDouble()
     {
-        long i = ReadLong();
+        var i = ReadLong();
 
-        return *(double*)(&i);
+        return *(double*)&i;
     }
 
     public Prototype UnDump()
     {
         Header h = default;
-        var span = new Span<byte>(&h, sizeof(Header));
+        Span<byte> span = new(&h, sizeof(Header));
         Read(span);
 
         h.Validate(name);
@@ -388,7 +419,7 @@ internal unsafe ref struct UnDumpState(ReadOnlySpan<byte> span, ReadOnlySpan<cha
 
     void ReadInToIntSpan(Span<int> toWrite)
     {
-        for (int i = 0; i < toWrite.Length; i++)
+        for (var i = 0; i < toWrite.Length; i++)
         {
             toWrite[i] = ReadInt();
         }
@@ -398,7 +429,11 @@ internal unsafe ref struct UnDumpState(ReadOnlySpan<byte> span, ReadOnlySpan<cha
     string ReadString()
     {
         var len = pointerSize == 4 ? ReadInt() : (int)ReadLong();
-        if (len == 0) return "";
+        if (len == 0)
+        {
+            return "";
+        }
+
         len--;
         var arrayPooled = ArrayPool<byte>.Shared.Rent(len);
         try
@@ -421,20 +456,20 @@ internal unsafe ref struct UnDumpState(ReadOnlySpan<byte> span, ReadOnlySpan<cha
     {
         var count = ReadInt();
         var constants = new LuaValue[count];
-        for (int i = 0; i < count; i++)
+        for (var i = 0; i < count; i++)
         {
             var type = (LuaValueType)ReadByte();
             switch (type)
             {
                 case LuaValueType.Nil: break;
                 case LuaValueType.Boolean:
-                    constants[i] = (ReadByte() == 1);
+                    constants[i] = ReadByte() == 1;
                     break;
                 case LuaValueType.Number:
-                    constants[i] = (ReadDouble());
+                    constants[i] = ReadDouble();
                     break;
                 case LuaValueType.String:
-                    constants[i] = (ReadString());
+                    constants[i] = ReadString();
                     break;
             }
         }
@@ -446,7 +481,7 @@ internal unsafe ref struct UnDumpState(ReadOnlySpan<byte> span, ReadOnlySpan<cha
     {
         var count = ReadInt();
         var prototypes = count != 0 ? new Prototype[count] : [];
-        for (int i = 0; i < count; i++)
+        for (var i = 0; i < count; i++)
         {
             prototypes[i] = UnDumpFunction();
         }
@@ -458,7 +493,7 @@ internal unsafe ref struct UnDumpState(ReadOnlySpan<byte> span, ReadOnlySpan<cha
     {
         var count = ReadInt();
         var localVariables = new LocalVariable[count];
-        for (int i = 0; i < count; i++)
+        for (var i = 0; i < count; i++)
         {
             var name = ReadString();
             var startPc = ReadInt();
@@ -474,7 +509,7 @@ internal unsafe ref struct UnDumpState(ReadOnlySpan<byte> span, ReadOnlySpan<cha
         var count = ReadInt();
         Debug.Assert(count < 100, $" too many upvalues :{count}");
         var upValues = new UpValueDesc[count];
-        for (int i = 0; i < count; i++)
+        for (var i = 0; i < count; i++)
         {
             var isLocal = ReadBool();
             var index = ReadByte();

@@ -1,4 +1,5 @@
-﻿using System.Runtime.CompilerServices;
+﻿using Lua.CodeAnalysis;
+using System.Runtime.CompilerServices;
 using Lua.Runtime;
 using Lua.Internal;
 
@@ -27,7 +28,7 @@ public class DebugLibrary
             new(libraryName, "upvaluejoin", UpValueJoin),
             new(libraryName, "gethook", GetHook),
             new(libraryName, "sethook", SetHook),
-            new(libraryName, "getinfo", GetInfo),
+            new(libraryName, "getinfo", GetInfo)
         ];
     }
 
@@ -89,7 +90,7 @@ public class DebugLibrary
             var nextFrame = callStack[^level];
             var currentPc = nextFrame.CallerInstructionIndex;
             {
-                int nextFrameBase = (closure.Proto.Code[currentPc].OpCode is OpCode.Call or OpCode.TailCall) ? nextFrame.Base - 1 : nextFrame.Base;
+                var nextFrameBase = closure.Proto.Code[currentPc].OpCode is OpCode.Call or OpCode.TailCall ? nextFrame.Base - 1 : nextFrame.Base;
                 if (nextFrameBase - 1 < frameBase + index)
                 {
                     name = null;
@@ -100,8 +101,16 @@ public class DebugLibrary
             var localId = index + 1;
             foreach (var l in locals)
             {
-                if (currentPc < l.StartPc) break;
-                if (l.EndPc <= currentPc) continue;
+                if (currentPc < l.StartPc)
+                {
+                    break;
+                }
+
+                if (l.EndPc <= currentPc)
+                {
+                    continue;
+                }
+
                 localId--;
                 if (localId == 0)
                 {
@@ -112,7 +121,7 @@ public class DebugLibrary
         }
         else
         {
-            int nextFrameBase = level != 0 ? callStack[^level].Base : thread.Stack.Count;
+            var nextFrameBase = level != 0 ? callStack[^level].Base : thread.Stack.Count;
 
             if (nextFrameBase - 1 < frameBase + index)
             {
@@ -413,7 +422,7 @@ public class DebugLibrary
     public async ValueTask<int> SetHook(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
         var thread = GetLuaThread(context, out var argOffset);
-        LuaFunction? hook = context.GetArgumentOrDefault<LuaFunction?>(argOffset);
+        var hook = context.GetArgumentOrDefault<LuaFunction?>(argOffset);
         var mask = context.GetArgumentOrDefault<string?>(argOffset + 1) ?? "";
         var count = context.GetArgumentOrDefault<int>(argOffset + 2);
         thread.SetHook(hook, mask, count);
@@ -431,7 +440,7 @@ public class DebugLibrary
             context.Thread.IsInHook = true;
             var frame = context.Thread.CurrentAccess.CreateCallStackFrame(hook, 2, top, 0);
             var access = context.Thread.PushCallStackFrame(frame);
-            var funcContext = new LuaFunctionExecutionContext { Access = access, ArgumentCount = stack.Count - frame.Base, ReturnFrameBase = frame.ReturnBase };
+            LuaFunctionExecutionContext funcContext = new() { Access = access, ArgumentCount = stack.Count - frame.Base, ReturnFrameBase = frame.ReturnBase };
             try
             {
                 await hook.Func(funcContext, cancellationToken);
@@ -455,11 +464,9 @@ public class DebugLibrary
         }
 
         return new(context.Return(thread.Hook,
-            (
-                (thread.IsCallHookEnabled ? "c" : "") +
-                (thread.IsReturnHookEnabled ? "r" : "") +
-                (thread.IsLineHookEnabled ? "l" : "")
-            )
+            (thread.IsCallHookEnabled ? "c" : "") +
+            (thread.IsReturnHookEnabled ? "r" : "") +
+            (thread.IsLineHookEnabled ? "l" : "")
             , thread.BaseHookCount));
     }
 
@@ -467,10 +474,10 @@ public class DebugLibrary
     {
         //return new(0);
         var thread = GetLuaThread(context, out var argOffset);
-        string what = context.GetArgumentOrDefault<string>(argOffset + 1, "flnStu");
+        var what = context.GetArgumentOrDefault<string>(argOffset + 1, "flnStu");
         CallStackFrame? previousFrame = null;
         CallStackFrame? currentFrame = null;
-        int pc = 0;
+        var pc = 0;
         var arg1 = context.GetArgument(argOffset);
 
         if (arg1.TryReadFunction(out var functionToInspect))
@@ -489,7 +496,7 @@ public class DebugLibrary
             }
 
 
-            currentFrame = thread.GetCallStackFrames()[^(level)];
+            currentFrame = thread.GetCallStackFrames()[^level];
             previousFrame = level + 1 <= callStack.Length ? callStack[^(level + 1)] : null;
             if (level != 1)
             {
@@ -509,7 +516,7 @@ public class DebugLibrary
             context.ThrowBadArgument(argOffset + 1, "invalid option");
         }
 
-        var table = new LuaTable(0, 1);
+        LuaTable table = new(0, 1);
         if (what.Contains('S'))
         {
             table["source"] = debug.Source ?? LuaValue.Nil;
@@ -552,7 +559,7 @@ public class DebugLibrary
         {
             if (functionToInspect is LuaClosure closure)
             {
-                var activeLines = new LuaTable(0, 8);
+                LuaTable activeLines = new(0, 8);
                 foreach (var line in closure.Proto.LineInfo)
                 {
                     activeLines[line] = true;

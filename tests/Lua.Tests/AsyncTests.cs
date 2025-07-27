@@ -29,7 +29,7 @@ public class AsyncTests
                     throw new LuaAssertionException(context.Thread, message);
                 }
 
-                return (context.Return(context.Arguments));
+                return context.Return(context.Arguments);
             });
     }
 
@@ -47,7 +47,7 @@ public class AsyncTests
         catch (LuaRuntimeException e)
         {
             var line = e.LuaTraceback!.LastLine;
-            throw new Exception($"{path}:line {line}\n{e.InnerException}\n {e}");
+            throw new($"{path}:line {line}\n{e.InnerException}\n {e}");
         }
     }
 }

@@ -16,7 +16,7 @@ public sealed class CoroutineLibrary
             new(libraryName, "running", Running),
             new(libraryName, "status", Status),
             new(libraryName, "wrap", Wrap),
-            new(libraryName, "yield", Yield),
+            new(libraryName, "yield", Yield)
         ];
     }
 
@@ -48,7 +48,7 @@ public sealed class CoroutineLibrary
             LuaThreadStatus.Suspended => "suspended",
             LuaThreadStatus.Running => "running",
             LuaThreadStatus.Dead => "dead",
-            _ => "",
+            _ => ""
         }));
     }
 

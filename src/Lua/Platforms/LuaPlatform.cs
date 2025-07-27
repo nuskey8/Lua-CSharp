@@ -15,11 +15,11 @@ public sealed class LuaPlatform(ILuaFileSystem fileSystem, ILuaOsEnvironment osE
     /// Standard console platform implementation.
     /// Uses real file system, console I/O, and system operations.
     /// </summary>
-    public static LuaPlatform Default => new(
-        fileSystem: new FileSystem(),
-        osEnvironment: new SystemOsEnvironment(),
-        standardIO: new ConsoleStandardIO()
-        , timeProvider: TimeProvider.System);
+    public static LuaPlatform Default =>
+        new(fileSystem: new FileSystem(),
+            osEnvironment: new SystemOsEnvironment(),
+            standardIO: new ConsoleStandardIO(),
+            timeProvider: TimeProvider.System);
 
     public ILuaFileSystem FileSystem { get; set; } = fileSystem;
     public ILuaOsEnvironment OsEnvironment { get; set; } = osEnvironment;

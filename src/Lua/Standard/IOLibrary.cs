@@ -22,7 +22,7 @@ public sealed class IOLibrary
             new(libraryName, "read", Read),
             new(libraryName, "type", Type),
             new(libraryName, "write", Write),
-            new(libraryName, "tmpfile", TmpFile),
+            new(libraryName, "tmpfile", TmpFile)
         ];
     }
 
@@ -78,7 +78,7 @@ public sealed class IOLibrary
         else
         {
             var stream = await context.State.FileSystem.Open(arg.ToString(), LuaFileOpenMode.Read, cancellationToken);
-            var handle = new FileHandle(stream);
+            FileHandle handle = new(stream);
             registry["_IO_input"] = new(handle);
             return context.Return(new LuaValue(handle));
         }
@@ -96,7 +96,7 @@ public sealed class IOLibrary
                 var resultCount = await IOHelper.ReadAsync(context.Thread, file, "io.lines", 0, Memory<LuaValue>.Empty, true, cancellationToken);
                 if (resultCount > 0 && context.Thread.Stack.Get(context.ReturnFrameBase).Type is LuaValueType.Nil)
                 {
-                   await file.Close(cancellationToken);
+                    await file.Close(cancellationToken);
                 }
 
                 return resultCount;
@@ -125,7 +125,7 @@ public sealed class IOLibrary
                 var resultCount = await IOHelper.ReadAsync(context.Thread, file, "io.lines", 0, formats, true, cancellationToken);
                 if (resultCount > 0 && stack.Get(context.ReturnFrameBase).Type is LuaValueType.Nil)
                 {
-                  await  file.Close(cancellationToken);
+                    await file.Close(cancellationToken);
                 }
 
                 return resultCount;
@@ -169,7 +169,7 @@ public sealed class IOLibrary
         else
         {
             var stream = await context.State.FileSystem.Open(arg.ToString(), LuaFileOpenMode.WriteUpdate, cancellationToken);
-            var handle = new FileHandle(stream);
+            FileHandle handle = new(stream);
             io["_IO_output"] = new(handle);
             return context.Return(new LuaValue(handle));
         }
@@ -191,7 +191,7 @@ public sealed class IOLibrary
 
         if (arg0.TryRead<FileHandle>(out var file))
         {
-            return new(context.Return(file.IsOpen ? " file" :"closed file"));
+            return new(context.Return(file.IsOpen ? " file" : "closed file"));
         }
         else
         {

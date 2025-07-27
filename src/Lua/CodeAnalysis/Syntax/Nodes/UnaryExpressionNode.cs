@@ -4,7 +4,7 @@ public enum UnaryOperator
 {
     Negate,
     Not,
-    Length,
+    Length
 }
 
 public record UnaryExpressionNode(UnaryOperator Operator, ExpressionNode Node, SourcePosition Position) : ExpressionNode(Position)
@@ -15,7 +15,7 @@ public record UnaryExpressionNode(UnaryOperator Operator, ExpressionNode Node, S
     }
 }
 
-internal static class UnaryOperatorEx
+static class UnaryOperatorEx
 {
     public static string ToDisplayString(this UnaryOperator @operator)
     {
@@ -24,7 +24,7 @@ internal static class UnaryOperatorEx
             UnaryOperator.Negate => Keywords.Subtraction,
             UnaryOperator.Not => Keywords.Not,
             UnaryOperator.Length => Keywords.Length,
-            _ => "",
+            _ => ""
         };
     }
 }

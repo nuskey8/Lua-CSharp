@@ -20,7 +20,7 @@ public sealed class OperatingSystemLibrary
             new("os", "rename", Rename),
             new("os", "setlocale", SetLocale),
             new("os", "time", Time),
-            new("os", "tmpname", TmpName),
+            new("os", "tmpname", TmpName)
         ];
     }
 
@@ -61,7 +61,7 @@ public sealed class OperatingSystemLibrary
 
         if (format is "*t")
         {
-            var table = new LuaTable
+            LuaTable table = new()
             {
                 ["year"] = now.Year,
                 ["month"] = now.Month,
@@ -106,7 +106,7 @@ public sealed class OperatingSystemLibrary
     public async ValueTask<int> Exit(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
         // Ignore 'close' parameter
-        int exitCode = 0;
+        var exitCode = 0;
         if (context.HasArgument(0))
         {
             var code = context.Arguments[0];
@@ -167,7 +167,6 @@ public sealed class OperatingSystemLibrary
     public ValueTask<int> SetLocale(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
         // os.setlocale is not supported (always return nil)
-
         return new(context.Return(LuaValue.Nil));
     }
 

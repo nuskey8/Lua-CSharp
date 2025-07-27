@@ -17,7 +17,10 @@ public sealed class LuaStack(int initialSize = 256)
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void EnsureCapacity(int newSize)
     {
-        if (array.Length >= newSize) return;
+        if (array.Length >= newSize)
+        {
+            return;
+        }
 
         Resize(ref array, newSize);
         return;
@@ -42,7 +45,10 @@ public sealed class LuaStack(int initialSize = 256)
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void NotifyTop(int top)
     {
-        if (this.top < top) this.top = top;
+        if (this.top < top)
+        {
+            this.top = top;
+        }
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -64,7 +70,11 @@ public sealed class LuaStack(int initialSize = 256)
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public LuaValue Pop()
     {
-        if (top == 0) ThrowEmptyStack();
+        if (top == 0)
+        {
+            ThrowEmptyStack();
+        }
+
         top--;
         var item = array[top];
         array[top] = default;
@@ -75,7 +85,10 @@ public sealed class LuaStack(int initialSize = 256)
     public void Pop(int count)
     {
         var newSize = top - count;
-        if (newSize >= top) return;
+        if (newSize >= top)
+        {
+            return;
+        }
 
         array.AsSpan(newSize, top - newSize).Clear();
         top = newSize;
@@ -84,7 +97,10 @@ public sealed class LuaStack(int initialSize = 256)
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void PopUntil(int newSize)
     {
-        if (newSize >= top) return;
+        if (newSize >= top)
+        {
+            return;
+        }
 
         array.AsSpan(newSize, top - newSize).Clear();
         top = newSize;
@@ -100,7 +116,7 @@ public sealed class LuaStack(int initialSize = 256)
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public Span<LuaValue> AsSpan()
     {
-        return new Span<LuaValue>(array, 0, top);
+        return new(array, 0, top);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -140,7 +156,10 @@ public sealed class LuaStack(int initialSize = 256)
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal ref LuaValue GetWithNotifyTop(int index)
     {
-        if (this.top <= index) this.top = index + 1;
+        if (top <= index)
+        {
+            top = index + 1;
+        }
 #if NET6_0_OR_GREATER
         return ref Unsafe.Add(ref MemoryMarshal.GetArrayDataReference(array), index);
 #else
@@ -154,7 +173,7 @@ public sealed class LuaStack(int initialSize = 256)
     }
 
     [DebuggerBrowsable(DebuggerBrowsableState.RootHidden)]
-    private Span<LuaValue> Span => AsSpan();
+    Span<LuaValue> Span => AsSpan();
 
     internal void SetTop(int top)
     {

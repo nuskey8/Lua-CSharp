@@ -3,7 +3,7 @@
 namespace Lua.CodeAnalysis.Compilation;
 
 [DebuggerDisplay("{DebuggerDisplay}")]
-internal readonly struct Token(int pos, int t)
+readonly struct Token(int pos, int t)
 {
     public Token(int pos, int t, string str) : this(pos, t)
     {
@@ -21,5 +21,12 @@ internal readonly struct Token(int pos, int t)
     public readonly int T = t;
     public readonly double N;
     public readonly string S = "";
-    string DebuggerDisplay => $"{Scanner.TokenToString(this)} {T} {N} {S}";
+
+    string DebuggerDisplay
+    {
+        get
+        {
+            return $"{Scanner.TokenToString(this)} {T} {N} {S}";
+        }
+    }
 }

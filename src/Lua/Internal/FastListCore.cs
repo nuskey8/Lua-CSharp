@@ -56,7 +56,10 @@ public struct FastListCore<T>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Shrink(int newSize)
     {
-        if (newSize >= tailIndex) return;
+        if (newSize >= tailIndex)
+        {
+            return;
+        }
 
         array.AsSpan(newSize).Clear();
         tailIndex = newSize;
@@ -65,11 +68,17 @@ public struct FastListCore<T>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Clear(bool removeArray = false)
     {
-        if (array == null) return;
+        if (array == null)
+        {
+            return;
+        }
 
         array.AsSpan().Clear();
         tailIndex = 0;
-        if (removeArray) array = null;
+        if (removeArray)
+        {
+            array = null;
+        }
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -106,17 +115,29 @@ public struct FastListCore<T>
         get => tailIndex;
     }
 
-    public readonly Span<T> AsSpan() => array == null ? Span<T>.Empty : array.AsSpan(0, tailIndex);
+    public readonly Span<T> AsSpan()
+    {
+        return array == null ? Span<T>.Empty : array.AsSpan(0, tailIndex);
+    }
 
     [DebuggerBrowsable(DebuggerBrowsableState.RootHidden)]
-    private readonly Span<T> Span => AsSpan();
+    readonly Span<T> Span => AsSpan();
 
-    public readonly T[]? AsArray() => array;
+    public readonly T[]? AsArray()
+    {
+        return array;
+    }
 
     readonly void CheckIndex(int index)
     {
-        if (array == null || index < 0 || index > tailIndex) ThrowIndexOutOfRange();
+        if (array == null || index < 0 || index > tailIndex)
+        {
+            ThrowIndexOutOfRange();
+        }
     }
 
-    static void ThrowIndexOutOfRange() => throw new IndexOutOfRangeException();
+    static void ThrowIndexOutOfRange()
+    {
+        throw new IndexOutOfRangeException();
+    }
 }

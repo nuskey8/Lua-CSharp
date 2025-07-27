@@ -9,8 +9,7 @@ unsafe struct TextReader(char* ptr, int length)
 
     public (char, bool) Read()
     {
-        if (Position >= length) return ('\0', false);
-        return (ptr[Position++], true);
+        return Position >= length ? ('\0', false) : (ptr[Position++], true);
     }
 
     public bool TryRead(out char c)
@@ -28,29 +27,31 @@ unsafe struct TextReader(char* ptr, int length)
     public char Current => ptr[Position];
 
     public ReadOnlySpan<char> Span => new(ptr, length);
+
     public int Length => length;
 }
 
-internal unsafe struct AssignmentTarget(ref AssignmentTarget previous, ExprDesc exprDesc)
+unsafe struct AssignmentTarget(ref AssignmentTarget previous, ExprDesc exprDesc)
 {
     public readonly AssignmentTarget* Previous = (AssignmentTarget*)Unsafe.AsPointer(ref previous);
     public ExprDesc Description = exprDesc;
 }
 
-internal struct Label
+struct Label
 {
     public string Name;
     public int Pc, Line;
     public int ActiveVariableCount;
 }
 
-internal class Block : IPoolNode<Block>
+class Block : IPoolNode<Block>
 {
     public Block? Previous;
     public int FirstLabel, FirstGoto;
     public int ActiveVariableCount;
     public bool HasUpValue, IsLoop;
     Block() { }
+
     ref Block? IPoolNode<Block>.NextNode => ref Previous;
 
     static LinkedPool<Block> Pool;
@@ -59,7 +60,7 @@ internal class Block : IPoolNode<Block>
     {
         if (!Pool.TryPop(out var block))
         {
-            block = new Block();
+            block = new();
         }
 
         block.Previous = previous;
@@ -80,7 +81,7 @@ internal class Block : IPoolNode<Block>
     }
 }
 
-internal struct ExprDesc
+struct ExprDesc
 {
     public Kind Kind;
     public int Index;
@@ -89,16 +90,29 @@ internal struct ExprDesc
     public int Info;
     public int T, F;
     public double Value;
-    public readonly bool HasJumps() => T != F;
 
-    public readonly bool IsNumeral() => Kind == Kind.Number && T == Function.NoJump && F == Function.NoJump;
+    public readonly bool HasJumps()
+    {
+        return T != F;
+    }
 
-    public readonly bool IsVariable() => Kind.Local <= Kind && Kind <= Kind.Indexed;
+    public readonly bool IsNumeral()
+    {
+        return Kind == Kind.Number && T == Function.NoJump && F == Function.NoJump;
+    }
 
-    public readonly bool HasMultipleReturns() => Kind == Kind.Call || Kind == Kind.VarArg;
+    public readonly bool IsVariable()
+    {
+        return Kind is >= Kind.Local and <= Kind.Indexed;
+    }
+
+    public readonly bool HasMultipleReturns()
+    {
+        return Kind == Kind.Call || Kind == Kind.VarArg;
+    }
 }
 
-internal enum Kind
+enum Kind
 {
     Void = 0,
     Nil = 1,

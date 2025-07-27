@@ -30,21 +30,27 @@ public enum LuaFileOpenMode
     /// <summary>
     /// a+
     /// </summary>
-    AppendUpdate,
+    AppendUpdate
 }
 
 public static class LuaFileOpenModeExtensions
 {
-    public static bool CanRead(this LuaFileOpenMode mode) => mode is LuaFileOpenMode.Read
-        or LuaFileOpenMode.ReadUpdate
-        or LuaFileOpenMode.WriteUpdate
-        or LuaFileOpenMode.AppendUpdate;
+    public static bool CanRead(this LuaFileOpenMode mode)
+    {
+        return mode is LuaFileOpenMode.Read
+            or LuaFileOpenMode.ReadUpdate
+            or LuaFileOpenMode.WriteUpdate
+            or LuaFileOpenMode.AppendUpdate;
+    }
 
-    public static bool CanWrite(this LuaFileOpenMode mode) => mode is LuaFileOpenMode.Write
-        or LuaFileOpenMode.ReadUpdate
-        or LuaFileOpenMode.WriteUpdate
-        or LuaFileOpenMode.Append
-        or LuaFileOpenMode.AppendUpdate;
+    public static bool CanWrite(this LuaFileOpenMode mode)
+    {
+        return mode is LuaFileOpenMode.Write
+            or LuaFileOpenMode.ReadUpdate
+            or LuaFileOpenMode.WriteUpdate
+            or LuaFileOpenMode.Append
+            or LuaFileOpenMode.AppendUpdate;
+    }
 
     public static LuaFileOpenMode ParseModeFromString(string mode)
     {

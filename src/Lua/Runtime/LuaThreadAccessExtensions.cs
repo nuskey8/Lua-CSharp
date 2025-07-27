@@ -97,7 +97,7 @@ public static class LuaThreadAccessAccessExtensions
     {
         access.ThrowIfInvalid();
         var stack = access.Stack;
-        return new LuaTopValuesReader(stack, stack.Count - argumentCount);
+        return new(stack, stack.Count - argumentCount);
     }
 
     public static ValueTask<LuaValue> Add(this LuaThreadAccess access, LuaValue x, LuaValue y, CancellationToken cancellationToken = default)

@@ -3,7 +3,7 @@ using System.Text;
 
 namespace Lua.IO;
 
-internal sealed class LuaStream(LuaFileOpenMode mode, Stream innerStream) : ILuaStream
+sealed class LuaStream(LuaFileOpenMode mode, Stream innerStream) : ILuaStream
 {
     Utf8Reader? reader;
     ulong flushSize = ulong.MaxValue;
@@ -11,6 +11,7 @@ internal sealed class LuaStream(LuaFileOpenMode mode, Stream innerStream) : ILua
     bool disposed;
 
     public LuaFileOpenMode Mode => mode;
+
     public bool IsOpen => !disposed;
 
     public ValueTask<string?> ReadLineAsync(bool keepEol, CancellationToken cancellationToken)
@@ -39,12 +40,14 @@ internal sealed class LuaStream(LuaFileOpenMode mode, Stream innerStream) : ILua
     {
         mode.ThrowIfNotReadable();
         reader ??= new();
-        
+
         // Use the Utf8Reader's ReadNumber method which handles positioning correctly
         var numberStr = reader.ReadNumber(innerStream);
         if (numberStr == null)
+        {
             return new((double?)null);
-            
+        }
+
         // Parse using the shared utility
         var result = NumberReaderHelper.ParseNumber(numberStr.AsSpan());
         return new(result);
@@ -58,7 +61,7 @@ internal sealed class LuaStream(LuaFileOpenMode mode, Stream innerStream) : ILua
             innerStream.Seek(0, SeekOrigin.End);
         }
 
-        using var byteBuffer = new PooledArray<byte>(4096);
+        using PooledArray<byte> byteBuffer = new(4096);
         var encoder = Encoding.UTF8.GetEncoder();
         var totalBytes = encoder.GetByteCount(buffer.Span, true);
         var remainingBytes = totalBytes;
@@ -101,7 +104,7 @@ internal sealed class LuaStream(LuaFileOpenMode mode, Stream innerStream) : ILua
         }
     }
 
-    public long Seek(SeekOrigin origin,long offset)
+    public long Seek(SeekOrigin origin, long offset)
     {
         if (reader != null && origin == SeekOrigin.Current)
         {
@@ -114,9 +117,13 @@ internal sealed class LuaStream(LuaFileOpenMode mode, Stream innerStream) : ILua
 
     public void Dispose()
     {
-        if (disposed) return;
+        if (disposed)
+        {
+            return;
+        }
+
         disposed = true;
-        
+
         try
         {
             if (innerStream.CanWrite)

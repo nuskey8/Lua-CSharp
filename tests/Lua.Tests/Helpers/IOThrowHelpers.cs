@@ -5,9 +5,10 @@
 
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
+
 namespace Lua.Tests.Helpers;
 
-internal static class IOThrowHelpers
+static class IOThrowHelpers
 {
     /// <summary>
     /// Validates the <see cref="Stream.Position"/> argument (it needs to be in the [0, length]) range.
@@ -90,6 +91,7 @@ internal static class IOThrowHelpers
             ThrowObjectDisposedException();
         }
     }
+
     /// <summary>
     /// Gets a standard <see cref="NotSupportedException"/> instance for a stream.
     /// </summary>
@@ -129,7 +131,7 @@ internal static class IOThrowHelpers
     /// <summary>
     /// Throws an <see cref="ArgumentOutOfRangeException"/> when setting the <see cref="Stream.Position"/> property.
     /// </summary>
-    private static void ThrowArgumentOutOfRangeExceptionForPosition()
+    static void ThrowArgumentOutOfRangeExceptionForPosition()
     {
         throw new ArgumentOutOfRangeException(nameof(Stream.Position), "The value for the property was not in the valid range.");
     }
@@ -138,16 +140,16 @@ internal static class IOThrowHelpers
     /// Throws an <see cref="ArgumentNullException"/> when an input buffer is <see langword="null"/>.
     /// </summary>
     [DoesNotReturn]
-    private static void ThrowArgumentNullExceptionForBuffer()
+    static void ThrowArgumentNullExceptionForBuffer()
     {
         throw new ArgumentNullException("buffer", "The buffer is null.");
     }
-    
+
     /// <summary>
     /// Throws an <see cref="ArgumentOutOfRangeException"/> when the input count is negative.
     /// </summary>
     [DoesNotReturn]
-    private static void ThrowArgumentOutOfRangeExceptionForOffset()
+    static void ThrowArgumentOutOfRangeExceptionForOffset()
     {
         throw new ArgumentOutOfRangeException("offset", "Offset can't be negative.");
     }
@@ -156,7 +158,7 @@ internal static class IOThrowHelpers
     /// Throws an <see cref="ArgumentOutOfRangeException"/> when the input count is negative.
     /// </summary>
     [DoesNotReturn]
-    private static void ThrowArgumentOutOfRangeExceptionForCount()
+    static void ThrowArgumentOutOfRangeExceptionForCount()
     {
         throw new ArgumentOutOfRangeException("count", "Count can't be negative.");
     }
@@ -165,7 +167,7 @@ internal static class IOThrowHelpers
     /// Throws an <see cref="ArgumentException"/> when the sum of offset and count exceeds the length of the target buffer.
     /// </summary>
     [DoesNotReturn]
-    private static void ThrowArgumentExceptionForLength()
+    static void ThrowArgumentExceptionForLength()
     {
         throw new ArgumentException("The sum of offset and count can't be larger than the buffer length.", "buffer");
     }
@@ -174,7 +176,7 @@ internal static class IOThrowHelpers
     /// Throws an <see cref="ObjectDisposedException"/> when using a disposed <see cref="Stream"/> instance.
     /// </summary>
     [DoesNotReturn]
-    private static void ThrowObjectDisposedException()
+    static void ThrowObjectDisposedException()
     {
         throw new ObjectDisposedException("source", "The current stream has already been disposed");
     }

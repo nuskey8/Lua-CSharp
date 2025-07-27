@@ -3,7 +3,7 @@ using System.Runtime.CompilerServices;
 
 namespace Lua.Internal;
 
-internal struct PooledList<T> : IDisposable
+struct PooledList<T> : IDisposable
 {
     T[]? buffer;
     int tail;
@@ -14,7 +14,9 @@ internal struct PooledList<T> : IDisposable
     }
 
     public bool IsDisposed => tail == -1;
+
     public int Count => tail;
+
     public int Length => tail;
 
     public void Add(in T item)
@@ -67,7 +69,10 @@ internal struct PooledList<T> : IDisposable
     {
         ThrowIfDisposed();
 
-        if (count > tail) throw new ArgumentOutOfRangeException(nameof(count));
+        if (count > tail)
+        {
+            throw new ArgumentOutOfRangeException(nameof(count));
+        }
 
         tail = count;
     }
@@ -76,7 +81,10 @@ internal struct PooledList<T> : IDisposable
     {
         ThrowIfDisposed();
 
-        if (count > tail) throw new ArgumentOutOfRangeException(nameof(count));
+        if (count > tail)
+        {
+            throw new ArgumentOutOfRangeException(nameof(count));
+        }
 
         tail -= count;
     }
@@ -109,21 +117,21 @@ internal struct PooledList<T> : IDisposable
     public T this[int index]
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        get
-        {
-            return AsSpan()[index];
-        }
+        get => AsSpan()[index];
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public ReadOnlySpan<T> AsSpan()
     {
-        return new ReadOnlySpan<T>(buffer, 0, tail);
+        return new(buffer, 0, tail);
     }
 
     void ThrowIfDisposed()
     {
-        if (tail == -1) ThrowDisposedException();
+        if (tail == -1)
+        {
+            ThrowDisposedException();
+        }
     }
 
     void ThrowDisposedException()

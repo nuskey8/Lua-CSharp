@@ -20,10 +20,15 @@ public sealed class Prototype(
 )
 {
     public ReadOnlySpan<LuaValue> Constants => constants;
+
     public ReadOnlySpan<Instruction> Code => code;
+
     public ReadOnlySpan<Prototype> ChildPrototypes => childPrototypes;
+
     public ReadOnlySpan<int> LineInfo => lineInfo;
+
     public ReadOnlySpan<LocalVariable> LocalVariables => localVariables;
+
     public ReadOnlySpan<UpValueDesc> UpValues => upValues;
 
     //public LuaClosure Cache;
@@ -44,14 +49,20 @@ public sealed class Prototype(
     /// <param name="span">binary bytecode</param>
     /// <param name="name">chunk name</param>
     /// <returns></returns>
-    public static Prototype FromByteCode(ReadOnlySpan<byte> span, ReadOnlySpan<char> name) => Parser.UnDump(span, name);
+    public static Prototype FromByteCode(ReadOnlySpan<byte> span, ReadOnlySpan<char> name)
+    {
+        return Parser.UnDump(span, name);
+    }
 
     /// <summary>
     ///  Converts a Prototype object to a Lua bytecode.
     ///  </summary>
     ///  <param name="useLittleEndian">true if the bytecode should be in little endian format, false if it should be in big endian format</param>
     /// <returns>binary bytecode</returns>
-    public byte[] ToByteCode(bool useLittleEndian = true) => Parser.Dump(this, useLittleEndian);
+    public byte[] ToByteCode(bool useLittleEndian = true)
+    {
+        return Parser.Dump(this, useLittleEndian);
+    }
 
     /// <summary>
     ///  Writes the Lua bytecode to a buffer writer.

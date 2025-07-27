@@ -1,22 +1,21 @@
-﻿namespace Lua.Runtime
+﻿namespace Lua.Runtime;
+
+public readonly struct UserThreadLease(LuaUserThread thread) : IDisposable
 {
-    public readonly struct UserThreadLease(LuaUserThread thread) : IDisposable
-    {
-        public LuaUserThread Thread { get; } = thread;
+    public LuaUserThread Thread { get; } = thread;
 
-        public void Dispose()
-        {
-            Thread.Release();
-        }
+    public void Dispose()
+    {
+        Thread.Release();
     }
+}
 
-    public readonly struct CoroutineLease(LuaCoroutine thread) : IDisposable
+public readonly struct CoroutineLease(LuaCoroutine thread) : IDisposable
+{
+    public LuaCoroutine Thread { get; } = thread;
+
+    public void Dispose()
     {
-        public LuaCoroutine Thread { get; } = thread;
-
-        public void Dispose()
-        {
-            Thread.Release();
-        }
+        Thread.Release();
     }
 }

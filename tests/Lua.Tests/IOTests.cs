@@ -6,8 +6,8 @@ namespace Lua.Tests;
 
 public class IOTests : IDisposable
 {
-    private readonly string testDirectory;
-    private readonly FileSystem fileSystem;
+    readonly string testDirectory;
+    readonly FileSystem fileSystem;
 
     public IOTests()
     {
@@ -24,7 +24,7 @@ public class IOTests : IDisposable
         }
     }
 
-    private string GetTestFilePath(string filename)
+    string GetTestFilePath(string filename)
     {
         return Path.Combine(testDirectory, filename);
     }
@@ -59,13 +59,13 @@ public class IOTests : IDisposable
         // Write multiple lines
         using (var stream = await fileSystem.Open(testFile, LuaFileOpenMode.Write, CancellationToken.None))
         {
-            await stream.WriteAsync((string.Join("\n", lines)), CancellationToken.None);
+            await stream.WriteAsync(string.Join("\n", lines), CancellationToken.None);
         }
 
         // Read lines one by one
         using (var stream = await fileSystem.Open(testFile, LuaFileOpenMode.Read, CancellationToken.None))
         {
-            for (int i = 0; i < lines.Length; i++)
+            for (var i = 0; i < lines.Length; i++)
             {
                 var line = await stream.ReadLineAsync(false, CancellationToken.None);
                 Assert.That(line, Is.EqualTo(lines[i]));
@@ -115,13 +115,13 @@ public class IOTests : IDisposable
         // Write initial content
         using (var stream = await fileSystem.Open(testFile, LuaFileOpenMode.Write, CancellationToken.None))
         {
-            await stream.WriteAsync(("Hello"), CancellationToken.None);
+            await stream.WriteAsync("Hello", CancellationToken.None);
         }
 
         // Append content
         using (var stream = await fileSystem.Open(testFile, LuaFileOpenMode.Append, CancellationToken.None))
         {
-            await stream.WriteAsync((" World"), CancellationToken.None);
+            await stream.WriteAsync(" World", CancellationToken.None);
         }
 
         // Read and verify
@@ -141,7 +141,7 @@ public class IOTests : IDisposable
         // Write content
         using (var stream = await fileSystem.Open(testFile, LuaFileOpenMode.Write, CancellationToken.None))
         {
-            await stream.WriteAsync((testContent), CancellationToken.None);
+            await stream.WriteAsync(testContent, CancellationToken.None);
         }
 
         // Test seeking
@@ -248,15 +248,15 @@ public class IOTests : IDisposable
         {
             // Set no buffering
             stream.SetVBuf(LuaFileBufferingMode.NoBuffering, 0);
-            await stream.WriteAsync(("No buffer"), CancellationToken.None);
+            await stream.WriteAsync("No buffer", CancellationToken.None);
 
             // Set line buffering
             stream.SetVBuf(LuaFileBufferingMode.LineBuffering, 1024);
-            await stream.WriteAsync(("\nLine buffer"), CancellationToken.None);
+            await stream.WriteAsync("\nLine buffer", CancellationToken.None);
 
             // Set full buffering
             stream.SetVBuf(LuaFileBufferingMode.FullBuffering, 4096);
-            await stream.WriteAsync(("\nFull buffer"), CancellationToken.None);
+            await stream.WriteAsync("\nFull buffer", CancellationToken.None);
 
             // Explicit flush
             await stream.FlushAsync(CancellationToken.None);
@@ -291,7 +291,7 @@ public class IOTests : IDisposable
         var longCharArray = "Hello World!!!".ToCharArray();
         using (var stream = await fileSystem.Open(testFile, LuaFileOpenMode.Write, CancellationToken.None))
         {
-            await stream.WriteAsync((longCharArray.AsMemory(0, 11)), CancellationToken.None); // Only "Hello World"
+            await stream.WriteAsync(longCharArray.AsMemory(0, 11), CancellationToken.None); // Only "Hello World"
         }
 
         using (var stream = await fileSystem.Open(testFile, LuaFileOpenMode.Read, CancellationToken.None))

@@ -3,14 +3,14 @@ using System.Runtime.InteropServices;
 
 namespace Lua.Internal;
 
-internal interface IPoolNode<T>
+interface IPoolNode<T>
 {
     ref T? NextNode { get; }
 }
 
 // mutable struct, don't mark readonly.
 [StructLayout(LayoutKind.Auto)]
-internal struct LinkedPool<T>
+struct LinkedPool<T>
     where T : class, IPoolNode<T>
 {
     int gate;

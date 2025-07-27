@@ -6,7 +6,7 @@ using System.Text.RegularExpressions;
 
 namespace Lua.Internal;
 
-internal static class StringHelper
+static class StringHelper
 {
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static ReadOnlySpan<char> Slice(string s, int i, int j)
@@ -22,8 +22,8 @@ internal static class StringHelper
 
     public static bool TryFromStringLiteral(ReadOnlySpan<char> literal, [NotNullWhen(true)] out string? result)
     {
-        var builder = new ValueStringBuilder(literal.Length);
-        for (int i = 0; i < literal.Length; i++)
+        ValueStringBuilder builder = new(literal.Length);
+        for (var i = 0; i < literal.Length; i++)
         {
             var c = literal[i];
             if (c is '\\' && i < literal.Length - 1)
@@ -93,12 +93,19 @@ internal static class StringHelper
                         if (IsDigit(c))
                         {
                             var start = i;
-                            for (int j = 0; j < 2; j++)
+                            for (var j = 0; j < 2; j++)
                             {
                                 i++;
-                                if (i >= literal.Length) break;
+                                if (i >= literal.Length)
+                                {
+                                    break;
+                                }
+
                                 c = literal[i];
-                                if (!IsDigit(c)) break;
+                                if (!IsDigit(c))
+                                {
+                                    break;
+                                }
                             }
 
                             builder.Append((char)int.Parse(literal[start..i], NumberStyles.HexNumber));
@@ -115,12 +122,19 @@ internal static class StringHelper
                         if (IsNumber(c))
                         {
                             var start = i;
-                            for (int j = 0; j < 3; j++)
+                            for (var j = 0; j < 3; j++)
                             {
                                 i++;
-                                if (i >= literal.Length) break;
+                                if (i >= literal.Length)
+                                {
+                                    break;
+                                }
+
                                 c = literal[i];
-                                if (!IsNumber(c)) break;
+                                if (!IsNumber(c))
+                                {
+                                    break;
+                                }
                             }
 
                             builder.Append((char)int.Parse(literal[start..i]));
@@ -147,9 +161,9 @@ internal static class StringHelper
 
     public static string Escape(ReadOnlySpan<char> str)
     {
-        var builder = new ValueStringBuilder(str.Length);
+        ValueStringBuilder builder = new(str.Length);
 
-        for (int i = 0; i < str.Length; i++)
+        for (var i = 0; i < str.Length; i++)
         {
             var c = str[i];
 
@@ -196,7 +210,7 @@ internal static class StringHelper
 
     public static Regex ToRegex(ReadOnlySpan<char> pattern)
     {
-        var builder = new ValueStringBuilder();
+        ValueStringBuilder builder = new();
         var isEscapeSequence = false;
         var isInSet = false;
 
@@ -300,7 +314,7 @@ internal static class StringHelper
                             }
                             else
                             {
-                                throw new Exception(); // TODO: add message
+                                throw new(); // TODO: add message
                             }
 
                             break;
@@ -323,7 +337,11 @@ internal static class StringHelper
             }
             else if (isInSet)
             {
-                if (c == ']') isInSet = false;
+                if (c == ']')
+                {
+                    isInSet = false;
+                }
+
                 builder.Append(c);
             }
             else if (c == '-')
@@ -349,7 +367,7 @@ internal static class StringHelper
             }
         }
 
-        return new Regex(builder.ToString());
+        return new(builder.ToString());
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

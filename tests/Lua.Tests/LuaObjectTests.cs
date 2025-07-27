@@ -7,8 +7,10 @@ public partial class TestUserData
 {
     [LuaMember]
     public int Property { get; set; }
+
     [LuaMember]
     public LuaValue LuaValueProperty { get; set; }
+
     [LuaMember("p2")]
     public string PropertyWithName { get; set; } = "";
 
@@ -38,9 +40,9 @@ public partial class TestUserData
     }
 
     [LuaMember]
-    public async ValueTask<LuaValue> InstanceMethodWithReturnValueAsync(LuaValue value,CancellationToken ct)
+    public async ValueTask<LuaValue> InstanceMethodWithReturnValueAsync(LuaValue value, CancellationToken ct)
     {
-        await Task.Delay(1,ct);
+        await Task.Delay(1, ct);
         return value;
     }
 
@@ -56,7 +58,7 @@ public class LuaObjectTests
     [Test]
     public async Task Test_Property()
     {
-        var userData = new TestUserData() { Property = 1 };
+        var userData = new TestUserData { Property = 1 };
 
         var state = LuaState.Create();
         state.Environment["test"] = userData;
@@ -69,7 +71,7 @@ public class LuaObjectTests
     [Test]
     public async Task Test_PropertyWithName()
     {
-        var userData = new TestUserData() { PropertyWithName = "foo", };
+        var userData = new TestUserData { PropertyWithName = "foo" };
 
         var state = LuaState.Create();
         state.Environment["test"] = userData;
@@ -119,7 +121,7 @@ public class LuaObjectTests
     [Test]
     public async Task Test_InstanceMethodWithReturnValue()
     {
-        var userData = new TestUserData() { Property = 1 };
+        var userData = new TestUserData { Property = 1 };
 
         var state = LuaState.Create();
         state.Environment["test"] = userData;
@@ -128,11 +130,11 @@ public class LuaObjectTests
         Assert.That(results, Has.Length.EqualTo(1));
         Assert.That(results[0], Is.EqualTo(new LuaValue(1)));
     }
-    
+
     [Test]
     public async Task Test_InstanceMethodWithReturnValueAsync()
     {
-        var userData = new TestUserData() { Property = 1 };
+        var userData = new TestUserData { Property = 1 };
 
         var state = LuaState.Create();
         state.Environment["test"] = userData;

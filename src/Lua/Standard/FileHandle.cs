@@ -23,7 +23,7 @@ public class FileHandle : ILuaUserData
                 "setvbuf" => SetVBufFunction!,
                 "write" => WriteFunction!,
 
-                _ => LuaValue.Nil,
+                _ => LuaValue.Nil
             }));
         }
         else
@@ -36,13 +36,17 @@ public class FileHandle : ILuaUserData
 
     public bool IsOpen => stream?.IsOpen ?? false;
 
-    LuaTable? ILuaUserData.Metatable { get => fileHandleMetatable; set => fileHandleMetatable = value; }
+    LuaTable? ILuaUserData.Metatable
+    {
+        get => fileHandleMetatable;
+        set => fileHandleMetatable = value;
+    }
 
     static LuaTable? fileHandleMetatable;
 
     static FileHandle()
     {
-        fileHandleMetatable = new LuaTable(0, 1);
+        fileHandleMetatable = new(0, 1);
         fileHandleMetatable[Metamethods.Index] = IndexMetamethod;
         fileHandleMetatable["__tostring"] = ToStringFunction;
     }
@@ -86,14 +90,16 @@ public class FileHandle : ILuaUserData
     }
 
 
-    public long Seek(string whence, long offset) =>
-        whence switch
+    public long Seek(string whence, long offset)
+    {
+        return whence switch
         {
             "set" => stream.Seek(SeekOrigin.Begin, offset),
             "cur" => stream.Seek(SeekOrigin.Current, offset),
             "end" => stream.Seek(SeekOrigin.End, offset),
             _ => throw new ArgumentException($"Invalid option '{whence}'")
         };
+    }
 
     public ValueTask FlushAsync(CancellationToken cancellationToken)
     {
@@ -114,7 +120,9 @@ public class FileHandle : ILuaUserData
 
     public async ValueTask Close(CancellationToken cancellationToken)
     {
-        if (!stream.IsOpen) throw new ObjectDisposedException(nameof(FileHandle));
+        if (!stream.IsOpen)
+            throw new ObjectDisposedException(nameof(FileHandle));
+
         await stream.CloseAsync(cancellationToken);
         stream = null!;
     }

@@ -2,7 +2,7 @@ using System.Runtime.CompilerServices;
 
 namespace Lua.Runtime;
 
-internal static class LuaRuntimeExtensions
+static class LuaRuntimeExtensions
 {
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool TryGetMetamethod(this LuaValue value, LuaState state, string methodName, out LuaValue result)

@@ -3,7 +3,7 @@ using System.Text;
 
 namespace Lua.Standard.Internal;
 
-internal static class DateTimeHelper
+static class DateTimeHelper
 {
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static double GetUnixTime(DateTime dateTime)
@@ -15,7 +15,11 @@ internal static class DateTimeHelper
     public static double GetUnixTime(DateTime dateTime, DateTime epoch)
     {
         var time = (dateTime - epoch).TotalSeconds;
-        if (time < 0.0) return 0;
+        if (time < 0.0)
+        {
+            return 0;
+        }
+
         return time;
     }
 
@@ -57,7 +61,7 @@ internal static class DateTimeHelper
         var min = GetTimeField(thread, table, "min", false, 0);
         var hour = GetTimeField(thread, table, "hour", false, 12);
 
-        return new DateTime(year, month, day, hour, min, sec);
+        return new(year, month, day, hour, min, sec);
     }
 
     public static string StrFTime(LuaThread thread, ReadOnlySpan<char> format, DateTime d)
@@ -95,17 +99,17 @@ internal static class DateTimeHelper
                 'X' => "T",
                 'z' => "zzz",
                 'Z' => "zzz",
-                _ => null,
+                _ => null
             };
         }
 
-        var builder = new ValueStringBuilder();
+        ValueStringBuilder builder = new();
 
-        bool isEscapeSequence = false;
+        var isEscapeSequence = false;
 
-        for (int i = 0; i < format.Length; i++)
+        for (var i = 0; i < format.Length; i++)
         {
-            char c = format[i];
+            var c = format[i];
 
             if (c == '%')
             {
@@ -160,13 +164,17 @@ internal static class DateTimeHelper
             }
             else if (c == 'u')
             {
-                int weekDay = (int)d.DayOfWeek;
-                if (weekDay == 0) weekDay = 7;
+                var weekDay = (int)d.DayOfWeek;
+                if (weekDay == 0)
+                {
+                    weekDay = 7;
+                }
+
                 builder.Append(weekDay.ToString());
             }
             else if (c == 'w')
             {
-                int weekDay = (int)d.DayOfWeek;
+                var weekDay = (int)d.DayOfWeek;
                 builder.Append(weekDay.ToString());
             }
             else if (c == 'U')

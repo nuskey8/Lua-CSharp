@@ -8,10 +8,15 @@ namespace Lua;
 public readonly record struct LuaFunctionExecutionContext
 {
     public LuaState State => Thread.State;
+
     public required LuaThreadAccess Access { get; init; }
+
     public LuaThread Thread => Access.Thread;
+
     public required int ArgumentCount { get; init; }
+
     public int FrameBase => Thread.Stack.Count - ArgumentCount;
+
     public required int ReturnFrameBase { get; init; }
     //public object? AdditionalContext { get; init; }
 

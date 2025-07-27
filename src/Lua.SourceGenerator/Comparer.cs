@@ -2,7 +2,7 @@ using Microsoft.CodeAnalysis;
 
 namespace Lua.SourceGenerator;
 
-internal sealed class Comparer : IEqualityComparer<(GeneratorAttributeSyntaxContext, Compilation)>
+sealed class Comparer : IEqualityComparer<(GeneratorAttributeSyntaxContext, Compilation)>
 {
     public static readonly Comparer Instance = new();
 

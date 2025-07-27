@@ -39,13 +39,14 @@ public abstract class LuaThread
 
         static LinkedPool<ThreadCoreData> pool;
         ThreadCoreData? nextNode;
+
         public ref ThreadCoreData? NextNode => ref nextNode;
 
         public static ThreadCoreData Create()
         {
-            if (!pool.TryPop(out ThreadCoreData result))
+            if (!pool.TryPop(out var result))
             {
-                result = new ThreadCoreData();
+                result = new();
             }
 
             return result;
@@ -75,7 +76,9 @@ public abstract class LuaThread
     internal LuaFunction? LastCallerFunction;
 
     public bool IsRunning => CallStackFrameCount != 0;
+
     internal LuaFunction? Hook { get; set; }
+
     public LuaStack Stack => CoreData!.Stack;
 
     internal bool IsCallHookEnabled
@@ -93,6 +96,7 @@ public abstract class LuaThread
     public int CallStackFrameCount => CoreData == null ? 0 : CoreData!.CallStack.Count;
 
     internal LuaThreadAccess CurrentAccess => new(this, CurrentVersion);
+
     public LuaThreadAccess RootAccess => new(this, 0);
 
     public ref readonly CallStackFrame GetCurrentFrame()
@@ -124,7 +128,7 @@ public abstract class LuaThread
         ref var callStack = ref CoreData!.CallStack;
         callStack.Push(frame);
         callStack.PeekRef().Version = CurrentVersion = ++LastVersion;
-        return new LuaThreadAccess(this, CurrentVersion);
+        return new(this, CurrentVersion);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -202,9 +206,9 @@ public abstract class LuaThread
         HookCount = count > 0 ? count + 1 : 0;
         BaseHookCount = count;
 
-        IsLineHookEnabled = (mask.Contains('l'));
-        IsCallHookEnabled = (mask.Contains('c'));
-        IsReturnHookEnabled = (mask.Contains('r'));
+        IsLineHookEnabled = mask.Contains('l');
+        IsCallHookEnabled = mask.Contains('c');
+        IsReturnHookEnabled = mask.Contains('r');
 
         if (IsLineHookEnabled)
         {
@@ -217,7 +221,7 @@ public abstract class LuaThread
     internal void DumpStackValues()
     {
         var span = GetStackValues();
-        for (int i = 0; i < span.Length; i++)
+        for (var i = 0; i < span.Length; i++)
         {
             Console.WriteLine($"LuaStack [{i}]\t{span[i]}");
         }

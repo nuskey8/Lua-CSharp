@@ -1,20 +1,25 @@
 using System.Text;
 using Lua.Internal;
 using Lua.IO;
+using Lua.Runtime;
 
 namespace Lua.Standard.Internal;
 
-internal static class IOHelper
+static class IOHelper
 {
     public static async ValueTask<int> Open(LuaThread thread, string fileName, string mode, bool throwError, CancellationToken cancellationToken)
     {
         var fileMode = LuaFileOpenModeExtensions.ParseModeFromString(mode);
-        if (!fileMode.IsValid()) throw new LuaRuntimeException(thread, "bad argument #2 to 'open' (invalid mode)");
+        if (!fileMode.IsValid())
+        {
+            throw new LuaRuntimeException(thread, "bad argument #2 to 'open' (invalid mode)");
+        }
+
         try
         {
             var stream = await thread.State.FileSystem.Open(fileName, fileMode, cancellationToken);
 
-            thread.Stack.Push(new LuaValue(new FileHandle(stream)));
+            thread.Stack.Push(new(new FileHandle(stream)));
             return 1;
         }
         catch (IOException ex)
@@ -37,7 +42,7 @@ internal static class IOHelper
     {
         try
         {
-            for (int i = 0; i < context.ArgumentCount; i++)
+            for (var i = 0; i < context.ArgumentCount; i++)
             {
                 var arg = context.Arguments[i];
                 if (arg.TryRead<string>(out var str))
@@ -46,7 +51,7 @@ internal static class IOHelper
                 }
                 else if (arg.TryRead<double>(out var d))
                 {
-                    using var fileBuffer = new PooledArray<char>(64);
+                    using PooledArray<char> fileBuffer = new(64);
                     var span = fileBuffer.AsSpan();
                     d.TryFormat(span, out var charsWritten);
                     await file.WriteAsync(fileBuffer.UnderlyingArray.AsMemory(0, charsWritten), cancellationToken);
@@ -86,7 +91,7 @@ internal static class IOHelper
 
         try
         {
-            for (int i = 0; i < formats.Length; i++)
+            for (var i = 0; i < formats.Length; i++)
             {
                 var format = formats.Span[i];
                 if (format.TryRead<string>(out var str))
@@ -95,19 +100,19 @@ internal static class IOHelper
                     {
                         case "*n":
                         case "*number":
-                            stack.Push(await file.ReadNumberAsync(cancellationToken)?? LuaValue.Nil);
+                            stack.Push(await file.ReadNumberAsync(cancellationToken) ?? LuaValue.Nil);
                             break;
                         case "*a":
                         case "*all":
-                            stack.Push((await file.ReadToEndAsync(cancellationToken)));
+                            stack.Push(await file.ReadToEndAsync(cancellationToken));
                             break;
                         case "*l":
                         case "*line":
-                            stack.Push(await file.ReadLineAsync(false,cancellationToken) ?? LuaValue.Nil);
+                            stack.Push(await file.ReadLineAsync(false, cancellationToken) ?? LuaValue.Nil);
                             break;
                         case "L":
                         case "*L":
-                            var text = await file.ReadLineAsync(true,cancellationToken);
+                            var text = await file.ReadLineAsync(true, cancellationToken);
                             stack.Push(text == null ? LuaValue.Nil : text + Environment.NewLine);
                             break;
                     }

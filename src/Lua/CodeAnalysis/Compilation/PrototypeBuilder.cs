@@ -3,20 +3,32 @@ using Lua.Runtime;
 
 namespace Lua.CodeAnalysis.Compilation;
 
-internal class PrototypeBuilder : IPoolNode<PrototypeBuilder>
+class PrototypeBuilder : IPoolNode<PrototypeBuilder>
 {
     internal FastListCore<LuaValue> ConstantsList;
+
     public ReadOnlySpan<LuaValue> Constants => ConstantsList.AsSpan();
+
     internal FastListCore<Instruction> CodeList;
+
     public ReadOnlySpan<Instruction> Code => CodeList.AsSpan();
+
     internal FastListCore<PrototypeBuilder> PrototypeList;
+
     public ReadOnlySpan<PrototypeBuilder> Prototypes => PrototypeList.AsSpan();
+
     internal FastListCore<int> LineInfoList;
+
     public ReadOnlySpan<int> LineInfo => LineInfoList.AsSpan();
+
     internal FastListCore<LocalVariable> LocalVariablesList;
+
     public ReadOnlySpan<LocalVariable> LocalVariables => LocalVariablesList.AsSpan();
+
     internal FastListCore<UpValueDesc> UpValuesList;
+
     public ReadOnlySpan<UpValueDesc> UpValues => UpValuesList.AsSpan();
+
     public string Source;
     public int LineDefined, LastLineDefined;
     public int ParameterCount, MaxStackSize;
@@ -32,13 +44,14 @@ internal class PrototypeBuilder : IPoolNode<PrototypeBuilder>
 
 
     PrototypeBuilder? nextNode;
+
     ref PrototypeBuilder? IPoolNode<PrototypeBuilder>.NextNode => ref nextNode;
 
     internal static PrototypeBuilder Get(string source)
     {
         if (!pool.TryPop(out var f))
         {
-            f = new PrototypeBuilder(source);
+            f = new(source);
         }
 
         f.Source = source;
@@ -64,7 +77,7 @@ internal class PrototypeBuilder : IPoolNode<PrototypeBuilder>
             protoTypes[i] = Prototypes[i].CreatePrototypeAndRelease(); //ref
         }
 
-        var p = new Prototype(Source, LineDefined, LastLineDefined, ParameterCount, MaxStackSize, IsVarArg, Constants.ToArray(), Code.ToArray(), protoTypes, LineInfo.ToArray(), LocalVariables.ToArray(), UpValues.ToArray());
+        Prototype p = new(Source, LineDefined, LastLineDefined, ParameterCount, MaxStackSize, IsVarArg, Constants.ToArray(), Code.ToArray(), protoTypes, LineInfo.ToArray(), LocalVariables.ToArray(), UpValues.ToArray());
         Release();
         return p;
     }

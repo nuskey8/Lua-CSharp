@@ -40,7 +40,7 @@ public static class LuaStateExtensions
         var name = "@" + fileName;
         using var stream = await state.FileSystem.Open(fileName, LuaFileOpenMode.Read, cancellationToken);
         var source = await stream.ReadAllAsync(cancellationToken);
-        LuaClosure closure = state.Load(source, name, environment);
+        var closure = state.Load(source, name, environment);
 
         return closure;
     }

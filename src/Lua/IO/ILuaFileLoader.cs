@@ -2,6 +2,6 @@
 
 public interface ILuaFileLoader
 {
-    public bool Exists(string path);
-    public ValueTask<ILuaStream> LoadAsync(string path, CancellationToken cancellationToken = default);
+    bool Exists(string path);
+    ValueTask<ILuaStream> LoadAsync(string path, CancellationToken cancellationToken = default);
 }

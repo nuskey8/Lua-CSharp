@@ -1,6 +1,6 @@
 namespace Lua.Internal;
 
-internal struct BitFlags2
+struct BitFlags2
 {
     public byte Value;
 

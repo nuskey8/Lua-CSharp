@@ -16,7 +16,7 @@ public enum LuaValueType : byte
     Thread,
     LightUserData,
     UserData,
-    Table,
+    Table
 }
 
 [StructLayout(LayoutKind.Auto)]
@@ -27,6 +27,13 @@ public readonly struct LuaValue : IEquatable<LuaValue>
     public readonly LuaValueType Type;
     readonly double value;
     readonly object? referenceValue;
+
+    internal LuaValue(LuaValueType type, double value, object? referenceValue)
+    {
+        Type = type;
+        this.value = value;
+        this.referenceValue = referenceValue;
+    }
 
     public bool TryRead<T>(out T result)
     {
@@ -49,14 +56,22 @@ public readonly struct LuaValue : IEquatable<LuaValue>
                 }
                 else if (t == typeof(int))
                 {
-                    if (!MathEx.IsInteger(value)) break;
+                    if (!MathEx.IsInteger(value))
+                    {
+                        break;
+                    }
+
                     var v = (int)value;
                     result = Unsafe.As<int, T>(ref v);
                     return true;
                 }
                 else if (t == typeof(long))
                 {
-                    if (!MathEx.IsInteger(value)) break;
+                    if (!MathEx.IsInteger(value))
+                    {
+                        break;
+                    }
+
                     var v = (long)value;
                     result = Unsafe.As<long, T>(ref v);
                     return true;
@@ -302,6 +317,12 @@ public readonly struct LuaValue : IEquatable<LuaValue>
         return Unsafe.As<string>(referenceValue!);
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal object UnsafeReadObject()
+    {
+        return Unsafe.As<object>(referenceValue!);
+    }
+
     bool TryParseToDouble(out double result)
     {
         if (Type != LuaValueType.String)
@@ -354,7 +375,11 @@ public readonly struct LuaValue : IEquatable<LuaValue>
 
     public T Read<T>()
     {
-        if (!TryRead<T>(out var result)) throw new InvalidOperationException($"Cannot convert LuaValueType.{Type} to {typeof(T).FullName}.");
+        if (!TryRead<T>(out var result))
+        {
+            throw new InvalidOperationException($"Cannot convert LuaValueType.{Type} to {typeof(T).FullName}.");
+        }
+
         return result;
     }
 
@@ -391,8 +416,16 @@ public readonly struct LuaValue : IEquatable<LuaValue>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool ToBoolean()
     {
-        if (Type == LuaValueType.Boolean) return value != 0;
-        if (Type is LuaValueType.Nil) return false;
+        if (Type == LuaValueType.Boolean)
+        {
+            return value != 0;
+        }
+
+        if (Type is LuaValueType.Nil)
+        {
+            return false;
+        }
+
         return true;
     }
 
@@ -412,13 +445,17 @@ public readonly struct LuaValue : IEquatable<LuaValue>
             int intValue => intValue,
             long longValue => longValue,
             float floatValue => floatValue,
-            _ => new LuaValue(obj)
+            _ => new(obj)
         };
     }
 
     public static LuaValue FromUserData(ILuaUserData? userData)
     {
-        if (userData is null) return Nil;
+        if (userData is null)
+        {
+            return Nil;
+        }
+
         return new(userData);
     }
 
@@ -529,14 +566,28 @@ public readonly struct LuaValue : IEquatable<LuaValue>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool Equals(LuaValue other)
     {
-        if (other.Type != Type) return false;
+        if (other.Type != Type)
+        {
+            return false;
+        }
 
         return Type switch
         {
             LuaValueType.Nil => true,
             LuaValueType.Boolean or LuaValueType.Number => other.value == value,
             LuaValueType.String => Unsafe.As<string>(other.referenceValue) == Unsafe.As<string>(referenceValue),
-            _ => other.referenceValue!.Equals(referenceValue)
+            _ => other.referenceValue == referenceValue
+        };
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool EqualsForDict(LuaValue other)
+    {
+        return other.Type == Type && Type switch
+        {
+            LuaValueType.Boolean or LuaValueType.Number => other.value == value,
+            LuaValueType.String => Unsafe.As<string>(other.referenceValue) == Unsafe.As<string>(referenceValue),
+            _ => other.referenceValue == referenceValue
         };
     }
 
@@ -570,7 +621,7 @@ public readonly struct LuaValue : IEquatable<LuaValue>
             LuaValueType.Table => $"table: {referenceValue!.GetHashCode()}",
             LuaValueType.LightUserData => $"userdata: {referenceValue!.GetHashCode()}",
             LuaValueType.UserData => $"userdata: {referenceValue!.GetHashCode()}",
-            _ => "",
+            _ => ""
         };
     }
 
@@ -592,7 +643,7 @@ public readonly struct LuaValue : IEquatable<LuaValue>
             LuaValueType.Table => "table",
             LuaValueType.LightUserData => "light userdata",
             LuaValueType.UserData => "userdata",
-            _ => "",
+            _ => ""
         };
     }
 

@@ -36,7 +36,7 @@ public sealed class BasicLibrary
             new("tonumber", ToNumber),
             new("tostring", ToString),
             new("type", Type),
-            new("xpcall", XPCall),
+            new("xpcall", XPCall)
         ];
 
         IPairsIterator = new("iterator", (context, cancellationToken) =>
@@ -82,7 +82,11 @@ public sealed class BasicLibrary
 
     public ValueTask<int> CollectGarbage(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
-        if (context.HasArgument(0)) context.GetArgument<string>(0);
+        if (context.HasArgument(0))
+        {
+            context.GetArgument<string>(0);
+        }
+
         GC.Collect();
         return new(context.Return());
     }
@@ -244,7 +248,7 @@ public sealed class BasicLibrary
             return 3;
         }
 
-        return (context.Return(PairsIterator, arg0, LuaValue.Nil));
+        return context.Return(PairsIterator, arg0, LuaValue.Nil);
     }
 
     public async ValueTask<int> PCall(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
@@ -273,7 +277,7 @@ public sealed class BasicLibrary
                             return context.Return(false, luaEx.ErrorObject);
                         }
 
-                        using var builder = new PooledList<char>();
+                        using PooledList<char> builder = new();
                         var message = luaEx.MinimalMessage();
                         luaEx.Forget();
                         return context.Return(false, message);
@@ -288,7 +292,7 @@ public sealed class BasicLibrary
     {
         var stdout = context.State.StandardIO.Output;
 
-        for (int i = 0; i < context.ArgumentCount; i++)
+        for (var i = 0; i < context.ArgumentCount; i++)
         {
             await context.Arguments[i].CallToStringAsync(context, cancellationToken);
             await stdout.WriteAsync(context.Thread.Stack.Pop().Read<string>(), cancellationToken);
@@ -441,7 +445,10 @@ public sealed class BasicLibrary
                 {
                     // if the base is not 10, str cannot contain a minus sign
                     var span = str.AsSpan().Trim();
-                    if (span.Length == 0) goto END;
+                    if (span.Length == 0)
+                    {
+                        goto END;
+                    }
 
                     var first = span[0];
                     var sign = first == '-' ? -1 : 1;
@@ -450,7 +457,10 @@ public sealed class BasicLibrary
                         span = span[1..];
                     }
 
-                    if (span.Length == 0) goto END;
+                    if (span.Length == 0)
+                    {
+                        goto END;
+                    }
 
                     if (toBase == 16 && span.Length > 2 && span[0] is '0' && span[1] is 'x' or 'X')
                     {
@@ -485,7 +495,7 @@ public sealed class BasicLibrary
     static double StringToDouble(ReadOnlySpan<char> text, int toBase)
     {
         var value = 0.0;
-        for (int i = 0; i < text.Length; i++)
+        for (var i = 0; i < text.Length; i++)
         {
             var v = text[i] switch
             {
@@ -525,7 +535,7 @@ public sealed class BasicLibrary
                 'x' or 'X' => 33,
                 'y' or 'Y' => 34,
                 'z' or 'Z' => 35,
-                _ => 0,
+                _ => 0
             };
 
             if (v >= toBase)
@@ -561,7 +571,7 @@ public sealed class BasicLibrary
             LuaValueType.LightUserData => "userdata",
             LuaValueType.UserData => "userdata",
             LuaValueType.Table => "table",
-            _ => throw new NotImplementedException(),
+            _ => throw new NotImplementedException()
         }));
     }
 

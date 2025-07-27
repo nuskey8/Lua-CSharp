@@ -9,7 +9,7 @@ using static Debug;
 using static Instruction;
 using static Constants;
 
-internal class Function : IPoolNode<Function>
+class Function : IPoolNode<Function>
 {
     public readonly Dictionary<LuaValue, int> ConstantLookup = new();
     public PrototypeBuilder Proto = null!;
@@ -29,7 +29,7 @@ internal class Function : IPoolNode<Function>
     {
         if (!pool.TryPop(out var f))
         {
-            f = new Function();
+            f = new();
         }
 
         f.P = p;
@@ -153,7 +153,7 @@ internal class Function : IPoolNode<Function>
     {
         for (ActiveVariableCount += n; n != 0; n--)
         {
-            LocalVariable(ActiveVariableCount - n).StartPc = ((Proto.CodeList.Length));
+            LocalVariable(ActiveVariableCount - n).StartPc = Proto.CodeList.Length;
         }
     }
 
@@ -161,10 +161,10 @@ internal class Function : IPoolNode<Function>
     {
         for (var i = level; i < ActiveVariableCount; i++)
         {
-            LocalVariable(i).EndPc = ((Proto.CodeList.Length));
+            LocalVariable(i).EndPc = Proto.CodeList.Length;
         }
 
-        P.ActiveVariables.Shrink((P.ActiveVariables.Length - (ActiveVariableCount - level)));
+        P.ActiveVariables.Shrink(P.ActiveVariables.Length - (ActiveVariableCount - level));
         ActiveVariableCount = level;
     }
 
@@ -172,20 +172,20 @@ internal class Function : IPoolNode<Function>
     {
         var r = Proto.LocalVariablesList.Length;
         Proto.LocalVariablesList.Add(new() { Name = name });
-        P.CheckLimit((P.ActiveVariables.Length + 1 - FirstLocal), MaxLocalVariables, "local variables");
+        P.CheckLimit(P.ActiveVariables.Length + 1 - FirstLocal, MaxLocalVariables, "local variables");
         P.ActiveVariables.Add(r);
     }
 
     public void MakeGoto(string name, int line, int pc)
     {
         P.PendingGotos.Add(new() { Name = name, Line = line, Pc = pc, ActiveVariableCount = ActiveVariableCount });
-        FindLabel((P.PendingGotos.Length - 1));
+        FindLabel(P.PendingGotos.Length - 1);
     }
 
     public int MakeLabel(string name, int line)
     {
         P.ActiveLabels.Add(new() { Name = name, Line = line, Pc = Proto.CodeList.Length, ActiveVariableCount = ActiveVariableCount });
-        return (P.ActiveLabels.Length - 1);
+        return P.ActiveLabels.Length - 1;
     }
 
     public void CloseGoto(int i, Label l)
@@ -297,10 +297,16 @@ internal class Function : IPoolNode<Function>
         b.Release();
     }
 
-    public static int Not(int b) => b == 0 ? 1 : 0;
+    public static int Not(int b)
+    {
+        return b == 0 ? 1 : 0;
+    }
 
 
-    public static ExprDesc MakeExpression(Kind kind, int info) => new() { F = NoJump, T = NoJump, Kind = kind, Info = info };
+    public static ExprDesc MakeExpression(Kind kind, int info)
+    {
+        return new() { F = NoJump, T = NoJump, Kind = kind, Info = info };
+    }
 
 
     public void SemanticError(string message)
@@ -309,17 +315,29 @@ internal class Function : IPoolNode<Function>
         P.Scanner.SyntaxError(message);
     }
 
-    public void BreakLabel() => FindGotos(MakeLabel("break", 0));
+    public void BreakLabel()
+    {
+        FindGotos(MakeLabel("break", 0));
+    }
 
     [Conditional("DEBUG")]
-    public void Unreachable() => Assert(false);
+    public void Unreachable()
+    {
+        Assert(false);
+    }
 
 
-    public ref Instruction Instruction(ExprDesc e) => ref Proto.CodeList[e.Info];
+    public ref Instruction Instruction(ExprDesc e)
+    {
+        return ref Proto.CodeList[e.Info];
+    }
 
 
     [Conditional("DEBUG")]
-    public void AssertEqual(int a, int b) => Assert(a == b, $"{a} != {b}");
+    public void AssertEqual(int a, int b)
+    {
+        Assert(a == b, $"{a} != {b}");
+    }
 
 
     public int Encode(Instruction i)
@@ -343,24 +361,39 @@ internal class Function : IPoolNode<Function>
         return Encode(CreateABC(op, a, b, c));
     }
 
-    public int EncodeABx(OpCode op, int a, int bx) => Encode(CreateABx(op, a, bx));
+    public int EncodeABx(OpCode op, int a, int bx)
+    {
+        return Encode(CreateABx(op, a, bx));
+    }
 
 
-    public int EncodeAsBx(OpCode op, int a, int sbx) => EncodeABx(op, a, sbx + MaxArgSBx);
+    public int EncodeAsBx(OpCode op, int a, int sbx)
+    {
+        return EncodeABx(op, a, sbx + MaxArgSBx);
+    }
 
-    public int EncodeExtraArg(int a) => Encode(CreateAx(OpCode.ExtraArg, a));
+    public int EncodeExtraArg(int a)
+    {
+        return Encode(CreateAx(OpCode.ExtraArg, a));
+    }
 
 
     public int EncodeConstant(int r, int constant)
     {
         if (constant <= MaxArgBx)
+        {
             return EncodeABx(OpCode.LoadK, r, constant);
+        }
+
         var pc = EncodeABx(OpCode.LoadK, r, 0);
         EncodeExtraArg(constant);
         return pc;
     }
 
-    public ExprDesc EncodeString(string s) => MakeExpression(Kind.Constant, StringConstant(s));
+    public ExprDesc EncodeString(string s)
+    {
+        return MakeExpression(Kind.Constant, StringConstant(s));
+    }
 
 
     public void LoadNil(int from, int n)
@@ -373,7 +406,7 @@ internal class Function : IPoolNode<Function>
                 var pf = previous.A;
                 var pl = previous.A + previous.B;
                 var l = from + n - 1;
-                if (pf <= from && from <= pl + 1 || from <= pf && pf <= l + 1) // can connect both
+                if ((pf <= from && from <= pl + 1) || (from <= pf && pf <= l + 1)) // can connect both
                 {
                     from = Math.Min(from, pf);
                     l = Math.Max(l, pl);
@@ -424,7 +457,9 @@ internal class Function : IPoolNode<Function>
             EncodeABC(OpCode.Return, ActiveVariableCount, MultipleReturns + 1, 0);
         }
         else if (resultCount == 1)
+        {
             EncodeABC(OpCode.Return, ExpressionToAnyRegister(e).Info, 1 + 1, 0);
+        }
         else
         {
             ExpressionToNextRegister(e);
@@ -445,8 +480,11 @@ internal class Function : IPoolNode<Function>
         Assert(dest != NoJump);
         var offset = dest - (pc + 1);
         if (Math.Abs(offset) > MaxArgSBx)
+        {
             P.Scanner.SyntaxError("control structure too long");
-        Proto.CodeList[pc].SBx = (offset);
+        }
+
+        Proto.CodeList[pc].SBx = offset;
     }
 
     public int Label()
@@ -460,16 +498,25 @@ internal class Function : IPoolNode<Function>
         Assert(IsJumpListWalkable(pc));
         var offset = Proto.CodeList[pc].SBx;
         if (offset != NoJump)
+        {
             return pc + 1 + offset;
+        }
+
         return NoJump;
     }
 
     public bool IsJumpListWalkable(int list)
     {
         if (list == NoJump)
+        {
             return true;
+        }
+
         if (list < 0 || list >= Proto.CodeList.Length)
+        {
             return false;
+        }
+
         var offset = Proto.CodeList[list].SBx;
         return offset == NoJump || IsJumpListWalkable(list + 1 + offset);
     }
@@ -477,7 +524,10 @@ internal class Function : IPoolNode<Function>
     public ref Instruction JumpControl(int pc)
     {
         if (pc >= 1 && TestTMode(Proto.CodeList[pc - 1].OpCode))
+        {
             return ref Proto.CodeList[pc - 1];
+        }
+
         return ref Proto.CodeList[pc];
     }
 
@@ -487,7 +537,9 @@ internal class Function : IPoolNode<Function>
         for (; list != NoJump; list = Jump(list))
         {
             if (JumpControl(list).OpCode != OpCode.TestSet)
+            {
                 return true;
+            }
         }
 
         return false;
@@ -497,11 +549,19 @@ internal class Function : IPoolNode<Function>
     {
         ref var i = ref JumpControl(node);
         if (i.OpCode != OpCode.TestSet)
+        {
             return false;
+        }
+
         if (register != NoRegister && register != i.B)
+        {
             i.A = register;
+        }
         else
+        {
             i = CreateABC(OpCode.Test, i.B, 0, i.C);
+        }
+
         return true;
     }
 
@@ -561,7 +621,7 @@ internal class Function : IPoolNode<Function>
         for (int next; list != NoJump; list = next)
         {
             next = Jump(list);
-            Assert(Proto.CodeList[list].OpCode == OpCode.Jmp && Proto.CodeList[list].A == 0 || Proto.CodeList[list].A >= level);
+            Assert((Proto.CodeList[list].OpCode == OpCode.Jmp && Proto.CodeList[list].A == 0) || Proto.CodeList[list].A >= level);
             Proto.CodeList[list].A = level;
         }
     }
@@ -579,7 +639,11 @@ internal class Function : IPoolNode<Function>
     {
         Assert(IsJumpListWalkable(l1));
 
-        if (l2 == NoJump) return l1;
+        if (l2 == NoJump)
+        {
+            return l1;
+        }
+
         if (l1 == NoJump)
         {
             return l2;
@@ -802,18 +866,22 @@ internal class Function : IPoolNode<Function>
 
         if (e.HasJumps())
         {
-            int loadFalse = NoJump;
-            int loadTrue = NoJump;
+            var loadFalse = NoJump;
+            var loadTrue = NoJump;
             if (NeedValue(e.T) || NeedValue(e.F))
             {
-                int jump = NoJump;
-                if (e.Kind != Kind.Jump) jump = Jump();
+                var jump = NoJump;
+                if (e.Kind != Kind.Jump)
+                {
+                    jump = Jump();
+                }
+
                 loadFalse = EncodeLabel(r, 0, 1);
                 loadTrue = EncodeLabel(r, 1, 0);
                 PatchToHere(jump);
             }
 
-            int end = Label();
+            var end = Label();
             PatchListHelper(e.F, end, r, loadFalse);
             PatchListHelper(e.T, end, r, loadTrue);
         }
@@ -838,7 +906,10 @@ internal class Function : IPoolNode<Function>
         if (e.Kind == Kind.NonRelocatable)
         {
             if (!e.HasJumps())
+            {
                 return e;
+            }
+
             if (e.Info >= ActiveVariableCount)
             {
                 return ExpressionToRegister(e, e.Info);
@@ -860,7 +931,11 @@ internal class Function : IPoolNode<Function>
 
     public ExprDesc ExpressionToValue(ExprDesc e)
     {
-        if (e.HasJumps()) return ExpressionToAnyRegister(e);
+        if (e.HasJumps())
+        {
+            return ExpressionToAnyRegister(e);
+        }
+
         return DischargeVariables(e);
     }
 
@@ -936,7 +1011,7 @@ internal class Function : IPoolNode<Function>
         e = ExpressionToAnyRegister(e);
         var r = e.Info;
         FreeExpression(e);
-        var result = new ExprDesc { Info = FreeRegisterCount, Kind = Kind.NonRelocatable }; // base register for opSelf
+        ExprDesc result = new() { Info = FreeRegisterCount, Kind = Kind.NonRelocatable }; // base register for opSelf
         ReserveRegisters(2); // function and 'self' produced by opSelf
         (key, var k) = ExpressionToRegisterOrConstant(key);
         EncodeABC(OpCode.Self, result.Info, r, k);
@@ -1059,7 +1134,9 @@ internal class Function : IPoolNode<Function>
         var (_, i) = ExpressionToRegisterOrConstant(k);
         r.Index = i;
         if (t.Kind == Kind.UpValue)
+        {
             r.TableType = Kind.UpValue;
+        }
         else
         {
             Assert(t.Kind == Kind.NonRelocatable || t.Kind == Kind.Local);
@@ -1070,7 +1147,7 @@ internal class Function : IPoolNode<Function>
     }
 
 
-    private static double Arith(OpCode op, double v1, double v2)
+    static double Arith(OpCode op, double v1, double v2)
     {
         switch (op)
         {
@@ -1083,7 +1160,7 @@ internal class Function : IPoolNode<Function>
             case OpCode.Div:
                 return v1 / v2;
             case OpCode.Mod:
-                return v1 - Math.Floor(v1 / v2) * v2;
+                return v1 - (Math.Floor(v1 / v2) * v2);
             case OpCode.Pow:
                 return Math.Pow(v1, v2);
             case OpCode.Unm:
@@ -1096,9 +1173,15 @@ internal class Function : IPoolNode<Function>
     public static (ExprDesc, bool) FoldConstants(OpCode op, ExprDesc e1, ExprDesc e2)
     {
         if (!e1.IsNumeral() || !e2.IsNumeral())
+        {
             return (e1, false);
+        }
+
         if ((op == OpCode.Div || op == OpCode.Mod) && e2.Value == 0.0)
+        {
             return (e1, false);
+        }
+
         e1.Value = Arith(op, e1.Value, e2.Value);
         return (e1, true);
     }
@@ -1107,7 +1190,10 @@ internal class Function : IPoolNode<Function>
     {
         var (e, folded) = FoldConstants(op, e1, e2);
         if (folded)
+        {
             return e;
+        }
+
         var o2 = 0;
         if (op != OpCode.Unm && op != OpCode.Len)
         {
@@ -1173,7 +1259,10 @@ internal class Function : IPoolNode<Function>
             case OprMod:
             case OprPow:
                 if (!e.IsNumeral())
+                {
                     (e, _) = ExpressionToRegisterOrConstant(e);
+                }
+
                 break;
             default:
                 (e, _) = ExpressionToRegisterOrConstant(e);
@@ -1217,7 +1306,7 @@ internal class Function : IPoolNode<Function>
                 {
                     Assert(e1.Info == Instruction(e2).B - 1);
                     FreeExpression(e1);
-                    Instruction(e2).B = (e1.Info);
+                    Instruction(e2).B = e1.Info;
                     return MakeExpression(Kind.Relocatable, e2.Info);
                 }
 
@@ -1242,7 +1331,10 @@ internal class Function : IPoolNode<Function>
         }
     }
 
-    public void FixLine(int line) => Proto.LineInfoList[Proto.CodeList.Length - 1] = line;
+    public void FixLine(int line)
+    {
+        Proto.LineInfoList[Proto.CodeList.Length - 1] = line;
+    }
 
 
     public void SetList(int @base, int elementCount, int storeCount)
@@ -1253,7 +1345,7 @@ internal class Function : IPoolNode<Function>
             storeCount = 0;
         }
 
-        var c = (elementCount - 1) / ListItemsPerFlush + 1;
+        var c = ((elementCount - 1) / ListItemsPerFlush) + 1;
         if (c <= MaxArgC)
         {
             EncodeABC(OpCode.SetList, @base, storeCount, c);
@@ -1453,8 +1545,8 @@ internal class Function : IPoolNode<Function>
 
     public void FlushFieldToConstructor(int tableRegister, int freeRegisterCount, ExprDesc k, Func<ExprDesc> v)
     {
-        (_, var rk) = ExpressionToRegisterOrConstant(k);
-        (_, var rv) = ExpressionToRegisterOrConstant(v());
+        var (_, rk) = ExpressionToRegisterOrConstant(k);
+        var (_, rv) = ExpressionToRegisterOrConstant(v());
         EncodeABC(OpCode.SetTable, tableRegister, rk, rv);
         FreeRegisterCount = freeRegisterCount;
     }
@@ -1492,8 +1584,8 @@ internal class Function : IPoolNode<Function>
             }
         }
 
-        Proto.CodeList[pc].B = (((arrayCount)));
-        Proto.CodeList[pc].C = (((hashCount)));
+        Proto.CodeList[pc].B = arrayCount;
+        Proto.CodeList[pc].C = hashCount;
     }
 
     public int OpenForBody(int @base, int n, bool isNumeric)

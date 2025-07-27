@@ -1,6 +1,6 @@
 namespace Lua.CodeAnalysis.Syntax;
 
-internal static class Keywords
+static class Keywords
 {
     public const string LF = "\n";
 

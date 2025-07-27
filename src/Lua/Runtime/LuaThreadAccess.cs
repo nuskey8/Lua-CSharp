@@ -71,18 +71,18 @@ public readonly struct LuaThreadAccess
             argumentCount -= varArgumentCount;
         }
 
-        var frame = new CallStackFrame { Base = thread.Stack.Count - argumentCount, VariableArgumentCount = varArgumentCount, Function = function, ReturnBase = returnBase };
+        CallStackFrame frame = new() { Base = thread.Stack.Count - argumentCount, VariableArgumentCount = varArgumentCount, Function = function, ReturnBase = returnBase };
         if (thread.IsInHook)
         {
             frame.Flags |= CallStackFrameFlags.InHook;
         }
 
         var access = thread.PushCallStackFrame(frame);
-        LuaFunctionExecutionContext context = new() { Access = access, ArgumentCount = argumentCount, ReturnFrameBase = returnBase, };
+        LuaFunctionExecutionContext context = new() { Access = access, ArgumentCount = argumentCount, ReturnFrameBase = returnBase };
         var callStackTop = thread.CallStackFrameCount;
         try
         {
-            if (this.Thread.CallOrReturnHookMask.Value != 0 && !this.Thread.IsInHook)
+            if (Thread.CallOrReturnHookMask.Value != 0 && !Thread.IsInHook)
             {
                 return await LuaVirtualMachine.ExecuteCallHook(context, cancellationToken);
             }
@@ -91,7 +91,7 @@ public readonly struct LuaThreadAccess
         }
         finally
         {
-            this.Thread.PopCallStackFrameUntil(callStackTop - 1);
+            Thread.PopCallStackFrameUntil(callStackTop - 1);
         }
     }
 
@@ -114,7 +114,7 @@ public readonly struct LuaThreadAccess
             }
         }
 
-        var frame = new CallStackFrame
+        CallStackFrame frame = new()
         {
             Base = thread.Stack.Count - argumentCount,
             VariableArgumentCount = varArgumentCount,

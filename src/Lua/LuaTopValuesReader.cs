@@ -14,8 +14,13 @@ public readonly struct LuaTopValuesReader : IDisposable
     }
 
     public int Count => stack.Count - returnBase;
+
     public int Length => stack.Count - returnBase;
-    public ReadOnlySpan<LuaValue> AsSpan() => stack.AsSpan()[returnBase..];
+
+    public ReadOnlySpan<LuaValue> AsSpan()
+    {
+        return stack.AsSpan()[returnBase..];
+    }
 
     public LuaValue this[int index] => AsSpan()[index];
 

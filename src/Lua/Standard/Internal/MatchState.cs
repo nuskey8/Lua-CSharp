@@ -2,13 +2,13 @@ using System.Buffers;
 
 namespace Lua.Standard.Internal;
 
-internal class MatchState(LuaThread thread, string source, string pattern)
+class MatchState(LuaThread thread, string source, string pattern)
 {
     internal const int LuaMaxCaptures = 32;
-    private const int CapUnfinished = -1;
-    private const int CapPosition = -2;
-    private const char LEsc = '%';
-    private const string Specials = "^$*+?.([%-";
+    const int CapUnfinished = -1;
+    const int CapPosition = -2;
+    const char LEsc = '%';
+    const string Specials = "^$*+?.([%-";
     internal const int MaxCalls = 200;
 
     internal struct Capture
@@ -38,7 +38,10 @@ internal class MatchState(LuaThread thread, string source, string pattern)
     int StartCapture(int sIdx, int pIdx, int what)
     {
         if (Level >= LuaMaxCaptures)
+        {
             throw new LuaRuntimeException(Thread, "too many captures");
+        }
+
         Captures[Level].Init = sIdx;
         Captures[Level].Len = what;
         Level++;
@@ -67,7 +70,9 @@ internal class MatchState(LuaThread thread, string source, string pattern)
     public int Match(int sIdx, int pIdx)
     {
         if (MatchDepth-- == 0)
+        {
             throw new LuaRuntimeException(Thread, "pattern too complex");
+        }
 
         var endIdx = Pattern.Length;
     Init:
@@ -128,7 +133,7 @@ internal class MatchState(LuaThread thread, string source, string pattern)
                             if (pIdx + 2 < Pattern.Length && Pattern[pIdx + 2] == '[')
                             {
                                 var ep = ClassEnd(Pattern, pIdx + 2);
-                                char previous = sIdx > 0 ? Source[sIdx - 1] : '\0';
+                                var previous = sIdx > 0 ? Source[sIdx - 1] : '\0';
                                 if (!MatchBracketClass(previous, Pattern, pIdx + 2, ep - 1) &&
                                     sIdx < Source.Length && MatchBracketClass(Source[sIdx], Pattern, pIdx + 2, ep - 1))
                                 {
@@ -175,7 +180,7 @@ internal class MatchState(LuaThread thread, string source, string pattern)
                     var ep = ClassEnd(Pattern, pIdx);
                     if (!SingleMatch(sIdx, pIdx, ep))
                     {
-                        if (ep < Pattern.Length && (Pattern[ep] is '*' or '?' or '-'))
+                        if (ep < Pattern.Length && Pattern[ep] is '*' or '?' or '-')
                         {
                             pIdx = ep + 1;
                             goto Init; // Continue the while loop with updated pIdx
@@ -223,10 +228,12 @@ internal class MatchState(LuaThread thread, string source, string pattern)
                                 // Match zero or more occurrences
                                 {
                                     {
-                                        int i = 0;
+                                        var i = 0;
                                         // Count how many we can match
                                         while (sIdx + i < Source.Length && SingleMatch(sIdx + i, pIdx, ep))
+                                        {
                                             i++;
+                                        }
 
                                         // Try matching from longest to shortest
                                         while (i >= 0)
@@ -292,12 +299,14 @@ internal class MatchState(LuaThread thread, string source, string pattern)
         return sIdx;
     }
 
-    private bool SingleMatch(int sIdx, int pIdx, int ep)
+    bool SingleMatch(int sIdx, int pIdx, int ep)
     {
         if (sIdx >= Source.Length)
+        {
             return false;
+        }
 
-        char c = Source[sIdx];
+        var c = Source[sIdx];
         switch (Pattern[pIdx])
         {
             case '.':
@@ -311,50 +320,61 @@ internal class MatchState(LuaThread thread, string source, string pattern)
         }
     }
 
-    private int CaptureToClose()
+    int CaptureToClose()
     {
-        int level = Level;
+        var level = Level;
         for (level--; level >= 0; level--)
         {
             if (Captures[level].Len == CapUnfinished)
+            {
                 return level;
+            }
         }
 
         throw new LuaRuntimeException(Thread, "invalid pattern capture");
     }
 
-    private int MatchCapture(int sIdx, int l)
+    int MatchCapture(int sIdx, int l)
     {
         l = CheckCapture(l);
-        int len = Captures[l].Len;
+        var len = Captures[l].Len;
         if (len >= 0 && sIdx + len <= Source.Length)
         {
             var capture = Source.AsSpan(Captures[l].Init, len);
             if (sIdx + len <= Source.Length && Source.AsSpan(sIdx, len).SequenceEqual(capture))
+            {
                 return sIdx + len; // Return the  new position
+            }
         }
 
         return -1;
     }
 
-    private int CheckCapture(int l)
+    int CheckCapture(int l)
     {
         if (l < 0 || l >= Level || Captures[l].Len == CapUnfinished)
+        {
             throw new LuaRuntimeException(Thread, $"invalid capture index %{l + 1}");
+        }
+
         return l;
     }
 
-    private int MatchBalance(int sIdx, int pIdx)
+    int MatchBalance(int sIdx, int pIdx)
     {
         if (pIdx + 1 >= Pattern.Length)
+        {
             throw new LuaRuntimeException(Thread, "malformed pattern (missing arguments to '%b')");
+        }
 
         if (sIdx >= Source.Length || Source[sIdx] != Pattern[pIdx])
+        {
             return -1;
+        }
 
-        char b = Pattern[pIdx];
-        char e = Pattern[pIdx + 1];
-        int cont = 1;
+        var b = Pattern[pIdx];
+        var e = Pattern[pIdx + 1];
+        var cont = 1;
         sIdx++;
 
         while (sIdx < Source.Length)
@@ -362,7 +382,9 @@ internal class MatchState(LuaThread thread, string source, string pattern)
             if (Source[sIdx] == e)
             {
                 if (--cont == 0)
+                {
                     return sIdx + 1; // Return the length matched
+                }
             }
             else if (Source[sIdx] == b)
             {
@@ -375,24 +397,36 @@ internal class MatchState(LuaThread thread, string source, string pattern)
         return -1;
     }
 
-    private int ClassEnd(ReadOnlySpan<char> pattern, int pIdx)
+    int ClassEnd(ReadOnlySpan<char> pattern, int pIdx)
     {
         switch (pattern[pIdx++])
         {
             case LEsc:
                 if (pIdx >= pattern.Length)
+                {
                     throw new LuaRuntimeException(Thread, "malformed pattern (ends with %)");
+                }
+
                 return pIdx + 1;
 
             case '[':
-                if (pIdx < pattern.Length && pattern[pIdx] == '^') pIdx++;
+                if (pIdx < pattern.Length && pattern[pIdx] == '^')
+                {
+                    pIdx++;
+                }
+
                 do
                 {
                     pIdx++;
                     if (pIdx < pattern.Length && pattern[pIdx] == LEsc)
+                    {
                         pIdx++;
+                    }
+
                     if (pIdx >= pattern.Length)
+                    {
                         throw new LuaRuntimeException(Thread, "malformed pattern (missing ']')");
+                    }
                 } while (pIdx < pattern.Length && pattern[pIdx] != ']');
 
                 return pIdx + 1;
@@ -402,7 +436,7 @@ internal class MatchState(LuaThread thread, string source, string pattern)
         }
     }
 
-    private static bool MatchClass(char c, char cl)
+    static bool MatchClass(char c, char cl)
     {
         bool res;
         switch (char.ToLower(cl))
@@ -424,14 +458,14 @@ internal class MatchState(LuaThread thread, string source, string pattern)
         return char.IsLower(cl) ? res : !res;
     }
 
-    private static bool IsHexDigit(char c)
+    static bool IsHexDigit(char c)
     {
         return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
     }
 
-    private static bool MatchBracketClass(char c, ReadOnlySpan<char> pattern, int pIdx, int ec)
+    static bool MatchBracketClass(char c, ReadOnlySpan<char> pattern, int pIdx, int ec)
     {
-        bool sig = true;
+        var sig = true;
         if (pIdx + 1 < pattern.Length && pattern[pIdx + 1] == '^')
         {
             sig = false;
@@ -444,12 +478,17 @@ internal class MatchState(LuaThread thread, string source, string pattern)
             {
                 pIdx++;
                 if (pIdx <= ec && MatchClass(c, pattern[pIdx]))
+                {
                     return sig;
+                }
             }
             else if (pIdx + 2 < ec && pattern[pIdx + 1] == '-')
             {
                 if (pattern[pIdx] <= c && c <= pattern[pIdx + 2])
+                {
                     return sig;
+                }
+
                 pIdx += 2;
             }
             else if (pattern[pIdx] == c)

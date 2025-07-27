@@ -15,7 +15,7 @@ public static class NumberReaderHelper
     public static int ScanNumberLength(ReadOnlySpan<char> span, bool skipWhitespace = true)
     {
         var position = 0;
-        
+
         // Skip leading whitespace
         if (skipWhitespace)
         {
@@ -24,23 +24,25 @@ public static class NumberReaderHelper
                 position++;
             }
         }
-        
+
         if (position >= span.Length)
+        {
             return 0;
-        
+        }
+
         var numberStart = position;
         var hasStarted = false;
         var isHex = false;
         var hasDecimal = false;
         var lastWasE = false;
-        
+
         // Check for sign
         if (position < span.Length && (span[position] == '+' || span[position] == '-'))
         {
             position++;
             hasStarted = true;
         }
-        
+
         // Check for hex prefix right at the start (after optional sign)
         if (position < span.Length - 1 && span[position] == '0' && (span[position + 1] == 'x' || span[position + 1] == 'X'))
         {
@@ -48,14 +50,14 @@ public static class NumberReaderHelper
             position += 2; // Skip '0x' or '0X'
             hasStarted = true;
         }
-        
+
         // Scan for valid number characters
         while (position < span.Length)
         {
             var c = span[position];
-            
+
             // Hex prefix is handled above before the loop
-            
+
             if (isHex)
             {
                 // Hex digits
@@ -121,11 +123,11 @@ public static class NumberReaderHelper
                 }
             }
         }
-        
+
         // Return the length of the number portion
         return position - numberStart;
     }
-    
+
     public static bool TryParseToDouble(ReadOnlySpan<char> span, out double result)
     {
         span = span.Trim();
@@ -168,7 +170,7 @@ public static class NumberReaderHelper
             return double.TryParse(span, NumberStyles.Float, CultureInfo.InvariantCulture, out result);
         }
     }
-    
+
     /// <summary>
     /// Parses a number from a span and returns the result or null if parsing fails.
     /// </summary>

@@ -29,7 +29,7 @@ public sealed class StringLibrary
             new(libraryName, "rep", Rep),
             new(libraryName, "reverse", Reverse),
             new(libraryName, "sub", Sub),
-            new(libraryName, "upper", Upper),
+            new(libraryName, "upper", Upper)
         ];
     }
 
@@ -50,7 +50,7 @@ public sealed class StringLibrary
 
         var span = StringHelper.Slice(s, (int)i, (int)j);
         var buffer = context.GetReturnBuffer(span.Length);
-        for (int k = 0; k < span.Length; k++)
+        for (var k = 0; k < span.Length; k++)
         {
             buffer[k] = span[k];
         }
@@ -65,8 +65,8 @@ public sealed class StringLibrary
             return new(context.Return(""));
         }
 
-        var builder = new ValueStringBuilder(context.ArgumentCount);
-        for (int i = 0; i < context.ArgumentCount; i++)
+        ValueStringBuilder builder = new(context.ArgumentCount);
+        for (var i = 0; i < context.ArgumentCount; i++)
         {
             var arg = context.GetArgument<double>(i);
             LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.Thread, i + 1, arg);
@@ -78,22 +78,23 @@ public sealed class StringLibrary
 
     public ValueTask<int> Dump(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
-        // stirng.dump is not supported (throw exception)
         throw new NotSupportedException("stirng.dump is not supported");
     }
 
-    public ValueTask<int> Find(LuaFunctionExecutionContext context, CancellationToken cancellationToken) =>
-        FindAux(context, true);
+    public ValueTask<int> Find(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    {
+        return FindAux(context, true);
+    }
 
     public async ValueTask<int> Format(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
         var format = context.GetArgument<string>(0);
         var stack = context.Thread.Stack;
         // TODO: pooling StringBuilder
-        var builder = new StringBuilder(format.Length * 2);
+        StringBuilder builder = new(format.Length * 2);
         var parameterIndex = 1;
 
-        for (int i = 0; i < format.Length; i++)
+        for (var i = 0; i < format.Length; i++)
         {
             if (format[i] == '%')
             {
@@ -121,23 +122,43 @@ public sealed class StringLibrary
                     switch (c)
                     {
                         case '-':
-                            if (leftJustify) throw new LuaRuntimeException(context.Thread, "invalid format (repeated flags)");
+                            if (leftJustify)
+                            {
+                                throw new LuaRuntimeException(context.Thread, "invalid format (repeated flags)");
+                            }
+
                             leftJustify = true;
                             break;
                         case '+':
-                            if (plusSign) throw new LuaRuntimeException(context.Thread, "invalid format (repeated flags)");
+                            if (plusSign)
+                            {
+                                throw new LuaRuntimeException(context.Thread, "invalid format (repeated flags)");
+                            }
+
                             plusSign = true;
                             break;
                         case '0':
-                            if (zeroPadding) throw new LuaRuntimeException(context.Thread, "invalid format (repeated flags)");
+                            if (zeroPadding)
+                            {
+                                throw new LuaRuntimeException(context.Thread, "invalid format (repeated flags)");
+                            }
+
                             zeroPadding = true;
                             break;
                         case '#':
-                            if (alternateForm) throw new LuaRuntimeException(context.Thread, "invalid format (repeated flags)");
+                            if (alternateForm)
+                            {
+                                throw new LuaRuntimeException(context.Thread, "invalid format (repeated flags)");
+                            }
+
                             alternateForm = true;
                             break;
                         case ' ':
-                            if (blank) throw new LuaRuntimeException(context.Thread, "invalid format (repeated flags)");
+                            if (blank)
+                            {
+                                throw new LuaRuntimeException(context.Thread, "invalid format (repeated flags)");
+                            }
+
                             blank = true;
                             break;
                         default:
@@ -154,8 +175,16 @@ public sealed class StringLibrary
                 if (char.IsDigit(format[i]))
                 {
                     i++;
-                    if (char.IsDigit(format[i])) i++;
-                    if (char.IsDigit(format[i])) throw new LuaRuntimeException(context.Thread, "invalid format (width or precision too long)");
+                    if (char.IsDigit(format[i]))
+                    {
+                        i++;
+                    }
+
+                    if (char.IsDigit(format[i]))
+                    {
+                        throw new LuaRuntimeException(context.Thread, "invalid format (width or precision too long)");
+                    }
+
                     width = int.Parse(format.AsSpan()[start..i]);
                 }
 
@@ -164,9 +193,21 @@ public sealed class StringLibrary
                 {
                     i++;
                     start = i;
-                    if (char.IsDigit(format[i])) i++;
-                    if (char.IsDigit(format[i])) i++;
-                    if (char.IsDigit(format[i])) throw new LuaRuntimeException(context.Thread, "invalid format (width or precision too long)");
+                    if (char.IsDigit(format[i]))
+                    {
+                        i++;
+                    }
+
+                    if (char.IsDigit(format[i]))
+                    {
+                        i++;
+                    }
+
+                    if (char.IsDigit(format[i]))
+                    {
+                        throw new LuaRuntimeException(context.Thread, "invalid format (width or precision too long)");
+                    }
+
                     precision = int.Parse(format.AsSpan()[start..i]);
                 }
 
@@ -387,17 +428,17 @@ public sealed class StringLibrary
             var pattern = upValues[1].Read<string>();
             var start = upValues[2].Read<int>();
 
-            var matchState = new MatchState(context.Thread, s, pattern);
+            MatchState matchState = new(context.Thread, s, pattern);
             var captures = matchState.Captures;
 
             // Check for anchor at start
-            bool anchor = pattern.Length > 0 && pattern[0] == '^';
-            int pIdx = anchor ? 1 : 0;
+            var anchor = pattern.Length > 0 && pattern[0] == '^';
+            var pIdx = anchor ? 1 : 0;
 
             // For empty patterns, we need to match at every position including after the last character
             var sEndIdx = s.Length + (pattern.Length == 0 || (anchor && pattern.Length == 1) ? 1 : 0);
 
-            for (int sIdx = start; sIdx < sEndIdx; sIdx++)
+            for (var sIdx = start; sIdx < sEndIdx; sIdx++)
             {
                 // Reset match state for each attempt
                 matchState.Level = 0;
@@ -419,7 +460,7 @@ public sealed class StringLibrary
 
                     var resultLength = matchState.Level;
                     var buffer = context.GetReturnBuffer(resultLength);
-                    for (int i = 0; i < matchState.Level; i++)
+                    for (var i = 0; i < matchState.Level; i++)
                     {
                         var capture = captures[i];
                         if (capture.IsPosition)
@@ -439,7 +480,10 @@ public sealed class StringLibrary
                 }
 
                 // For anchored patterns, only try once
-                if (anchor) break;
+                if (anchor)
+                {
+                    break;
+                }
             }
 
             return new(context.Return(LuaValue.Nil));
@@ -461,35 +505,35 @@ public sealed class StringLibrary
         var n = (int)n_arg;
 
         // Use MatchState instead of regex
-        var matchState = new MatchState(context.Thread, s, pattern);
+        MatchState matchState = new(context.Thread, s, pattern);
         var captures = matchState.Captures;
 
-        var builder = new StringBuilder();
-        StringBuilder? replacedBuilder = repl.Type == LuaValueType.String
+        StringBuilder builder = new();
+        var replacedBuilder = repl.Type == LuaValueType.String
             ? new StringBuilder(repl.UnsafeReadString().Length)
             : null;
         var lastIndex = 0;
         var replaceCount = 0;
 
         // Check for anchor at start
-        bool anchor = pattern.Length > 0 && pattern[0] == '^';
-        int sIdx = 0;
+        var anchor = pattern.Length > 0 && pattern[0] == '^';
+        var sIdx = 0;
 
         // For empty patterns, we need to match at every position including after the last character
         var sEndIdx = s.Length + (pattern.Length == 0 || (anchor && pattern.Length == 1) ? 1 : 0);
-        while ((sIdx < sEndIdx) && replaceCount < n)
+        while (sIdx < sEndIdx && replaceCount < n)
         {
             // Reset match state for each attempt
             matchState.Level = 0;
             Debug.Assert(matchState.MatchDepth == MatchState.MaxCalls);
             // Clear captures array to avoid stale data
-            for (int i = 0; i < captures.Length; i++)
+            for (var i = 0; i < captures.Length; i++)
             {
                 captures[i] = default;
             }
 
             // Always start pattern from beginning (0 or 1 if anchored)
-            int pIdx = anchor ? 1 : 0;
+            var pIdx = anchor ? 1 : 0;
             var res = matchState.Match(sIdx, pIdx);
 
             if (res >= 0)
@@ -526,7 +570,7 @@ public sealed class StringLibrary
                         replacedBuilder.Replace("%0", wholeMatch);
 
                         // Replace %1, %2, etc. with captures
-                        for (int k = 0; k < matchState.Level; k++)
+                        for (var k = 0; k < matchState.Level; k++)
                         {
                             var capture = captures[k];
                             string captureText;
@@ -579,7 +623,7 @@ public sealed class StringLibrary
                     else
                     {
                         // Pass all captures
-                        for (int k = 0; k < matchState.Level; k++)
+                        for (var k = 0; k < matchState.Level; k++)
                         {
                             var capture = captures[k];
                             if (capture.IsPosition)
@@ -674,8 +718,10 @@ public sealed class StringLibrary
         return new(context.Return(s.ToLower()));
     }
 
-    public ValueTask<int> Match(LuaFunctionExecutionContext context, CancellationToken cancellationToken) =>
-        FindAux(context, false);
+    public ValueTask<int> Match(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    {
+        return FindAux(context, false);
+    }
 
     public ValueTask<int> FindAux(LuaFunctionExecutionContext context, bool find)
     {
@@ -712,7 +758,7 @@ public sealed class StringLibrary
         return PatternSearch(context, s, pattern, init, find);
     }
 
-    private static ValueTask<int> PlainSearch(LuaFunctionExecutionContext context, string s, string pattern, int init)
+    static ValueTask<int> PlainSearch(LuaFunctionExecutionContext context, string s, string pattern, int init)
     {
         var index = s.AsSpan(init).IndexOf(pattern);
         if (index == -1)
@@ -724,19 +770,19 @@ public sealed class StringLibrary
         return new(context.Return(actualStart + 1, actualStart + pattern.Length)); // Convert to 1-based
     }
 
-    private static ValueTask<int> PatternSearch(LuaFunctionExecutionContext context, string s, string pattern, int init, bool find)
+    static ValueTask<int> PatternSearch(LuaFunctionExecutionContext context, string s, string pattern, int init, bool find)
     {
-        var matchState = new MatchState(context.Thread, s, pattern);
+        MatchState matchState = new(context.Thread, s, pattern);
         var captures = matchState.Captures;
 
         // Check for anchor at start
-        bool anchor = pattern.Length > 0 && pattern[0] == '^';
-        int pIdx = anchor ? 1 : 0;
+        var anchor = pattern.Length > 0 && pattern[0] == '^';
+        var pIdx = anchor ? 1 : 0;
 
         // For empty patterns, we need to match at every position including after the last character
         var sEndIdx = s.Length + (pattern.Length == 0 ? 1 : 0);
 
-        for (int sIdx = init; sIdx < sEndIdx; sIdx++)
+        for (var sIdx = init; sIdx < sEndIdx; sIdx++)
         {
             // Reset match state for each attempt
             matchState.Level = 0;
@@ -767,7 +813,7 @@ public sealed class StringLibrary
                 }
 
                 // Return captures
-                for (int i = 0; i < matchState.Level; i++)
+                for (var i = 0; i < matchState.Level; i++)
                 {
                     var capture = captures[i];
                     if (capture.IsPosition)
@@ -784,7 +830,10 @@ public sealed class StringLibrary
             }
 
             // For anchored patterns, only try once
-            if (anchor) break;
+            if (anchor)
+            {
+                break;
+            }
         }
 
         return new(context.Return(LuaValue.Nil));
@@ -802,8 +851,8 @@ public sealed class StringLibrary
 
         var n = (int)n_arg;
 
-        var builder = new ValueStringBuilder(s.Length * n);
-        for (int i = 0; i < n; i++)
+        ValueStringBuilder builder = new(s.Length * n);
+        for (var i = 0; i < n; i++)
         {
             builder.Append(s);
             if (i != n - 1 && sep != null)
@@ -818,7 +867,7 @@ public sealed class StringLibrary
     public ValueTask<int> Reverse(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
         var s = context.GetArgument<string>(0);
-        using var strBuffer = new PooledArray<char>(s.Length);
+        using PooledArray<char> strBuffer = new(s.Length);
         var span = strBuffer.AsSpan()[..s.Length];
         s.AsSpan().CopyTo(span);
         span.Reverse();

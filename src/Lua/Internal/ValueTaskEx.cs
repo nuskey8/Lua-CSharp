@@ -33,13 +33,13 @@ SOFTWARE.
 
 namespace Lua.Internal;
 
-internal static class ContinuationSentinel
+static class ContinuationSentinel
 {
     public static readonly Action<object?> AvailableContinuation = _ => { };
     public static readonly Action<object?> CompletedContinuation = _ => { };
 }
 
-internal static class ValueTaskEx
+static class ValueTaskEx
 {
     public static ValueTask<(int winArgumentIndex, T0 result0, T1 result1, IDisposable promis)> WhenAnyPooled<T0, T1>(ValueTask<T0> task0, ValueTask<T1> task1)
     {
@@ -54,6 +54,7 @@ internal static class ValueTaskEx
 
         static LinkedPool<WhenAnyPromise<T0, T1>> pool;
         WhenAnyPromise<T0, T1>? nextNode;
+
         public ref WhenAnyPromise<T0, T1>? NextNode => ref nextNode;
 
         public static WhenAnyPromise<T0, T1> Get(ValueTask<T0> task0, ValueTask<T1> task1)
@@ -64,7 +65,7 @@ internal static class ValueTaskEx
             }
             else
             {
-                f = new WhenAnyPromise<T0, T1>(task0, task1);
+                f = new(task0, task1);
             }
 
             return f;
@@ -245,7 +246,7 @@ internal static class ValueTaskEx
             var c = Interlocked.Exchange(ref continuation, ContinuationSentinel.CompletedContinuation);
             if (c != ContinuationSentinel.AvailableContinuation && c != ContinuationSentinel.CompletedContinuation)
             {
-                var spinWait = new SpinWait();
+                SpinWait spinWait = new();
                 while (state == null) // worst case, state is not set yet so wait.
                 {
                     spinWait.SpinOnce();

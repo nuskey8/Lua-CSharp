@@ -1,6 +1,6 @@
 ﻿namespace Lua.Internal;
 
-internal class Constants
+class Constants
 {
     public const int VersionMajor = 5;
     public const int VersionMinor = 2;

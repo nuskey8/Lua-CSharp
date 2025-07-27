@@ -7,8 +7,12 @@ public sealed class SymbolReferences
     public static SymbolReferences? Create(Compilation compilation)
     {
         var luaObjectAttribute = compilation.GetTypeByMetadataName("Lua.LuaObjectAttribute");
-        if (luaObjectAttribute == null) return null;
-        return new SymbolReferences
+        if (luaObjectAttribute == null)
+        {
+            return null;
+        }
+
+        return new()
         {
             LuaObjectAttribute = luaObjectAttribute,
             LuaMemberAttribute = compilation.GetTypeByMetadataName("Lua.LuaMemberAttribute")!,

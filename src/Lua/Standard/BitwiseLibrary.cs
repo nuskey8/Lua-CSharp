@@ -22,7 +22,7 @@ public sealed class BitwiseLibrary
             new(libraryName, "lshift", LShift),
             new(libraryName, "replace", Replace),
             new(libraryName, "rrotate", RRotate),
-            new(libraryName, "rshift", RShift),
+            new(libraryName, "rshift", RShift)
         ];
     }
 
@@ -64,7 +64,7 @@ public sealed class BitwiseLibrary
 
         var value = Bit32Helper.ToUInt32(arg0);
 
-        for (int i = 1; i < context.ArgumentCount; i++)
+        for (var i = 1; i < context.ArgumentCount; i++)
         {
             var arg = context.GetArgument<double>(i);
             LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.Thread, 1 + i, arg);
@@ -98,7 +98,7 @@ public sealed class BitwiseLibrary
 
         var value = Bit32Helper.ToUInt32(arg0);
 
-        for (int i = 1; i < context.ArgumentCount; i++)
+        for (var i = 1; i < context.ArgumentCount; i++)
         {
             var arg = context.GetArgument<double>(i);
             LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.Thread, 1 + i, arg);
@@ -123,7 +123,7 @@ public sealed class BitwiseLibrary
 
         var value = Bit32Helper.ToUInt32(arg0);
 
-        for (int i = 1; i < context.ArgumentCount; i++)
+        for (var i = 1; i < context.ArgumentCount; i++)
         {
             var arg = context.GetArgument<double>(i);
             LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.Thread, 1 + i, arg);
@@ -147,7 +147,7 @@ public sealed class BitwiseLibrary
 
         var value = Bit32Helper.ToUInt32(arg0);
 
-        for (int i = 1; i < context.ArgumentCount; i++)
+        for (var i = 1; i < context.ArgumentCount; i++)
         {
             var arg = context.GetArgument<double>(i);
             LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.Thread, 1 + i, arg);
@@ -197,11 +197,11 @@ public sealed class BitwiseLibrary
         LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.Thread, 2, disp);
 
         var v = Bit32Helper.ToUInt32(x);
-        var a = ((int)disp) % 32;
+        var a = (int)disp % 32;
 
         if (a < 0)
         {
-            v = (v >> (-a)) | (v << (32 + a));
+            v = (v >> -a) | (v << (32 + a));
         }
         else
         {
@@ -283,11 +283,11 @@ public sealed class BitwiseLibrary
         LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.Thread, 2, disp);
 
         var v = Bit32Helper.ToUInt32(x);
-        var a = ((int)disp) % 32;
+        var a = (int)disp % 32;
 
         if (a < 0)
         {
-            v = (v << (-a)) | (v >> (32 + a));
+            v = (v << -a) | (v >> (32 + a));
         }
         else
         {
