@@ -8,10 +8,8 @@ namespace Lua;
 public readonly record struct LuaFunctionExecutionContext
 {
     public LuaGlobalState GlobalState => State.GlobalState;
-
-    public required LuaThreadAccess Access { get; init; }
-
-    public LuaState State => Access.State;
+    
+    public LuaState State { get; init; }
 
     public required int ArgumentCount { get; init; }
 

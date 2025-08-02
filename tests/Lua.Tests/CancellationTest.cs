@@ -5,15 +5,15 @@ namespace Lua.Tests;
 
 public class CancellationTest
 {
-    LuaGlobalState globalState = default!;
+    LuaState state = default!;
 
     [SetUp]
     public void SetUp()
     {
-        globalState = LuaGlobalState.Create();
-        globalState.OpenStandardLibraries();
+        state = LuaState.Create();
+        state.OpenStandardLibraries();
 
-        globalState.Environment["assert"] = new LuaFunction("assert_with_wait",
+        state.Environment["assert"] = new LuaFunction("assert_with_wait",
             async (context, ct) =>
             {
                 await Task.Delay(1, ct);
@@ -32,14 +32,14 @@ public class CancellationTest
 
                 return context.Return(context.Arguments);
             });
-        globalState.Environment["sleep"] = new LuaFunction("sleep",
+        state.Environment["sleep"] = new LuaFunction("sleep",
             (context, _) =>
             {
                 Thread.Sleep(context.GetArgument<int>(0));
 
                 return new(context.Return());
             });
-        globalState.Environment["wait"] = new LuaFunction("wait",
+        state.Environment["wait"] = new LuaFunction("wait",
             async (context, ct) =>
             {
                 await Task.Delay(context.GetArgument<int>(0), ct);
@@ -61,7 +61,7 @@ public class CancellationTest
 
         try
         {
-            await globalState.DoStringAsync(source, "@test.lua", cancellationTokenSource.Token);
+            await state.DoStringAsync(source, "@test.lua", cancellationTokenSource.Token);
             Assert.Fail("Expected TaskCanceledException was not thrown.");
         }
         catch (Exception e)
@@ -90,7 +90,7 @@ public class CancellationTest
 
         try
         {
-            await globalState.DoStringAsync(source, "@test.lua", cancellationTokenSource.Token);
+            await state.DoStringAsync(source, "@test.lua", cancellationTokenSource.Token);
             Assert.Fail("Expected TaskCanceledException was not thrown.");
         }
         catch (Exception e)
@@ -123,7 +123,7 @@ public class CancellationTest
         });
         try
         {
-            var r = await globalState.DoStringAsync(source, "@test.lua", cancellationTokenSource.Token);
+            var r = await state.DoStringAsync(source, "@test.lua", cancellationTokenSource.Token);
             Console.WriteLine(r[0]);
             Assert.Fail("Expected TaskCanceledException was not thrown.");
         }
@@ -160,7 +160,7 @@ public class CancellationTest
         });
         try
         {
-            var r = await globalState.DoStringAsync(source, "@test.lua", cancellationTokenSource.Token);
+            var r = await state.DoStringAsync(source, "@test.lua", cancellationTokenSource.Token);
             Console.WriteLine(r[0]);
             Assert.Fail("Expected TaskCanceledException was not thrown.");
         }
@@ -191,7 +191,7 @@ public class CancellationTest
                      """;
         var cancellationTokenSource = new CancellationTokenSource();
         var sw = Stopwatch.StartNew();
-        globalState.MainThread.SetHook(new("timeout", async (context, cancellationToken) =>
+        state.SetHook(new("timeout", async (context, cancellationToken) =>
         {
             if (sw.ElapsedMilliseconds > 100)
             {
@@ -208,7 +208,7 @@ public class CancellationTest
         });
         try
         {
-            var r = await globalState.DoStringAsync(source, "@test.lua", cancellationTokenSource.Token);
+            var r = await state.DoStringAsync(source, "@test.lua", cancellationTokenSource.Token);
             Console.WriteLine(r[0]);
             Assert.Fail("Expected TaskCanceledException was not thrown.");
         }

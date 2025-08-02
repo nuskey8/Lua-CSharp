@@ -11,14 +11,14 @@ using Lua.Standard;
 // dotnet run --configuration Release /p:DefineConstants="CASE_MARKER"
 // to activate the CASE_MARKER
 // JitInspect can be run in Windows and Linux (MacOS is not supported yet)
-var luaState = LuaGlobalState.Create();
+var luaState = LuaState.Create();
 luaState.OpenStandardLibraries();
 var closure = luaState.Load(File.ReadAllBytes(GetAbsolutePath("test.lua")), "test.lua");
 
 for (var i = 0; i < 1000; i++)
 {
-    await luaState.RootAccess.RunAsync(closure);
-    luaState.MainThread.Stack.Clear();
+    await luaState.RunAsync(closure);
+    luaState.Stack.Clear();
 }
 
 var savePath = GetAbsolutePath("history");

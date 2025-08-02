@@ -5,13 +5,13 @@ namespace Lua.Tests;
 
 public class LuaApiTests
 {
-    LuaGlobalState globalState = default!;
+    LuaState state = default!;
 
     [OneTimeSetUp]
     public void SetUp()
     {
-        globalState = LuaGlobalState.Create();
-        globalState.OpenStandardLibraries();
+        state = LuaState.Create();
+        state.OpenStandardLibraries();
     }
 
     [Test]
@@ -34,12 +34,11 @@ public class LuaApiTests
                      setmetatable(a, metatable)
                      return a, b
                      """;
-        var access = globalState.RootAccess;
-        var result = await access.DoStringAsync(source);
+        var result = await state.DoStringAsync(source);
         var a = result[0].Read<LuaTable>();
         var b = result[1].Read<LuaTable>();
 
-        var c = await access.Add(a, b);
+        var c = await state.Add(a, b);
         var table = c.Read<LuaTable>();
         Assert.Multiple(() =>
         {
@@ -68,11 +67,10 @@ public class LuaApiTests
                      setmetatable(a, metatable)
                      return a
                      """;
-        var access = globalState.RootAccess;
 
-        var result = await access.DoStringAsync(source);
+        var result = await state.DoStringAsync(source);
         var a = result[0].Read<LuaTable>();
-        var c = await access.Unm(a);
+        var c = await state.Unm(a);
         var table = c.Read<LuaTable>();
         Assert.Multiple(() =>
         {
@@ -106,14 +104,13 @@ public class LuaApiTests
                      setmetatable(a, metatable)
                      return a, b, c
                      """;
-        var access = globalState.RootAccess;
-        var result = await access.DoStringAsync(source);
+        var result = await state.DoStringAsync(source);
         var a = result[0].Read<LuaTable>();
         var b = result[1].Read<LuaTable>();
         var c = result[2].Read<LuaTable>();
-        var ab = await access.Equals(a, b);
+        var ab = await state.Equals(a, b);
         Assert.False(ab);
-        var ac = await access.Equals(a, c);
+        var ac = await state.Equals(a, c);
         Assert.True(ac);
     }
 
@@ -129,12 +126,11 @@ public class LuaApiTests
                      setmetatable(a, metatable)
                      return a
                      """;
-        var access = globalState.RootAccess;
-        var result = await access.DoStringAsync(source);
+        var result = await state.DoStringAsync(source);
         var a = result[0].Read<LuaTable>();
-        Assert.That(await access.GetTable(a, "x"), Is.EqualTo(new LuaValue(1)));
-        a.Metatable!["__index"] = globalState.DoStringAsync("return function(a,b) return b end").Result[0];
-        Assert.That(await access.GetTable(a, "x"), Is.EqualTo(new LuaValue("x")));
+        Assert.That(await state.GetTable(a, "x"), Is.EqualTo(new LuaValue(1)));
+        a.Metatable!["__index"] = state.DoStringAsync("return function(a,b) return b end").Result[0];
+        Assert.That(await state.GetTable(a, "x"), Is.EqualTo(new LuaValue("x")));
     }
 
     [Test]
@@ -150,10 +146,9 @@ public class LuaApiTests
                      setmetatable(a, metatable)
                      return a
                      """;
-        var access = globalState.RootAccess;
-        var result = await access.DoStringAsync(source);
+        var result = await state.DoStringAsync(source);
         var a = result[0].Read<LuaTable>();
-        await access.SetTable(a, "a", "b");
+        await state.SetTable(a, "a", "b");
         var b = a.Metatable!["__newindex"].Read<LuaTable>()["a"];
         Assert.True(b.Read<string>() == "b");
     }
@@ -183,14 +178,13 @@ setmetatable(c, metatable)
 
 return a,b,c
 ";
-        var access = globalState.RootAccess;
-        var result = await access.DoStringAsync(source);
+        var result = await state.DoStringAsync(source);
         Assert.That(result, Has.Length.EqualTo(3));
 
         var a = result[0];
         var b = result[1];
         var c = result[2];
-        var d = await access.Concat([a, b, c]);
+        var d = await state.Concat([a, b, c]);
 
         var table = d.Read<LuaTable>();
         Assert.That(table.ArrayLength, Is.EqualTo(9));
@@ -229,22 +223,21 @@ return a,b,c
                      local c ={name ="c"}
                      return a,b,c
                      """;
-        var access = globalState.RootAccess;
-        var result = await access.DoStringAsync(source);
+        var result = await state.DoStringAsync(source);
         var a = result[0];
         var b = result[1];
         var c = result[2];
-        var d = await access.Add(b, c);
+        var d = await state.Add(b, c);
         Assert.True(d.TryRead(out string s));
         Assert.That(s, Is.EqualTo("abc"));
-        d = await access.Unm(b);
+        d = await state.Unm(b);
         Assert.True(d.TryRead(out s));
         Assert.That(s, Is.EqualTo("abb"));
-        d = await access.Concat([c, b]);
+        d = await state.Concat([c, b]);
         Assert.True(d.TryRead(out s));
         Assert.That(s, Is.EqualTo("acb"));
 
-        var aResult = await access.Call(a, [b, c]);
+        var aResult = await state.Call(a, [b, c]);
         Assert.That(aResult, Has.Length.EqualTo(1));
         Assert.That(aResult[0].Read<string>(), Is.EqualTo("abc"));
     }
@@ -272,22 +265,21 @@ return a,b,c
                      local c ={name ="c"}
                      return a,b,c
                      """;
-        var access = globalState.RootAccess;
-        var result = await access.DoStringAsync(source);
+        var result = await state.DoStringAsync(source);
         var a = result[0];
         var b = result[1];
         var c = result[2];
-        var d = await access.Add(b, c);
+        var d = await state.Add(b, c);
         Assert.True(d.TryRead(out string s));
         Assert.That(s, Is.EqualTo("abc"));
-        d = await access.Unm(b);
+        d = await state.Unm(b);
         Assert.True(d.TryRead(out s));
         Assert.That(s, Is.EqualTo("abb"));
-        d = await access.Concat([c, b]);
+        d = await state.Concat([c, b]);
         Assert.True(d.TryRead(out s));
         Assert.That(s, Is.EqualTo("acb"));
 
-        var aResult = await access.Call(a, [b, c]);
+        var aResult = await state.Call(a, [b, c]);
         Assert.That(aResult, Has.Length.EqualTo(1));
         Assert.That(aResult[0].Read<string>(), Is.EqualTo("abc"));
     }

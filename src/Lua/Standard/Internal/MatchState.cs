@@ -2,7 +2,7 @@ using System.Buffers;
 
 namespace Lua.Standard.Internal;
 
-class MatchState(LuaState thread, string source, string pattern)
+class MatchState(LuaState state, string source, string pattern)
 {
     internal const int LuaMaxCaptures = 32;
     const int CapUnfinished = -1;
@@ -19,7 +19,7 @@ class MatchState(LuaState thread, string source, string pattern)
         public bool IsPosition => Len == CapPosition;
     }
 
-    public readonly LuaState State = thread;
+    public readonly LuaState State = state;
     public readonly string Source = source;
     public readonly string Pattern = pattern;
     public int Level = 0;

@@ -7,9 +7,10 @@ using System;
 using System.IO;
 using System.Text;
 
-var state = LuaGlobalState.Create();
+var state = LuaState.Create();
+var globalState = state.GlobalState;
 state.OpenStandardLibraries();
-state.Environment["escape"] = new LuaFunction("escape",
+globalState.Environment["escape"] = new LuaFunction("escape",
     (c, _) =>
     {
         var arg = c.HasArgument(0) ? c.GetArgument<string>(0) : "";
@@ -36,8 +37,8 @@ try
     timer.Start();
     for (var i = 0; i < 1000; i++)
     {
-        var count = await state.RootAccess.RunAsync(closure);
-        state.RootAccess.Pop(count);
+        var count = await state.RunAsync(closure);
+        state.Pop(count);
         if (i % 100 == 0)
         {
             Console.WriteLine($"Iteration {i} completed. Time elapsed: {timer.ElapsedMilliseconds} ms");

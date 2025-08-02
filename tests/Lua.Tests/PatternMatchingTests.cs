@@ -7,7 +7,7 @@ public class PatternMatchingTests
     [Test]
     public async Task Test_StringMatch_BasicPatterns()
     {
-        var state = LuaGlobalState.Create();
+        var state = LuaState.Create();
         state.OpenStringLibrary();
 
         // Literal match
@@ -25,7 +25,7 @@ public class PatternMatchingTests
     [Test]
     public async Task Test_StringMatch_CharacterClasses()
     {
-        var state = LuaGlobalState.Create();
+        var state = LuaState.Create();
         state.OpenStringLibrary();
 
         // %d - digits
@@ -51,7 +51,7 @@ public class PatternMatchingTests
     [Test]
     public async Task Test_StringMatch_Quantifiers()
     {
-        var state = LuaGlobalState.Create();
+        var state = LuaState.Create();
         state.OpenStringLibrary();
 
         // + (one or more)
@@ -80,7 +80,7 @@ public class PatternMatchingTests
     [Test]
     public async Task Test_StringMatch_Captures()
     {
-        var state = LuaGlobalState.Create();
+        var state = LuaState.Create();
         state.OpenStringLibrary();
 
         // Single capture
@@ -108,7 +108,7 @@ public class PatternMatchingTests
     [Test]
     public async Task Test_StringMatch_Anchors()
     {
-        var state = LuaGlobalState.Create();
+        var state = LuaState.Create();
         state.OpenStringLibrary();
 
         // ^ (start anchor)
@@ -129,7 +129,7 @@ public class PatternMatchingTests
     [Test]
     public async Task Test_StringMatch_WithInitPosition()
     {
-        var state = LuaGlobalState.Create();
+        var state = LuaState.Create();
         state.OpenStringLibrary();
 
         // Start from specific position
@@ -147,7 +147,7 @@ public class PatternMatchingTests
     [Test]
     public async Task Test_StringMatch_SpecialPatterns()
     {
-        var state = LuaGlobalState.Create();
+        var state = LuaState.Create();
         state.OpenStringLibrary();
 
         // Dot (any character)
@@ -169,7 +169,7 @@ public class PatternMatchingTests
     [Test]
     public async Task Test_StringFind_BasicUsage()
     {
-        var state = LuaGlobalState.Create();
+        var state = LuaState.Create();
         state.OpenStringLibrary();
 
         // Basic literal search
@@ -193,7 +193,7 @@ public class PatternMatchingTests
     [Test]
     public async Task Test_StringFind_WithPatterns()
     {
-        var state = LuaGlobalState.Create();
+        var state = LuaState.Create();
         state.OpenStringLibrary();
 
         // Pattern with captures
@@ -224,7 +224,7 @@ public class PatternMatchingTests
     [Test]
     public async Task Test_StringFind_PlainSearch()
     {
-        var state = LuaGlobalState.Create();
+        var state = LuaState.Create();
         state.OpenStringLibrary();
 
         // Plain search (4th parameter = true)
@@ -243,7 +243,7 @@ public class PatternMatchingTests
     [Test]
     public async Task Test_StringFind_EdgeCases()
     {
-        var state = LuaGlobalState.Create();
+        var state = LuaState.Create();
         state.OpenStringLibrary();
 
         // Empty pattern
@@ -287,7 +287,7 @@ public class PatternMatchingTests
     [Test]
     public async Task Test_StringGMatch_BasicUsage()
     {
-        var state = LuaGlobalState.Create();
+        var state = LuaState.Create();
         state.OpenStringLibrary();
         state.OpenTableLibrary();
         // Test basic gmatch iteration
@@ -307,7 +307,7 @@ public class PatternMatchingTests
     [Test]
     public async Task Test_StringGMatch_WithCaptures()
     {
-        var state = LuaGlobalState.Create();
+        var state = LuaState.Create();
         state.OpenStringLibrary();
         state.OpenTableLibrary();
 
@@ -328,7 +328,7 @@ public class PatternMatchingTests
     [Test]
     public async Task Test_StringGMatch_Numbers()
     {
-        var state = LuaGlobalState.Create();
+        var state = LuaState.Create();
         state.OpenStringLibrary();
         state.OpenTableLibrary();
 
@@ -349,7 +349,7 @@ public class PatternMatchingTests
     [Test]
     public async Task Test_StringGMatch_EmptyMatches()
     {
-        var state = LuaGlobalState.Create();
+        var state = LuaState.Create();
         state.OpenStringLibrary();
         state.OpenTableLibrary();
 
@@ -368,7 +368,7 @@ public class PatternMatchingTests
     [Test]
     public async Task Test_StringGMatch_ComplexPatterns()
     {
-        var state = LuaGlobalState.Create();
+        var state = LuaState.Create();
         state.OpenStringLibrary();
         state.OpenTableLibrary();
 
@@ -389,7 +389,7 @@ public class PatternMatchingTests
     [Test]
     public async Task Test_StringGMatch_PositionCaptures()
     {
-        var state = LuaGlobalState.Create();
+        var state = LuaState.Create();
         state.OpenStringLibrary();
         state.OpenTableLibrary();
 
@@ -412,7 +412,7 @@ public class PatternMatchingTests
     [Test]
     public async Task Test_StringGMatch_NoMatches()
     {
-        var state = LuaGlobalState.Create();
+        var state = LuaState.Create();
         state.OpenStringLibrary();
         state.OpenTableLibrary();
 
@@ -430,7 +430,7 @@ public class PatternMatchingTests
     [Test]
     public async Task Test_StringGMatch_SingleCharacter()
     {
-        var state = LuaGlobalState.Create();
+        var state = LuaState.Create();
         state.OpenStringLibrary();
         state.OpenTableLibrary();
 
@@ -451,7 +451,7 @@ public class PatternMatchingTests
     [Test]
     public async Task Test_StringFind_And_GMatch_Consistency()
     {
-        var state = LuaGlobalState.Create();
+        var state = LuaState.Create();
         state.OpenStringLibrary();
 
         // Test that find and gmatch work consistently with the same pattern
@@ -476,7 +476,7 @@ public class PatternMatchingTests
     [Test]
     public async Task Test_Pattern_NegatedCharacterClassWithCapture()
     {
-        var state = LuaGlobalState.Create();
+        var state = LuaState.Create();
         state.OpenStringLibrary();
 
         // Test the problematic pattern ^([^:]*):
@@ -514,7 +514,7 @@ public class PatternMatchingTests
     [Test]
     public async Task Test_StringGSub_BasicReplacements()
     {
-        var state = LuaGlobalState.Create();
+        var state = LuaState.Create();
         state.OpenStringLibrary();
 
         // Simple string replacement
@@ -539,7 +539,7 @@ public class PatternMatchingTests
     [Test]
     public async Task Test_StringGSub_PatternReplacements()
     {
-        var state = LuaGlobalState.Create();
+        var state = LuaState.Create();
         state.OpenStringLibrary();
 
         // Character class patterns
@@ -564,7 +564,7 @@ public class PatternMatchingTests
     [Test]
     public async Task Test_StringGSub_FunctionReplacements()
     {
-        var state = LuaGlobalState.Create();
+        var state = LuaState.Create();
         state.OpenStringLibrary();
 
         // Function replacement
@@ -602,7 +602,7 @@ public class PatternMatchingTests
     [Test]
     public async Task Test_StringGSub_TableReplacements()
     {
-        var state = LuaGlobalState.Create();
+        var state = LuaState.Create();
         state.OpenStringLibrary();
 
         // Table replacement
@@ -627,7 +627,7 @@ public class PatternMatchingTests
     [Test]
     public async Task Test_StringGSub_EmptyPattern()
     {
-        var state = LuaGlobalState.Create();
+        var state = LuaState.Create();
         state.OpenStringLibrary();
 
         // Empty pattern should match at every position
@@ -640,7 +640,7 @@ public class PatternMatchingTests
     [Test]
     public async Task Test_StringGSub_BalancedPatterns()
     {
-        var state = LuaGlobalState.Create();
+        var state = LuaState.Create();
         state.OpenStringLibrary();
 
         // Balanced parentheses pattern
@@ -663,7 +663,7 @@ public class PatternMatchingTests
     [Test]
     public async Task Test_StringGSub_EscapeSequences()
     {
-        var state = LuaGlobalState.Create();
+        var state = LuaState.Create();
         state.OpenStringLibrary();
 
         // Test %% escape (literal %)
@@ -676,7 +676,7 @@ public class PatternMatchingTests
     [Test]
     public async Task Test_StringGSub_EdgeCases()
     {
-        var state = LuaGlobalState.Create();
+        var state = LuaState.Create();
         state.OpenStringLibrary();
 
         // Empty string
@@ -701,7 +701,7 @@ public class PatternMatchingTests
     [Test]
     public async Task Test_StringGSub_ComplexPatterns()
     {
-        var state = LuaGlobalState.Create();
+        var state = LuaState.Create();
         state.OpenStringLibrary();
 
         // Email replacement
@@ -728,7 +728,7 @@ public class PatternMatchingTests
     [Test]
     public async Task Test_PatternMatching_Consistency()
     {
-        var state = LuaGlobalState.Create();
+        var state = LuaState.Create();
         state.OpenStringLibrary();
 
         // Test that all string functions work consistently with same patterns
@@ -766,7 +766,7 @@ public class PatternMatchingTests
     [Test]
     public async Task Test_PatternMatching_SpecialPatterns()
     {
-        var state = LuaGlobalState.Create();
+        var state = LuaState.Create();
         state.OpenStringLibrary();
 
         // Frontier pattern %f
@@ -791,7 +791,7 @@ public class PatternMatchingTests
     [Test]
     public void Test_PatternMatching_ErrorCases()
     {
-        var state = LuaGlobalState.Create();
+        var state = LuaState.Create();
         state.OpenStringLibrary();
 
         // Invalid pattern - missing closing bracket
@@ -813,7 +813,7 @@ public class PatternMatchingTests
     [Test]
     public async Task Test_DollarSignPattern_EscapingIssue()
     {
-        var state = LuaGlobalState.Create();
+        var state = LuaState.Create();
         state.OpenStringLibrary();
         state.OpenTableLibrary();
 
@@ -855,7 +855,7 @@ public class PatternMatchingTests
     [Test]
     public async Task Test_DollarSignPattern_CompleteExample()
     {
-        var state = LuaGlobalState.Create();
+        var state = LuaState.Create();
         state.OpenStringLibrary();
         state.OpenTableLibrary();
         state.OpenBasicLibrary();
@@ -902,7 +902,7 @@ public class PatternMatchingTests
     [Test]
     public async Task Test_DollarSignPattern_EdgeCases()
     {
-        var state = LuaGlobalState.Create();
+        var state = LuaState.Create();
         state.OpenStringLibrary();
         state.OpenTableLibrary();
 

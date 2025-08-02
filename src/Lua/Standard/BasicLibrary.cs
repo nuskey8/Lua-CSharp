@@ -95,8 +95,8 @@ public sealed class BasicLibrary
     {
         var arg0 = context.GetArgument<string>(0);
         context.State.Stack.PopUntil(context.ReturnFrameBase);
-        var closure = await context.GlobalState.LoadFileAsync(arg0, "bt", null, cancellationToken);
-        return await context.Access.RunAsync(closure, cancellationToken);
+        var closure = await context.State.LoadFileAsync(arg0, "bt", null, cancellationToken);
+        return await context.State.RunAsync(closure, cancellationToken);
     }
 
     public ValueTask<int> Error(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
@@ -146,7 +146,7 @@ public sealed class BasicLibrary
             stack.Push(metamethod);
             stack.Push(arg0);
 
-            await LuaVirtualMachine.Call(context.Access.State, top, context.ReturnFrameBase, cancellationToken);
+            await LuaVirtualMachine.Call(context.State, top, context.ReturnFrameBase, cancellationToken);
             stack.SetTop(context.ReturnFrameBase + 3);
             return 3;
         }
@@ -167,7 +167,7 @@ public sealed class BasicLibrary
         // do not use LuaState.DoFileAsync as it uses the newExecutionContext
         try
         {
-            return context.Return(await context.GlobalState.LoadFileAsync(arg0, mode, arg2, cancellationToken));
+            return context.Return(await context.State.LoadFileAsync(arg0, mode, arg2, cancellationToken));
         }
         catch (Exception ex)
         {
@@ -197,7 +197,7 @@ public sealed class BasicLibrary
         {
             if (arg0.TryRead<string>(out var str))
             {
-                return new(context.Return(context.GlobalState.Load(str, name ?? str, arg3)));
+                return new(context.Return(context.State.Load(str, name ?? str, arg3)));
             }
             else if (arg0.TryRead<LuaFunction>(out var function))
             {
@@ -243,7 +243,7 @@ public sealed class BasicLibrary
             stack.Push(metamethod);
             stack.Push(arg0);
 
-            await LuaVirtualMachine.Call(context.Access.State, top, context.ReturnFrameBase, cancellationToken);
+            await LuaVirtualMachine.Call(context.State, top, context.ReturnFrameBase, cancellationToken);
             stack.SetTop(context.ReturnFrameBase + 3);
             return 3;
         }
@@ -256,7 +256,7 @@ public sealed class BasicLibrary
         var frameCount = context.State.CallStackFrameCount;
         try
         {
-            var count = await LuaVirtualMachine.Call(context.Access.State, context.FrameBase, context.ReturnFrameBase + 1, cancellationToken);
+            var count = await LuaVirtualMachine.Call(context.State, context.FrameBase, context.ReturnFrameBase + 1, cancellationToken);
 
             context.State.Stack.Get(context.ReturnFrameBase) = true;
             return count + 1;
@@ -567,7 +567,7 @@ public sealed class BasicLibrary
             LuaValueType.String => "string",
             LuaValueType.Number => "number",
             LuaValueType.Function => "function",
-            LuaValueType.Thread => "thread",
+            LuaValueType.Thread => "state",
             LuaValueType.LightUserData => "userdata",
             LuaValueType.UserData => "userdata",
             LuaValueType.Table => "table",
@@ -585,31 +585,30 @@ public sealed class BasicLibrary
         {
             var stack = context.State.Stack;
             stack.Get(context.FrameBase + 1) = arg0;
-            var count = await LuaVirtualMachine.Call(context.Access.State, context.FrameBase + 1, context.ReturnFrameBase + 1, cancellationToken);
+            var count = await LuaVirtualMachine.Call(context.State, context.FrameBase + 1, context.ReturnFrameBase + 1, cancellationToken);
 
             context.State.Stack.Get(context.ReturnFrameBase) = true;
             return count + 1;
         }
         catch (Exception ex)
         {
-            var thread = context.State;
-            thread.PopCallStackFrameUntil(frameCount);
+            var state = context.State;
+            state.PopCallStackFrameUntil(frameCount);
             cancellationToken.ThrowIfCancellationRequested();
 
-            var access = thread.CurrentAccess;
             if (ex is LuaRuntimeException luaEx)
             {
                 luaEx.Forget();
-                access.Push(luaEx.ErrorObject);
+                state.Push(luaEx.ErrorObject);
             }
             else
             {
-                access.Push(ex.Message);
+                state.Push(ex.Message);
             }
 
 
             // invoke error handler
-            var count = await access.RunAsync(arg1, 1, context.ReturnFrameBase + 1, cancellationToken);
+            var count = await state.RunAsync(arg1, 1, context.ReturnFrameBase + 1, cancellationToken);
             context.State.Stack.Get(context.ReturnFrameBase) = false;
             return count + 1;
         }

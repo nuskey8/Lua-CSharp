@@ -18,14 +18,14 @@ static class Bit32Helper
         return (int)(long)Math.IEEERemainder(d, Bit32);
     }
 
-    public static void ValidateFieldAndWidth(LuaState thread, string functionName, int argumentId, int field, int width)
+    public static void ValidateFieldAndWidth(LuaState state, string functionName, int argumentId, int field, int width)
     {
         if (field > 31 || field + width > 32)
-            throw new LuaRuntimeException(thread, "trying to access non-existent bits");
+            throw new LuaRuntimeException(state, "trying to access non-existent bits");
         if (field < 0)
-            throw new LuaRuntimeException(thread, $"bad argument #{argumentId} to '{functionName}' (field cannot be negative)");
+            throw new LuaRuntimeException(state, $"bad argument #{argumentId} to '{functionName}' (field cannot be negative)");
 
         if (width <= 0)
-            throw new LuaRuntimeException(thread, $"bad argument #{argumentId} to '{functionName}' (width must be positive)");
+            throw new LuaRuntimeException(state, $"bad argument #{argumentId} to '{functionName}' (width must be positive)");
     }
 }

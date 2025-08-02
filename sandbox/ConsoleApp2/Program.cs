@@ -3,12 +3,11 @@ using Lua;
 using Lua.Standard;
 using System;
 
-var state = LuaGlobalState.Create();
+var state = LuaState.Create();
 state.OpenStandardLibraries();
 {
     var closure = state.Load("return function (a,b,...)  print('a : '..a..' b :'..'args : ',...) end", "@simple");
-    using var threadLease = state.MainThread.RentUserThread();
-    var access = threadLease.State.RootAccess;
+    using var access = LuaState.Create(state.GlobalState);
     {
         var count = await access.RunAsync(closure, 0);
         var results = access.ReadTopValues(count);
@@ -43,8 +42,7 @@ state.OpenStandardLibraries();
         end
         """, "coroutine");
     var f = results[0].Read<LuaClosure>();
-    using var coroutineLease = state.MainThread.RentCoroutine(f);
-    var coroutine = coroutineLease.Thread;
+    using var coroutine = LuaState.CreateCoroutine(state.GlobalState,(f));
     {
         var stack = new LuaStack();
         stack.PushRange("a", "b", "c", "d", "e");

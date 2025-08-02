@@ -145,6 +145,9 @@ public static class OpenLibsExtensions
         globalState.Environment["table"] = table;
         globalState.LoadedModules["table"] = table;
     }
+    
+    
+
 
     public static void OpenDebugLibrary(this LuaGlobalState globalState)
     {
@@ -158,6 +161,12 @@ public static class OpenLibsExtensions
         globalState.LoadedModules["debug"] = debug;
     }
 
+    public static void OpenDebugLibrary(this LuaState state)
+    {
+        state.GlobalState.OpenDebugLibrary();
+    }
+
+
     public static void OpenStandardLibraries(this LuaGlobalState globalState)
     {
         globalState.OpenBasicLibrary();
@@ -170,5 +179,55 @@ public static class OpenLibsExtensions
         globalState.OpenStringLibrary();
         globalState.OpenTableLibrary();
         globalState.OpenDebugLibrary();
+    }
+
+    public static void OpenStandardLibraries(this LuaState state)
+    {
+        state.GlobalState.OpenStandardLibraries();
+    }
+
+    public static void OpenBasicLibrary(this LuaState state)
+    {
+        state.GlobalState.OpenBasicLibrary();
+    }
+
+    public static void OpenBitwiseLibrary(this LuaState state)
+    {
+        state.GlobalState.OpenBitwiseLibrary();
+    }
+
+    public static void OpenCoroutineLibrary(this LuaState state)
+    {
+        state.GlobalState.OpenCoroutineLibrary();
+    }
+
+    public static void OpenIOLibrary(this LuaState state)
+    {
+        state.GlobalState.OpenIOLibrary();
+    }
+
+    public static void OpenMathLibrary(this LuaState state)
+    {
+        state.GlobalState.OpenMathLibrary();
+    }
+
+    public static void OpenModuleLibrary(this LuaState state)
+    {
+        state.GlobalState.OpenModuleLibrary();
+    }
+
+    public static void OpenOperatingSystemLibrary(this LuaState state)
+    {
+        state.GlobalState.OpenOperatingSystemLibrary();
+    }
+
+    public static void OpenStringLibrary(this LuaState state)
+    {
+        state.GlobalState.OpenStringLibrary();
+    }
+
+    public static void OpenTableLibrary(this LuaState state)
+    {
+        state.GlobalState.OpenTableLibrary();
     }
 }

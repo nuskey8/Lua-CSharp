@@ -7,19 +7,19 @@ namespace Lua.Standard.Internal;
 
 static class IOHelper
 {
-    public static async ValueTask<int> Open(LuaState thread, string fileName, string mode, bool throwError, CancellationToken cancellationToken)
+    public static async ValueTask<int> Open(LuaState state, string fileName, string mode, bool throwError, CancellationToken cancellationToken)
     {
         var fileMode = LuaFileOpenModeExtensions.ParseModeFromString(mode);
         if (!fileMode.IsValid())
         {
-            throw new LuaRuntimeException(thread, "bad argument #2 to 'open' (invalid mode)");
+            throw new LuaRuntimeException(state, "bad argument #2 to 'open' (invalid mode)");
         }
 
         try
         {
-            var stream = await thread.GlobalState.FileSystem.Open(fileName, fileMode, cancellationToken);
+            var stream = await state.GlobalState.FileSystem.Open(fileName, fileMode, cancellationToken);
 
-            thread.Stack.Push(new(new FileHandle(stream)));
+            state.Stack.Push(new(new FileHandle(stream)));
             return 1;
         }
         catch (IOException ex)
@@ -29,9 +29,9 @@ static class IOHelper
                 throw;
             }
 
-            thread.Stack.Push(LuaValue.Nil);
-            thread.Stack.Push(ex.Message);
-            thread.Stack.Push(ex.HResult);
+            state.Stack.Push(LuaValue.Nil);
+            state.Stack.Push(ex.Message);
+            state.Stack.Push(ex.HResult);
             return 3;
         }
     }
@@ -79,14 +79,14 @@ static class IOHelper
 
     static readonly LuaValue[] defaultReadFormat = ["*l"];
 
-    public static async ValueTask<int> ReadAsync(LuaState thread, FileHandle file, string name, int startArgumentIndex, ReadOnlyMemory<LuaValue> formats, bool throwError, CancellationToken cancellationToken)
+    public static async ValueTask<int> ReadAsync(LuaState state, FileHandle file, string name, int startArgumentIndex, ReadOnlyMemory<LuaValue> formats, bool throwError, CancellationToken cancellationToken)
     {
         if (formats.Length == 0)
         {
             formats = defaultReadFormat;
         }
 
-        var stack = thread.Stack;
+        var stack = state.Stack;
         var top = stack.Count;
 
         try
@@ -133,7 +133,7 @@ static class IOHelper
                 }
                 else
                 {
-                    LuaRuntimeException.BadArgument(thread, i + 1, ["string", "integer"], format.TypeToString());
+                    LuaRuntimeException.BadArgument(state, i + 1, ["string", "integer"], format.TypeToString());
                 }
             }
 

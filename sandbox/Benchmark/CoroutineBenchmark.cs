@@ -13,8 +13,8 @@ public class CoroutineBenchmark
     public void GlobalSetup()
     {
         core.Setup("coroutine.lua");
-        core.LuaGlobalCSharpState.OpenBasicLibrary();
-        core.LuaGlobalCSharpState.OpenCoroutineLibrary();
+        core.LuaCSharpState.OpenBasicLibrary();
+        core.LuaCSharpState.OpenCoroutineLibrary();
     }
 
     [Benchmark(Description = "MoonSharp (RunString)")]
@@ -44,14 +44,14 @@ public class CoroutineBenchmark
     [Benchmark(Description = "Lua-CSharp (DoString)")]
     public async Task<LuaValue> Benchmark_LuaCSharp_String()
     {
-        await core.LuaGlobalCSharpState.DoStringAsync(core.SourceText, buffer);
+        await core.LuaCSharpState.DoStringAsync(core.SourceText, buffer);
         return buffer[0];
     }
 
     [Benchmark(Description = "Lua-CSharp (DoFileAsync)")]
     public async Task<LuaValue> Benchmark_LuaCSharp_File()
     {
-        await core.LuaGlobalCSharpState.DoFileAsync(core.FilePath, buffer);
+        await core.LuaCSharpState.DoFileAsync(core.FilePath, buffer);
         return buffer[0];
     }
 }

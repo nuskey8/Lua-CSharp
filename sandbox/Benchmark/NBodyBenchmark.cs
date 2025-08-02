@@ -14,7 +14,7 @@ public class NBodyBenchmark
     {
         core = new();
         core.Setup("n-body.lua");
-        core.LuaGlobalCSharpState.OpenStandardLibraries();
+        core.LuaCSharpState.OpenStandardLibraries();
     }
 
     [IterationCleanup]
@@ -52,7 +52,7 @@ public class NBodyBenchmark
     [Benchmark(Description = "Lua-CSharp (DoString)")]
     public async Task<LuaValue> Benchmark_LuaCSharp_String()
     {
-        await core.LuaGlobalCSharpState.DoStringAsync(core.SourceText, buffer);
+        await core.LuaCSharpState.DoStringAsync(core.SourceText, buffer);
         return buffer[0];
     }
 

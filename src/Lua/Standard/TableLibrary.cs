@@ -183,23 +183,23 @@ public sealed class TableLibrary
     {
         var pivot = memory.Span[high];
         var i = low - 1;
-        var access = context.State.CurrentAccess;
+        var state = context.State;
 
         for (var j = low; j < high; j++)
         {
-            var stack = context.State.Stack;
+            var stack = state.Stack;
             var top = stack.Count;
             stack.Push(memory.Span[j]);
             stack.Push(pivot);
-            await access.RunAsync(comparer, 2, cancellationToken);
+            await state.RunAsync(comparer, 2, cancellationToken);
 
-            if (context.State.Stack.Get(top).ToBoolean())
+            if (state.Stack.Get(top).ToBoolean())
             {
                 i++;
                 Swap(memory.Span, i, j);
             }
 
-            context.State.Stack.PopUntil(top);
+            state.Stack.PopUntil(top);
         }
 
         Swap(memory.Span, i + 1, high);

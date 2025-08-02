@@ -16,22 +16,16 @@ public sealed class LuaGlobalState
 {
     // states
     readonly LuaState mainState;
-    FastListCore<UpValue> openUpValues;
-    FastStackCore<LuaState> threadStack;
+    FastStackCore<LuaState> stateStack;
     readonly LuaTable environment;
     readonly LuaTable registry = new();
     readonly UpValue envUpValue;
 
-
     FastStackCore<LuaDebug.LuaDebugBuffer> debugBufferPool;
-
-    internal int CallCount;
 
     internal UpValue EnvUpValue => envUpValue;
 
-    internal ref FastStackCore<LuaState> ThreadStack => ref threadStack;
-
-    internal ref FastListCore<UpValue> OpenUpValues => ref openUpValues;
+    internal ref FastStackCore<LuaState> ThreadStack => ref stateStack;
 
     internal ref FastStackCore<LuaDebug.LuaDebugBuffer> DebugBufferPool => ref debugBufferPool;
 
@@ -45,8 +39,6 @@ public sealed class LuaGlobalState
 
     public LuaState MainThread => mainState;
 
-    public LuaThreadAccess RootAccess => new(mainState, 0);
-
     public LuaPlatform Platform { get; }
 
     public ILuaModuleLoader? ModuleLoader { get; set; }
@@ -54,7 +46,6 @@ public sealed class LuaGlobalState
     public ILuaFileSystem FileSystem => Platform.FileSystem ?? throw new InvalidOperationException("FileSystem is not set. Please set it before access.");
 
     public ILuaOsEnvironment OsEnvironment => Platform.OsEnvironment ?? throw new InvalidOperationException("OperatingSystem is not set. Please set it before access.");
-
 
     public TimeProvider TimeProvider => Platform.TimeProvider ?? throw new InvalidOperationException("TimeProvider is not set. Please set it before access.");
 
@@ -66,7 +57,7 @@ public sealed class LuaGlobalState
     LuaTable? stringMetatable;
     LuaTable? booleanMetatable;
     LuaTable? functionMetatable;
-    LuaTable? threadMetatable;
+    LuaTable? stateMetatable;
 
     public static LuaGlobalState Create(LuaPlatform? platform = null)
     {
@@ -95,7 +86,7 @@ public sealed class LuaGlobalState
             LuaValueType.String => stringMetatable,
             LuaValueType.Number => numberMetatable,
             LuaValueType.Function => functionMetatable,
-            LuaValueType.Thread => threadMetatable,
+            LuaValueType.Thread => stateMetatable,
             LuaValueType.UserData => value.UnsafeRead<ILuaUserData>().Metatable,
             LuaValueType.Table => value.UnsafeRead<LuaTable>().Metatable,
             _ => null
@@ -125,7 +116,7 @@ public sealed class LuaGlobalState
                 functionMetatable = metatable;
                 break;
             case LuaValueType.Thread:
-                threadMetatable = metatable;
+                stateMetatable = metatable;
                 break;
             case LuaValueType.UserData:
                 value.UnsafeRead<ILuaUserData>().Metatable = metatable;
@@ -133,79 +124,6 @@ public sealed class LuaGlobalState
             case LuaValueType.Table:
                 value.UnsafeRead<LuaTable>().Metatable = metatable;
                 break;
-        }
-    }
-
-    internal UpValue GetOrAddUpValue(LuaState thread, int registerIndex)
-    {
-        foreach (var upValue in openUpValues.AsSpan())
-        {
-            if (upValue.RegisterIndex == registerIndex && upValue.Thread == thread)
-            {
-                return upValue;
-            }
-        }
-
-        var newUpValue = UpValue.Open(thread, registerIndex);
-        openUpValues.Add(newUpValue);
-        return newUpValue;
-    }
-
-    internal void CloseUpValues(LuaState thread, int frameBase)
-    {
-        for (var i = 0; i < openUpValues.Length; i++)
-        {
-            var upValue = openUpValues[i];
-            if (upValue.Thread != thread)
-            {
-                continue;
-            }
-
-            if (upValue.RegisterIndex >= frameBase)
-            {
-                upValue.Close();
-                openUpValues.RemoveAtSwapBack(i);
-                i--;
-            }
-        }
-    }
-
-    public unsafe LuaClosure Load(ReadOnlySpan<char> chunk, string chunkName, LuaTable? environment = null)
-    {
-        Prototype prototype;
-        fixed (char* ptr = chunk)
-        {
-            prototype = Parser.Parse(this, new(ptr, chunk.Length), chunkName);
-        }
-
-        return new(MainThread, prototype, environment);
-    }
-
-    public LuaClosure Load(ReadOnlySpan<byte> chunk, string? chunkName = null, string mode = "bt", LuaTable? environment = null)
-    {
-        if (chunk.Length > 4)
-        {
-            if (chunk[0] == '\e')
-            {
-                return new(MainThread, Parser.UnDump(chunk, chunkName), environment);
-            }
-        }
-
-        chunk = BomUtility.GetEncodingFromBytes(chunk, out var encoding);
-
-        var charCount = encoding.GetCharCount(chunk);
-        var pooled = ArrayPool<char>.Shared.Rent(charCount);
-        try
-        {
-            var chars = pooled.AsSpan(0, charCount);
-            encoding.GetChars(chunk, chars);
-            chunkName ??= chars.ToString();
-
-            return Load(chars, chunkName, environment);
-        }
-        finally
-        {
-            ArrayPool<char>.Shared.Return(pooled);
         }
     }
 }

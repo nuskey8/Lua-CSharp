@@ -20,9 +20,9 @@ public class AddBenchmark
     {
         core = new();
         core.Setup("add.lua");
-        core.LuaGlobalCSharpState.OpenStandardLibraries();
+        core.LuaCSharpState.OpenStandardLibraries();
 
-        core.LuaGlobalCSharpState.Environment["add"] = new LuaFunction("add", (context, ct) =>
+        core.LuaCSharpState.Environment["add"] = new LuaFunction("add", (context, ct) =>
         {
             var a = context.GetArgument<double>(0);
             var b = context.GetArgument<double>(1);
@@ -67,14 +67,14 @@ public class AddBenchmark
     [Benchmark(Description = "Lua-CSharp (DoString)")]
     public async Task<LuaValue> Benchmark_LuaCSharp_String()
     {
-        await core.LuaGlobalCSharpState.DoStringAsync(core.SourceText, buffer);
+        await core.LuaCSharpState.DoStringAsync(core.SourceText, buffer);
         return buffer[0];
     }
 
     [Benchmark(Description = "Lua-CSharp (DoFileAsync)")]
     public async Task<LuaValue> Benchmark_LuaCSharp_File()
     {
-        await core.LuaGlobalCSharpState.DoFileAsync(core.FilePath, buffer);
+        await core.LuaCSharpState.DoFileAsync(core.FilePath, buffer);
         return buffer[0];
     }
 }

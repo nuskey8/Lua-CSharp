@@ -935,7 +935,7 @@ class Parser : IPoolNode<Parser>, IDisposable
         Function = Function.CloseMainFunction();
     }
 
-    public static Prototype Parse(LuaGlobalState l, TextReader r, string name)
+    public static Prototype Parse(LuaState l, TextReader r, string name)
     {
         using var p = Get(new()
         {
