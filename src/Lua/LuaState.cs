@@ -32,7 +32,7 @@ public class LuaState : IDisposable
         globalState = LuaGlobalState.Create();
         return globalState.MainThread;
     }
-    
+
     public static LuaState Create(LuaPlatform platform)
     {
         return LuaGlobalState.Create(platform).MainThread;
@@ -42,6 +42,17 @@ public class LuaState : IDisposable
     {
         return new(globalState, function, isProtectedMode);
     }
+
+    public LuaState CreateThread()
+    {
+        return new(GlobalState);
+    }
+
+    public LuaState CreateCoroutine(LuaFunction function, bool isProtectedMode = false)
+    {
+        return new(GlobalState, function, isProtectedMode);
+    }
+
 
     public LuaThreadStatus GetStatus()
     {
