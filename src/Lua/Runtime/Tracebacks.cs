@@ -121,9 +121,9 @@ public class Traceback(LuaGlobalState globalState, ReadOnlySpan<CallStackFrame> 
         return CreateTracebackMessage(GlobalState, StackFrames, LuaValue.Nil, skipFrames);
     }
 
-    public static string CreateTracebackMessage(LuaState thread, LuaValue message, int stackFramesSkipCount = 0)
+    public static string CreateTracebackMessage(LuaState state, LuaValue message, int stackFramesSkipCount = 0)
     {
-        return CreateTracebackMessage(thread.GlobalState, thread.GetCallStackFrames(), message, stackFramesSkipCount);
+        return CreateTracebackMessage(state.GlobalState, state.GetCallStackFrames(), message, stackFramesSkipCount);
     }
 
     internal static string CreateTracebackMessage(LuaGlobalState globalState, ReadOnlySpan<CallStackFrame> stackFrames, LuaValue message, int skipCount = 0)

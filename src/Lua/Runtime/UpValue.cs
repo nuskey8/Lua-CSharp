@@ -10,14 +10,14 @@ public sealed class UpValue
     public bool IsClosed { get; private set; }
     public int RegisterIndex { get; private set; }
 
-    UpValue(LuaState? thread)
+    UpValue(LuaState? state)
     {
-        Thread = thread;
+        Thread = state;
     }
 
-    public static UpValue Open(LuaState thread, int registerIndex)
+    public static UpValue Open(LuaState state, int registerIndex)
     {
-        return new(thread) { RegisterIndex = registerIndex };
+        return new(state) { RegisterIndex = registerIndex };
     }
 
     public static UpValue Closed(LuaValue value)
