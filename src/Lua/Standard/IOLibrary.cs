@@ -77,7 +77,7 @@ public sealed class IOLibrary
         }
         else
         {
-            var stream = await context.GlobalState.FileSystem.Open(arg.ToString(), LuaFileOpenMode.Read, cancellationToken);
+            var stream = await context.GlobalState.Platform.FileSystem.Open(arg.ToString(), LuaFileOpenMode.Read, cancellationToken);
             FileHandle handle = new(stream);
             registry["_IO_input"] = new(handle);
             return context.Return(new LuaValue(handle));
@@ -168,7 +168,7 @@ public sealed class IOLibrary
         }
         else
         {
-            var stream = await context.GlobalState.FileSystem.Open(arg.ToString(), LuaFileOpenMode.WriteUpdate, cancellationToken);
+            var stream = await context.GlobalState.Platform.FileSystem.Open(arg.ToString(), LuaFileOpenMode.WriteUpdate, cancellationToken);
             FileHandle handle = new(stream);
             io["_IO_output"] = new(handle);
             return context.Return(new LuaValue(handle));
@@ -208,6 +208,6 @@ public sealed class IOLibrary
 
     public async ValueTask<int> TmpFile(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
-        return context.Return(LuaValue.FromUserData(new FileHandle(await context.GlobalState.FileSystem.OpenTempFileStream(cancellationToken))));
+        return context.Return(LuaValue.FromUserData(new FileHandle(await context.GlobalState.Platform.FileSystem.OpenTempFileStream(cancellationToken))));
     }
 }

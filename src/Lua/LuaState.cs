@@ -182,7 +182,11 @@ public class LuaState : IDisposable
 
     public LuaTable Environment => GlobalState.Environment;
 
-    public LuaPlatform Platform => GlobalState.Platform;
+    public LuaPlatform Platform
+    {
+        get => GlobalState.Platform;
+        set => GlobalState.Platform = value;
+    }
 
     internal bool IsCallHookEnabled
     {

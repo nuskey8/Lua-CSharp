@@ -17,7 +17,7 @@ static class IOHelper
 
         try
         {
-            var stream = await state.GlobalState.FileSystem.Open(fileName, fileMode, cancellationToken);
+            var stream = await state.GlobalState.Platform.FileSystem.Open(fileName, fileMode, cancellationToken);
 
             state.Stack.Push(new(new FileHandle(stream)));
             return 1;

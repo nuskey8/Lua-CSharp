@@ -87,7 +87,7 @@ public sealed class ModuleLibrary
         {
             path = pathSpan[..nextIndex].ToString();
             var fileName = path.Replace("?", name);
-            if (state.GlobalState.FileSystem.IsReadable(fileName))
+            if (state.GlobalState.Platform.FileSystem.IsReadable(fileName))
             {
                 return fileName;
             }
@@ -156,7 +156,7 @@ public sealed class ModuleLibrary
     public async ValueTask<int> SearcherLua(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
         var name = context.GetArgument<string>(0);
-        var fileName = await FindFile(context.State, name, "path", context.GlobalState.FileSystem.DirectorySeparator);
+        var fileName = await FindFile(context.State, name, "path", context.GlobalState.Platform.FileSystem.DirectorySeparator);
         if (fileName == null)
         {
             return context.Return(LuaValue.Nil);

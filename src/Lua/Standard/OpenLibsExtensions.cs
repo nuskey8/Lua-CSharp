@@ -47,7 +47,7 @@ public static class OpenLibsExtensions
         }
 
         var registry = globalState.Registry;
-        var standardIO = globalState.StandardIO;
+        var standardIO = globalState.Platform.StandardIO;
         LuaValue stdin = new(new FileHandle(standardIO.Input));
         LuaValue stdout = new(new FileHandle(standardIO.Output));
         LuaValue stderr = new(new FileHandle(standardIO.Error));

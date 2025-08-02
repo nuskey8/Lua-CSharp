@@ -290,7 +290,7 @@ public sealed class BasicLibrary
 
     public async ValueTask<int> Print(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
-        var stdout = context.GlobalState.StandardIO.Output;
+        var stdout = context.GlobalState.Platform.StandardIO.Output;
 
         for (var i = 0; i < context.ArgumentCount; i++)
         {

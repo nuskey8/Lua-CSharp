@@ -11,7 +11,7 @@ public static class LuaStateExtensions
     public static async ValueTask<LuaClosure> LoadFileAsync(this LuaState state, string fileName, string mode, LuaTable? environment, CancellationToken cancellationToken)
     {
         var name = "@" + fileName;
-        using var stream = await state.GlobalState.FileSystem.Open(fileName, LuaFileOpenMode.Read, cancellationToken);
+        using var stream = await state.GlobalState.Platform.FileSystem.Open(fileName, LuaFileOpenMode.Read, cancellationToken);
         var source = await stream.ReadAllAsync(cancellationToken);
         var closure = state.Load(source, name, environment);
 

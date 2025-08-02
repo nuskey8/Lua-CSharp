@@ -30,7 +30,7 @@ public class LuaTests
     public async Task Test_Lua(string file)
     {
         var state = LuaState.Create();
-        state.Platform.StandardIO = new TestStandardIO();
+        state.Platform = state.Platform with { StandardIO = new TestStandardIO() };
         state.OpenStandardLibraries();
         var path = FileHelper.GetAbsolutePath(file);
         Directory.SetCurrentDirectory(Path.GetDirectoryName(path)!);
