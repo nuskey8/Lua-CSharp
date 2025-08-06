@@ -228,10 +228,16 @@ public sealed class BasicLibrary
 
     public ValueTask<int> Next(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
-        var arg0 = context.GetArgument<LuaTable>(0);
+        var arg0 = context.GetArgument(0);
         var arg1 = context.HasArgument(1) ? context.Arguments[1] : LuaValue.Nil;
 
-        if (arg0.TryGetNext(arg1, out var kv))
+        ILuaEnumerable enumerable = default;
+        if (arg0.TryRead(out LuaTable table))
+            enumerable = table;
+        else if (arg0.TryRead(out ILuaUserData userdata) && userdata is ILuaEnumerable)
+            enumerable = userdata as ILuaEnumerable;
+
+        if (enumerable != null && enumerable.TryGetNext(arg1, out var kv))
         {
             return new(context.Return(kv.Key, kv.Value));
         }

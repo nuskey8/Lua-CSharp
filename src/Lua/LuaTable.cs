@@ -4,7 +4,12 @@ using System.Collections;
 
 namespace Lua;
 
-public sealed class LuaTable : IEnumerable<KeyValuePair<LuaValue, LuaValue>>
+public interface ILuaEnumerable
+{
+    bool TryGetNext(LuaValue key, out KeyValuePair<LuaValue, LuaValue> pair);
+}
+
+public sealed class LuaTable : IEnumerable<KeyValuePair<LuaValue, LuaValue>>, ILuaEnumerable
 {
     public LuaTable() : this(8, 8)
     {
