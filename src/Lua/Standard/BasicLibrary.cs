@@ -136,10 +136,20 @@ public sealed class BasicLibrary
 
     public async ValueTask<int> IPairs(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
-        var arg0 = context.GetArgument<LuaTable>(0);
+        var arg0 = context.GetArgument(0);
+
+        LuaTable metatable = default;
+        if (arg0.TryRead(out LuaTable table))
+        {
+            metatable = table.Metatable;
+        }
+        else if (arg0.TryRead(out ILuaUserData userdata))
+        {
+            metatable = userdata.Metatable;
+        }
 
         // If table has a metamethod __ipairs, calls it with table as argument and returns the first three results from the call.
-        if (arg0.Metatable != null && arg0.Metatable.TryGetValue(Metamethods.IPairs, out var metamethod))
+        if (metatable != null && metatable.TryGetValue(Metamethods.IPairs, out var metamethod))
         {
             var stack = context.Thread.Stack;
             var top = stack.Count;
@@ -233,10 +243,20 @@ public sealed class BasicLibrary
 
     public async ValueTask<int> Pairs(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
-        var arg0 = context.GetArgument<LuaTable>(0);
+        var arg0 = context.GetArgument(0);
+
+        LuaTable metatable = default;
+        if (arg0.TryRead(out LuaTable table))
+        {
+            metatable = table.Metatable;
+        }
+        else if (arg0.TryRead(out ILuaUserData userdata))
+        {
+            metatable = userdata.Metatable;
+        }
 
         // If table has a metamethod __pairs, calls it with table as argument and returns the first three results from the call.
-        if (arg0.Metatable != null && arg0.Metatable.TryGetValue(Metamethods.Pairs, out var metamethod))
+        if (metatable != null && metatable.TryGetValue(Metamethods.Pairs, out var metamethod))
         {
             var stack = context.Thread.Stack;
             var top = stack.Count;
