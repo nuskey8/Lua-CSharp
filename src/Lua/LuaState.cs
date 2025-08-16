@@ -22,14 +22,9 @@ public class LuaState : IDisposable
         coroutine = new(this, function, isProtectedMode);
     }
 
-    public static LuaState Create(LuaGlobalState? globalState = null)
+    public static LuaState Create()
     {
-        if (globalState is not null)
-        {
-            return new(globalState);
-        }
-
-        globalState = LuaGlobalState.Create();
+        var globalState = LuaGlobalState.Create();
         return globalState.MainThread;
     }
 
@@ -38,7 +33,7 @@ public class LuaState : IDisposable
         return LuaGlobalState.Create(platform).MainThread;
     }
 
-    public static LuaState CreateCoroutine(LuaGlobalState globalState, LuaFunction function, bool isProtectedMode = false)
+    internal static LuaState CreateCoroutine(LuaGlobalState globalState, LuaFunction function, bool isProtectedMode = false)
     {
         return new(globalState, function, isProtectedMode);
     }
@@ -153,7 +148,7 @@ public class LuaState : IDisposable
 
     FastListCore<UpValue> openUpValues;
     internal int CallCount;
-    public LuaGlobalState GlobalState { get; }
+    internal LuaGlobalState GlobalState { get; }
     ThreadCoreData? CoreData;
     CoroutineCore? coroutine;
     internal bool IsLineHookEnabled;
@@ -181,6 +176,20 @@ public class LuaState : IDisposable
     internal Traceback? LuaTraceback => coroutine?.Traceback;
 
     public LuaTable Environment => GlobalState.Environment;
+
+    public LuaTable Registry => GlobalState.Registry;
+
+    public LuaTable LoadedModules => GlobalState.LoadedModules;
+
+    public LuaTable PreloadModules => GlobalState.PreloadModules;
+
+    public LuaState MainThread => GlobalState.MainThread;
+
+    public ILuaModuleLoader? ModuleLoader
+    {
+        get => GlobalState.ModuleLoader;
+        set => GlobalState.ModuleLoader = value;
+    }
 
     public LuaPlatform Platform
     {
@@ -356,7 +365,7 @@ public class LuaState : IDisposable
 
     public Traceback GetTraceback()
     {
-        return new(GlobalState, GetCallStackFrames());
+        return new(this, GetCallStackFrames());
     }
 
     public ValueTask<int> RunAsync(LuaFunction function, CancellationToken cancellationToken = default)

@@ -33,7 +33,7 @@ public class InterpreterSteps
     [Benchmark]
     public void CreateState()
     {
-        LuaGlobalState.Create();
+        LuaState.Create();
     }
 
 

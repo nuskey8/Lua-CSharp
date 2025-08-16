@@ -3,9 +3,11 @@ using Lua.Internal;
 
 namespace Lua.Runtime;
 
-public class Traceback(LuaGlobalState globalState, ReadOnlySpan<CallStackFrame> stackFrames)
+public class Traceback(LuaState state, ReadOnlySpan<CallStackFrame> stackFrames)
 {
-    public LuaGlobalState GlobalState => globalState;
+    internal LuaGlobalState GlobalState => state.GlobalState;
+
+    public LuaState State => state;
 
     public LuaFunction RootFunc => StackFrames[0].Function;
 

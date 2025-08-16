@@ -8,9 +8,8 @@ using System.IO;
 using System.Text;
 
 var state = LuaState.Create();
-var globalState = state.GlobalState;
 state.OpenStandardLibraries();
-globalState.Environment["escape"] = new LuaFunction("escape",
+state.Environment["escape"] = new LuaFunction("escape",
     (c, _) =>
     {
         var arg = c.HasArgument(0) ? c.GetArgument<string>(0) : "";

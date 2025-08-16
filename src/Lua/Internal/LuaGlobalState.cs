@@ -1,18 +1,13 @@
-using Lua.CodeAnalysis.Compilation;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Lua.Internal;
-using Lua.IO;
-using Lua.Loaders;
 using Lua.Platforms;
 using Lua.Runtime;
 using Lua.Standard;
-using System.Buffers;
-using System.Text;
 
 namespace Lua;
 
-public sealed class LuaGlobalState
+sealed class LuaGlobalState
 {
     // states
     readonly LuaState mainState;

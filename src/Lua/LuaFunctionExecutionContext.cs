@@ -7,7 +7,7 @@ namespace Lua;
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct LuaFunctionExecutionContext
 {
-    public LuaGlobalState GlobalState => State.GlobalState;
+    internal LuaGlobalState GlobalState => State.GlobalState;
     
     public LuaState State { get; init; }
 

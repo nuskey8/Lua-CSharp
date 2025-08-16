@@ -338,7 +338,7 @@ public class LuaRuntimeException : Exception, ILuaTracebackBuildable
                 return null;
             }
 
-            luaTraceback = new(State.GlobalState, callStack);
+            luaTraceback = new(State, callStack);
             State.ExceptionTrace.Clear();
             State = null;
         }
@@ -498,7 +498,7 @@ public sealed class LuaCanceledException : OperationCanceledException, ILuaTrace
                 return null;
             }
 
-            luaTraceback = new(State.GlobalState, callStack);
+            luaTraceback = new(State, callStack);
             State.ExceptionTrace.Clear();
             State = null!;
         }

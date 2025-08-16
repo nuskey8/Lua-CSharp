@@ -5,19 +5,22 @@ using Lua.Loaders;
 using Lua.Platforms;
 using Lua.Standard;
 using Lua.Unity;
+using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 public class Sandbox : MonoBehaviour
 {
     async void Start()
     {
+        
         var state = LuaState.Create( new LuaPlatform(
-            fileSystem: new FileSystem(Application.streamingAssetsPath),
-            osEnvironment: new UnityApplicationOsEnvironment(),
-            standardIO: new UnityStandardIO(),
-            timeProvider: TimeProvider.System
+            FileSystem: new FileSystem(Application.streamingAssetsPath),
+            OsEnvironment: new UnityApplicationOsEnvironment(),
+            StandardIO: new UnityStandardIO(),
+            TimeProvider: TimeProvider.System
         ));
-        state.ModuleLoader = CompositeModuleLoader.Create(new AddressablesModuleLoader(), new ResourcesModuleLoader());
+        state.GlobalState.ModuleLoader = CompositeModuleLoader.Create(new AddressablesModuleLoader(), new ResourcesModuleLoader());
         state.OpenStandardLibraries();
         state.Environment["print"] = new LuaFunction("print", (context, ct) =>
         {
@@ -44,5 +47,37 @@ s.f()
         {
             Debug.LogException(ex);
         }
+    }
+    
+    MeshTopology[ ] topologies = Enum.GetValues(typeof(MeshTopology)) as MeshTopology[];
+    public bool ContainsTriangle;
+
+    void Update()
+    {
+        if (Input.GetKeyDown(KeyCode.Space))
+        {
+            ContainsTriangle=(topologies.Contains( MeshTopology.Points));
+            
+            Debug.Break();
+        }
+        
+        if (Input.GetKeyDown(KeyCode.A))
+        {
+            ContainsTriangle=(ContainsInArray(topologies, MeshTopology.Points));
+            
+            Debug.Break();
+        }
+    }
+    
+    bool ContainsInArray<T>(T[] array, T value)
+    {
+        foreach (var item in array)
+        {
+            if (EqualityComparer<T>.Default.Equals(item, value))
+            {
+                return true;
+            }
+        }
+        return false;
     }
 }

@@ -567,7 +567,7 @@ public sealed class BasicLibrary
             LuaValueType.String => "string",
             LuaValueType.Number => "number",
             LuaValueType.Function => "function",
-            LuaValueType.Thread => "state",
+            LuaValueType.Thread => "thread",
             LuaValueType.LightUserData => "userdata",
             LuaValueType.UserData => "userdata",
             LuaValueType.Table => "table",
