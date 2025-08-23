@@ -28,7 +28,7 @@ public sealed class OperatingSystemLibrary
 
     public ValueTask<int> Clock(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
-        return new(context.Return(context.State.OsEnvironment.GetTotalProcessorTime()));
+        return new(context.Return(context.GlobalState.Platform.OsEnvironment.GetTotalProcessorTime()));
     }
 
     public ValueTask<int> Date(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
@@ -45,7 +45,7 @@ public sealed class OperatingSystemLibrary
         }
         else
         {
-            now = context.State.TimeProvider.GetUtcNow().DateTime;
+            now = context.GlobalState.Platform.TimeProvider.GetUtcNow().DateTime;
         }
 
         var isDst = false;
@@ -55,7 +55,7 @@ public sealed class OperatingSystemLibrary
         }
         else
         {
-            now = context.State.TimeProvider.GetLocalNow().DateTime;
+            now = context.GlobalState.Platform.TimeProvider.GetLocalNow().DateTime;
             isDst = now.IsDaylightSavingTime();
         }
 
@@ -78,7 +78,7 @@ public sealed class OperatingSystemLibrary
         }
         else
         {
-            return new(context.Return(DateTimeHelper.StrFTime(context.Thread, format, now)));
+            return new(context.Return(DateTimeHelper.StrFTime(context.State, format, now)));
         }
     }
 
@@ -121,18 +121,18 @@ public sealed class OperatingSystemLibrary
             }
             else
             {
-                LuaRuntimeException.BadArgument(context.Thread, 1, LuaValueType.Nil, code.Type);
+                LuaRuntimeException.BadArgument(context.State, 1, LuaValueType.Nil, code.Type);
             }
         }
 
-        await context.State.OsEnvironment.Exit(exitCode, cancellationToken);
+        await context.GlobalState.Platform.OsEnvironment.Exit(exitCode, cancellationToken);
         throw new InvalidOperationException("Unreachable code.. reached.");
     }
 
     public ValueTask<int> GetEnv(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
         var variable = context.GetArgument<string>(0);
-        return new(context.Return(context.State.OsEnvironment.GetEnvironmentVariable(variable) ?? LuaValue.Nil));
+        return new(context.Return(context.GlobalState.Platform.OsEnvironment.GetEnvironmentVariable(variable) ?? LuaValue.Nil));
     }
 
     public async ValueTask<int> Remove(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
@@ -140,7 +140,7 @@ public sealed class OperatingSystemLibrary
         var fileName = context.GetArgument<string>(0);
         try
         {
-            await context.State.FileSystem.Remove(fileName, cancellationToken);
+            await context.GlobalState.Platform.FileSystem.Remove(fileName, cancellationToken);
             return context.Return(true);
         }
         catch (IOException ex)
@@ -155,7 +155,7 @@ public sealed class OperatingSystemLibrary
         var newName = context.GetArgument<string>(1);
         try
         {
-            await context.State.FileSystem.Rename(oldName, newName, cancellationToken);
+            await context.GlobalState.Platform.FileSystem.Rename(oldName, newName, cancellationToken);
             return context.Return(true);
         }
         catch (IOException ex)
@@ -175,17 +175,17 @@ public sealed class OperatingSystemLibrary
         if (context.HasArgument(0))
         {
             var table = context.GetArgument<LuaTable>(0);
-            var date = DateTimeHelper.ParseTimeTable(context.Thread, table);
+            var date = DateTimeHelper.ParseTimeTable(context.State, table);
             return new(context.Return(DateTimeHelper.GetUnixTime(date)));
         }
         else
         {
-            return new(context.Return(DateTimeHelper.GetUnixTime(context.State.TimeProvider.GetUtcNow().DateTime)));
+            return new(context.Return(DateTimeHelper.GetUnixTime(context.GlobalState.Platform.TimeProvider.GetUtcNow().DateTime)));
         }
     }
 
     public ValueTask<int> TmpName(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
-        return new(context.Return(context.State.FileSystem.GetTempFileName()));
+        return new(context.Return(context.GlobalState.Platform.FileSystem.GetTempFileName()));
     }
 }

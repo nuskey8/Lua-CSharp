@@ -30,11 +30,11 @@ public class AbstractFileTests
     {
         var fileContent = "line1\nline2\r\nline3";
         var fileSystem = new ReadOnlyFileSystem(new() { { "test.txt", fileContent } });
-        var state = LuaState.Create(new(
-            fileSystem: fileSystem,
-            osEnvironment: null!,
-            standardIO: new ConsoleStandardIO(),
-            timeProvider: TimeProvider.System
+        var state = LuaState.Create(new LuaPlatform(
+            FileSystem: fileSystem,
+            OsEnvironment: null!,
+            StandardIO: new ConsoleStandardIO(),
+            TimeProvider: TimeProvider.System
         ));
         state.OpenStandardLibraries();
         try
@@ -64,11 +64,11 @@ public class AbstractFileTests
     {
         var fileContent = "Hello, World!";
         var fileSystem = new ReadOnlyFileSystem(new() { { "test.txt", fileContent } });
-        var state = LuaState.Create(new(
-            fileSystem: fileSystem,
-            osEnvironment: null!,
-            standardIO: new ConsoleStandardIO(),
-            timeProvider: TimeProvider.System));
+        var state = LuaState.Create(new LuaPlatform(
+            FileSystem: fileSystem,
+            OsEnvironment: null!,
+            StandardIO: new ConsoleStandardIO(),
+            TimeProvider: TimeProvider.System));
         state.OpenStandardLibraries();
 
         await state.DoStringAsync(

@@ -11,29 +11,25 @@ using Lua.Standard;
 // dotnet run --configuration Release /p:DefineConstants="CASE_MARKER"
 // to activate the CASE_MARKER
 // JitInspect can be run in Windows and Linux (MacOS is not supported yet)
-var  luaState = LuaState.Create();
+var luaState = LuaState.Create();
 luaState.OpenStandardLibraries();
-{
-   await luaState.DoFileAsync((GetAbsolutePath("db.lua")));
-   await luaState.DoFileAsync((GetAbsolutePath("events.lua")));
-}
+var closure = luaState.Load(File.ReadAllBytes(GetAbsolutePath("test.lua")), "test.lua");
 
-var closure = luaState.Load(File.ReadAllBytes(GetAbsolutePath("test.lua")),"test.lua");
-
-for (int i = 0; i < 1000; i++)
+for (var i = 0; i < 1000; i++)
 {
-   await luaState.RootAccess.RunAsync(closure);
-   luaState.MainThread.Stack.Clear();
+    await luaState.RunAsync(closure);
+    luaState.Stack.Clear();
 }
 
 var savePath = GetAbsolutePath("history");
 var thisDir = GetThisDirectoryName();
 var newJIitPath = Path.Join(thisDir, $"jit_{DateTime.Now:yyyy-MM-dd-HH-mm-ss}.txt");
-var lastJitPaths = Directory.GetFiles(thisDir).Where(x=>x.Contains("jit_"));
+var lastJitPaths = Directory.GetFiles(thisDir).Where(x => x.Contains("jit_"));
 if (!Directory.Exists(savePath))
 {
     Directory.CreateDirectory(savePath);
 }
+
 if (lastJitPaths.Any())
 {
     Console.WriteLine("Last:" + File.ReadAllLines(lastJitPaths.First())[^1]);
@@ -43,13 +39,13 @@ if (lastJitPaths.Any())
         var dest = Path.Join(savePath, Path.GetFileName(jitPath));
         File.Move(last, dest);
     }
-    
 }
+
 var method = typeof(LuaVirtualMachine).GetMethod("MoveNext", BindingFlags.Static | BindingFlags.NonPublic)!;
 using var disassembler = JitDisassembler.Create();
-var nextJitText = disassembler.Disassemble(method);
+var nextJitText = disassembler.Disassemble(method, new() { PrintInstructionAddresses = true });
 File.WriteAllText(newJIitPath, nextJitText);
-Console.WriteLine("New:" + nextJitText.Split("\n")[^1]);
+//Console.WriteLine("New:" + nextJitText.Split("\n")[^1]);
 
 
 static string GetThisDirectoryName([CallerFilePath] string callerFilePath = "")

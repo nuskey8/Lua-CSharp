@@ -45,8 +45,8 @@ public sealed class StringLibrary
             ? context.GetArgument<double>(2)
             : i;
 
-        LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.Thread, 2, i);
-        LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.Thread, 3, j);
+        LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.State, 2, i);
+        LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.State, 3, j);
 
         var span = StringHelper.Slice(s, (int)i, (int)j);
         var buffer = context.GetReturnBuffer(span.Length);
@@ -69,7 +69,7 @@ public sealed class StringLibrary
         for (var i = 0; i < context.ArgumentCount; i++)
         {
             var arg = context.GetArgument<double>(i);
-            LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.Thread, i + 1, arg);
+            LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.State, i + 1, arg);
             builder.Append((char)arg);
         }
 
@@ -89,7 +89,7 @@ public sealed class StringLibrary
     public async ValueTask<int> Format(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
         var format = context.GetArgument<string>(0);
-        var stack = context.Thread.Stack;
+        var stack = context.State.Stack;
         // TODO: pooling StringBuilder
         StringBuilder builder = new(format.Length * 2);
         var parameterIndex = 1;
@@ -124,7 +124,7 @@ public sealed class StringLibrary
                         case '-':
                             if (leftJustify)
                             {
-                                throw new LuaRuntimeException(context.Thread, "invalid format (repeated flags)");
+                                throw new LuaRuntimeException(context.State, "invalid format (repeated flags)");
                             }
 
                             leftJustify = true;
@@ -132,7 +132,7 @@ public sealed class StringLibrary
                         case '+':
                             if (plusSign)
                             {
-                                throw new LuaRuntimeException(context.Thread, "invalid format (repeated flags)");
+                                throw new LuaRuntimeException(context.State, "invalid format (repeated flags)");
                             }
 
                             plusSign = true;
@@ -140,7 +140,7 @@ public sealed class StringLibrary
                         case '0':
                             if (zeroPadding)
                             {
-                                throw new LuaRuntimeException(context.Thread, "invalid format (repeated flags)");
+                                throw new LuaRuntimeException(context.State, "invalid format (repeated flags)");
                             }
 
                             zeroPadding = true;
@@ -148,7 +148,7 @@ public sealed class StringLibrary
                         case '#':
                             if (alternateForm)
                             {
-                                throw new LuaRuntimeException(context.Thread, "invalid format (repeated flags)");
+                                throw new LuaRuntimeException(context.State, "invalid format (repeated flags)");
                             }
 
                             alternateForm = true;
@@ -156,7 +156,7 @@ public sealed class StringLibrary
                         case ' ':
                             if (blank)
                             {
-                                throw new LuaRuntimeException(context.Thread, "invalid format (repeated flags)");
+                                throw new LuaRuntimeException(context.State, "invalid format (repeated flags)");
                             }
 
                             blank = true;
@@ -182,7 +182,7 @@ public sealed class StringLibrary
 
                     if (char.IsDigit(format[i]))
                     {
-                        throw new LuaRuntimeException(context.Thread, "invalid format (width or precision too long)");
+                        throw new LuaRuntimeException(context.State, "invalid format (width or precision too long)");
                     }
 
                     width = int.Parse(format.AsSpan()[start..i]);
@@ -205,7 +205,7 @@ public sealed class StringLibrary
 
                     if (char.IsDigit(format[i]))
                     {
-                        throw new LuaRuntimeException(context.Thread, "invalid format (width or precision too long)");
+                        throw new LuaRuntimeException(context.State, "invalid format (width or precision too long)");
                     }
 
                     precision = int.Parse(format.AsSpan()[start..i]);
@@ -216,7 +216,7 @@ public sealed class StringLibrary
 
                 if (context.ArgumentCount <= parameterIndex)
                 {
-                    throw new LuaRuntimeException(context.Thread, $"bad argument #{parameterIndex + 1} to 'format' (no value)");
+                    throw new LuaRuntimeException(context.State, $"bad argument #{parameterIndex + 1} to 'format' (no value)");
                 }
 
                 var parameter = context.GetArgument(parameterIndex++);
@@ -231,7 +231,7 @@ public sealed class StringLibrary
                     case 'G':
                         if (!parameter.TryRead<double>(out var f))
                         {
-                            LuaRuntimeException.BadArgument(context.Thread, parameterIndex + 1, LuaValueType.Number, parameter.Type);
+                            LuaRuntimeException.BadArgument(context.State, parameterIndex + 1, LuaValueType.Number, parameter.Type);
                         }
 
                         switch (specifier)
@@ -322,10 +322,10 @@ public sealed class StringLibrary
                     case 'X':
                         if (!parameter.TryRead<double>(out var x))
                         {
-                            LuaRuntimeException.BadArgument(context.Thread, parameterIndex + 1, LuaValueType.Number, parameter.Type);
+                            LuaRuntimeException.BadArgument(context.State, parameterIndex + 1, LuaValueType.Number, parameter.Type);
                         }
 
-                        LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.Thread, parameterIndex + 1, x);
+                        LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.State, parameterIndex + 1, x);
 
                         switch (specifier)
                         {
@@ -380,7 +380,7 @@ public sealed class StringLibrary
 
                         break;
                     default:
-                        throw new LuaRuntimeException(context.Thread, $"invalid option '%{specifier}' to 'format'");
+                        throw new LuaRuntimeException(context.State, $"invalid option '%{specifier}' to 'format'");
                 }
 
                 // Apply blank (' ') flag for positive numbers
@@ -428,7 +428,7 @@ public sealed class StringLibrary
             var pattern = upValues[1].Read<string>();
             var start = upValues[2].Read<int>();
 
-            MatchState matchState = new(context.Thread, s, pattern);
+            MatchState matchState = new(context.State, s, pattern);
             var captures = matchState.Captures;
 
             // Check for anchor at start
@@ -500,12 +500,12 @@ public sealed class StringLibrary
             ? context.GetArgument<double>(3)
             : s.Length + 1;
 
-        LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.Thread, 4, n_arg);
+        LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.State, 4, n_arg);
 
         var n = (int)n_arg;
 
         // Use MatchState instead of regex
-        MatchState matchState = new(context.Thread, s, pattern);
+        MatchState matchState = new(context.State, s, pattern);
         var captures = matchState.Captures;
 
         StringBuilder builder = new();
@@ -610,14 +610,14 @@ public sealed class StringLibrary
                 else if (repl.TryRead<LuaFunction>(out var func))
                 {
                     // Function call with captures as arguments
-                    var stack = context.Thread.Stack;
+                    var stack = context.State.Stack;
 
                     if (matchState.Level == 0)
                     {
                         // No captures, pass whole match
                         stack.Push(s.AsSpan(sIdx, res - sIdx).ToString());
-                        var retCount = await context.Access.RunAsync(func, 1, cancellationToken);
-                        using var results = context.Access.ReadTopValues(retCount);
+                        var retCount = await context.State.RunAsync(func, 1, cancellationToken);
+                        using var results = context.State.ReadTopValues(retCount);
                         result = results.Count > 0 ? results[0] : LuaValue.Nil;
                     }
                     else
@@ -636,14 +636,14 @@ public sealed class StringLibrary
                             }
                         }
 
-                        var retCount = await context.Access.RunAsync(func, matchState.Level, cancellationToken);
-                        using var results = context.Access.ReadTopValues(retCount);
+                        var retCount = await context.State.RunAsync(func, matchState.Level, cancellationToken);
+                        using var results = context.State.ReadTopValues(retCount);
                         result = results.Count > 0 ? results[0] : LuaValue.Nil;
                     }
                 }
                 else
                 {
-                    throw new LuaRuntimeException(context.Thread, "bad argument #3 to 'gsub' (string/function/table expected)");
+                    throw new LuaRuntimeException(context.State, "bad argument #3 to 'gsub' (string/function/table expected)");
                 }
 
                 // Handle replacement result
@@ -662,7 +662,7 @@ public sealed class StringLibrary
                 }
                 else
                 {
-                    throw new LuaRuntimeException(context.Thread, $"invalid replacement value (a {result.Type})");
+                    throw new LuaRuntimeException(context.State, $"invalid replacement value (a {result.Type})");
                 }
 
                 replaceCount++;
@@ -731,7 +731,7 @@ public sealed class StringLibrary
             ? context.GetArgument<int>(2)
             : 1;
 
-        LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.Thread, 3, init);
+        LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.State, 3, init);
 
         // Convert to 0-based index
         if (init < 0)
@@ -772,7 +772,7 @@ public sealed class StringLibrary
 
     static ValueTask<int> PatternSearch(LuaFunctionExecutionContext context, string s, string pattern, int init, bool find)
     {
-        MatchState matchState = new(context.Thread, s, pattern);
+        MatchState matchState = new(context.State, s, pattern);
         var captures = matchState.Captures;
 
         // Check for anchor at start
@@ -847,7 +847,7 @@ public sealed class StringLibrary
             ? context.GetArgument<string>(2)
             : null;
 
-        LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.Thread, 2, n_arg);
+        LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.State, 2, n_arg);
 
         var n = (int)n_arg;
 
@@ -882,8 +882,8 @@ public sealed class StringLibrary
             ? context.GetArgument<double>(2)
             : -1;
 
-        LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.Thread, 2, i);
-        LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.Thread, 3, j);
+        LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.State, 2, i);
+        LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.State, 3, j);
 
         return new(context.Return(StringHelper.Slice(s, (int)i, (int)j).ToString()));
     }

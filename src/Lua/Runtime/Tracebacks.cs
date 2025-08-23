@@ -5,6 +5,8 @@ namespace Lua.Runtime;
 
 public class Traceback(LuaState state, ReadOnlySpan<CallStackFrame> stackFrames)
 {
+    internal LuaGlobalState GlobalState => state.GlobalState;
+
     public LuaState State => state;
 
     public LuaFunction RootFunc => StackFrames[0].Function;
@@ -108,7 +110,7 @@ public class Traceback(LuaState state, ReadOnlySpan<CallStackFrame> stackFrames)
 
     public override string ToString()
     {
-        return CreateTracebackMessage(State, StackFrames, LuaValue.Nil);
+        return CreateTracebackMessage(GlobalState, StackFrames, LuaValue.Nil);
     }
 
     public string ToString(int skipFrames)
@@ -118,15 +120,15 @@ public class Traceback(LuaState state, ReadOnlySpan<CallStackFrame> stackFrames)
             return "stack traceback:\n";
         }
 
-        return CreateTracebackMessage(State, StackFrames, LuaValue.Nil, skipFrames);
+        return CreateTracebackMessage(GlobalState, StackFrames, LuaValue.Nil, skipFrames);
     }
 
-    public static string CreateTracebackMessage(LuaThread thread, LuaValue message, int stackFramesSkipCount = 0)
+    public static string CreateTracebackMessage(LuaState state, LuaValue message, int stackFramesSkipCount = 0)
     {
-        return CreateTracebackMessage(thread.State, thread.GetCallStackFrames(), message, stackFramesSkipCount);
+        return CreateTracebackMessage(state.GlobalState, state.GetCallStackFrames(), message, stackFramesSkipCount);
     }
 
-    internal static string CreateTracebackMessage(LuaState state, ReadOnlySpan<CallStackFrame> stackFrames, LuaValue message, int skipCount = 0)
+    internal static string CreateTracebackMessage(LuaGlobalState globalState, ReadOnlySpan<CallStackFrame> stackFrames, LuaValue message, int skipCount = 0)
     {
         using var list = new PooledList<char>(64);
         if (message.Type is not LuaValueType.Nil)
@@ -200,7 +202,7 @@ public class Traceback(LuaState state, ReadOnlySpan<CallStackFrame> stackFrames)
                     goto Next;
                 }
 
-                foreach (var pair in state.Environment.Dictionary)
+                foreach (var pair in globalState.Environment.Dictionary)
                 {
                     if (pair.Key.TryReadString(out var name)
                         && pair.Value.TryReadFunction(out var result) &&

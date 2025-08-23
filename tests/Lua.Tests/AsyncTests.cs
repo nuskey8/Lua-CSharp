@@ -26,7 +26,7 @@ public class AsyncTests
                         message = context.GetArgument<string>(1);
                     }
 
-                    throw new LuaAssertionException(context.Thread, message);
+                    throw new LuaAssertionException(context.State, message);
                 }
 
                 return context.Return(context.Arguments);

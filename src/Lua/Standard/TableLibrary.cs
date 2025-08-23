@@ -70,7 +70,7 @@ public sealed class TableLibrary
             }
             else
             {
-                throw new LuaRuntimeException(context.Thread, $"invalid value ({value.Type}) at index {i} in table for 'concat'");
+                throw new LuaRuntimeException(context.State, $"invalid value ({value.Type}) at index {i} in table for 'concat'");
             }
 
             if (i != arg3)
@@ -94,13 +94,13 @@ public sealed class TableLibrary
             ? context.GetArgument<double>(1)
             : table.ArrayLength + 1;
 
-        LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.Thread, 2, pos_arg);
+        LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.State, 2, pos_arg);
 
         var pos = (int)pos_arg;
 
         if (pos <= 0 || pos > table.ArrayLength + 1)
         {
-            throw new LuaRuntimeException(context.Thread, "bad argument #2 to 'insert' (position out of bounds)");
+            throw new LuaRuntimeException(context.State, "bad argument #2 to 'insert' (position out of bounds)");
         }
 
         table.Insert(pos, value);
@@ -129,7 +129,7 @@ public sealed class TableLibrary
             ? context.GetArgument<double>(1)
             : table.ArrayLength;
 
-        LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.Thread, 2, n_arg);
+        LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.State, 2, n_arg);
 
         var n = (int)n_arg;
 
@@ -140,7 +140,7 @@ public sealed class TableLibrary
 
         if (n <= 0 || n > table.GetArraySpan().Length)
         {
-            throw new LuaRuntimeException(context.Thread, "bad argument #2 to 'remove' (position out of bounds)");
+            throw new LuaRuntimeException(context.State, "bad argument #2 to 'remove' (position out of bounds)");
         }
 
         return new(context.Return(table.RemoveAt(n)));
@@ -151,13 +151,13 @@ public sealed class TableLibrary
         var arg0 = context.GetArgument<LuaTable>(0);
         var arg1 = context.HasArgument(1)
             ? context.GetArgument<LuaFunction>(1)
-            : new LuaClosure(context.Thread, defaultComparer);
+            : new LuaClosure(context.State, defaultComparer);
 
         // discard extra  arguments
         context = context with { ArgumentCount = 2 };
-        context.Thread.Stack.PopUntil(context.FrameBase + 2);
+        context.State.Stack.PopUntil(context.FrameBase + 2);
 
-        context.Thread.PushCallStackFrame(new() { Base = context.FrameBase, ReturnBase = context.ReturnFrameBase, VariableArgumentCount = 0, Function = arg1 });
+        context.State.PushCallStackFrame(new() { Base = context.FrameBase, ReturnBase = context.ReturnFrameBase, VariableArgumentCount = 0, Function = arg1 });
         try
         {
             await QuickSortAsync(context, arg0.GetArrayMemory(), 0, arg0.ArrayLength - 1, arg1, cancellationToken);
@@ -165,7 +165,7 @@ public sealed class TableLibrary
         }
         finally
         {
-            context.Thread.PopCallStackFrameWithStackPop();
+            context.State.PopCallStackFrameWithStackPop();
         }
     }
 
@@ -183,23 +183,23 @@ public sealed class TableLibrary
     {
         var pivot = memory.Span[high];
         var i = low - 1;
-        var access = context.Thread.CurrentAccess;
+        var state = context.State;
 
         for (var j = low; j < high; j++)
         {
-            var stack = context.Thread.Stack;
+            var stack = state.Stack;
             var top = stack.Count;
             stack.Push(memory.Span[j]);
             stack.Push(pivot);
-            await access.RunAsync(comparer, 2, cancellationToken);
+            await state.RunAsync(comparer, 2, cancellationToken);
 
-            if (context.Thread.Stack.Get(top).ToBoolean())
+            if (state.Stack.Get(top).ToBoolean())
             {
                 i++;
                 Swap(memory.Span, i, j);
             }
 
-            context.Thread.Stack.PopUntil(top);
+            state.Stack.PopUntil(top);
         }
 
         Swap(memory.Span, i + 1, high);

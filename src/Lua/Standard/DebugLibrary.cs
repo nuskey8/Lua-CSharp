@@ -35,26 +35,26 @@ public class DebugLibrary
     public readonly LibraryFunction[] Functions;
 
 
-    static LuaThread GetLuaThread(in LuaFunctionExecutionContext context, out int argOffset)
+    static LuaState GetLuaThread(in LuaFunctionExecutionContext context, out int argOffset)
     {
         if (context.ArgumentCount < 1)
         {
             argOffset = 0;
-            return context.Thread;
+            return context.State;
         }
 
-        if (context.GetArgument(0).TryRead<LuaThread>(out var thread))
+        if (context.GetArgument(0).TryRead<LuaState>(out var state))
         {
             argOffset = 1;
-            return thread;
+            return state;
         }
 
         argOffset = 0;
-        return context.Thread;
+        return context.State;
     }
 
 
-    static ref LuaValue FindLocal(LuaThread thread, int level, int index, out string? name)
+    static ref LuaValue FindLocal(LuaState state, int level, int index, out string? name)
     {
         if (index == 0)
         {
@@ -62,7 +62,7 @@ public class DebugLibrary
             return ref Unsafe.NullRef<LuaValue>();
         }
 
-        var callStack = thread.GetCallStackFrames();
+        var callStack = state.GetCallStackFrames();
         var frame = callStack[^(level + 1)];
         if (index < 0)
         {
@@ -71,7 +71,7 @@ public class DebugLibrary
             if (frameVariableArgumentCount > 0 && index < frameVariableArgumentCount)
             {
                 name = "(*vararg)";
-                return ref thread.Stack.Get(frame.Base - frameVariableArgumentCount + index);
+                return ref state.Stack.Get(frame.Base - frameVariableArgumentCount + index);
             }
 
             name = null;
@@ -115,13 +115,13 @@ public class DebugLibrary
                 if (localId == 0)
                 {
                     name = l.Name;
-                    return ref thread.Stack.Get(frameBase + index);
+                    return ref state.Stack.Get(frameBase + index);
                 }
             }
         }
         else
         {
-            var nextFrameBase = level != 0 ? callStack[^level].Base : thread.Stack.Count;
+            var nextFrameBase = level != 0 ? callStack[^level].Base : state.Stack.Count;
 
             if (nextFrameBase - 1 < frameBase + index)
             {
@@ -131,7 +131,7 @@ public class DebugLibrary
         }
 
         name = "(*temporary)";
-        return ref thread.Stack.Get(frameBase + index);
+        return ref state.Stack.Get(frameBase + index);
     }
 
     public ValueTask<int> GetLocal(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
@@ -150,7 +150,7 @@ public class DebugLibrary
             return LuaValue.Nil;
         }
 
-        var thread = GetLuaThread(context, out var argOffset);
+        var state = GetLuaThread(context, out var argOffset);
 
         var index = context.GetArgument<int>(argOffset + 1);
         if (context.GetArgument(argOffset).TryReadFunction(out var f))
@@ -161,12 +161,12 @@ public class DebugLibrary
         var level = context.GetArgument<int>(argOffset);
 
 
-        if (level < 0 || level >= thread.GetCallStackFrames().Length)
+        if (level < 0 || level >= state.GetCallStackFrames().Length)
         {
             context.ThrowBadArgument(1, "level out of range");
         }
 
-        ref var local = ref FindLocal(thread, level, index, out var name);
+        ref var local = ref FindLocal(state, level, index, out var name);
         if (name is null)
         {
             return new(context.Return(LuaValue.Nil));
@@ -177,19 +177,19 @@ public class DebugLibrary
 
     public ValueTask<int> SetLocal(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
-        var thread = GetLuaThread(context, out var argOffset);
+        var state = GetLuaThread(context, out var argOffset);
 
         var value = context.GetArgument(argOffset + 2);
         var index = context.GetArgument<int>(argOffset + 1);
         var level = context.GetArgument<int>(argOffset);
 
 
-        if (level < 0 || level >= thread.GetCallStackFrames().Length)
+        if (level < 0 || level >= state.GetCallStackFrames().Length)
         {
             context.ThrowBadArgument(1, "level out of range");
         }
 
-        ref var local = ref FindLocal(thread, level, index, out var name);
+        ref var local = ref FindLocal(state, level, index, out var name);
         if (name is null)
         {
             return new(context.Return(LuaValue.Nil));
@@ -270,7 +270,7 @@ public class DebugLibrary
     {
         var arg0 = context.GetArgument(0);
 
-        if (context.State.TryGetMetatable(arg0, out var table))
+        if (context.GlobalState.TryGetMetatable(arg0, out var table))
         {
             return new(context.Return(table));
         }
@@ -287,10 +287,10 @@ public class DebugLibrary
 
         if (arg1.Type is not (LuaValueType.Nil or LuaValueType.Table))
         {
-            LuaRuntimeException.BadArgument(context.Thread, 2, [LuaValueType.Nil, LuaValueType.Table], arg1.Type);
+            LuaRuntimeException.BadArgument(context.State, 2, [LuaValueType.Nil, LuaValueType.Table], arg1.Type);
         }
 
-        context.State.SetMetatable(arg0, arg1.UnsafeRead<LuaTable>());
+        context.GlobalState.SetMetatable(arg0, arg1.UnsafeRead<LuaTable>());
 
         return new(context.Return(arg0));
     }
@@ -333,7 +333,7 @@ public class DebugLibrary
 
     public ValueTask<int> Traceback(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
-        var thread = GetLuaThread(context, out var argOffset);
+        var state = GetLuaThread(context, out var argOffset);
 
         var message = context.GetArgumentOrDefault(argOffset);
         var level = context.GetArgumentOrDefault<int>(argOffset + 1, argOffset == 0 ? 1 : 0);
@@ -348,15 +348,12 @@ public class DebugLibrary
             return new(context.Return(LuaValue.Nil));
         }
 
-        if (thread is LuaCoroutine coroutine)
+        if (state is { IsCoroutine: true, LuaTraceback: {} traceback })
         {
-            if (coroutine.LuaTraceback is not null)
-            {
-                return new(context.Return(coroutine.LuaTraceback.ToString(level)));
-            }
+            return new(context.Return(traceback.ToString(level)));
         }
 
-        var callStack = thread.GetCallStackFrames();
+        var callStack = state.GetCallStackFrames();
         if (callStack.Length == 0)
         {
             return new(context.Return("stack traceback:"));
@@ -364,12 +361,12 @@ public class DebugLibrary
 
         var skipCount = Math.Min(Math.Max(level - 1, 0), callStack.Length - 1);
         var frames = callStack[..^skipCount];
-        return new(context.Return(Runtime.Traceback.CreateTracebackMessage(context.State, frames, message, level == 1 ? 1 : 0)));
+        return new(context.Return(Runtime.Traceback.CreateTracebackMessage(context.GlobalState, frames, message, level == 1 ? 1 : 0)));
     }
 
     public ValueTask<int> GetRegistry(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
-        return new(context.Return(context.State.Registry));
+        return new(context.Return(context.GlobalState.Registry));
     }
 
     public ValueTask<int> UpValueId(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
@@ -421,34 +418,34 @@ public class DebugLibrary
 
     public async ValueTask<int> SetHook(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
-        var thread = GetLuaThread(context, out var argOffset);
+        var state = GetLuaThread(context, out var argOffset);
         var hook = context.GetArgumentOrDefault<LuaFunction?>(argOffset);
         var mask = context.GetArgumentOrDefault<string?>(argOffset + 1) ?? "";
         var count = context.GetArgumentOrDefault<int>(argOffset + 2);
-        thread.SetHook(hook, mask, count);
+        state.SetHook(hook, mask, count);
         if (hook is null)
         {
             return 0;
         }
 
-        if (thread.IsReturnHookEnabled && context.Thread == thread)
+        if (state.IsReturnHookEnabled && context.State == state)
         {
-            var stack = thread.Stack;
+            var stack = state.Stack;
             var top = stack.Count;
             stack.Push("return");
             stack.Push(LuaValue.Nil);
-            context.Thread.IsInHook = true;
-            var frame = context.Thread.CurrentAccess.CreateCallStackFrame(hook, 2, top, 0);
-            var access = context.Thread.PushCallStackFrame(frame);
-            LuaFunctionExecutionContext funcContext = new() { Access = access, ArgumentCount = stack.Count - frame.Base, ReturnFrameBase = frame.ReturnBase };
+            context.State.IsInHook = true;
+            var frame = context.State.CreateCallStackFrame(hook, 2, top, 0);
+            context.State.PushCallStackFrame(frame);
+            LuaFunctionExecutionContext funcContext = new() { State = context.State, ArgumentCount = stack.Count - frame.Base, ReturnFrameBase = frame.ReturnBase };
             try
             {
                 await hook.Func(funcContext, cancellationToken);
             }
             finally
             {
-                context.Thread.IsInHook = false;
-                context.Thread.PopCallStackFrameWithStackPop();
+                context.State.IsInHook = false;
+                context.State.PopCallStackFrameWithStackPop();
             }
         }
 
@@ -457,23 +454,23 @@ public class DebugLibrary
 
     public ValueTask<int> GetHook(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
-        var thread = GetLuaThread(context, out var argOffset);
-        if (thread.Hook is null)
+        var state = GetLuaThread(context, out var argOffset);
+        if (state.Hook is null)
         {
             return new(context.Return(LuaValue.Nil, LuaValue.Nil, LuaValue.Nil));
         }
 
-        return new(context.Return(thread.Hook,
-            (thread.IsCallHookEnabled ? "c" : "") +
-            (thread.IsReturnHookEnabled ? "r" : "") +
-            (thread.IsLineHookEnabled ? "l" : "")
-            , thread.BaseHookCount));
+        return new(context.Return(state.Hook,
+            (state.IsCallHookEnabled ? "c" : "") +
+            (state.IsReturnHookEnabled ? "r" : "") +
+            (state.IsLineHookEnabled ? "l" : "")
+            , state.BaseHookCount));
     }
 
     public ValueTask<int> GetInfo(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
         //return new(0);
-        var thread = GetLuaThread(context, out var argOffset);
+        var state = GetLuaThread(context, out var argOffset);
         var what = context.GetArgumentOrDefault<string>(argOffset + 1, "flnStu");
         CallStackFrame? previousFrame = null;
         CallStackFrame? currentFrame = null;
@@ -488,7 +485,7 @@ public class DebugLibrary
         {
             var level = context.GetArgument<int>(argOffset) + 1;
 
-            var callStack = thread.GetCallStackFrames();
+            var callStack = state.GetCallStackFrames();
 
             if (level <= 0 || level > callStack.Length)
             {
@@ -496,11 +493,11 @@ public class DebugLibrary
             }
 
 
-            currentFrame = thread.GetCallStackFrames()[^level];
+            currentFrame = state.GetCallStackFrames()[^level];
             previousFrame = level + 1 <= callStack.Length ? callStack[^(level + 1)] : null;
             if (level != 1)
             {
-                pc = thread.GetCallStackFrames()[^(level - 1)].CallerInstructionIndex;
+                pc = state.GetCallStackFrames()[^(level - 1)].CallerInstructionIndex;
             }
 
             functionToInspect = currentFrame.Value.Function;
@@ -510,7 +507,7 @@ public class DebugLibrary
             context.ThrowBadArgument(argOffset, "function or level expected");
         }
 
-        using var debug = LuaDebug.Create(context.State, previousFrame, currentFrame, functionToInspect, pc, what, out var isValid);
+        using var debug = LuaDebug.Create(context.GlobalState, previousFrame, currentFrame, functionToInspect, pc, what, out var isValid);
         if (!isValid)
         {
             context.ThrowBadArgument(argOffset + 1, "invalid option");

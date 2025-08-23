@@ -27,7 +27,7 @@ public class CancellationTest
                         message = context.GetArgument<string>(1);
                     }
 
-                    throw new LuaAssertionException(context.Thread, message);
+                    throw new LuaAssertionException(context.State, message);
                 }
 
                 return context.Return(context.Arguments);
@@ -191,7 +191,7 @@ public class CancellationTest
                      """;
         var cancellationTokenSource = new CancellationTokenSource();
         var sw = Stopwatch.StartNew();
-        state.MainThread.SetHook(new("timeout", async (context, cancellationToken) =>
+        state.SetHook(new("timeout", async (context, cancellationToken) =>
         {
             if (sw.ElapsedMilliseconds > 100)
             {

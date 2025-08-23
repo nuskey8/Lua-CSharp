@@ -124,11 +124,11 @@ readonly struct LuaDebug : IDisposable
         }
     }
 
-    public static LuaDebug Create(LuaState state, CallStackFrame? prevFrame, CallStackFrame? frame, LuaFunction function, int pc, ReadOnlySpan<char> what, out bool isValid)
+    public static LuaDebug Create(LuaGlobalState globalState, CallStackFrame? prevFrame, CallStackFrame? frame, LuaFunction function, int pc, ReadOnlySpan<char> what, out bool isValid)
     {
-        if (!state.DebugBufferPool.TryPop(out var buffer))
+        if (!globalState.DebugBufferPool.TryPop(out var buffer))
         {
-            buffer = new(state);
+            buffer = new(globalState);
         }
 
         isValid = buffer.GetInfo(prevFrame, frame, function, pc, what);
@@ -160,10 +160,10 @@ readonly struct LuaDebug : IDisposable
     }
 
 
-    internal class LuaDebugBuffer(LuaState state)
+    internal class LuaDebugBuffer(LuaGlobalState globalState)
     {
         internal uint version;
-        LuaState state = state;
+        LuaGlobalState globalState = globalState;
         public string? Name;
         public string? NameWhat;
         public string? What;
@@ -200,7 +200,7 @@ readonly struct LuaDebug : IDisposable
             if (version < uint.MaxValue)
             {
                 this.version++;
-                state.DebugBufferPool.Push(this);
+                globalState.DebugBufferPool.Push(this);
             }
         }
 

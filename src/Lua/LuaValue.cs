@@ -139,7 +139,7 @@ public readonly struct LuaValue : IEquatable<LuaValue>
                     break;
                 }
             case LuaValueType.Thread:
-                if (t == typeof(LuaThread))
+                if (t == typeof(LuaState))
                 {
                     var v = referenceValue!;
                     result = Unsafe.As<object, T>(ref v);
@@ -440,7 +440,7 @@ public readonly struct LuaValue : IEquatable<LuaValue>
             string stringValue => stringValue,
             LuaFunction luaFunction => luaFunction,
             LuaTable luaTable => luaTable,
-            LuaThread luaThread => luaThread,
+            LuaState luaThread => luaThread,
             ILuaUserData userData => FromUserData(userData),
             int intValue => intValue,
             long longValue => longValue,
@@ -502,7 +502,7 @@ public readonly struct LuaValue : IEquatable<LuaValue>
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public LuaValue(LuaThread value)
+    public LuaValue(LuaState value)
     {
         Type = LuaValueType.Thread;
         referenceValue = value;
@@ -546,7 +546,7 @@ public readonly struct LuaValue : IEquatable<LuaValue>
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static implicit operator LuaValue(LuaThread value)
+    public static implicit operator LuaValue(LuaState value)
     {
         return new(value);
     }
@@ -674,7 +674,7 @@ public readonly struct LuaValue : IEquatable<LuaValue>
             result = LuaValueType.Table;
             return true;
         }
-        else if (type == typeof(LuaThread))
+        else if (type == typeof(LuaState))
         {
             result = LuaValueType.Thread;
             return true;
@@ -691,16 +691,16 @@ public readonly struct LuaValue : IEquatable<LuaValue>
 
     internal ValueTask<int> CallToStringAsync(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
-        if (this.TryGetMetamethod(context.State, Metamethods.ToString, out var metamethod))
+        if (this.TryGetMetamethod(context.GlobalState, Metamethods.ToString, out var metamethod))
         {
-            var stack = context.Thread.Stack;
+            var stack = context.State.Stack;
             stack.Push(metamethod);
             stack.Push(this);
-            return LuaVirtualMachine.Call(context.Thread, stack.Count - 2, stack.Count - 2, cancellationToken);
+            return LuaVirtualMachine.Call(context.State, stack.Count - 2, stack.Count - 2, cancellationToken);
         }
         else
         {
-            context.Thread.Stack.Push(ToString());
+            context.State.Stack.Push(ToString());
             return default;
         }
     }

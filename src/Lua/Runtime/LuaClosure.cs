@@ -8,8 +8,8 @@ public sealed class LuaClosure : LuaFunction
 {
     FastListCore<UpValue> upValues;
 
-    public LuaClosure(LuaThread thread, Prototype proto, LuaTable? environment = null)
-        : base(proto.ChunkName, static (context, ct) => LuaVirtualMachine.ExecuteClosureAsync(context.Thread, ct))
+    public LuaClosure(LuaState state, Prototype proto, LuaTable? environment = null)
+        : base(proto.ChunkName, static (context, ct) => LuaVirtualMachine.ExecuteClosureAsync(context.State, ct))
     {
         Proto = proto;
         if (environment != null)
@@ -18,19 +18,19 @@ public sealed class LuaClosure : LuaFunction
             return;
         }
 
-        if (thread.CallStackFrameCount == 0)
+        if (state.CallStackFrameCount == 0)
         {
-            upValues.Add(thread.State.EnvUpValue);
+            upValues.Add(state.GlobalState.EnvUpValue);
             return;
         }
 
-        var baseIndex = thread.GetCallStackFrames()[^1].Base;
+        var baseIndex = state.GetCallStackFrames()[^1].Base;
 
         // add upvalues
         for (var i = 0; i < proto.UpValues.Length; i++)
         {
             var description = proto.UpValues[i];
-            var upValue = GetUpValueFromDescription(thread.State, thread, description, baseIndex);
+            var upValue = GetUpValueFromDescription(state.GlobalState, state, description, baseIndex);
             upValues.Add(upValue);
         }
     }
@@ -62,20 +62,20 @@ public sealed class LuaClosure : LuaFunction
         upValues[index].SetValue(value);
     }
 
-    static UpValue GetUpValueFromDescription(LuaState state, LuaThread thread, UpValueDesc description, int baseIndex = 0)
+    static UpValue GetUpValueFromDescription(LuaGlobalState globalState, LuaState state, UpValueDesc description, int baseIndex = 0)
     {
         if (description.IsLocal)
         {
             if (description is { Index: 0, Name: "_ENV" })
             {
-                return state.EnvUpValue;
+                return globalState.EnvUpValue;
             }
 
-            return state.GetOrAddUpValue(thread, baseIndex + description.Index);
+            return state.GetOrAddUpValue(baseIndex + description.Index);
         }
 
 
-        if (thread.GetCurrentFrame().Function is LuaClosure parentClosure)
+        if (state.GetCurrentFrame().Function is LuaClosure parentClosure)
         {
             return parentClosure.UpValues[description.Index];
         }

@@ -4,28 +4,19 @@ namespace Lua;
 
 public static class LuaThreadExtensions
 {
-    public static UserThreadLease RentUserThread(this LuaThread thread)
-    {
-        return new(LuaUserThread.Create(thread));
-    }
 
-    public static CoroutineLease RentCoroutine(this LuaThread thread, LuaFunction function, bool isProtectedMode = false)
-    {
-        return new(LuaCoroutine.Create(thread, function, isProtectedMode));
-    }
-
-    internal static void ThrowIfCancellationRequested(this LuaThread thread, CancellationToken cancellationToken)
+    internal static void ThrowIfCancellationRequested(this LuaState state, CancellationToken cancellationToken)
     {
         if (cancellationToken.IsCancellationRequested)
         {
-            Throw(thread, cancellationToken);
+            Throw(state, cancellationToken);
         }
 
         return;
 
-        static void Throw(LuaThread thread, CancellationToken cancellationToken)
+        static void Throw(LuaState state, CancellationToken cancellationToken)
         {
-            throw new LuaCanceledException(thread, cancellationToken);
+            throw new LuaCanceledException(state, cancellationToken);
         }
     }
 }
