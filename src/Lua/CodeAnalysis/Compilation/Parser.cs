@@ -937,6 +937,7 @@ class Parser : IPoolNode<Parser>, IDisposable
 
     public static Prototype Parse(LuaState l, TextReader r, string name)
     {
+        using var internPool = new StringInternPool(4);
         using var p = Get(new()
         {
             R = r,
@@ -945,7 +946,8 @@ class Parser : IPoolNode<Parser>, IDisposable
             LookAheadToken = new(0, TkEos),
             L = l,
             Source = name,
-            Buffer = new(r.Length)
+            Buffer = new(r.Length),
+            StringPool = internPool
         });
         var f = Function.Get(p, PrototypeBuilder.Get(name));
         p.Function = f;
@@ -980,7 +982,8 @@ class Parser : IPoolNode<Parser>, IDisposable
             };
         }
 
-        UnDumpState state = new(span, name);
+        using var internPool = new StringInternPool(4);
+        UnDumpState state = new(span, name, internPool);
         return state.UnDump();
     }
 }
