@@ -17,6 +17,9 @@ struct Scanner
     public string Source;
     public Token LookAheadToken;
     int lastNewLinePos;
+    public StringInternPool StringPool;
+    
+    string Intern(ReadOnlySpan<char> s) => StringPool.Intern(s);
 
     ///inline
     public Token Token;
@@ -94,7 +97,7 @@ struct Scanner
     public void NumberError(int numberStartPosition, int position)
     {
         Buffer.Clear();
-        Token = new(numberStartPosition, TkString, R.Span[numberStartPosition..(position - 1)].ToString());
+        Token = new(numberStartPosition, TkString, Intern(R.Span[numberStartPosition..(position - 1)]));
         ScanError(position, "malformed number", TkString);
     }
 
@@ -147,7 +150,7 @@ struct Scanner
     {
         var shortSourceBuffer = (stackalloc char[59]);
         var len = LuaDebug.WriteShortSource(Source, shortSourceBuffer);
-        var buff = shortSourceBuffer[..len].ToString();
+        var buff = Intern(shortSourceBuffer[..len]);
         string? nearToken = null;
         if (token != 0)
         {
@@ -246,7 +249,7 @@ struct Scanner
                         SaveAndAdvance();
                         if (!comment)
                         {
-                            var s = Buffer.AsSpan().Slice(2 + sep, Buffer.Length - (4 + (2 * sep))).ToString();
+                            var s = Intern( Buffer.AsSpan().Slice(2 + sep, Buffer.Length - (4 + (2 * sep))));
                             Buffer.Clear();
                             return s;
                         }
@@ -465,7 +468,7 @@ struct Scanner
 
         Save('\'');
 
-        Token = new(pos - Buffer.Length, TkString, Buffer.AsSpan().ToString());
+        Token = new(pos - Buffer.Length, TkString, Intern(Buffer.AsSpan()));
         Buffer.Clear();
         ScanError(pos, message, TkString);
     }
@@ -532,11 +535,11 @@ struct Scanner
             switch (Current)
             {
                 case EndOfStream:
-                    Token = new(R.Position - Buffer.Length, TkString, Buffer.AsSpan().ToString());
+                    Token = new(R.Position - Buffer.Length, TkString, Intern(Buffer.AsSpan()));
                     ScanError(R.Position, "unfinished string", TkEos);
                     break;
                 case '\n' or '\r':
-                    Token = new(R.Position - Buffer.Length, TkString, Buffer.AsSpan().ToString());
+                    Token = new(R.Position - Buffer.Length, TkString,Intern( Buffer.AsSpan()));
                     ScanError(R.Position, "unfinished string", TkString);
                     break;
                 case '\\':
@@ -594,7 +597,7 @@ struct Scanner
         // {
         //     length--;
         // }
-        var str = Buffer.AsSpan().Slice(1, length).ToString();
+        var str = Intern(Buffer.AsSpan().Slice(1, length));
         Buffer.Clear();
         return new(pos, TkString, str);
     }
@@ -615,7 +618,7 @@ struct Scanner
     public Token ReservedOrName()
     {
         var pos = R.Position - Buffer.Length;
-        var str = Buffer.AsSpan().ToString();
+        var str = Intern(Buffer.AsSpan());
         Buffer.Clear();
         for (var i = 0; i < Tokens.Length; i++)
         {

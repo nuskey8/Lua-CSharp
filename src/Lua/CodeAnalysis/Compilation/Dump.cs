@@ -280,7 +280,7 @@ unsafe ref struct DumpState(IBufferWriter<byte> writer, bool reversedEndian)
     }
 }
 
-unsafe ref struct UnDumpState(ReadOnlySpan<byte> span, ReadOnlySpan<char> name)
+unsafe ref struct UnDumpState(ReadOnlySpan<byte> span, ReadOnlySpan<char> name, StringInternPool internPool)
 {
     public ReadOnlySpan<byte> Unread = span;
     bool otherEndian;
@@ -436,6 +436,7 @@ unsafe ref struct UnDumpState(ReadOnlySpan<byte> span, ReadOnlySpan<char> name)
 
         len--;
         var arrayPooled = ArrayPool<byte>.Shared.Rent(len);
+        char[]? charArrayPooled = null;
         try
         {
             var span = arrayPooled.AsSpan(0, len);
@@ -443,12 +444,17 @@ unsafe ref struct UnDumpState(ReadOnlySpan<byte> span, ReadOnlySpan<char> name)
 
             var l = ReadByte();
             Debug.Assert(l == 0);
-            var str = Encoding.UTF8.GetString(span);
-            return str;
+            var chars = len <= 128 ? stackalloc char[len*2] : (charArrayPooled = ArrayPool<char>.Shared.Rent(len * 2));
+            var count = Encoding.UTF8.GetChars(span, chars);
+            return internPool.Intern(chars[..count]);
         }
         finally
         {
             ArrayPool<byte>.Shared.Return(arrayPooled);
+            if (charArrayPooled != null)
+            {
+                ArrayPool<char>.Shared.Return(charArrayPooled);
+            }
         }
     }
 
