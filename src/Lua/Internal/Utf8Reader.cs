@@ -1,4 +1,5 @@
-﻿using System.Buffers;
+﻿using Lua.CodeAnalysis.Compilation;
+using System.Buffers;
 using System.Text;
 
 namespace Lua.Internal;
@@ -44,8 +45,8 @@ sealed class Utf8Reader
                 if (bufPos >= bufLen)
                 {
                     bufLen = stream.Read(buffer, 0, buffer.Length);
-                    bufPos = 0;
-                    if (bufLen == 0)
+                    bufPos = buffer.AsSpan().StartsWith(BomUtility.BomUtf8) ? 3 : 0;
+                    if (bufLen <= bufPos)
                     {
                         break; // EOF
                     }
@@ -77,12 +78,12 @@ sealed class Utf8Reader
                         if (isCRLF)
                         {
                             // Add \r\n
-                            AppendToBuffer(ref resultBuffer, new(new byte[] { (byte)'\r', (byte)'\n' }), ref lineLen);
+                            AppendToBuffer(ref resultBuffer, "\r\n"u8, ref lineLen);
                         }
                         else
                         {
                             // Add just the single newline character (\r or \n)
-                            AppendToBuffer(ref resultBuffer, new(new byte[] { nl }), ref lineLen);
+                            AppendToBuffer(ref resultBuffer, nl == '\r' ? "\r"u8 : "\n"u8, ref lineLen);
                         }
                     }
 
@@ -120,9 +121,8 @@ sealed class Utf8Reader
                 if (bufPos >= bufLen)
                 {
                     bufLen = stream.Read(buffer, 0, buffer.Length);
-
-                    bufPos = 0;
-                    if (bufLen == 0)
+                    bufPos = buffer.AsSpan().StartsWith(BomUtility.BomUtf8) ? 3 : 0;
+                    if (bufLen <= bufPos)
                     {
                         break; // EOF
                     }
@@ -204,8 +204,8 @@ sealed class Utf8Reader
                 if (bufPos >= bufLen)
                 {
                     bufLen = stream.Read(buffer, 0, buffer.Length);
-                    bufPos = 0;
-                    if (bufLen == 0)
+                    bufPos = buffer.AsSpan().StartsWith(BomUtility.BomUtf8) ? 3 : 0;
+                    if (bufLen <= bufPos)
                     {
                         break; // EOF
                     }

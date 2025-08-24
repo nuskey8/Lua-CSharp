@@ -4,7 +4,7 @@ namespace Lua.CodeAnalysis.Compilation;
 
 static class BomUtility
 {
-    static ReadOnlySpan<byte> BomUtf8 => [0xEF, 0xBB, 0xBF];
+    public static ReadOnlySpan<byte> BomUtf8 => [0xEF, 0xBB, 0xBF];
 
     static ReadOnlySpan<byte> BomUtf16Little => [0xFF, 0xFE];
 
