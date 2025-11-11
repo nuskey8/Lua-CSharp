@@ -1,7 +1,5 @@
-using Lua.CodeAnalysis;
 using Lua.Internal;
 using System.Runtime.CompilerServices;
-using System.Text;
 using Lua.Runtime;
 using System.Globalization;
 
@@ -10,7 +8,6 @@ namespace Lua.Standard;
 public sealed class TableLibrary
 {
     public static readonly TableLibrary Instance = new();
-
 
     public TableLibrary()
     {

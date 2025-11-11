@@ -18,25 +18,18 @@ sealed class LuaGlobalState
 
     FastStackCore<LuaDebug.LuaDebugBuffer> debugBufferPool;
 
+    public LuaPlatform Platform { get; set; }
+    public ILuaModuleLoader? ModuleLoader { get; set; }
+
     internal UpValue EnvUpValue => envUpValue;
-
     internal ref FastStackCore<LuaState> ThreadStack => ref stateStack;
-
     internal ref FastStackCore<LuaDebug.LuaDebugBuffer> DebugBufferPool => ref debugBufferPool;
 
     public LuaTable Environment => environment;
-
     public LuaTable Registry => registry;
-
     public LuaTable LoadedModules => registry[ModuleLibrary.LoadedKeyForRegistry].Read<LuaTable>();
-
     public LuaTable PreloadModules => registry[ModuleLibrary.PreloadKeyForRegistry].Read<LuaTable>();
-
     public LuaState MainThread => mainState;
-
-    public LuaPlatform Platform { get; set; }
-
-    public ILuaModuleLoader? ModuleLoader { get; set; }
 
     // metatables
     LuaTable? nilMetatable;

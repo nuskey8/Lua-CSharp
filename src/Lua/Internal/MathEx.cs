@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+
 #if NET6_0_OR_GREATER
 using System.Numerics;
 #endif
@@ -93,7 +94,9 @@ static class MathEx
         return ((int)Math.Truncate(d), d % 1.0);
     }
 
-    /// <summary>Returns the smallest power of two greater than or equal to the input.</summary>
+    /// <summary>
+    /// Returns the smallest power of two greater than or equal to the input.
+    /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static int NextPowerOfTwo(int x)
     {

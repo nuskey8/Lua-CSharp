@@ -1,7 +1,4 @@
-﻿// See https://aka.ms/new-console-template for more information
-
-
-using System.Reflection;
+﻿using System.Reflection;
 using System.Runtime.CompilerServices;
 using JitInspect;
 using Lua;
@@ -45,8 +42,7 @@ var method = typeof(LuaVirtualMachine).GetMethod("MoveNext", BindingFlags.Static
 using var disassembler = JitDisassembler.Create();
 var nextJitText = disassembler.Disassemble(method, new() { PrintInstructionAddresses = true });
 File.WriteAllText(newJIitPath, nextJitText);
-//Console.WriteLine("New:" + nextJitText.Split("\n")[^1]);
-
+// Console.WriteLine("New:" + nextJitText.Split("\n")[^1]);
 
 static string GetThisDirectoryName([CallerFilePath] string callerFilePath = "")
 {

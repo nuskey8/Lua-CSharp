@@ -350,7 +350,7 @@ public static partial class LuaVirtualMachine
     {
         try
         {
-            // This is a label to restart the execution when new function is called or restarted
+        // This is a label to restart the execution when new function is called or restarted
         Restart:
             ref var instructionsHead = ref Unsafe.AsRef(in context.Prototype.Code[0]);
             var frameBase = context.FrameBase;
@@ -360,8 +360,8 @@ public static partial class LuaVirtualMachine
             ref var lineHookFlag = ref context.State.IsInHook ? ref DummyLineHookEnabled : ref context.State.IsLineHookEnabled;
             ref var hookCount = ref context.State.IsInHook ? ref DummyHookCount : ref context.State.HookCount;
             goto Loop;
-        LineHook:
 
+        LineHook:
             {
                 context.LastHookPc = context.Pc;
                 if (ExecutePerInstructionHook(context))
@@ -411,7 +411,6 @@ public static partial class LuaVirtualMachine
                         {
                             context.Pc++;
                         }
-
                         continue;
                     case OpCode.LoadNil:
                         Markers.LoadNil();
@@ -433,6 +432,7 @@ public static partial class LuaVirtualMachine
                     case OpCode.GetTable:
                         Markers.GetTabUp();
                         Markers.GetTable();
+
                         stackHead = ref stack.FastGet(frameBase);
                         ref readonly var vc = ref RKC(ref stackHead, ref constHead, instruction);
                         ref readonly var vb = ref instruction.OpCode == OpCode.GetTable ? ref Unsafe.Add(ref stackHead, instruction.B) : ref context.LuaClosure.GetUpValueRef(instruction.B);
@@ -453,6 +453,7 @@ public static partial class LuaVirtualMachine
                     case OpCode.SetTable:
                         Markers.SetTabUp();
                         Markers.SetTable();
+
                         stackHead = ref stack.FastGet(frameBase);
                         vb = ref RKB(ref stackHead, ref constHead, instruction);
                         if (vb.TryReadNumber(out var numB))
@@ -498,6 +499,7 @@ public static partial class LuaVirtualMachine
                         continue;
                     case OpCode.Self:
                         Markers.Self();
+
                         stackHead = ref stack.FastGet(frameBase);
                         vc = ref RKC(ref stackHead, ref constHead, instruction);
                         table = Unsafe.Add(ref stackHead, instruction.B);
@@ -529,6 +531,7 @@ public static partial class LuaVirtualMachine
                         Markers.Div();
                         Markers.Mod();
                         Markers.Pow();
+
                         stackHead = ref stack.FastGet(frameBase);
                         vb = ref RKB(ref stackHead, ref constHead, instruction);
                         vc = ref RKC(ref stackHead, ref constHead, instruction);
@@ -615,7 +618,6 @@ public static partial class LuaVirtualMachine
                         Unsafe.Add(ref stackHead, iA) = !Unsafe.Add(ref stackHead, instruction.B).ToBoolean();
                         stack.NotifyTop(iA + frameBase + 1);
                         continue;
-
                     case OpCode.Len:
                         Markers.Len();
                         stackHead = ref stack.FastGet(frameBase);
@@ -644,24 +646,25 @@ public static partial class LuaVirtualMachine
                         Markers.Concat();
                         if (Concat(context))
                         {
-                            //if (doRestart) goto Restart;
+                            // if (doRestart) goto Restart;
                             continue;
                         }
 
                         return true;
                     case OpCode.Jmp:
                         Markers.Jmp();
-                        context.Pc += instruction.SBx;
 
+                        context.Pc += instruction.SBx;
                         if (iA != 0)
                         {
-                            context.State.CloseUpValues( frameBase + iA - 1);
+                            context.State.CloseUpValues(frameBase + iA - 1);
                         }
 
                         context.ThrowIfCancellationRequested();
                         continue;
                     case OpCode.Eq:
                         Markers.Eq();
+
                         stackHead = ref stack.Get(frameBase);
                         vb = ref RKB(ref stackHead, ref constHead, instruction);
                         vc = ref RKC(ref stackHead, ref constHead, instruction);
@@ -690,6 +693,7 @@ public static partial class LuaVirtualMachine
                     case OpCode.Le:
                         Markers.Lt();
                         Markers.Le();
+
                         stackHead = ref stack.Get(frameBase);
                         vb = ref RKB(ref stackHead, ref constHead, instruction);
                         vc = ref RKC(ref stackHead, ref constHead, instruction);
@@ -792,6 +796,7 @@ public static partial class LuaVirtualMachine
                         goto End;
                     case OpCode.ForLoop:
                         Markers.ForLoop();
+
                         ref var indexRef = ref stack.Get(iA + frameBase);
                         var limit = Unsafe.Add(ref indexRef, 1).UnsafeReadDouble();
                         var step = Unsafe.Add(ref indexRef, 2).UnsafeReadDouble();
@@ -837,6 +842,7 @@ public static partial class LuaVirtualMachine
                         continue;
                     case OpCode.TForCall:
                         Markers.TForCall();
+
                         if (TForCall(context, out doRestart))
                         {
                             if (doRestart)
@@ -865,13 +871,16 @@ public static partial class LuaVirtualMachine
                         continue;
                     case OpCode.Closure:
                         Markers.Closure();
+
                         ra1 = iA + frameBase + 1;
                         stack.EnsureCapacity(ra1);
                         stack.Get(ra1 - 1) = new LuaClosure(context.State, context.Prototype.ChildPrototypes[instruction.Bx]);
                         stack.NotifyTop(ra1);
+
                         continue;
                     case OpCode.VarArg:
                         Markers.VarArg();
+
                         VarArg(context);
 
                         [MethodImpl(MethodImplOptions.NoInlining)]
@@ -1175,7 +1184,7 @@ public static partial class LuaVirtualMachine
             state.PushCallStackFrame(newFrame);
             try
             {
-                var functionContext = new LuaFunctionExecutionContext {State = state, ArgumentCount = argCount, ReturnFrameBase = target };
+                var functionContext = new LuaFunctionExecutionContext { State = state, ArgumentCount = argCount, ReturnFrameBase = target };
                 if (state.CallOrReturnHookMask.Value != 0 && !state.IsInHook)
                 {
                     await ExecuteCallHook(functionContext, context.CancellationToken);
@@ -1252,7 +1261,7 @@ public static partial class LuaVirtualMachine
 
         static bool FuncCall(VirtualMachineExecutionContext context, LuaState state, LuaFunction func, int argumentCount, int returnBase)
         {
-            var task = func.Func(new() {State = state, ArgumentCount = argumentCount, ReturnFrameBase = returnBase }, context.CancellationToken);
+            var task = func.Func(new() { State = state, ArgumentCount = argumentCount, ReturnFrameBase = returnBase }, context.CancellationToken);
 
             if (!task.IsCompleted)
             {
@@ -1363,7 +1372,7 @@ public static partial class LuaVirtualMachine
         var isMetamethod = false;
         var state = context.State;
 
-        state.CloseUpValues( context.FrameBase);
+        state.CloseUpValues(context.FrameBase);
 
         var va = stack.Get(RA);
         if (!va.TryReadFunction(out var func))
@@ -1410,7 +1419,7 @@ public static partial class LuaVirtualMachine
         }
 
         doRestart = false;
-        var task = func.Func(new() {State = state, ArgumentCount = argumentCount, ReturnFrameBase = lastFrame.ReturnBase }, context.CancellationToken);
+        var task = func.Func(new() { State = state, ArgumentCount = argumentCount, ReturnFrameBase = lastFrame.ReturnBase }, context.CancellationToken);
 
         if (!task.IsCompleted)
         {
@@ -1496,7 +1505,7 @@ public static partial class LuaVirtualMachine
             return true;
         }
 
-        var task = iterator.Func(new() {State = context.State, ArgumentCount = stack.Count - newBase, ReturnFrameBase = newFrame.ReturnBase }, context.CancellationToken);
+        var task = iterator.Func(new() { State = context.State, ArgumentCount = stack.Count - newBase, ReturnFrameBase = newFrame.ReturnBase }, context.CancellationToken);
         if (!task.IsCompleted)
         {
             context.PostOperation = PostOperationType.TForCall;
@@ -1665,7 +1674,7 @@ public static partial class LuaVirtualMachine
             return true;
         }
 
-        var task = indexTable.Func(new() {State = context.State, ArgumentCount = 2, ReturnFrameBase = newFrame.ReturnBase }, context.CancellationToken);
+        var task = indexTable.Func(new() { State = context.State, ArgumentCount = 2, ReturnFrameBase = newFrame.ReturnBase }, context.CancellationToken);
 
         if (!task.IsCompleted)
         {
@@ -1737,7 +1746,7 @@ public static partial class LuaVirtualMachine
         var newFrame = new CallStackFrame { Base = state.Stack.Count - 2 + varArgCount, VariableArgumentCount = varArgCount, Function = indexTable, ReturnBase = top };
 
         state.PushCallStackFrame(newFrame);
-        var functionContext = new LuaFunctionExecutionContext {State = state, ArgumentCount = 2, ReturnFrameBase = top };
+        var functionContext = new LuaFunctionExecutionContext { State = state, ArgumentCount = 2, ReturnFrameBase = top };
         if (state.CallOrReturnHookMask.Value != 0 && !state.IsInHook)
         {
             await ExecuteCallHook(functionContext, ct);
@@ -1988,7 +1997,7 @@ public static partial class LuaVirtualMachine
             }
 
 
-            var task = func.Func(new() {State = context.State, ArgumentCount = argCount, ReturnFrameBase = newFrame.ReturnBase }, context.CancellationToken);
+            var task = func.Func(new() { State = context.State, ArgumentCount = argCount, ReturnFrameBase = newFrame.ReturnBase }, context.CancellationToken);
 
             if (!task.IsCompleted)
             {
@@ -2044,7 +2053,7 @@ public static partial class LuaVirtualMachine
             state.PushCallStackFrame(newFrame);
             try
             {
-                var functionContext = new LuaFunctionExecutionContext {State = state, ArgumentCount = argCount, ReturnFrameBase = newBase };
+                var functionContext = new LuaFunctionExecutionContext { State = state, ArgumentCount = argCount, ReturnFrameBase = newBase };
                 if (state.CallOrReturnHookMask.Value != 0 && !state.IsInHook)
                 {
                     await ExecuteCallHook(functionContext, ct);
@@ -2115,7 +2124,7 @@ public static partial class LuaVirtualMachine
             }
 
 
-            var task = func.Func(new() {State = context.State, ArgumentCount = argCount, ReturnFrameBase = newFrame.ReturnBase }, context.CancellationToken);
+            var task = func.Func(new() { State = context.State, ArgumentCount = argCount, ReturnFrameBase = newFrame.ReturnBase }, context.CancellationToken);
 
             if (!task.IsCompleted)
             {
@@ -2178,7 +2187,7 @@ public static partial class LuaVirtualMachine
             state.PushCallStackFrame(newFrame);
             try
             {
-                var functionContext = new LuaFunctionExecutionContext {State = state, ArgumentCount = argCount, ReturnFrameBase = newBase };
+                var functionContext = new LuaFunctionExecutionContext { State = state, ArgumentCount = argCount, ReturnFrameBase = newBase };
                 if (state.CallOrReturnHookMask.Value != 0 && !state.IsInHook)
                 {
                     await ExecuteCallHook(functionContext, cancellationToken);
@@ -2257,7 +2266,7 @@ public static partial class LuaVirtualMachine
                 return true;
             }
 
-            var task = func.Func(new() {State = context.State, ArgumentCount = argCount, ReturnFrameBase = newFrame.ReturnBase }, context.CancellationToken);
+            var task = func.Func(new() { State = context.State, ArgumentCount = argCount, ReturnFrameBase = newFrame.ReturnBase }, context.CancellationToken);
 
             if (!task.IsCompleted)
             {
@@ -2344,7 +2353,7 @@ public static partial class LuaVirtualMachine
             state.PushCallStackFrame(newFrame);
             try
             {
-                var functionContext = new LuaFunctionExecutionContext {State = state, ArgumentCount = argCount, ReturnFrameBase = newBase };
+                var functionContext = new LuaFunctionExecutionContext { State = state, ArgumentCount = argCount, ReturnFrameBase = newBase };
                 if (state.CallOrReturnHookMask.Value != 0 && !state.IsInHook)
                 {
                     await ExecuteCallHook(functionContext, cancellationToken);
@@ -2503,7 +2512,6 @@ public static partial class LuaVirtualMachine
             state.Stack.SetTop(newBase + argumentCount);
         }
 
-
         // In the case of tailcall, the local variables of the caller are immediately discarded, so there is no need to retain them.
         // Therefore, a call can be made without allocating new registers.
         var currentBase = state.GetCurrentFrame().Base;
@@ -2532,7 +2540,6 @@ public static partial class LuaVirtualMachine
         GetstateWithCurrentPc(context.State, context.Pc);
         return context.State;
     }
-
 
     static void GetstateWithCurrentPc(LuaState state, int pc)
     {

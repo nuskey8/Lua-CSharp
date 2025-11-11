@@ -304,9 +304,7 @@ public class DebugLibrary
 
         var index = 1; // context.GetArgument<int>(1); //for lua 5.4
         var userValues = iUserData.UserValues;
-        if (index > userValues.Length
-            //index < 1 ||  // for lua 5.4
-           )
+        if (index > userValues.Length /* index < 1 ||  // for lua 5.4 */)
         {
             return new(context.Return(LuaValue.Nil));
         }
@@ -318,11 +316,9 @@ public class DebugLibrary
     {
         var iUserData = context.GetArgument<ILuaUserData>(0);
         var value = context.GetArgument(1);
-        var index = 1; // context.GetArgument<int>(2);// for lua 5.4
+        var index = 1; // context.GetArgument<int>(2); // for lua 5.4
         var userValues = iUserData.UserValues;
-        if (index > userValues.Length
-            //|| index < 1 // for lua 5.4
-           )
+        if (index > userValues.Length /* || index < 1 // for lua 5.4 */)
         {
             return new(context.Return(LuaValue.Nil));
         }
@@ -336,7 +332,7 @@ public class DebugLibrary
         var state = GetLuaThread(context, out var argOffset);
 
         var message = context.GetArgumentOrDefault(argOffset);
-        var level = context.GetArgumentOrDefault<int>(argOffset + 1, argOffset == 0 ? 1 : 0);
+        var level = context.GetArgumentOrDefault(argOffset + 1, argOffset == 0 ? 1 : 0);
 
         if (message.Type is not (LuaValueType.Nil or LuaValueType.String or LuaValueType.Number))
         {
@@ -348,7 +344,7 @@ public class DebugLibrary
             return new(context.Return(LuaValue.Nil));
         }
 
-        if (state is { IsCoroutine: true, LuaTraceback: {} traceback })
+        if (state is { IsCoroutine: true, LuaTraceback: { } traceback })
         {
             return new(context.Return(traceback.ToString(level)));
         }
@@ -454,7 +450,7 @@ public class DebugLibrary
 
     public ValueTask<int> GetHook(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
-        var state = GetLuaThread(context, out var argOffset);
+        var state = GetLuaThread(context, out _);
         if (state.Hook is null)
         {
             return new(context.Return(LuaValue.Nil, LuaValue.Nil, LuaValue.Nil));
@@ -469,9 +465,9 @@ public class DebugLibrary
 
     public ValueTask<int> GetInfo(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
-        //return new(0);
+        // return new(0);
         var state = GetLuaThread(context, out var argOffset);
-        var what = context.GetArgumentOrDefault<string>(argOffset + 1, "flnStu");
+        var what = context.GetArgumentOrDefault(argOffset + 1, "flnStu");
         CallStackFrame? previousFrame = null;
         CallStackFrame? currentFrame = null;
         var pc = 0;
@@ -479,7 +475,7 @@ public class DebugLibrary
 
         if (arg1.TryReadFunction(out var functionToInspect))
         {
-            //what = ">" + what;
+            // what = ">" + what;
         }
         else if (arg1.TryReadNumber(out _))
         {

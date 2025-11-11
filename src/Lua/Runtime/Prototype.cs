@@ -31,12 +31,11 @@ public sealed class Prototype(
 
     public ReadOnlySpan<UpValueDesc> UpValues => upValues;
 
-    //public LuaClosure Cache;
+    // public LuaClosure Cache;
     public readonly string ChunkName = chunkName;
     public readonly int LineDefined = lineDefined, LastLineDefined = lastLineDefined;
     public readonly int ParameterCount = parameterCount, MaxStackSize = maxStackSize;
     public readonly bool HasVariableArguments = hasVariableArguments;
-
 
     /// <summary>
     ///  Lua bytecode signature. If the bytes start with this signature, they are considered as Lua bytecode.

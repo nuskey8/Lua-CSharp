@@ -1,5 +1,3 @@
-using Lua.Runtime;
-
 namespace Lua;
 
 public class LuaFunction(string name, Func<LuaFunctionExecutionContext, CancellationToken, ValueTask<int>> func)

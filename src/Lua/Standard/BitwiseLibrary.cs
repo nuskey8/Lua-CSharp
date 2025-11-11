@@ -73,7 +73,6 @@ public sealed class BitwiseLibrary
             value &= v;
         }
 
-
         return new(context.Return(value));
     }
 

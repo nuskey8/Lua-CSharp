@@ -602,7 +602,7 @@ public ref struct Parser
             return false;
         }
 
-        // nested table access & function call
+    // nested table access & function call
     RECURSIVE:
         enumerator.SkipEoL();
 

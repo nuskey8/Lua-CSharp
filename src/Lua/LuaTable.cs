@@ -283,8 +283,7 @@ public sealed class LuaTable : IEnumerable<KeyValuePair<LuaValue, LuaValue>>
         }
 
         var prevLength = array.Length;
-        var newLength = array.Length;
-        newLength = newCapacity <= 8 ? 8 : MathEx.NextPowerOfTwo(newCapacity);
+        var newLength = newCapacity <= 8 ? 8 : MathEx.NextPowerOfTwo(newCapacity);
 
         Array.Resize(ref array, newLength);
 

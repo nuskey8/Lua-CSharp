@@ -176,122 +176,122 @@ class MatchState(LuaState state, string source, string pattern)
 
                 default:
                 Default:
-                {
-                    var ep = ClassEnd(Pattern, pIdx);
-                    if (!SingleMatch(sIdx, pIdx, ep))
                     {
-                        if (ep < Pattern.Length && Pattern[ep] is '*' or '?' or '-')
+                        var ep = ClassEnd(Pattern, pIdx);
+                        if (!SingleMatch(sIdx, pIdx, ep))
                         {
-                            pIdx = ep + 1;
-                            goto Init; // Continue the while loop with updated pIdx
+                            if (ep < Pattern.Length && Pattern[ep] is '*' or '?' or '-')
+                            {
+                                pIdx = ep + 1;
+                                goto Init; // Continue the while loop with updated pIdx
+                            }
+                            else
+                            {
+                                MatchDepth++;
+                                return -1;
+                            }
                         }
                         else
                         {
-                            MatchDepth++;
-                            return -1;
-                        }
-                    }
-                    else
-                    {
-                        if (ep >= Pattern.Length)
-                        {
-                            // No quantifier, we matched one occurrence
-                            sIdx++;
-                            pIdx = ep; // Move past this pattern element
-                            goto Init; // Continue matching with the rest of the pattern
-                        }
-
-                        switch (Pattern[ep])
-                        {
-                            case '?':
-                                {
-                                    // Try matching with this character
-                                    var res = Match(sIdx + 1, ep + 1);
-                                    if (res >= 0)
-                                    {
-                                        MatchDepth++;
-                                        return res;
-                                    }
-
-                                    pIdx = ep + 1;
-                                    goto Init;
-                                }
-
-                            case '+':
-                                // For +, we need at least one match (already verified)
-                                // Skip the first match we already verified
+                            if (ep >= Pattern.Length)
+                            {
+                                // No quantifier, we matched one occurrence
                                 sIdx++;
-                                // Now match zero or more additional occurrences
-                                goto case '*';
+                                pIdx = ep; // Move past this pattern element
+                                goto Init; // Continue matching with the rest of the pattern
+                            }
 
-                            case '*':
-                                // Match zero or more occurrences
-                                {
+                            switch (Pattern[ep])
+                            {
+                                case '?':
                                     {
-                                        var i = 0;
-                                        // Count how many we can match
-                                        while (sIdx + i < Source.Length && SingleMatch(sIdx + i, pIdx, ep))
-                                        {
-                                            i++;
-                                        }
-
-                                        // Try matching from longest to shortest
-                                        while (i >= 0)
-                                        {
-                                            var res = Match(sIdx + i, ep + 1);
-                                            if (res >= 0)
-                                            {
-                                                MatchDepth++;
-                                                return res;
-                                            }
-
-                                            i--;
-                                        }
-
-                                        MatchDepth++;
-                                        return -1;
-                                    }
-                                }
-
-                            case '-':
-                                // Match zero or more occurrences (minimal)
-                                {
-                                    // for (;;) {
-                                    //     const char *res = match(ms, s, ep+1);
-                                    //     if (res != NULL)
-                                    //         return res;
-                                    //     else if (singlematch(ms, s, p, ep))
-                                    //         s++;  /* try with one more repetition */
-                                    //     else return NULL;
-                                    // }
-                                    while (true)
-                                    {
-                                        var res = Match(sIdx, ep + 1);
+                                        // Try matching with this character
+                                        var res = Match(sIdx + 1, ep + 1);
                                         if (res >= 0)
                                         {
                                             MatchDepth++;
                                             return res;
                                         }
 
-                                        if (SingleMatch(sIdx, pIdx, ep))
+                                        pIdx = ep + 1;
+                                        goto Init;
+                                    }
+
+                                case '+':
+                                    // For +, we need at least one match (already verified)
+                                    // Skip the first match we already verified
+                                    sIdx++;
+                                    // Now match zero or more additional occurrences
+                                    goto case '*';
+
+                                case '*':
+                                    // Match zero or more occurrences
+                                    {
                                         {
-                                            sIdx++; // Try with one more repetition
-                                        }
-                                        else
-                                        {
+                                            var i = 0;
+                                            // Count how many we can match
+                                            while (sIdx + i < Source.Length && SingleMatch(sIdx + i, pIdx, ep))
+                                            {
+                                                i++;
+                                            }
+
+                                            // Try matching from longest to shortest
+                                            while (i >= 0)
+                                            {
+                                                var res = Match(sIdx + i, ep + 1);
+                                                if (res >= 0)
+                                                {
+                                                    MatchDepth++;
+                                                    return res;
+                                                }
+
+                                                i--;
+                                            }
+
                                             MatchDepth++;
-                                            return -1; // No match found
+                                            return -1;
                                         }
                                     }
-                                }
 
-                            default:
-                                sIdx++;
-                                pIdx = ep;
-                                goto Init; // Continue the while loop
+                                case '-':
+                                    // Match zero or more occurrences (minimal)
+                                    {
+                                        // for (;;) {
+                                        //     const char *res = match(ms, s, ep+1);
+                                        //     if (res != NULL)
+                                        //         return res;
+                                        //     else if (singlematch(ms, s, p, ep))
+                                        //         s++;  /* try with one more repetition */
+                                        //     else return NULL;
+                                        // }
+                                        while (true)
+                                        {
+                                            var res = Match(sIdx, ep + 1);
+                                            if (res >= 0)
+                                            {
+                                                MatchDepth++;
+                                                return res;
+                                            }
+
+                                            if (SingleMatch(sIdx, pIdx, ep))
+                                            {
+                                                sIdx++; // Try with one more repetition
+                                            }
+                                            else
+                                            {
+                                                MatchDepth++;
+                                                return -1; // No match found
+                                            }
+                                        }
+                                    }
+
+                                default:
+                                    sIdx++;
+                                    pIdx = ep;
+                                    goto Init; // Continue the while loop
+                            }
                         }
                     }
-                }
             }
         }
 

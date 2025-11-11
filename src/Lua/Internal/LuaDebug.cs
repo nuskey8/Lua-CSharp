@@ -679,49 +679,48 @@ readonly struct LuaDebug : IDisposable
         return (t << 7) | (a << 6) | ((byte)b << 4) | ((byte)c << 2) | (byte)m;
     }
 
-
     static readonly int[] OpModes =
     [
-        GetOpMode(0, 1, OpArgR, OpArgN, iABC), /* OP_MOVE */
-        GetOpMode(0, 1, OpArgK, OpArgN, iABx), /* OP_LOADK */
-        GetOpMode(0, 1, OpArgN, OpArgN, iABx), /* OP_LOADKX */
-        GetOpMode(0, 1, OpArgU, OpArgU, iABC), /* OP_LOADBOOL */
-        GetOpMode(0, 1, OpArgU, OpArgN, iABC), /* OP_LOADNIL */
-        GetOpMode(0, 1, OpArgU, OpArgN, iABC), /* OP_GETUPVAL */
-        GetOpMode(0, 1, OpArgU, OpArgK, iABC), /* OP_GETTABUP */
-        GetOpMode(0, 1, OpArgR, OpArgK, iABC), /* OP_GETTABLE */
-        GetOpMode(0, 0, OpArgK, OpArgK, iABC), /* OP_SETTABUP */
-        GetOpMode(0, 0, OpArgU, OpArgN, iABC), /* OP_SETUPVAL */
-        GetOpMode(0, 0, OpArgK, OpArgK, iABC), /* OP_SETTABLE */
-        GetOpMode(0, 1, OpArgU, OpArgU, iABC), /* OP_NEWTABLE */
-        GetOpMode(0, 1, OpArgR, OpArgK, iABC), /* OP_SELF */
-        GetOpMode(0, 1, OpArgK, OpArgK, iABC), /* OP_ADD */
-        GetOpMode(0, 1, OpArgK, OpArgK, iABC), /* OP_SUB */
-        GetOpMode(0, 1, OpArgK, OpArgK, iABC), /* OP_MUL */
-        GetOpMode(0, 1, OpArgK, OpArgK, iABC), /* OP_DIV */
-        GetOpMode(0, 1, OpArgK, OpArgK, iABC), /* OP_MOD */
-        GetOpMode(0, 1, OpArgK, OpArgK, iABC), /* OP_POW */
-        GetOpMode(0, 1, OpArgR, OpArgN, iABC), /* OP_UNM */
-        GetOpMode(0, 1, OpArgR, OpArgN, iABC), /* OP_NOT */
-        GetOpMode(0, 1, OpArgR, OpArgN, iABC), /* OP_LEN */
-        GetOpMode(0, 1, OpArgR, OpArgR, iABC), /* OP_CONCAT */
+        GetOpMode(0, 1, OpArgR, OpArgN, iABC),  /* OP_MOVE */
+        GetOpMode(0, 1, OpArgK, OpArgN, iABx),  /* OP_LOADK */
+        GetOpMode(0, 1, OpArgN, OpArgN, iABx),  /* OP_LOADKX */
+        GetOpMode(0, 1, OpArgU, OpArgU, iABC),  /* OP_LOADBOOL */
+        GetOpMode(0, 1, OpArgU, OpArgN, iABC),  /* OP_LOADNIL */
+        GetOpMode(0, 1, OpArgU, OpArgN, iABC),  /* OP_GETUPVAL */
+        GetOpMode(0, 1, OpArgU, OpArgK, iABC),  /* OP_GETTABUP */
+        GetOpMode(0, 1, OpArgR, OpArgK, iABC),  /* OP_GETTABLE */
+        GetOpMode(0, 0, OpArgK, OpArgK, iABC),  /* OP_SETTABUP */
+        GetOpMode(0, 0, OpArgU, OpArgN, iABC),  /* OP_SETUPVAL */
+        GetOpMode(0, 0, OpArgK, OpArgK, iABC),  /* OP_SETTABLE */
+        GetOpMode(0, 1, OpArgU, OpArgU, iABC),  /* OP_NEWTABLE */
+        GetOpMode(0, 1, OpArgR, OpArgK, iABC),  /* OP_SELF */
+        GetOpMode(0, 1, OpArgK, OpArgK, iABC),  /* OP_ADD */
+        GetOpMode(0, 1, OpArgK, OpArgK, iABC),  /* OP_SUB */
+        GetOpMode(0, 1, OpArgK, OpArgK, iABC),  /* OP_MUL */
+        GetOpMode(0, 1, OpArgK, OpArgK, iABC),  /* OP_DIV */
+        GetOpMode(0, 1, OpArgK, OpArgK, iABC),  /* OP_MOD */
+        GetOpMode(0, 1, OpArgK, OpArgK, iABC),  /* OP_POW */
+        GetOpMode(0, 1, OpArgR, OpArgN, iABC),  /* OP_UNM */
+        GetOpMode(0, 1, OpArgR, OpArgN, iABC),  /* OP_NOT */
+        GetOpMode(0, 1, OpArgR, OpArgN, iABC),  /* OP_LEN */
+        GetOpMode(0, 1, OpArgR, OpArgR, iABC),  /* OP_CONCAT */
         GetOpMode(0, 0, OpArgR, OpArgN, iAsBx), /* OP_JMP */
-        GetOpMode(1, 0, OpArgK, OpArgK, iABC), /* OP_EQ */
-        GetOpMode(1, 0, OpArgK, OpArgK, iABC), /* OP_LT */
-        GetOpMode(1, 0, OpArgK, OpArgK, iABC), /* OP_LE */
-        GetOpMode(1, 0, OpArgN, OpArgU, iABC), /* OP_TEST */
-        GetOpMode(1, 1, OpArgR, OpArgU, iABC), /* OP_TESTSET */
-        GetOpMode(0, 1, OpArgU, OpArgU, iABC), /* OP_CALL */
-        GetOpMode(0, 1, OpArgU, OpArgU, iABC), /* OP_TAILCALL */
-        GetOpMode(0, 0, OpArgU, OpArgN, iABC), /* OP_RETURN */
+        GetOpMode(1, 0, OpArgK, OpArgK, iABC),  /* OP_EQ */
+        GetOpMode(1, 0, OpArgK, OpArgK, iABC),  /* OP_LT */
+        GetOpMode(1, 0, OpArgK, OpArgK, iABC),  /* OP_LE */
+        GetOpMode(1, 0, OpArgN, OpArgU, iABC),  /* OP_TEST */
+        GetOpMode(1, 1, OpArgR, OpArgU, iABC),  /* OP_TESTSET */
+        GetOpMode(0, 1, OpArgU, OpArgU, iABC),  /* OP_CALL */
+        GetOpMode(0, 1, OpArgU, OpArgU, iABC),  /* OP_TAILCALL */
+        GetOpMode(0, 0, OpArgU, OpArgN, iABC),  /* OP_RETURN */
         GetOpMode(0, 1, OpArgR, OpArgN, iAsBx), /* OP_FORLOOP */
         GetOpMode(0, 1, OpArgR, OpArgN, iAsBx), /* OP_FORPREP */
-        GetOpMode(0, 0, OpArgN, OpArgU, iABC), /* OP_TFORCALL */
+        GetOpMode(0, 0, OpArgN, OpArgU, iABC),  /* OP_TFORCALL */
         GetOpMode(0, 1, OpArgR, OpArgN, iAsBx), /* OP_TFORLOOP */
-        GetOpMode(0, 0, OpArgU, OpArgU, iABC), /* OP_SETLIST */
-        GetOpMode(0, 1, OpArgU, OpArgN, iABx), /* OP_CLOSURE */
-        GetOpMode(0, 1, OpArgU, OpArgN, iABC), /* OP_VARARG */
-        GetOpMode(0, 0, OpArgU, OpArgU, iAx) /* OP_EXTRAARG */
+        GetOpMode(0, 0, OpArgU, OpArgU, iABC),  /* OP_SETLIST */
+        GetOpMode(0, 1, OpArgU, OpArgN, iABx),  /* OP_CLOSURE */
+        GetOpMode(0, 1, OpArgU, OpArgN, iABC),  /* OP_VARARG */
+        GetOpMode(0, 0, OpArgU, OpArgU, iAx)    /* OP_EXTRAARG */
     ];
 
     internal static OpMode GetOpMode(OpCode m)
@@ -763,5 +762,5 @@ enum OpArgMask : byte
     OpArgN, /* argument is not used */
     OpArgU, /* argument is used */
     OpArgR, /* argument is a register or a jump offset */
-    OpArgK /* argument is a constant or register/constant */
+    OpArgK, /* argument is a constant or register/constant */
 }

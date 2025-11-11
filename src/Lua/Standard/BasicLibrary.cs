@@ -1,6 +1,5 @@
 using System.Globalization;
 using Lua.Internal;
-using Lua.IO;
 using Lua.Runtime;
 
 // ReSharper disable MethodHasAsyncOverloadWithCancellation

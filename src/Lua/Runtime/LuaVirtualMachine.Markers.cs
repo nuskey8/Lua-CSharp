@@ -1,6 +1,4 @@
-﻿using System.Diagnostics.CodeAnalysis;
-using System.Runtime.CompilerServices;
-using Lua.Internal;
+﻿using System.Runtime.CompilerServices;
 using System.Diagnostics;
 
 // ReSharper disable InconsistentNaming

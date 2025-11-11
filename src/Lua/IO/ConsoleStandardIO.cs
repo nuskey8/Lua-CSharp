@@ -8,6 +8,8 @@ namespace Lua.IO;
 public sealed class ConsoleStandardIO : ILuaStandardIO
 {
     ILuaStream? standardInput;
+    ILuaStream? standardOutput;
+    ILuaStream? standardError;
 
     public ILuaStream Input =>
         standardInput ??=
@@ -15,16 +17,11 @@ public sealed class ConsoleStandardIO : ILuaStandardIO
                 ConsoleHelper.OpenStandardInput(),
                 LuaFileOpenMode.Read));
 
-    ILuaStream? standardOutput;
-
     public ILuaStream Output =>
         standardOutput ??=
             new StandardIOStream(ILuaStream.CreateFromStream(
                 ConsoleHelper.OpenStandardOutput(),
                 LuaFileOpenMode.Write));
-
-
-    ILuaStream? standardError;
 
     public ILuaStream Error =>
         standardError ??=

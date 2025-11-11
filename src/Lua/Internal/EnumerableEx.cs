@@ -10,14 +10,13 @@ static class EnumerableEx
         if (keySelector == null)
             throw new ArgumentNullException(nameof(keySelector));
 
-
         using var enumerator = source.GetEnumerator();
         if (!enumerator.MoveNext())
         {
             yield break;
         }
 
-        List<T> group = new() { enumerator.Current };
+        List<T> group = [enumerator.Current];
         var previousKey = keySelector(enumerator.Current);
 
         while (enumerator.MoveNext())

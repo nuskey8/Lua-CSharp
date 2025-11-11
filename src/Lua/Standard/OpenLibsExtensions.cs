@@ -1,4 +1,3 @@
-using Lua.IO;
 using Lua.Runtime;
 
 namespace Lua.Standard;
@@ -155,7 +154,6 @@ public static class OpenLibsExtensions
         globalState.Environment["table"] = table;
         globalState.LoadedModules["table"] = table;
     }
-
 
     public static void OpenDebugLibrary(this LuaState state)
     {

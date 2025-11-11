@@ -8,5 +8,4 @@ internal static class CancellationTokenExtensions
         return cancellationToken.Register(callback, state, useSynchronizationContext: false);
     }
 }
-
 #endif

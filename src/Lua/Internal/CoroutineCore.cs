@@ -5,16 +5,9 @@ using System.Threading.Tasks.Sources;
 
 namespace Lua.Internal;
 
-class CoroutineCore:IValueTaskSource<CoroutineCore.YieldContext>, IValueTaskSource<CoroutineCore.ResumeContext>
+class CoroutineCore(LuaState state, LuaFunction function, bool isProtectedMode) : IValueTaskSource<CoroutineCore.YieldContext>,
+    IValueTaskSource<CoroutineCore.ResumeContext>
 {
-    
-    public CoroutineCore(LuaState state, LuaFunction function, bool isProtectedMode)
-    {
-        Thread = state;
-        Function = function;
-        IsProtectedMode = isProtectedMode;
-        status = (byte)LuaThreadStatus.Suspended;
-    }
     readonly struct YieldContext(LuaStack stack, int argCount)
     {
         public ReadOnlySpan<LuaValue> Results => stack.AsSpan()[^argCount..];
@@ -23,24 +16,22 @@ class CoroutineCore:IValueTaskSource<CoroutineCore.YieldContext>, IValueTaskSour
     readonly struct ResumeContext(LuaStack? stack, int argCount)
     {
         public ReadOnlySpan<LuaValue> Results => stack!.AsSpan()[^argCount..];
-
         public bool IsDead => stack == null;
     }
-    internal byte status ;
+
+    internal byte status = (byte)LuaThreadStatus.Suspended;
     bool isFirstCall = true;
     ValueTask<int> functionTask;
 
     ManualResetValueTaskSourceCore<ResumeContext> resume;
     ManualResetValueTaskSourceCore<YieldContext> yield;
     Traceback? traceback;
-    
-    public bool IsProtectedMode { get; private set; }
-    public LuaFunction Function { get; private set; } = null!;
-    
-    public LuaState Thread { get; private set; } = null!;
-    
+
+    public bool IsProtectedMode { get; private set; } = isProtectedMode;
+    public LuaFunction Function { get; private set; } = function;
+    public LuaState Thread { get; private set; } = state;
     public Traceback? Traceback => traceback;
-    
+
     YieldContext IValueTaskSource<YieldContext>.GetResult(short token)
     {
         return yield.GetResult(token);
@@ -70,8 +61,8 @@ class CoroutineCore:IValueTaskSource<CoroutineCore.YieldContext>, IValueTaskSour
     {
         resume.OnCompleted(continuation, state, token, flags);
     }
-    
-     [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder<>))]
+
+    [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder<>))]
     internal async ValueTask<int> ResumeAsyncCore(LuaStack stack, int argCount, int returnBase, LuaState? baseThread, CancellationToken cancellationToken = default)
     {
         if (baseThread != null)
@@ -138,7 +129,7 @@ class CoroutineCore:IValueTaskSource<CoroutineCore.YieldContext>, IValueTaskSour
                 if (isFirstCall)
                 {
                     Thread.Stack.PushRange(stack.AsSpan()[^argCount..]);
-                    //functionTask = Function.InvokeAsync(new() { Access = this.CurrentAccess, ArgumentCount = Stack.Count, ReturnFrameBase = 0 }, cancellationToken);
+                    // functionTask = Function.InvokeAsync(new() { Access = this.CurrentAccess, ArgumentCount = Stack.Count, ReturnFrameBase = 0 }, cancellationToken);
                     functionTask = Thread.RunAsync(Function, Thread.Stack.Count, cancellationToken);
                     Volatile.Write(ref isFirstCall, false);
                     if (!functionTask.IsCompleted)
@@ -204,6 +195,7 @@ class CoroutineCore:IValueTaskSource<CoroutineCore.YieldContext>, IValueTaskSour
             }
         }
     }
+
     [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder<>))]
     internal async ValueTask<int> YieldAsyncCore(LuaStack stack, int argCount, int returnBase, LuaState? baseThread, CancellationToken cancellationToken = default)
     {
@@ -221,7 +213,6 @@ class CoroutineCore:IValueTaskSource<CoroutineCore.YieldContext>, IValueTaskSour
         }
 
         resume.SetResult(new(stack, argCount));
-
 
         CancellationTokenRegistration registration = default;
         if (cancellationToken.CanBeCanceled)

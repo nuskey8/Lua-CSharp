@@ -8,22 +8,20 @@ namespace Lua;
 public readonly record struct LuaFunctionExecutionContext
 {
     internal LuaGlobalState GlobalState => State.GlobalState;
-    
-    public LuaState State { get; init; }
 
+    public LuaState State { get; init; }
     public required int ArgumentCount { get; init; }
+    public required int ReturnFrameBase { get; init; }
+    // public object? AdditionalContext { get; init; }
 
     public int FrameBase => State.Stack.Count - ArgumentCount;
-
-    public required int ReturnFrameBase { get; init; }
-    //public object? AdditionalContext { get; init; }
 
     public ReadOnlySpan<LuaValue> Arguments
     {
         get
         {
             var stack = State.Stack.AsSpan();
-            return stack.Slice(stack.Length - ArgumentCount);
+            return stack[^ArgumentCount..];
         }
     }
 

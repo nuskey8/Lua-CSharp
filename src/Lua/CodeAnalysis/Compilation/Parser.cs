@@ -382,8 +382,7 @@ class Parser : IPoolNode<Parser>, IDisposable
 
     public static int UnaryPriority => 8;
 
-
-    public (ExprDesc, int ) SubExpression(int limit)
+    public (ExprDesc, int) SubExpression(int limit)
     {
         using var b = EnterLevel();
         ExprDesc e;

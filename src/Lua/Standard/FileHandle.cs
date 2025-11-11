@@ -89,7 +89,6 @@ public class FileHandle : ILuaUserData
         return stream.WriteAsync(content, cancellationToken);
     }
 
-
     public long Seek(string whence, long offset)
     {
         return whence switch

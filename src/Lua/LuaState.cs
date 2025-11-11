@@ -1,9 +1,9 @@
-using Lua.CodeAnalysis.Compilation;
 using System.Runtime.CompilerServices;
+using System.Buffers;
 using Lua.Internal;
 using Lua.Platforms;
 using Lua.Runtime;
-using System.Buffers;
+using Lua.CodeAnalysis.Compilation;
 
 namespace Lua;
 
@@ -47,7 +47,6 @@ public class LuaState : IDisposable
     {
         return new(GlobalState, function, isProtectedMode);
     }
-
 
     public LuaThreadStatus GetStatus()
     {
@@ -113,7 +112,7 @@ public class LuaState : IDisposable
 
     class ThreadCoreData : IPoolNode<ThreadCoreData>
     {
-        //internal  LuaCoroutineData? coroutineData;
+        // internal LuaCoroutineData? coroutineData;
         internal readonly LuaStack Stack = new();
         internal FastStackCore<CallStackFrame> CallStack;
 
@@ -145,7 +144,6 @@ public class LuaState : IDisposable
         }
     }
 
-
     FastListCore<UpValue> openUpValues;
     internal int CallCount;
     internal LuaGlobalState GlobalState { get; }
@@ -168,21 +166,13 @@ public class LuaState : IDisposable
     internal LuaFunction? Hook { get; set; }
 
     public LuaFunction? CoroutineFunction => coroutine?.Function;
-
     public bool CanResume => GetStatus() == LuaThreadStatus.Suspended;
-
     public LuaStack Stack => CoreData!.Stack;
-
     internal Traceback? LuaTraceback => coroutine?.Traceback;
-
     public LuaTable Environment => GlobalState.Environment;
-
     public LuaTable Registry => GlobalState.Registry;
-
     public LuaTable LoadedModules => GlobalState.LoadedModules;
-
     public LuaTable PreloadModules => GlobalState.PreloadModules;
-
     public LuaState MainThread => GlobalState.MainThread;
 
     public ILuaModuleLoader? ModuleLoader
@@ -225,7 +215,6 @@ public class LuaState : IDisposable
     {
         return CoreData == null ? default : CoreData!.CallStack.AsSpan();
     }
-
 
     internal CallStackFrame CreateCallStackFrame(LuaFunction function, int argumentCount, int returnBase, int callerInstructionIndex)
     {
@@ -427,7 +416,6 @@ public class LuaState : IDisposable
         }
     }
 
-
     public unsafe LuaClosure Load(ReadOnlySpan<char> chunk, string chunkName, LuaTable? environment = null)
     {
         Prototype prototype;
@@ -466,7 +454,6 @@ public class LuaState : IDisposable
             ArrayPool<char>.Shared.Return(pooled);
         }
     }
-
 
     internal UpValue GetOrAddUpValue(int registerIndex)
     {

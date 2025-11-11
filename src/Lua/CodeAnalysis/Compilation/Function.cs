@@ -776,19 +776,19 @@ class Function : IPoolNode<Function>
                 break;
             case Kind.Indexed:
                 FreeRegister(e.Index);
-            {
-                if (e.TableType == Kind.Local)
                 {
-                    FreeRegister(e.Table);
-                    e.Kind = Kind.Relocatable;
-                    e.Info = EncodeABC(OpCode.GetTable, 0, e.Table, e.Index);
+                    if (e.TableType == Kind.Local)
+                    {
+                        FreeRegister(e.Table);
+                        e.Kind = Kind.Relocatable;
+                        e.Info = EncodeABC(OpCode.GetTable, 0, e.Table, e.Index);
+                    }
+                    else
+                    {
+                        e.Kind = Kind.Relocatable;
+                        e.Info = EncodeABC(OpCode.GetTabUp, 0, e.Table, e.Index);
+                    }
                 }
-                else
-                {
-                    e.Kind = Kind.Relocatable;
-                    e.Info = EncodeABC(OpCode.GetTabUp, 0, e.Table, e.Index);
-                }
-            }
                 break;
             case Kind.VarArg:
             case Kind.Call:

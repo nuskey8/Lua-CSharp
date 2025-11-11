@@ -1,11 +1,9 @@
 ﻿using Lua.Internal;
 using System.Globalization;
-using System.Text;
 using static System.Diagnostics.Debug;
+using static Lua.Internal.Constants;
 
 namespace Lua.CodeAnalysis.Compilation;
-
-using static Constants;
 
 struct Scanner
 {
@@ -18,10 +16,10 @@ struct Scanner
     public Token LookAheadToken;
     int lastNewLinePos;
     public StringInternPool StringPool;
-    
+
     string Intern(ReadOnlySpan<char> s) => StringPool.Intern(s);
 
-    ///inline
+    // inline
     public Token Token;
 
     public int T => Token.T;
@@ -29,7 +27,7 @@ struct Scanner
     public const int FirstReserved = ushort.MaxValue + 257;
     public const int EndOfStream = -1;
 
-    public const int MaxInt = int.MaxValue >> (1 + 1); //9223372036854775807
+    public const int MaxInt = int.MaxValue >> (1 + 1); // 9223372036854775807
 
     public const int TkAnd = FirstReserved;
     public const int TkBreak = TkAnd + 1;
@@ -235,7 +233,7 @@ struct Scanner
             IncrementLineNumber();
         }
 
-        for (;;)
+        for (; ; )
         {
             switch (Current)
             {
@@ -249,7 +247,7 @@ struct Scanner
                         SaveAndAdvance();
                         if (!comment)
                         {
-                            var s = Intern( Buffer.AsSpan().Slice(2 + sep, Buffer.Length - (4 + (2 * sep))));
+                            var s = Intern(Buffer.AsSpan().Slice(2 + sep, Buffer.Length - (4 + (2 * sep))));
                             Buffer.Clear();
                             return s;
                         }
@@ -304,7 +302,7 @@ struct Scanner
 
         position++;
         var i = 0;
-        for (;;)
+        for (; ; )
         {
             switch (c)
             {
@@ -539,7 +537,7 @@ struct Scanner
                     ScanError(R.Position, "unfinished string", TkEos);
                     break;
                 case '\n' or '\r':
-                    Token = new(R.Position - Buffer.Length, TkString,Intern( Buffer.AsSpan()));
+                    Token = new(R.Position - Buffer.Length, TkString, Intern(Buffer.AsSpan()));
                     ScanError(R.Position, "unfinished string", TkString);
                     break;
                 case '\\':
@@ -593,7 +591,7 @@ struct Scanner
 
         SaveAndAdvance();
         var length = Buffer.Length - 2;
-        // if (0<length&&Buffer[^2] == '\0')
+        // if (0 < length && Buffer[^2] == '\0')
         // {
         //     length--;
         // }

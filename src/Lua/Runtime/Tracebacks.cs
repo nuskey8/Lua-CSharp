@@ -5,14 +5,12 @@ namespace Lua.Runtime;
 
 public class Traceback(LuaState state, ReadOnlySpan<CallStackFrame> stackFrames)
 {
+    readonly CallStackFrame[] stackFramesArray = stackFrames.ToArray();
+
     internal LuaGlobalState GlobalState => state.GlobalState;
 
     public LuaState State => state;
-
     public LuaFunction RootFunc => StackFrames[0].Function;
-
-    readonly CallStackFrame[] stackFramesArray = stackFrames.ToArray();
-
     public ReadOnlySpan<CallStackFrame> StackFrames => stackFramesArray;
 
     internal static void WriteLastLuaTrace(ReadOnlySpan<CallStackFrame> stackFrames, ref PooledList<char> list, int level = 1)
@@ -60,6 +58,7 @@ public class Traceback(LuaState state, ReadOnlySpan<CallStackFrame> stackFrames)
         get
         {
             var stackFrames = StackFrames;
+
             for (var index = stackFrames.Length - 1; index >= 1; index--)
             {
                 var lastFunc = stackFrames[index - 1].Function;
@@ -77,7 +76,6 @@ public class Traceback(LuaState state, ReadOnlySpan<CallStackFrame> stackFrames)
                 }
             }
 
-
             return default;
         }
     }
@@ -87,6 +85,7 @@ public class Traceback(LuaState state, ReadOnlySpan<CallStackFrame> stackFrames)
         get
         {
             var stackFrames = StackFrames;
+
             for (var index = 1; index <= stackFrames.Length; index++)
             {
                 var lastFunc = stackFrames[index - 1].Function;
@@ -184,7 +183,6 @@ public class Traceback(LuaState state, ReadOnlySpan<CallStackFrame> stackFrames)
                     list.AddRange(intFormatBuffer[..charsWritten]);
                 }
 
-
                 list.AddRange(": in ");
                 if (p.LineDefined == 0)
                 {
@@ -239,7 +237,6 @@ public class Traceback(LuaState state, ReadOnlySpan<CallStackFrame> stackFrames)
                     }
                 }
 
-
                 list.AddRange("function <");
                 list.AddRange(shortSourceBuffer[..len]);
                 list.AddRange(":");
@@ -249,7 +246,7 @@ public class Traceback(LuaState state, ReadOnlySpan<CallStackFrame> stackFrames)
                     list.AddRange(">\n");
                 }
 
-            Next: ;
+            Next:;
             }
         }
 

@@ -1,11 +1,9 @@
 using System.Runtime.CompilerServices;
+using System.Text;
+using System.Text.RegularExpressions;
 using Lua.Runtime;
 using Lua;
 using Lua.Standard;
-using System.Text.RegularExpressions;
-using System;
-using System.IO;
-using System.Text;
 
 var state = LuaState.Create();
 state.OpenStandardLibraries();
@@ -20,9 +18,7 @@ try
 {
     source = File.ReadAllText(GetAbsolutePath("test.lua"));
 
-
-    //Console.WriteLine("Source Code " + new string('-', 50));
-
+    // Console.WriteLine("Source Code " + new string('-', 50));
     // Console.WriteLine(source);
 
     var closure = state.Load(source, "@test.lua");
@@ -31,7 +27,8 @@ try
 
     Console.WriteLine("Output " + new string('-', 50));
 
-    //Console.Read();
+    // Console.Read();
+
     var timer = new System.Diagnostics.Stopwatch();
     timer.Start();
     for (var i = 0; i < 1000; i++)
@@ -44,7 +41,6 @@ try
             Thread.Sleep(100);
         }
     }
-
 
     // Console.WriteLine("Result " + new string('-', 50));
     // using var results = state.RootAccess.ReadTopValues(count);
@@ -61,7 +57,6 @@ catch (Exception ex)
     {
         Console.WriteLine("CompileError " + new string('-', 50));
         Console.WriteLine(RustLikeExceptionHook.OnCatch(source, luaCompileException));
-        ;
         Console.WriteLine(new string('-', 55));
     }
 

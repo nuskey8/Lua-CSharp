@@ -20,5 +20,4 @@ public record LuaPlatform(ILuaFileSystem FileSystem, ILuaOsEnvironment OsEnviron
             OsEnvironment: new SystemOsEnvironment(),
             StandardIO: new ConsoleStandardIO(),
             TimeProvider: TimeProvider.System);
-
 }

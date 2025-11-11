@@ -24,42 +24,24 @@ public static class Metamethods
 
     internal static (string Name, string Description) GetNameAndDescription(this OpCode opCode)
     {
-        switch (opCode)
+        return opCode switch
         {
-            case OpCode.GetTabUp:
-            case OpCode.GetTable:
-            case OpCode.Self:
-                return (Index, "index");
-            case OpCode.SetTabUp:
-            case OpCode.SetTable:
-                return (NewIndex, "new index");
-            case OpCode.Add:
-                return (Add, "add");
-            case OpCode.Sub:
-                return (Sub, "sub");
-            case OpCode.Mul:
-                return (Mul, "mul");
-            case OpCode.Div:
-                return (Div, "div");
-            case OpCode.Mod:
-                return (Mod, "mod");
-            case OpCode.Pow:
-                return (Pow, "pow");
-            case OpCode.Unm:
-                return (Unm, "unm");
-            case OpCode.Len:
-                return (Len, "get length of");
-            case OpCode.Eq:
-                return (Eq, "eq");
-            case OpCode.Lt:
-                return (Lt, "lt");
-            case OpCode.Le:
-                return (Le, "le");
-            case OpCode.Call:
-                return (Call, "call");
-            case OpCode.Concat:
-                return (Concat, "concatenate");
-            default: return (opCode.ToString(), opCode.ToString());
-        }
+            OpCode.GetTabUp or OpCode.GetTable or OpCode.Self => (Index, "index"),
+            OpCode.SetTabUp or OpCode.SetTable => (NewIndex, "new index"),
+            OpCode.Add => (Add, "add"),
+            OpCode.Sub => (Sub, "sub"),
+            OpCode.Mul => (Mul, "mul"),
+            OpCode.Div => (Div, "div"),
+            OpCode.Mod => (Mod, "mod"),
+            OpCode.Pow => (Pow, "pow"),
+            OpCode.Unm => (Unm, "unm"),
+            OpCode.Len => (Len, "get length of"),
+            OpCode.Eq => (Eq, "eq"),
+            OpCode.Lt => (Lt, "lt"),
+            OpCode.Le => (Le, "le"),
+            OpCode.Call => (Call, "call"),
+            OpCode.Concat => (Concat, "concatenate"),
+            _ => (opCode.ToString(), opCode.ToString()),
+        };
     }
 }

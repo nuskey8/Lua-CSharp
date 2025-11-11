@@ -1,7 +1,5 @@
-using System.Text;
 using Lua.Internal;
 using Lua.IO;
-using Lua.Runtime;
 
 namespace Lua.Standard.Internal;
 
@@ -37,7 +35,6 @@ static class IOHelper
     }
 
     // TODO: optimize (use IBuffertWrite<byte>, async)
-
     public static async ValueTask<int> WriteAsync(FileHandle file, string name, LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
         try

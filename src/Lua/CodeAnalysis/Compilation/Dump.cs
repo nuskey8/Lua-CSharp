@@ -15,7 +15,6 @@ namespace Lua.CodeAnalysis.Compilation;
 unsafe struct Header
 {
     public static ReadOnlySpan<byte> LuaSignature => "\eLua"u8;
-
     public static ReadOnlySpan<byte> LuaTail => [0x19, 0x93, 0x0d, 0x0a, 0x1a, 0x0a];
 
     public fixed byte Signature[4];
@@ -127,17 +126,17 @@ unsafe ref struct DumpState(IBufferWriter<byte> writer, bool reversedEndian)
 
     void DumpFunction(Prototype prototype)
     {
-        WriteInt(prototype.LineDefined); //4
-        WriteInt(prototype.LastLineDefined); //4
-        WriteByte((byte)prototype.ParameterCount); //1
-        WriteByte((byte)prototype.MaxStackSize); //1
-        WriteByte((byte)(prototype.HasVariableArguments ? 1 : 0)); //1
-        WriteIntSpanWithLength(MemoryMarshal.Cast<Instruction, int>(prototype.Code)); //4
-        WriteConstants(prototype.Constants); //4
-        WritePrototypes(prototype.ChildPrototypes); //4
-        WriteUpValues(prototype.UpValues); //4
+        WriteInt(prototype.LineDefined); // 4
+        WriteInt(prototype.LastLineDefined); // 4
+        WriteByte((byte)prototype.ParameterCount); // 1
+        WriteByte((byte)prototype.MaxStackSize); // 1
+        WriteByte((byte)(prototype.HasVariableArguments ? 1 : 0)); // 1
+        WriteIntSpanWithLength(MemoryMarshal.Cast<Instruction, int>(prototype.Code)); // 4
+        WriteConstants(prototype.Constants); // 4
+        WritePrototypes(prototype.ChildPrototypes); // 4
+        WriteUpValues(prototype.UpValues); // 4
 
-        //Debug
+        // Debug
         WriteString(prototype.ChunkName);
         WriteIntSpanWithLength(prototype.LineInfo);
         WriteLocalVariables(prototype.LocalVariables);
@@ -178,7 +177,6 @@ unsafe ref struct DumpState(IBufferWriter<byte> writer, bool reversedEndian)
         var l = BitConverter.DoubleToInt64Bits(v);
         WriteLong(l);
     }
-
 
     void WriteIntSpanWithLength(ReadOnlySpan<int> v)
     {
@@ -387,11 +385,11 @@ unsafe ref struct UnDumpState(ReadOnlySpan<byte> span, ReadOnlySpan<char> name, 
 
     Prototype UnDumpFunction()
     {
-        var lineDefined = ReadInt(); //4
-        var lastLineDefined = ReadInt(); //4
-        var parameterCount = ReadByte(); //1
-        var maxStackSize = ReadByte(); //1
-        var isVarArg = ReadByte() == 1; //1
+        var lineDefined = ReadInt(); // 4
+        var lastLineDefined = ReadInt(); // 4
+        var parameterCount = ReadByte(); // 1
+        var maxStackSize = ReadByte(); // 1
+        var isVarArg = ReadByte() == 1; // 1
         var codeLength = ReadInt();
         var code = new Instruction[codeLength];
         ReadInToIntSpan(MemoryMarshal.Cast<Instruction, int>(code));
@@ -399,7 +397,7 @@ unsafe ref struct UnDumpState(ReadOnlySpan<byte> span, ReadOnlySpan<char> name, 
         var prototypes = ReadPrototypes();
         var upValues = ReadUpValues();
 
-        //Debug
+        // Debug
         var source = ReadString();
         var lineInfoLength = ReadInt();
         var lineInfo = new int[lineInfoLength];
@@ -444,7 +442,7 @@ unsafe ref struct UnDumpState(ReadOnlySpan<byte> span, ReadOnlySpan<char> name, 
 
             var l = ReadByte();
             Debug.Assert(l == 0);
-            var chars = len <= 128 ? stackalloc char[len*2] : (charArrayPooled = ArrayPool<char>.Shared.Rent(len * 2));
+            var chars = len <= 128 ? stackalloc char[len * 2] : (charArrayPooled = ArrayPool<char>.Shared.Rent(len * 2));
             var count = Encoding.UTF8.GetChars(span, chars);
             return internPool.Intern(chars[..count]);
         }
