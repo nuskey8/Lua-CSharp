@@ -71,7 +71,7 @@ public class LuaCompileException(string chunkName, SourcePosition position, int 
     }
 }
 
-public class LuaUnDumpException(string message) : Exception(message);
+public class LuaUndumpException(string message) : Exception(message);
 
 class LuaStackOverflowException() : Exception("stack overflow")
 {
