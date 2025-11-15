@@ -52,7 +52,7 @@ unsafe struct Header
         {
             if (!LuaSignature.SequenceEqual(new(signature, 4)))
             {
-                throw new LuaUnDumpException($"{name.ToString()}: is not a precompiled chunk");
+                throw new LuaUndumpException($"{name.ToString()}: is not a precompiled chunk");
             }
         }
 
@@ -60,7 +60,7 @@ unsafe struct Header
         var minor = Version & 0xF;
         if (major != Constants.VersionMajor || minor != Constants.VersionMinor)
         {
-            throw new LuaUnDumpException($"{name.ToString()}: version mismatch in precompiled chunk {major}.{minor} != {Constants.VersionMajor}.{Constants.VersionMinor}");
+            throw new LuaUndumpException($"{name.ToString()}: version mismatch in precompiled chunk {major}.{minor} != {Constants.VersionMajor}.{Constants.VersionMinor}");
         }
 
         if (IntSize != 4 || Format != 0 || IntegralNumber != 0 || PointerSize is not (4 or 8) || InstructionSize != 4 || NumberSize != 8)
@@ -78,7 +78,7 @@ unsafe struct Header
 
         return;
     ErrIncompatible:
-        throw new LuaUnDumpException($"{name.ToString()}: incompatible precompiled chunk");
+        throw new LuaUndumpException($"{name.ToString()}: incompatible precompiled chunk");
     }
 }
 
@@ -278,7 +278,7 @@ unsafe ref struct DumpState(IBufferWriter<byte> writer, bool reversedEndian)
     }
 }
 
-unsafe ref struct UnDumpState(ReadOnlySpan<byte> span, ReadOnlySpan<char> name, StringInternPool internPool)
+unsafe ref struct UndumpState(ReadOnlySpan<byte> span, ReadOnlySpan<char> name, StringInternPool internPool)
 {
     public ReadOnlySpan<byte> Unread = span;
     bool otherEndian;
@@ -287,7 +287,7 @@ unsafe ref struct UnDumpState(ReadOnlySpan<byte> span, ReadOnlySpan<char> name, 
 
     void Throw(string why)
     {
-        throw new LuaUnDumpException($"{name.ToString()}: {why} precompiled chunk");
+        throw new LuaUndumpException($"{name.ToString()}: {why} precompiled chunk");
     }
 
     void ThrowTooShort()
@@ -370,7 +370,7 @@ unsafe ref struct UnDumpState(ReadOnlySpan<byte> span, ReadOnlySpan<char> name, 
         return *(double*)&i;
     }
 
-    public Prototype UnDump()
+    public Prototype Undump()
     {
         Header h = default;
         Span<byte> span = new(&h, sizeof(Header));
@@ -379,11 +379,11 @@ unsafe ref struct UnDumpState(ReadOnlySpan<byte> span, ReadOnlySpan<char> name, 
         h.Validate(name);
         otherEndian = BitConverter.IsLittleEndian ^ (h.Endianness == 1);
         pointerSize = h.PointerSize;
-        return UnDumpFunction();
+        return UndumpFunction();
     }
 
 
-    Prototype UnDumpFunction()
+    Prototype UndumpFunction()
     {
         var lineDefined = ReadInt(); // 4
         var lastLineDefined = ReadInt(); // 4
@@ -487,7 +487,7 @@ unsafe ref struct UnDumpState(ReadOnlySpan<byte> span, ReadOnlySpan<char> name, 
         var prototypes = count != 0 ? new Prototype[count] : [];
         for (var i = 0; i < count; i++)
         {
-            prototypes[i] = UnDumpFunction();
+            prototypes[i] = UndumpFunction();
         }
 
         return prototypes;

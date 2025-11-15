@@ -50,7 +50,7 @@ public sealed class Prototype(
     /// <returns></returns>
     public static Prototype FromBytecode(ReadOnlySpan<byte> span, ReadOnlySpan<char> name)
     {
-        return Parser.UnDump(span, name);
+        return Parser.Undump(span, name);
     }
 
     /// <summary>

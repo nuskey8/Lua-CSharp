@@ -433,7 +433,7 @@ public class LuaState : IDisposable
         {
             if (chunk[0] == '\e')
             {
-                return new(this, Parser.UnDump(chunk, chunkName), environment);
+                return new(this, Parser.Undump(chunk, chunkName), environment);
             }
         }
 

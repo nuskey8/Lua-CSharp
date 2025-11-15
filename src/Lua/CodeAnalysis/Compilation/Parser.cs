@@ -969,7 +969,7 @@ class Parser : IPoolNode<Parser>, IDisposable
         return writer.WrittenSpan.ToArray();
     }
 
-    public static Prototype UnDump(ReadOnlySpan<byte> span, ReadOnlySpan<char> name)
+    public static Prototype Undump(ReadOnlySpan<byte> span, ReadOnlySpan<char> name)
     {
         if (name.Length > 0)
         {
@@ -982,7 +982,7 @@ class Parser : IPoolNode<Parser>, IDisposable
         }
 
         using var internPool = new StringInternPool(4);
-        UnDumpState state = new(span, name, internPool);
-        return state.UnDump();
+        UndumpState state = new(span, name, internPool);
+        return state.Undump();
     }
 }
