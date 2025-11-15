@@ -40,7 +40,7 @@ public sealed class Prototype(
     /// <summary>
     ///  Lua bytecode signature. If the bytes start with this signature, they are considered as Lua bytecode.
     /// </summary>
-    public static ReadOnlySpan<byte> LuaByteCodeSignature => Header.LuaSignature;
+    public static ReadOnlySpan<byte> LuaBytecodeSignature => Header.LuaSignature;
 
     /// <summary>
     ///  Converts a Lua bytecode to a Prototype object.
@@ -48,7 +48,7 @@ public sealed class Prototype(
     /// <param name="span">binary bytecode</param>
     /// <param name="name">chunk name</param>
     /// <returns></returns>
-    public static Prototype FromByteCode(ReadOnlySpan<byte> span, ReadOnlySpan<char> name)
+    public static Prototype FromBytecode(ReadOnlySpan<byte> span, ReadOnlySpan<char> name)
     {
         return Parser.UnDump(span, name);
     }
@@ -58,7 +58,7 @@ public sealed class Prototype(
     ///  </summary>
     ///  <param name="useLittleEndian">true if the bytecode should be in little endian format, false if it should be in big endian format</param>
     /// <returns>binary bytecode</returns>
-    public byte[] ToByteCode(bool useLittleEndian = true)
+    public byte[] ToBytecode(bool useLittleEndian = true)
     {
         return Parser.Dump(this, useLittleEndian);
     }
@@ -68,7 +68,7 @@ public sealed class Prototype(
     /// </summary>
     /// <param name="bufferWriter">the buffer writer to write the bytecode to</param>
     /// <param name="useLittleEndian">true if the bytecode should be in little endian format, false if it should be in big endian format</param>
-    public void WriteByteCode(IBufferWriter<byte> bufferWriter, bool useLittleEndian = true)
+    public void WriteBytecode(IBufferWriter<byte> bufferWriter, bool useLittleEndian = true)
     {
         Parser.Dump(this, bufferWriter, useLittleEndian);
     }
