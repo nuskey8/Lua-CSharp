@@ -46,7 +46,7 @@ public static class LuaStateExtensions
     {
         var closure = await state.LoadFileAsync(path, "bt", null, cancellationToken);
         var count = await state.RunAsync(closure, 0, cancellationToken);
-        using var results = state.ReadTopValues(count);
+        using var results = state.ReadStack(count);
         results.AsSpan()[..Math.Min(buffer.Length, results.Length)].CopyTo(buffer.Span);
         return results.Count;
     }
@@ -55,14 +55,14 @@ public static class LuaStateExtensions
     {
         var closure = await state.LoadFileAsync(path, "bt", null, cancellationToken);
         var count = await state.RunAsync(closure, 0, cancellationToken);
-        using var results = state.ReadTopValues(count);
+        using var results = state.ReadStack(count);
         return results.AsSpan().ToArray();
     }
 
     public static async ValueTask<int> ExecuteAsync(this LuaState state, LuaClosure closure, Memory<LuaValue> buffer, CancellationToken cancellationToken = default)
     {
         var count = await state.RunAsync(closure, 0, cancellationToken);
-        using var results = state.ReadTopValues(count);
+        using var results = state.ReadStack(count);
         results.AsSpan()[..Math.Min(buffer.Length, results.Length)].CopyTo(buffer.Span);
         return results.Count;
     }
@@ -70,7 +70,7 @@ public static class LuaStateExtensions
     public static async ValueTask<LuaValue[]> ExecuteAsync(this LuaState state, LuaClosure closure, CancellationToken cancellationToken = default)
     {
         var count = await state.RunAsync(closure, 0, cancellationToken);
-        using var results = state.ReadTopValues(count);
+        using var results = state.ReadStack(count);
         return results.AsSpan().ToArray();
     }
 
@@ -94,7 +94,7 @@ public static class LuaStateExtensions
         return state.Stack.Pop();
     }
 
-    public static LuaTopValuesReader ReadTopValues(this LuaState state, int argumentCount)
+    public static LuaStackReader ReadStack(this LuaState state, int argumentCount)
     {
         var stack = state.Stack;
         return new(stack, stack.Count - argumentCount);
@@ -293,7 +293,7 @@ public static class LuaStateExtensions
         {
             await LuaVirtualMachine.Call(state, funcIndex, funcIndex, cancellationToken);
             var count = state.Stack.Count - funcIndex;
-            using var results = state.ReadTopValues(count);
+            using var results = state.ReadStack(count);
             return results.AsSpan().ToArray();
         }
     }

@@ -2,12 +2,12 @@
 
 namespace Lua;
 
-public readonly struct LuaTopValuesReader : IDisposable
+public readonly struct LuaStackReader : IDisposable
 {
     readonly LuaStack stack;
     readonly int returnBase;
 
-    internal LuaTopValuesReader(LuaStack stack, int returnBase)
+    internal LuaStackReader(LuaStack stack, int returnBase)
     {
         this.stack = stack;
         this.returnBase = returnBase;

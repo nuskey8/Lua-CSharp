@@ -43,7 +43,7 @@ try
     }
 
     // Console.WriteLine("Result " + new string('-', 50));
-    // using var results = state.RootAccess.ReadTopValues(count);
+    // using var results = state.RootAccess.ReadStack(count);
     // for (var i = 0; i < count; i++)
     // {
     //     Console.WriteLine(results[i]);
