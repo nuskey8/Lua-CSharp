@@ -100,7 +100,7 @@ public static class LuaStateExtensions
         return new(stack, stack.Count - argumentCount);
     }
 
-    public static ValueTask<LuaValue> Add(this LuaState state, LuaValue x, LuaValue y, CancellationToken cancellationToken = default)
+    public static ValueTask<LuaValue> AddAsync(this LuaState state, LuaValue x, LuaValue y, CancellationToken cancellationToken = default)
     {
         if (x.TryReadDouble(out var numX) && y.TryReadDouble(out var numY))
         {
@@ -110,7 +110,7 @@ public static class LuaStateExtensions
         return LuaVirtualMachine.ExecuteBinaryOperationMetaMethod(state, x, y, OpCode.Add, cancellationToken);
     }
 
-    public static ValueTask<LuaValue> Sub(this LuaState state, LuaValue x, LuaValue y, CancellationToken cancellationToken = default)
+    public static ValueTask<LuaValue> SubAsync(this LuaState state, LuaValue x, LuaValue y, CancellationToken cancellationToken = default)
     {
         if (x.TryReadDouble(out var numX) && y.TryReadDouble(out var numY))
         {
@@ -120,7 +120,7 @@ public static class LuaStateExtensions
         return LuaVirtualMachine.ExecuteBinaryOperationMetaMethod(state, x, y, OpCode.Sub, cancellationToken);
     }
 
-    public static ValueTask<LuaValue> Mul(this LuaState state, LuaValue x, LuaValue y, CancellationToken cancellationToken = default)
+    public static ValueTask<LuaValue> MulAsync(this LuaState state, LuaValue x, LuaValue y, CancellationToken cancellationToken = default)
     {
         if (x.TryReadDouble(out var numX) && y.TryReadDouble(out var numY))
         {
@@ -130,7 +130,7 @@ public static class LuaStateExtensions
         return LuaVirtualMachine.ExecuteBinaryOperationMetaMethod(state, x, y, OpCode.Mul, cancellationToken);
     }
 
-    public static ValueTask<LuaValue> Div(this LuaState state, LuaValue x, LuaValue y, CancellationToken cancellationToken = default)
+    public static ValueTask<LuaValue> DivAsync(this LuaState state, LuaValue x, LuaValue y, CancellationToken cancellationToken = default)
     {
         if (x.TryReadDouble(out var numX) && y.TryReadDouble(out var numY))
         {
@@ -140,7 +140,7 @@ public static class LuaStateExtensions
         return LuaVirtualMachine.ExecuteBinaryOperationMetaMethod(state, x, y, OpCode.Div, cancellationToken);
     }
 
-    public static ValueTask<LuaValue> Mod(this LuaState state, LuaValue x, LuaValue y, CancellationToken cancellationToken = default)
+    public static ValueTask<LuaValue> ModAsync(this LuaState state, LuaValue x, LuaValue y, CancellationToken cancellationToken = default)
     {
         if (x.TryReadDouble(out var numX) && y.TryReadDouble(out var numY))
         {
@@ -150,7 +150,7 @@ public static class LuaStateExtensions
         return LuaVirtualMachine.ExecuteBinaryOperationMetaMethod(state, x, y, OpCode.Mod, cancellationToken);
     }
 
-    public static ValueTask<LuaValue> Pow(this LuaState state, LuaValue x, LuaValue y, CancellationToken cancellationToken = default)
+    public static ValueTask<LuaValue> PowAsync(this LuaState state, LuaValue x, LuaValue y, CancellationToken cancellationToken = default)
     {
         if (x.TryReadDouble(out var numX) && y.TryReadDouble(out var numY))
         {
@@ -161,7 +161,7 @@ public static class LuaStateExtensions
     }
 
 
-    public static ValueTask<LuaValue> Unm(this LuaState state, LuaValue value, CancellationToken cancellationToken = default)
+    public static ValueTask<LuaValue> UnmAsync(this LuaState state, LuaValue value, CancellationToken cancellationToken = default)
     {
         if (value.TryReadDouble(out var numB))
         {
@@ -171,7 +171,7 @@ public static class LuaStateExtensions
         return LuaVirtualMachine.ExecuteUnaryOperationMetaMethod(state, value, OpCode.Unm, cancellationToken);
     }
 
-    public static ValueTask<LuaValue> Len(this LuaState state, LuaValue value, CancellationToken cancellationToken = default)
+    public static ValueTask<LuaValue> LenAsync(this LuaState state, LuaValue value, CancellationToken cancellationToken = default)
     {
         if (value.TryReadString(out var str))
         {
@@ -187,7 +187,7 @@ public static class LuaStateExtensions
     }
 
 
-    public static ValueTask<bool> LessThan(this LuaState state, LuaValue x, LuaValue y, CancellationToken cancellationToken = default)
+    public static ValueTask<bool> LessThanAsync(this LuaState state, LuaValue x, LuaValue y, CancellationToken cancellationToken = default)
     {
         if (x.TryReadNumber(out var numX) && y.TryReadNumber(out var numY))
         {
@@ -203,7 +203,7 @@ public static class LuaStateExtensions
         return LuaVirtualMachine.ExecuteCompareOperationMetaMethod(state, x, y, OpCode.Lt, cancellationToken);
     }
 
-    public static ValueTask<bool> LessThanOrEquals(this LuaState state, LuaValue x, LuaValue y, CancellationToken cancellationToken = default)
+    public static ValueTask<bool> LessThanOrEqualsAsync(this LuaState state, LuaValue x, LuaValue y, CancellationToken cancellationToken = default)
     {
         if (x.TryReadNumber(out var numX) && y.TryReadNumber(out var numY))
         {
@@ -219,7 +219,7 @@ public static class LuaStateExtensions
         return LuaVirtualMachine.ExecuteCompareOperationMetaMethod(state, x, y, OpCode.Le, cancellationToken);
     }
 
-    public static ValueTask<bool> Equals(this LuaState state, LuaValue x, LuaValue y, CancellationToken cancellationToken = default)
+    public static ValueTask<bool> EqualsAsync(this LuaState state, LuaValue x, LuaValue y, CancellationToken cancellationToken = default)
     {
         if (x == y)
         {
@@ -229,7 +229,7 @@ public static class LuaStateExtensions
         return LuaVirtualMachine.ExecuteCompareOperationMetaMethod(state, x, y, OpCode.Eq, cancellationToken);
     }
 
-    public static async ValueTask<LuaValue> GetTable(this LuaState state, LuaValue table, LuaValue key, CancellationToken cancellationToken = default)
+    public static async ValueTask<LuaValue> GetTableAsync(this LuaState state, LuaValue table, LuaValue key, CancellationToken cancellationToken = default)
     {
         if (table.TryReadTable(out var luaTable))
         {
@@ -242,7 +242,7 @@ public static class LuaStateExtensions
         return await LuaVirtualMachine.ExecuteGetTableSlowPath(state, table, key, cancellationToken);
     }
 
-    public static ValueTask SetTable(this LuaState state, LuaValue table, LuaValue key, LuaValue value, CancellationToken cancellationToken = default)
+    public static ValueTask SetTableAsync(this LuaState state, LuaValue table, LuaValue key, LuaValue value, CancellationToken cancellationToken = default)
     {
         if (key.TryReadNumber(out var numB))
         {
@@ -266,23 +266,23 @@ public static class LuaStateExtensions
         return LuaVirtualMachine.ExecuteSetTableSlowPath(state, table, key, value, cancellationToken);
     }
 
-    public static ValueTask<LuaValue> Concat(this LuaState state, ReadOnlySpan<LuaValue> values, CancellationToken cancellationToken = default)
+    public static ValueTask<LuaValue> ConcatAsync(this LuaState state, ReadOnlySpan<LuaValue> values, CancellationToken cancellationToken = default)
     {
         state.Stack.PushRange(values);
-        return Concat(state, values.Length, cancellationToken);
+        return ConcatAsync(state, values.Length, cancellationToken);
     }
 
-    public static ValueTask<LuaValue> Concat(this LuaState state, int concatCount, CancellationToken cancellationToken = default)
+    public static ValueTask<LuaValue> ConcatAsync(this LuaState state, int concatCount, CancellationToken cancellationToken = default)
     {
         return LuaVirtualMachine.Concat(state, concatCount, cancellationToken);
     }
 
-    public static ValueTask<int> Call(this LuaState state, int funcIndex, int returnBase, CancellationToken cancellationToken = default)
+    public static ValueTask<int> CallAsync(this LuaState state, int funcIndex, int returnBase, CancellationToken cancellationToken = default)
     {
         return LuaVirtualMachine.Call(state, funcIndex, returnBase, cancellationToken);
     }
 
-    public static ValueTask<LuaValue[]> Call(this LuaState state, LuaValue function, ReadOnlySpan<LuaValue> arguments, CancellationToken cancellationToken = default)
+    public static ValueTask<LuaValue[]> CallAsync(this LuaState state, LuaValue function, ReadOnlySpan<LuaValue> arguments, CancellationToken cancellationToken = default)
     {
         var funcIndex = state.Stack.Count;
         state.Stack.Push(function);

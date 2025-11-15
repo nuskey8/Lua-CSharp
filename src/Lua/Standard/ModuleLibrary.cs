@@ -50,7 +50,7 @@ public sealed class ModuleLibrary
     {
         var globalState = state.GlobalState;
         var package = globalState.Environment["package"];
-        var p = await state.GetTable(package, pName);
+        var p = await state.GetTableAsync(package, pName);
         if (!p.TryReadString(out var path))
         {
             throw new LuaRuntimeException(state, $"package.{pName} must be a string");
@@ -124,7 +124,7 @@ public sealed class ModuleLibrary
             var top = state.Stack.Count;
             state.Stack.Push(loader);
             state.Stack.Push(name);
-            var resultCount = await state.Call(top, top, cancellationToken);
+            var resultCount = await state.CallAsync(top, top, cancellationToken);
             if (0 < resultCount)
             {
                 var result = state.Stack.Get(top);

@@ -46,6 +46,6 @@ public class InterpreterSteps
     [Benchmark]
     public async ValueTask RunAsync()
     {
-        await state.Call(closure, []);
+        await state.CallAsync(closure, []);
     }
 }

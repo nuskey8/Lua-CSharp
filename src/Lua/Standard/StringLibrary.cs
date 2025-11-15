@@ -617,7 +617,7 @@ public sealed class StringLibrary
                         // No captures, pass whole match
                         stack.Push(s.AsSpan(sIdx, res - sIdx).ToString());
                         var retCount = await context.State.RunAsync(func, 1, cancellationToken);
-                        using var results = context.State.ReadTopValues(retCount);
+                        using var results = context.State.ReadStack(retCount);
                         result = results.Count > 0 ? results[0] : LuaValue.Nil;
                     }
                     else
@@ -637,7 +637,7 @@ public sealed class StringLibrary
                         }
 
                         var retCount = await context.State.RunAsync(func, matchState.Level, cancellationToken);
-                        using var results = context.State.ReadTopValues(retCount);
+                        using var results = context.State.ReadStack(retCount);
                         result = results.Count > 0 ? results[0] : LuaValue.Nil;
                     }
                 }

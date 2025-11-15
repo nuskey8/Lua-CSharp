@@ -38,7 +38,7 @@ public class LuaApiTests
         var a = result[0].Read<LuaTable>();
         var b = result[1].Read<LuaTable>();
 
-        var c = await state.Add(a, b);
+        var c = await state.AddAsync(a, b);
         var table = c.Read<LuaTable>();
         Assert.Multiple(() =>
         {
@@ -70,7 +70,7 @@ public class LuaApiTests
 
         var result = await state.DoStringAsync(source);
         var a = result[0].Read<LuaTable>();
-        var c = await state.Unm(a);
+        var c = await state.UnmAsync(a);
         var table = c.Read<LuaTable>();
         Assert.Multiple(() =>
         {
@@ -108,9 +108,9 @@ public class LuaApiTests
         var a = result[0].Read<LuaTable>();
         var b = result[1].Read<LuaTable>();
         var c = result[2].Read<LuaTable>();
-        var ab = await state.Equals(a, b);
+        var ab = await state.EqualsAsync(a, b);
         Assert.False(ab);
-        var ac = await state.Equals(a, c);
+        var ac = await state.EqualsAsync(a, c);
         Assert.True(ac);
     }
 
@@ -128,9 +128,9 @@ public class LuaApiTests
                      """;
         var result = await state.DoStringAsync(source);
         var a = result[0].Read<LuaTable>();
-        Assert.That(await state.GetTable(a, "x"), Is.EqualTo(new LuaValue(1)));
+        Assert.That(await state.GetTableAsync(a, "x"), Is.EqualTo(new LuaValue(1)));
         a.Metatable!["__index"] = state.DoStringAsync("return function(a,b) return b end").Result[0];
-        Assert.That(await state.GetTable(a, "x"), Is.EqualTo(new LuaValue("x")));
+        Assert.That(await state.GetTableAsync(a, "x"), Is.EqualTo(new LuaValue("x")));
     }
 
     [Test]
@@ -148,7 +148,7 @@ public class LuaApiTests
                      """;
         var result = await state.DoStringAsync(source);
         var a = result[0].Read<LuaTable>();
-        await state.SetTable(a, "a", "b");
+        await state.SetTableAsync(a, "a", "b");
         var b = a.Metatable!["__newindex"].Read<LuaTable>()["a"];
         Assert.True(b.Read<string>() == "b");
     }
@@ -184,7 +184,7 @@ return a,b,c
         var a = result[0];
         var b = result[1];
         var c = result[2];
-        var d = await state.Concat([a, b, c]);
+        var d = await state.ConcatAsync([a, b, c]);
 
         var table = d.Read<LuaTable>();
         Assert.That(table.ArrayLength, Is.EqualTo(9));
@@ -227,17 +227,17 @@ return a,b,c
         var a = result[0];
         var b = result[1];
         var c = result[2];
-        var d = await state.Add(b, c);
+        var d = await state.AddAsync(b, c);
         Assert.True(d.TryRead(out string s));
         Assert.That(s, Is.EqualTo("abc"));
-        d = await state.Unm(b);
+        d = await state.UnmAsync(b);
         Assert.True(d.TryRead(out s));
         Assert.That(s, Is.EqualTo("abb"));
-        d = await state.Concat([c, b]);
+        d = await state.ConcatAsync([c, b]);
         Assert.True(d.TryRead(out s));
         Assert.That(s, Is.EqualTo("acb"));
 
-        var aResult = await state.Call(a, [b, c]);
+        var aResult = await state.CallAsync(a, [b, c]);
         Assert.That(aResult, Has.Length.EqualTo(1));
         Assert.That(aResult[0].Read<string>(), Is.EqualTo("abc"));
     }
@@ -269,17 +269,17 @@ return a,b,c
         var a = result[0];
         var b = result[1];
         var c = result[2];
-        var d = await state.Add(b, c);
+        var d = await state.AddAsync(b, c);
         Assert.True(d.TryRead(out string s));
         Assert.That(s, Is.EqualTo("abc"));
-        d = await state.Unm(b);
+        d = await state.UnmAsync(b);
         Assert.True(d.TryRead(out s));
         Assert.That(s, Is.EqualTo("abb"));
-        d = await state.Concat([c, b]);
+        d = await state.ConcatAsync([c, b]);
         Assert.True(d.TryRead(out s));
         Assert.That(s, Is.EqualTo("acb"));
 
-        var aResult = await state.Call(a, [b, c]);
+        var aResult = await state.CallAsync(a, [b, c]);
         Assert.That(aResult, Has.Length.EqualTo(1));
         Assert.That(aResult[0].Read<string>(), Is.EqualTo("abc"));
     }
