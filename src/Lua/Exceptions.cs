@@ -1,9 +1,8 @@
+using System.Runtime.CompilerServices;
 using Lua.CodeAnalysis;
 using Lua.CodeAnalysis.Syntax;
 using Lua.Internal;
 using Lua.Runtime;
-using System.Diagnostics;
-using System.Runtime.CompilerServices;
 
 namespace Lua;
 

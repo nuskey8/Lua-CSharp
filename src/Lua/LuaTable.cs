@@ -1,6 +1,6 @@
 using System.Runtime.CompilerServices;
-using Lua.Internal;
 using System.Collections;
+using Lua.Internal;
 
 namespace Lua;
 

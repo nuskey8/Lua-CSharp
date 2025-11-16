@@ -1,8 +1,6 @@
-using System.Buffers;
-
 namespace Lua.Standard.Internal;
 
-class MatchState(LuaState state, string source, string pattern)
+sealed class MatchState(LuaState state, string source, string pattern)
 {
     internal const int LuaMaxCaptures = 32;
     const int CapUnfinished = -1;

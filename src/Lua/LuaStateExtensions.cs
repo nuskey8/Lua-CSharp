@@ -1,6 +1,6 @@
+using System.Runtime.CompilerServices;
 using Lua.IO;
 using Lua.Runtime;
-using System.Runtime.CompilerServices;
 
 // ReSharper disable MethodHasAsyncOverloadWithCancellation
 

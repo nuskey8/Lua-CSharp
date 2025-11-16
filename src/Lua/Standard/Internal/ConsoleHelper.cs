@@ -1,6 +1,6 @@
 namespace Lua.Standard.Internal;
 
-public class ConsoleHelper
+static class ConsoleHelper
 {
     public static bool SupportStandardConsole => LuaPlatformUtility.IsSandBox;
 

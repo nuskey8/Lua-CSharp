@@ -3,7 +3,7 @@ using System.Runtime.InteropServices;
 
 namespace Lua.Internal;
 
-public sealed class Utf16StringMemoryComparer : IEqualityComparer<ReadOnlyMemory<char>>
+internal sealed class Utf16StringMemoryComparer : IEqualityComparer<ReadOnlyMemory<char>>
 {
     public static readonly Utf16StringMemoryComparer Default = new();
 

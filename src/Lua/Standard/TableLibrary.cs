@@ -1,7 +1,7 @@
-using Lua.Internal;
 using System.Runtime.CompilerServices;
-using Lua.Runtime;
 using System.Globalization;
+using Lua.Runtime;
+using Lua.Internal;
 
 namespace Lua.Standard;
 

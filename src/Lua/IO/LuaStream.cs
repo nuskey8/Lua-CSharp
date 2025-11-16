@@ -3,7 +3,7 @@ using System.Text;
 
 namespace Lua.IO;
 
-sealed class LuaStream(LuaFileOpenMode mode, Stream innerStream) : ILuaStream
+public sealed class LuaStream(LuaFileOpenMode mode, Stream innerStream) : ILuaStream
 {
     Utf8Reader? reader;
     ulong flushSize = ulong.MaxValue;
@@ -52,7 +52,6 @@ sealed class LuaStream(LuaFileOpenMode mode, Stream innerStream) : ILuaStream
         var result = NumberReaderHelper.ParseNumber(numberStr.AsSpan());
         return new(result);
     }
-
 
     public ValueTask WriteAsync(ReadOnlyMemory<char> buffer, CancellationToken cancellationToken)
     {

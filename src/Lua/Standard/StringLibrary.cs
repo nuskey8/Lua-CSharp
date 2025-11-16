@@ -1,9 +1,9 @@
 using System.Text;
+using System.Globalization;
+using System.Diagnostics;
 using Lua.Internal;
 using Lua.Runtime;
-using System.Globalization;
 using Lua.Standard.Internal;
-using System.Diagnostics;
 
 namespace Lua.Standard;
 

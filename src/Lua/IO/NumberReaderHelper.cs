@@ -3,7 +3,7 @@ using System.Globalization;
 
 namespace Lua.IO;
 
-public static class NumberReaderHelper
+internal static class NumberReaderHelper
 {
     /// <summary>
     /// Scans a span of characters to find the extent of a valid number.

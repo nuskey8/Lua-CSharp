@@ -1,12 +1,11 @@
 namespace Lua.Standard.Internal;
 
-class LuaPlatformUtility
+static class LuaPlatformUtility
 {
     public static bool IsSandBox => SupportStdio;
+    public static bool SupportStdio => supportStdioTryLazy.Value;
 
-    public static bool SupportStdio => _supportStdioTryLazy.Value;
-
-    static Lazy<bool> _supportStdioTryLazy = new(() =>
+    static Lazy<bool> supportStdioTryLazy = new(() =>
     {
         try
         {

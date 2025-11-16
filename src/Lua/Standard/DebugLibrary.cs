@@ -1,11 +1,10 @@
-﻿using Lua.CodeAnalysis;
-using System.Runtime.CompilerServices;
+﻿using System.Runtime.CompilerServices;
 using Lua.Runtime;
 using Lua.Internal;
 
 namespace Lua.Standard;
 
-public class DebugLibrary
+public sealed class DebugLibrary
 {
     public static readonly DebugLibrary Instance = new();
 

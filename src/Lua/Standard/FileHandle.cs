@@ -4,7 +4,7 @@ using Lua.Standard.Internal;
 
 namespace Lua.Standard;
 
-public class FileHandle : ILuaUserData
+public sealed class FileHandle : ILuaUserData
 {
     public static readonly LuaFunction IndexMetamethod = new("index", (context, ct) =>
     {
