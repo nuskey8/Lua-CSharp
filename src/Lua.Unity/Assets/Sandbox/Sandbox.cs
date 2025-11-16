@@ -20,7 +20,7 @@ public class Sandbox : MonoBehaviour
             StandardIO: new UnityStandardIO(),
             TimeProvider: TimeProvider.System
         ));
-        state.GlobalState.ModuleLoader = CompositeModuleLoader.Create(new AddressablesModuleLoader(), new ResourcesModuleLoader());
+        state.ModuleLoader = CompositeModuleLoader.Create(new AddressablesModuleLoader(), new ResourcesModuleLoader());
         state.OpenStandardLibraries();
         state.Environment["print"] = new LuaFunction("print", (context, ct) =>
         {
