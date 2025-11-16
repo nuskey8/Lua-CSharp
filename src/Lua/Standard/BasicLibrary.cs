@@ -135,10 +135,20 @@ public sealed class BasicLibrary
 
     public async ValueTask<int> IPairs(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
-        var arg0 = context.GetArgument<LuaTable>(0);
+        var arg0 = context.GetArgument(0);
+
+        LuaTable metatable = default;
+        if (arg0.TryRead(out LuaTable table))
+        {
+            metatable = table.Metatable;
+        }
+        else if (arg0.TryRead(out ILuaUserData userdata))
+        {
+            metatable = userdata.Metatable;
+        }
 
         // If table has a metamethod __ipairs, calls it with table as argument and returns the first three results from the call.
-        if (arg0.Metatable != null && arg0.Metatable.TryGetValue(Metamethods.IPairs, out var metamethod))
+        if (metatable != null && metatable.TryGetValue(Metamethods.IPairs, out var metamethod))
         {
             var stack = context.State.Stack;
             var top = stack.Count;
@@ -217,10 +227,16 @@ public sealed class BasicLibrary
 
     public ValueTask<int> Next(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
-        var arg0 = context.GetArgument<LuaTable>(0);
+        var arg0 = context.GetArgument(0);
         var arg1 = context.HasArgument(1) ? context.Arguments[1] : LuaValue.Nil;
 
-        if (arg0.TryGetNext(arg1, out var kv))
+        ILuaEnumerable enumerable = default;
+        if (arg0.TryRead(out LuaTable table))
+            enumerable = table;
+        else if (arg0.TryRead(out ILuaUserData userdata) && userdata is ILuaEnumerable)
+            enumerable = userdata as ILuaEnumerable;
+
+        if (enumerable != null && enumerable.TryGetNext(arg1, out var kv))
         {
             return new(context.Return(kv.Key, kv.Value));
         }
@@ -232,10 +248,20 @@ public sealed class BasicLibrary
 
     public async ValueTask<int> Pairs(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
-        var arg0 = context.GetArgument<LuaTable>(0);
+        var arg0 = context.GetArgument(0);
+
+        LuaTable metatable = default;
+        if (arg0.TryRead(out LuaTable table))
+        {
+            metatable = table.Metatable;
+        }
+        else if (arg0.TryRead(out ILuaUserData userdata))
+        {
+            metatable = userdata.Metatable;
+        }
 
         // If table has a metamethod __pairs, calls it with table as argument and returns the first three results from the call.
-        if (arg0.Metatable != null && arg0.Metatable.TryGetValue(Metamethods.Pairs, out var metamethod))
+        if (metatable != null && metatable.TryGetValue(Metamethods.Pairs, out var metamethod))
         {
             var stack = context.State.Stack;
             var top = stack.Count;
