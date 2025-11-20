@@ -1,24 +1,15 @@
+using System.Runtime.CompilerServices;
 using Lua.CodeAnalysis;
 using Lua.CodeAnalysis.Syntax;
+using Lua.Internal;
 using Lua.Runtime;
 
 namespace Lua;
 
-public class LuaException : Exception
-{
-    protected LuaException(Exception innerException) : base(innerException.Message, innerException)
-    {
-    }
-
-    public LuaException(string message) : base(message)
-    {
-    }
-}
-
-public class LuaParseException(string? chunkName, SourcePosition position, string message) : LuaException(message)
+public class LuaParseException(string? chunkName, SourcePosition position, string message) : Exception(message)
 {
     public string? ChunkName { get; } = chunkName;
-    public SourcePosition? Position { get; } = position;
+    public SourcePosition Position { get; } = position;
 
     public static void UnexpectedToken(string? chunkName, SourcePosition position, SyntaxToken token)
     {
@@ -50,88 +41,467 @@ public class LuaParseException(string? chunkName, SourcePosition position, strin
         throw new LuaParseException(chunkName, position, "<break> not inside a loop");
     }
 
-    public override string Message => $"{ChunkName}:{(Position == null ? "" : $"{Position.Value}:")} {base.Message}";
+    public override string Message => $"{ChunkName}:{Position.Line}: {base.Message}";
 }
 
-public class LuaRuntimeException : LuaException
+public class LuaCompileException(string chunkName, SourcePosition position, int offset, string message, string? nearToken) : Exception(GetMessageWithNearToken(message, nearToken))
 {
-    public LuaRuntimeException(Traceback traceback, Exception innerException) : base(innerException)
+    public string ChunkName { get; } = chunkName;
+    public int OffSet { get; } = offset;
+
+    public SourcePosition Position => position;
+
+    public string MainMessage => message;
+
+    public string? NearToken => nearToken;
+
+    public string MessageWithNearToken => base.Message;
+
+    public override string Message => $"{ChunkName}:{Position.Line}: {base.Message}";
+
+    static string GetMessageWithNearToken(string message, string? nearToken)
     {
-        LuaTraceback = traceback;
-    }
-
-    public LuaRuntimeException(Traceback traceback, string message) : base(message)
-    {
-        LuaTraceback = traceback;
-    }
-
-    public LuaRuntimeException(Traceback traceback, LuaValue errorObject): base(errorObject.ToString())
-    {
-        LuaTraceback = traceback;
-        ErrorObject = errorObject;
-    }
-
-    public Traceback LuaTraceback { get; }
-
-    public LuaValue? ErrorObject { get; }
-
-    public static void AttemptInvalidOperation(Traceback traceback, string op, LuaValue a, LuaValue b)
-    {
-        throw new LuaRuntimeException(traceback, $"attempt to {op} a '{a.Type}' with a '{b.Type}'");
-    }
-
-    public static void AttemptInvalidOperation(Traceback traceback, string op, LuaValue a)
-    {
-        throw new LuaRuntimeException(traceback, $"attempt to {op} a '{a.Type}' value");
-    }
-
-    public static void BadArgument(Traceback traceback, int argumentId, string functionName)
-    {
-        throw new LuaRuntimeException(traceback, $"bad argument #{argumentId} to '{functionName}' (value expected)");
-    }
-
-    public static void BadArgument(Traceback traceback, int argumentId, string functionName, LuaValueType[] expected)
-    {
-        throw new LuaRuntimeException(traceback, $"bad argument #{argumentId} to '{functionName}' ({string.Join(" or ", expected)} expected)");
-    }
-
-    public static void BadArgument(Traceback traceback, int argumentId, string functionName, string expected, string actual)
-    {
-        throw new LuaRuntimeException(traceback, $"bad argument #{argumentId} to '{functionName}' ({expected} expected, got {actual})");
-    }
-
-    public static void BadArgument(Traceback traceback, int argumentId, string functionName, string message)
-    {
-        throw new LuaRuntimeException(traceback, $"bad argument #{argumentId} to '{functionName}' ({message})");
-    }
-
-    public static void BadArgumentNumberIsNotInteger(Traceback traceback, int argumentId, string functionName)
-    {
-        throw new LuaRuntimeException(traceback, $"bad argument #{argumentId} to '{functionName}' (number has no integer representation)");
-    }
-
-    public static void ThrowBadArgumentIfNumberIsNotInteger(LuaState state, string functionName, int argumentId, double value)
-    {
-        if (!MathEx.IsInteger(value))
+        if (string.IsNullOrEmpty(nearToken))
         {
-            BadArgumentNumberIsNotInteger(state.GetTraceback(), argumentId, functionName);
+            return message;
+        }
+
+        return $"{message} near {nearToken}";
+    }
+}
+
+public class LuaUndumpException(string message) : Exception(message);
+
+class LuaStackOverflowException() : Exception("stack overflow")
+{
+    public override string ToString()
+    {
+        return "stack overflow";
+    }
+}
+
+interface ILuaTracebackBuildable
+{
+    Traceback? BuildOrGet();
+}
+
+public class LuaRuntimeException : Exception, ILuaTracebackBuildable
+{
+    public LuaRuntimeException(LuaState? state, Exception innerException) : base(innerException.Message, innerException)
+    {
+        if (state != null)
+        {
+            state.CurrentException?.BuildOrGet();
+            state.ExceptionTrace.Clear();
+            state.CurrentException = this;
+        }
+
+        State = state;
+    }
+
+    public LuaRuntimeException(LuaState? state, LuaValue errorObject, int level = 1)
+    {
+        if (state != null)
+        {
+            state.CurrentException?.BuildOrGet();
+            state.ExceptionTrace.Clear();
+            state.CurrentException = this;
+        }
+
+        State = state;
+
+        ErrorObject = errorObject;
+        this.level = level;
+    }
+
+    int level = 1;
+
+    Traceback? luaTraceback;
+
+    public Traceback? LuaTraceback
+    {
+        get
+        {
+            if (luaTraceback == null)
+            {
+                ((ILuaTracebackBuildable)this).BuildOrGet();
+            }
+
+            return luaTraceback;
         }
     }
 
-    public override string Message => $"{LuaTraceback.RootChunkName}:{LuaTraceback.LastPosition.Line}: {base.Message}";
+    internal LuaState? State { get; private set; } = default!;
+    public LuaValue ErrorObject { get; }
+
+    public static void AttemptInvalidOperation(LuaState? state, string op, LuaValue a, LuaValue b)
+    {
+        var typeA = a.TypeToString();
+        var typeB = b.TypeToString();
+        if (typeA == typeB)
+        {
+            throw new LuaRuntimeException(state, $"attempt to {op} two {typeA} values");
+        }
+
+        throw new LuaRuntimeException(state, $"attempt to {op} a {typeA} value with a {typeB} value");
+    }
+
+    public static void AttemptInvalidOperation(LuaState? state, string op, LuaValue a)
+    {
+        throw new LuaRuntimeException(state, $"attempt to {op} a {a.TypeToString()} value");
+    }
+
+    internal static void AttemptInvalidOperationOnLuaStack(LuaState state, string op, int lastPc, int regA, int regB)
+    {
+        var caller = state.GetCurrentFrame();
+        var luaValueA = regA < 255 ? state.Stack[caller.Base + regA] : ((LuaClosure)caller.Function).Proto.Constants[regA - 256];
+        var luaValueB = regB < 255 ? state.Stack[caller.Base + regB] : ((LuaClosure)caller.Function).Proto.Constants[regB - 256];
+        var function = caller.Function;
+        var tA = LuaDebug.GetName(((LuaClosure)function).Proto, lastPc, regA, out var nameA);
+        var tB = LuaDebug.GetName(((LuaClosure)function).Proto, lastPc, regB, out var nameB);
+
+        using var builder = new PooledList<char>(64);
+        builder.Clear();
+        builder.AddRange("attempt to ");
+        builder.AddRange(op);
+        builder.AddRange(" a ");
+        builder.AddRange(luaValueA.TypeToString());
+        builder.AddRange(" value");
+        if (tA != null && nameA != null)
+        {
+            builder.AddRange($" ({tA} '{nameA}')");
+        }
+
+        builder.AddRange(" with a ");
+        builder.AddRange(luaValueB.TypeToString());
+        builder.AddRange(" value");
+        if (tB != null && nameB != null)
+        {
+            builder.AddRange($" ({tB} '{nameB}')");
+        }
+
+        throw new LuaRuntimeException(state, builder.AsSpan().ToString());
+    }
+
+    internal static void AttemptInvalidOperationOnLuaStack(LuaState state, string op, int lastPc, int reg)
+    {
+        var caller = state.GetCurrentFrame();
+        var luaValue = reg < 255 ? state.Stack[caller.Base + reg] : ((LuaClosure)caller.Function).Proto.Constants[reg - 256];
+        var function = caller.Function;
+        var t = LuaDebug.GetName(((LuaClosure)function).Proto, lastPc, reg, out var name);
+
+        using var builder = new PooledList<char>(64);
+        builder.Clear();
+        builder.AddRange("attempt to ");
+        builder.AddRange(op);
+        builder.AddRange(" a ");
+        builder.AddRange(luaValue.TypeToString());
+        builder.AddRange(" value");
+        if (t != null && name != null)
+        {
+            builder.AddRange($" ({t} '{name}')");
+        }
+
+        throw new LuaRuntimeException(state, builder.AsSpan().ToString());
+    }
+
+    internal static void AttemptInvalidOperationOnUpValues(LuaState state, string op, int reg)
+    {
+        var caller = state.GetCurrentFrame();
+        var closure = (LuaClosure)caller.Function;
+        var proto = closure.Proto;
+
+        var upValue = proto.UpValues[reg];
+        var luaValue = closure.UpValues[upValue.Index].GetValue();
+        var name = upValue.Name;
+
+        throw new LuaRuntimeException(state, $"attempt to {op} a {luaValue.TypeToString()} value (upvalue '{name}')");
+    }
+
+    internal static (string NameWhat, string Name) GetCurrentFunctionName(LuaState state)
+    {
+        var current = state.GetCurrentFrame();
+        var pc = current.CallerInstructionIndex;
+        LuaFunction callerFunction;
+        if (current.IsTailCall)
+        {
+            pc = state.LastPc;
+            callerFunction = state.LastCallerFunction!;
+        }
+        else
+        {
+            var caller = state.GetCallStackFrames()[^2];
+            callerFunction = caller.Function;
+        }
+
+        if (callerFunction is not LuaClosure callerClosure)
+        {
+            return ("function", current.Function.Name);
+        }
+
+        return (LuaDebug.GetFuncName(callerClosure.Proto, pc, out var name) ?? "", name ?? current.Function.Name);
+    }
+
+    public static void BadArgument(LuaState state, int argumentId)
+    {
+        BadArgument(state, argumentId, "value expected");
+    }
+
+
+    public static void BadArgument(LuaState state, int argumentId, LuaValueType expected, LuaValueType actual)
+    {
+        BadArgument(state, argumentId, $"{LuaValue.ToString(expected)} expected, got {LuaValue.ToString(actual)})");
+    }
+
+    public static void BadArgument(LuaState state, int argumentId, LuaValueType[] expected, LuaValueType actual)
+    {
+        BadArgument(state, argumentId, $"({string.Join(" or ", expected.Select(LuaValue.ToString))} expected, got {LuaValue.ToString(actual)})");
+    }
+
+
+    public static void BadArgument(LuaState state, int argumentId, string expected, string actual)
+    {
+        BadArgument(state, argumentId, $"({expected} expected, got {actual})");
+    }
+
+    public static void BadArgument(LuaState state, int argumentId, string[] expected, string actual)
+    {
+        if (expected.Length == 0)
+        {
+            throw new ArgumentException("Expected array must not be empty", nameof(expected));
+        }
+
+        BadArgument(state, argumentId, $"({string.Join(" or ", expected)} expected, got {actual})");
+    }
+
+
+    public static void BadArgument(LuaState state, int argumentId, string message)
+    {
+        var (nameWhat, name) = GetCurrentFunctionName(state);
+        if (nameWhat == "method")
+        {
+            argumentId--;
+            if (argumentId == 0)
+            {
+                throw new LuaRuntimeException(state, $"calling '{name}' on bad self ({message})");
+            }
+        }
+
+        throw new LuaRuntimeException(state, $"bad argument #{argumentId} to '{name}' ({message})");
+    }
+
+    public static void BadArgumentNumberIsNotInteger(LuaState state, int argumentId)
+    {
+        BadArgument(state, argumentId, "number has no integer representation");
+    }
+
+    public static void ThrowBadArgumentIfNumberIsNotInteger(LuaState state, int argumentId, double value)
+    {
+        if (!MathEx.IsInteger(value))
+        {
+            BadArgumentNumberIsNotInteger(state, argumentId);
+        }
+    }
+
+    static string CreateMessage(Traceback traceback, LuaValue errorObject, int level)
+    {
+        var pooledList = new PooledList<char>(64);
+        pooledList.Clear();
+        try
+        {
+            pooledList.AddRange("Lua-CSharp: ");
+            traceback.WriteLastLuaTrace(ref pooledList, level);
+            pooledList.AddRange($"{errorObject}");
+            return pooledList.AsSpan().ToString();
+        }
+        finally
+        {
+            pooledList.Dispose();
+        }
+    }
+
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    Traceback? ILuaTracebackBuildable.BuildOrGet()
+    {
+        if (luaTraceback != null)
+        {
+            return luaTraceback;
+        }
+
+        if (State != null)
+        {
+            var callStack = State.ExceptionTrace.AsSpan();
+            if (callStack.IsEmpty)
+            {
+                return null;
+            }
+
+            luaTraceback = new(State, callStack);
+            State.ExceptionTrace.Clear();
+            State = null;
+        }
+
+        return luaTraceback;
+    }
+
+    internal void Forget()
+    {
+        State?.ExceptionTrace.Clear();
+        State = null;
+    }
+
+    internal string MinimalMessage()
+    {
+        var message = InnerException?.ToString() ?? ErrorObject.ToString();
+        if (level <= 0)
+        {
+            return message;
+        }
+
+        if (luaTraceback == null)
+        {
+            if (State != null)
+            {
+                var callStack = State.ExceptionTrace.AsSpan();
+                level = Math.Min(level, callStack.Length + 1);
+                callStack = callStack[..^(level - 1)];
+                if (callStack.IsEmpty)
+                {
+                    return ErrorObject.ToString();
+                }
+
+                {
+                    var pooledList = new PooledList<char>(64);
+                    pooledList.Clear();
+                    try
+                    {
+                        Traceback.WriteLastLuaTrace(callStack, ref pooledList);
+                        pooledList.AddRange(message);
+                        return pooledList.AsSpan().ToString();
+                    }
+                    finally
+                    {
+                        pooledList.Dispose();
+                    }
+                }
+            }
+
+            return message;
+        }
+
+        {
+            var pooledList = new PooledList<char>(64);
+            pooledList.Clear();
+            try
+            {
+                luaTraceback.WriteLastLuaTrace(ref pooledList, level);
+                pooledList.AddRange(message);
+                return pooledList.AsSpan().ToString();
+            }
+            finally
+            {
+                pooledList.Dispose();
+            }
+        }
+    }
+
+    public override string Message
+    {
+        get
+        {
+            if (InnerException != null)
+            {
+                return InnerException.Message;
+            }
+
+            if (LuaTraceback == null)
+            {
+                return ErrorObject.ToString();
+            }
+
+            return CreateMessage(LuaTraceback, ErrorObject, level);
+        }
+    }
 
     public override string ToString()
     {
-        return $"{Message}\n{(LuaTraceback.StackFrames.Length > 0 ? $"{LuaTraceback}\n" : "")}{StackTrace}";
+        if (LuaTraceback == null)
+        {
+            return base.ToString();
+        }
+
+        var pooledList = new PooledList<char>(64);
+        pooledList.Clear();
+        try
+        {
+            pooledList.AddRange(Message);
+            pooledList.Add('\n');
+            pooledList.AddRange(LuaTraceback.ToString());
+            pooledList.Add('\n');
+            pooledList.AddRange(StackTrace);
+            return pooledList.AsSpan().ToString();
+        }
+        finally
+        {
+            pooledList.Dispose();
+        }
     }
 }
 
-public class LuaAssertionException(Traceback traceback, string message) : LuaRuntimeException(traceback, message)
+public class LuaAssertionException(LuaState? traceback, string message) : LuaRuntimeException(traceback, message);
+
+public class LuaModuleNotFoundException(string moduleName) : Exception($"module '{moduleName}' not found");
+
+public sealed class LuaCanceledException : OperationCanceledException, ILuaTracebackBuildable
 {
-    public override string ToString()
+    Traceback? luaTraceback;
+
+    public Traceback? LuaTraceback
     {
-        return $"{Message}\n{StackTrace}";
+        get
+        {
+            if (luaTraceback == null)
+            {
+                ((ILuaTracebackBuildable)this).BuildOrGet();
+            }
+
+            return luaTraceback;
+        }
+    }
+
+    internal LuaState? State { get; private set; }
+
+    internal LuaCanceledException(LuaState state, CancellationToken cancellationToken, Exception? innerException = null) : base("The operation was cancelled during execution on Lua.", innerException, cancellationToken)
+    {
+        state.CurrentException?.BuildOrGet();
+        state.ExceptionTrace.Clear();
+        state.CurrentException = this;
+        State = state;
+    }
+
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    Traceback? ILuaTracebackBuildable.BuildOrGet()
+    {
+        if (luaTraceback != null)
+        {
+            return luaTraceback;
+        }
+
+        if (State != null)
+        {
+            var callStack = State.ExceptionTrace.AsSpan();
+            if (callStack.IsEmpty)
+            {
+                return null;
+            }
+
+            luaTraceback = new(State, callStack);
+            State.ExceptionTrace.Clear();
+            State = null!;
+        }
+
+        return luaTraceback;
     }
 }
-
-public class LuaModuleNotFoundException(string moduleName) : LuaException($"module '{moduleName}' not found");

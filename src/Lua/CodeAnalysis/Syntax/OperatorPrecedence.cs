@@ -45,5 +45,5 @@ public enum OperatorPrecedence
     /// <summary>
     /// Exponentiation (^)
     /// </summary>
-    Exponentiation,
+    Exponentiation
 }

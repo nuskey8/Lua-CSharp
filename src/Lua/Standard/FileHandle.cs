@@ -1,20 +1,19 @@
+using Lua.IO;
 using Lua.Runtime;
 using Lua.Standard.Internal;
 
 namespace Lua.Standard;
 
-// TODO: optimize (remove StreamReader/Writer)
-
-public class FileHandle : ILuaUserData
+public sealed class FileHandle : ILuaUserData
 {
-    public static readonly LuaFunction IndexMetamethod = new("index", (context, buffer, ct) =>
+    public static readonly LuaFunction IndexMetamethod = new("index", (context, ct) =>
     {
         context.GetArgument<FileHandle>(0);
         var key = context.GetArgument(1);
 
         if (key.TryRead<string>(out var name))
         {
-            buffer.Span[0] = name switch
+            return new(context.Return(name switch
             {
                 "close" => CloseFunction!,
                 "flush" => FlushFunction!,
@@ -23,153 +22,141 @@ public class FileHandle : ILuaUserData
                 "seek" => SeekFunction!,
                 "setvbuf" => SetVBufFunction!,
                 "write" => WriteFunction!,
-                _ => LuaValue.Nil,
-            };
+
+                _ => LuaValue.Nil
+            }));
         }
         else
         {
-            buffer.Span[0] = LuaValue.Nil;
+            return new(context.Return(LuaValue.Nil));
         }
-
-        return new(1);
     });
 
-    Stream stream;
-    StreamWriter? writer;
-    StreamReader? reader;
-    bool isClosed;
+    ILuaStream stream;
 
-    public bool IsClosed => Volatile.Read(ref isClosed);
+    public bool IsOpen => stream?.IsOpen ?? false;
 
-    LuaTable? ILuaUserData.Metatable { get => fileHandleMetatable; set => fileHandleMetatable = value; }
+    LuaTable? ILuaUserData.Metatable
+    {
+        get => fileHandleMetatable;
+        set => fileHandleMetatable = value;
+    }
 
     static LuaTable? fileHandleMetatable;
 
     static FileHandle()
     {
-        fileHandleMetatable = new LuaTable();
+        fileHandleMetatable = new(0, 1);
         fileHandleMetatable[Metamethods.Index] = IndexMetamethod;
+        fileHandleMetatable["__tostring"] = ToStringFunction;
     }
 
-    public FileHandle(Stream stream)
+    public FileHandle(Stream stream, LuaFileOpenMode mode) : this(ILuaStream.CreateFromStream(stream, mode)) { }
+
+    public FileHandle(ILuaStream stream)
     {
         this.stream = stream;
-        if (stream.CanRead) reader = new StreamReader(stream);
-        if (stream.CanWrite) writer = new StreamWriter(stream);
     }
 
-    public string? ReadLine()
+    public ValueTask<double?> ReadNumberAsync(CancellationToken cancellationToken)
     {
-        return reader!.ReadLine();
+        return stream.ReadNumberAsync(cancellationToken);
     }
 
-    public string ReadToEnd()
+    public ValueTask<string?> ReadLineAsync(bool keepEol, CancellationToken cancellationToken)
     {
-        return reader!.ReadToEnd();
+        return stream.ReadLineAsync(keepEol, cancellationToken);
     }
 
-    public int ReadByte()
+    public ValueTask<string> ReadToEndAsync(CancellationToken cancellationToken)
     {
-        return stream.ReadByte();
+        return stream.ReadAllAsync(cancellationToken);
     }
 
-    public void Write(ReadOnlySpan<char> buffer)
+    public ValueTask<string?> ReadStringAsync(int count, CancellationToken cancellationToken)
     {
-        writer!.Write(buffer);
+        return stream.ReadAsync(count, cancellationToken);
+    }
+
+
+    public ValueTask WriteAsync(string content, CancellationToken cancellationToken)
+    {
+        return stream.WriteAsync(content.AsMemory(), cancellationToken);
+    }
+
+    public ValueTask WriteAsync(ReadOnlyMemory<char> content, CancellationToken cancellationToken)
+    {
+        return stream.WriteAsync(content, cancellationToken);
     }
 
     public long Seek(string whence, long offset)
     {
-        if (whence != null)
+        return whence switch
         {
-            switch (whence)
-            {
-                case "set":
-                    stream.Seek(offset, SeekOrigin.Begin);
-                    break;
-                case "cur":
-                    stream.Seek(offset, SeekOrigin.Current);
-                    break;
-                case "end":
-                    stream.Seek(offset, SeekOrigin.End);
-                    break;
-                default:
-                    throw new ArgumentException($"Invalid option '{whence}'");
-            }
-        }
-
-        return stream.Position;
+            "set" => stream.Seek(SeekOrigin.Begin, offset),
+            "cur" => stream.Seek(SeekOrigin.Current, offset),
+            "end" => stream.Seek(SeekOrigin.End, offset),
+            _ => throw new ArgumentException($"Invalid option '{whence}'")
+        };
     }
 
-    public void Flush()
+    public ValueTask FlushAsync(CancellationToken cancellationToken)
     {
-        writer!.Flush();
+        return stream.FlushAsync(cancellationToken);
     }
 
     public void SetVBuf(string mode, int size)
     {
-        // Ignore size parameter
-
-        if (writer != null)
+        var bufferingMode = mode switch
         {
-            writer.AutoFlush = mode is "no" or "line";
-        }
+            "no" => LuaFileBufferingMode.NoBuffering,
+            "full" => LuaFileBufferingMode.FullBuffering,
+            "line" => LuaFileBufferingMode.LineBuffering,
+            _ => throw new ArgumentException($"Invalid option '{mode}'")
+        };
+        stream.SetVBuf(bufferingMode, size);
     }
 
-    public void Close()
+    public async ValueTask Close(CancellationToken cancellationToken)
     {
-        if (isClosed) throw new ObjectDisposedException(nameof(FileHandle));
-        Volatile.Write(ref isClosed, true);
+        if (!stream.IsOpen)
+            throw new ObjectDisposedException(nameof(FileHandle));
 
-        if (reader != null)
-        {
-            reader.Dispose();
-        }
-        else
-        {
-            stream.Close();
-        }
+        await stream.CloseAsync(cancellationToken);
+        stream = null!;
     }
 
-    static readonly LuaFunction CloseFunction = new("close", (context, buffer, cancellationToken) =>
+    static readonly LuaFunction CloseFunction = new("close", async (context, cancellationToken) =>
     {
         var file = context.GetArgument<FileHandle>(0);
 
         try
         {
-            file.Close();
-            buffer.Span[0] = true;
-            return new(1);
+            await file.Close(cancellationToken);
+            return context.Return(true);
         }
         catch (IOException ex)
         {
-            buffer.Span[0] = LuaValue.Nil;
-            buffer.Span[1] = ex.Message;
-            buffer.Span[2] = ex.HResult;
-            return new(3);
+            return context.Return(LuaValue.Nil, ex.Message, ex.HResult);
         }
     });
 
-    static readonly LuaFunction FlushFunction = new("flush", (context, buffer, cancellationToken) =>
+    static readonly LuaFunction FlushFunction = new("file.flush", async (context, cancellationToken) =>
     {
         var file = context.GetArgument<FileHandle>(0);
 
         try
         {
-            file.Flush();
-            buffer.Span[0] = true;
-            return new(1);
+            await file.FlushAsync(cancellationToken);
+            return context.Return(true);
         }
         catch (IOException ex)
         {
-            buffer.Span[0] = LuaValue.Nil;
-            buffer.Span[1] = ex.Message;
-            buffer.Span[2] = ex.HResult;
-            return new(3);
+            return context.Return(LuaValue.Nil, ex.Message, ex.HResult);
         }
     });
 
-    static readonly LuaFunction LinesFunction = new("lines", (context, buffer, cancellationToken) =>
+    static readonly LuaFunction LinesFunction = new("file.lines", (context, cancellationToken) =>
     {
         var file = context.GetArgument<FileHandle>(0);
         var format = context.HasArgument(1)
@@ -177,25 +164,26 @@ public class FileHandle : ILuaUserData
             : "*l";
 
 
-        buffer.Span[0] = new CSharpClosure("iterator", [new (file),format],static (context, buffer, cancellationToken) =>
+        return new(context.Return(new CSharpClosure("iterator", [new(file), format], static async (context, cancellationToken) =>
         {
-            var upValues = context.GetCsClosure()!.UpValues.AsSpan();
-            var file = upValues[0].Read<FileHandle>();
-            var resultCount = IOHelper.Read(context.State, file, "lines", 0, upValues[1..], buffer, true);
-            return new(resultCount);
-        });
-
-        return new(1);
+            var upValues = context.GetCsClosure()!.UpValues.AsMemory();
+            var file = upValues.Span[0].Read<FileHandle>();
+            context.Return();
+            var resultCount = await IOHelper.ReadAsync(context.State, file, "file.lines", 0, upValues[1..], true, cancellationToken);
+            return resultCount;
+        })));
     });
 
-    static readonly LuaFunction ReadFunction = new("read", (context, buffer, cancellationToken) =>
+    static readonly LuaFunction ReadFunction = new("file.read", async (context, cancellationToken) =>
     {
         var file = context.GetArgument<FileHandle>(0);
-        var resultCount = IOHelper.Read(context.State, file, "read", 1, context.Arguments[1..], buffer, false);
-        return new(resultCount);
+        var args = context.Arguments[1..].ToArray();
+        context.Return();
+        var resultCount = await IOHelper.ReadAsync(context.State, file, "file.read", 1, args, false, cancellationToken);
+        return resultCount;
     });
 
-    static readonly LuaFunction SeekFunction = new("seek", (context, buffer, cancellationToken) =>
+    static readonly LuaFunction SeekFunction = new("file.seek", (context, cancellationToken) =>
     {
         var file = context.GetArgument<FileHandle>(0);
         var whence = context.HasArgument(1)
@@ -207,24 +195,20 @@ public class FileHandle : ILuaUserData
 
         if (whence is not ("set" or "cur" or "end"))
         {
-            throw new LuaRuntimeException(context.State.GetTraceback(), $"bad argument #2 to 'seek' (invalid option '{whence}')");
+            throw new LuaRuntimeException(context.State, $"bad argument #2 to 'file.seek' (invalid option '{whence}')");
         }
 
         try
         {
-            buffer.Span[0] = file.Seek(whence, (long)offset);
-            return new(1);
+            return new(context.Return(file.Seek(whence, (long)offset)));
         }
         catch (IOException ex)
         {
-            buffer.Span[0] = LuaValue.Nil;
-            buffer.Span[1] = ex.Message;
-            buffer.Span[2] = ex.HResult;
-            return new(3);
+            return new(context.Return(LuaValue.Nil, ex.Message, ex.HResult));
         }
     });
 
-    static readonly LuaFunction SetVBufFunction = new("setvbuf", (context, buffer, cancellationToken) =>
+    static readonly LuaFunction SetVBufFunction = new("file.setvbuf", (context, cancellationToken) =>
     {
         var file = context.GetArgument<FileHandle>(0);
         var mode = context.GetArgument<string>(1);
@@ -234,14 +218,19 @@ public class FileHandle : ILuaUserData
 
         file.SetVBuf(mode, size);
 
-        buffer.Span[0] = true;
-        return new(1);
+        return new(context.Return(true));
     });
 
-    static readonly LuaFunction WriteFunction = new("write", (context, buffer, cancellationToken) =>
+    static readonly LuaFunction WriteFunction = new("file.write", async (context, cancellationToken) =>
     {
         var file = context.GetArgument<FileHandle>(0);
-        var resultCount = IOHelper.Write(file, "write", context, buffer);
-        return new(resultCount);
+        var resultCount = await IOHelper.WriteAsync(file, "io.write", context with { ArgumentCount = context.ArgumentCount - 1 }, cancellationToken);
+        return resultCount;
+    });
+
+    static readonly LuaFunction ToStringFunction = new("file.__tostring", (context, cancellationToken) =>
+    {
+        var file = context.GetArgument<FileHandle>(0);
+        return new(context.Return($"file ({(file.IsOpen ? file.stream.GetHashCode() : "closed")})"));
     });
 }

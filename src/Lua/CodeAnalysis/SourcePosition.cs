@@ -10,5 +10,9 @@ public record struct SourcePosition
 
     public int Line { get; set; }
     public int Column { get; set; }
-    public override readonly string ToString() => $"({Line},{Column})";
+
+    public override readonly string ToString()
+    {
+        return $"({Line},{Column})";
+    }
 }

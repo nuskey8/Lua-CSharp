@@ -1,0 +1,1 @@
+return { f= function()print("loaded from streaming.lua")end }

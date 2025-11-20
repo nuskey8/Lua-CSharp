@@ -22,7 +22,7 @@ public ref struct Lexer
     void Advance(int count)
     {
         var span = Source.Span;
-        for (int i = 0; i < count; i++)
+        for (var i = 0; i < count; i++)
         {
             if (offset >= span.Length)
             {
@@ -62,7 +62,10 @@ public ref struct Lexer
 
     public bool MoveNext()
     {
-        if (Source.Length <= offset) return false;
+        if (Source.Length <= offset)
+        {
+            return false;
+        }
 
         var span = Source.Span;
         var startOffset = offset;
@@ -81,7 +84,11 @@ public ref struct Lexer
                 current = SyntaxToken.EndOfLine(position);
                 return true;
             case '\r':
-                if (c2 == '\n') Advance(1);
+                if (c2 == '\n')
+                {
+                    Advance(1);
+                }
+
                 current = SyntaxToken.EndOfLine(position);
                 return true;
             case '(':
@@ -113,8 +120,11 @@ public ref struct Lexer
                     if (span.Length > offset + 1 && span[offset] is '[' && span[offset + 1] is '[' or '=')
                     {
                         Advance(1);
-                        (_, _, var isTerminated) = ReadUntilLongBracketEnd(ref span);
-                        if (!isTerminated) LuaParseException.UnfinishedLongComment(ChunkName, pos);
+                        var (_, _, isTerminated) = ReadUntilLongBracketEnd(ref span);
+                        if (!isTerminated)
+                        {
+                            LuaParseException.UnfinishedLongComment(ChunkName, pos);
+                        }
                     }
                     else // line comment
                     {
@@ -150,6 +160,7 @@ public ref struct Lexer
                 {
                     current = SyntaxToken.Assignment(position);
                 }
+
                 return true;
             case '~':
                 if (c2 == '=')
@@ -161,6 +172,7 @@ public ref struct Lexer
                 {
                     throw new LuaParseException(ChunkName, position, $"error: Invalid '~' token");
                 }
+
                 return true;
             case '>':
                 if (c2 == '=')
@@ -172,6 +184,7 @@ public ref struct Lexer
                 {
                     current = SyntaxToken.GreaterThan(position);
                 }
+
                 return true;
             case '<':
                 if (c2 == '=')
@@ -183,11 +196,12 @@ public ref struct Lexer
                 {
                     current = SyntaxToken.LessThan(position);
                 }
+
                 return true;
             case '.':
                 if (c2 == '.')
                 {
-                    var c3 = span.Length == (offset + 1) ? char.MinValue : span[offset + 1];
+                    var c3 = span.Length == offset + 1 ? char.MinValue : span[offset + 1];
 
                     if (c3 == '.')
                     {
@@ -229,7 +243,10 @@ public ref struct Lexer
             if (c1 is '0' && c2 is 'x' or 'X') // hex 0x
             {
                 Advance(1);
-                if (span[offset] is '.') Advance(1);
+                if (span[offset] is '.')
+                {
+                    Advance(1);
+                }
 
                 ReadDigit(ref span, ref offset, out var readCount);
 
@@ -242,7 +259,10 @@ public ref struct Lexer
                 if (span.Length > offset && span[offset] is 'p' or 'P')
                 {
                     Advance(1);
-                    if (span[offset] is '-' or '+') Advance(1);
+                    if (span[offset] is '-' or '+')
+                    {
+                        Advance(1);
+                    }
 
                     ReadDigit(ref span, ref offset, out _);
                 }
@@ -265,7 +285,10 @@ public ref struct Lexer
                 if (span.Length > offset && span[offset] is 'e' or 'E')
                 {
                     Advance(1);
-                    if (span[offset] is '-' or '+') Advance(1);
+                    if (span[offset] is '-' or '+')
+                    {
+                        Advance(1);
+                    }
 
                     ReadNumber(ref span, ref offset, out _);
                 }
@@ -288,7 +311,10 @@ public ref struct Lexer
                 while (span.Length > offset)
                 {
                     var c = span[offset];
-                    if (prevC == ':' && c == ':') break;
+                    if (prevC == ':' && c == ':')
+                    {
+                        break;
+                    }
 
                     Advance(1);
                     prevC = c;
@@ -325,11 +351,22 @@ public ref struct Lexer
                 {
                     Advance(1);
 
-                    if (span.Length <= offset) break;
+                    if (span.Length <= offset)
+                    {
+                        break;
+                    }
+
                     if (span[offset] == '\r')
                     {
-                        if (span.Length<=offset +1) continue;
-                        if (span[offset+1] == '\n')Advance(1);
+                        if (span.Length <= offset + 1)
+                        {
+                            continue;
+                        }
+
+                        if (span[offset + 1] == '\n')
+                        {
+                            Advance(1);
+                        }
                     }
                 }
                 else if (c == quote)
@@ -356,7 +393,7 @@ public ref struct Lexer
         {
             if (c2 is '[' or '=')
             {
-                (var start, var end, var isTerminated) = ReadUntilLongBracketEnd(ref span);
+                var (start, end, isTerminated) = ReadUntilLongBracketEnd(ref span);
 
                 if (!isTerminated)
                 {
@@ -407,7 +444,7 @@ public ref struct Lexer
                 Keywords.Until => SyntaxToken.Until(position),
                 Keywords.Break => SyntaxToken.Break(position),
                 Keywords.Function => SyntaxToken.Function(position),
-                _ => new(SyntaxTokenType.Identifier, identifier, position),
+                _ => new(SyntaxTokenType.Identifier, identifier, position)
             };
 
             return true;
@@ -423,7 +460,10 @@ public ref struct Lexer
         var flag = true;
         while (flag)
         {
-            if (span.Length <= offset) return;
+            if (span.Length <= offset)
+            {
+                return;
+            }
 
             var c1 = span[offset];
 
@@ -439,6 +479,7 @@ public ref struct Lexer
                     Advance(1);
                     readCount++;
                 }
+
                 flag = false;
             }
 
@@ -490,12 +531,18 @@ public ref struct Lexer
             {
                 endOffset = offset;
 
-                for (int i = 1; i <= level; i++)
+                for (var i = 1; i <= level; i++)
                 {
-                    if (span[offset + i] is not '=') goto CONTINUE;
+                    if (span[offset + i] is not '=')
+                    {
+                        goto CONTINUE;
+                    }
                 }
 
-                if (span[offset + level + 1] is not ']') goto CONTINUE;
+                if (span[offset + level + 1] is not ']')
+                {
+                    goto CONTINUE;
+                }
 
                 Advance(level + 2);
                 isTerminated = true;

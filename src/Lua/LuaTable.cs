@@ -1,9 +1,10 @@
 using System.Runtime.CompilerServices;
+using System.Collections;
 using Lua.Internal;
 
 namespace Lua;
 
-public sealed class LuaTable
+public sealed class LuaTable : IEnumerable<KeyValuePair<LuaValue, LuaValue>>
 {
     public LuaTable() : this(8, 8)
     {
@@ -11,7 +12,7 @@ public sealed class LuaTable
 
     public LuaTable(int arrayCapacity, int dictionaryCapacity)
     {
-        array = new LuaValue[arrayCapacity];
+        array = arrayCapacity > 1 ? new LuaValue[arrayCapacity] : [];
         dictionary = new(dictionaryCapacity);
     }
 
@@ -20,8 +21,9 @@ public sealed class LuaTable
     LuaTable? metatable;
 
     internal LuaValueDictionary Dictionary => dictionary;
-    private const int MaxArraySize = 1 << 24;
-    private const int MaxDistance = 1 << 12;
+
+    const int MaxArraySize = 1 << 24;
+    const int MaxDistance = 1 << 12;
 
 
     public LuaValue this[LuaValue key]
@@ -29,7 +31,10 @@ public sealed class LuaTable
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         get
         {
-            if (key.Type is LuaValueType.Nil) ThrowIndexIsNil();
+            if (key.Type is LuaValueType.Nil)
+            {
+                ThrowIndexIsNil();
+            }
 
             if (TryGetInteger(key, out var index))
             {
@@ -40,7 +45,11 @@ public sealed class LuaTable
                 }
             }
 
-            if (dictionary.TryGetValue(key, out var value)) return value;
+            if (dictionary.TryGetValue(key, out var value))
+            {
+                return value;
+            }
+
             return LuaValue.Nil;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -56,18 +65,21 @@ public sealed class LuaTable
                 if (MathEx.IsInteger(d))
                 {
                     var index = (int)d;
-                    
+
                     var distance = index - array.Length;
                     if (distance > MaxDistance)
                     {
                         dictionary[key] = value;
                         return;
                     }
-                    
+
                     if (0 < index && index < MaxArraySize && index <= Math.Max(array.Length * 2, 8))
                     {
                         if (array.Length < index)
+                        {
                             EnsureArrayCapacity(index);
+                        }
+
                         array[index - 1] = value;
                         return;
                     }
@@ -78,18 +90,18 @@ public sealed class LuaTable
         }
     }
 
-    public int HashMapCount
-    {
-        get => dictionary.Count - dictionary.NilCount;
-    }
+    public int HashMapCount => dictionary.Count - dictionary.NilCount;
 
     public int ArrayLength
     {
         get
         {
-            for (int i = 0; i < array.Length; i++)
+            for (var i = 0; i < array.Length; i++)
             {
-                if (array[i].Type is LuaValueType.Nil) return i;
+                if (array[i].Type is LuaValueType.Nil)
+                {
+                    return i;
+                }
             }
 
             return array.Length;
@@ -130,6 +142,7 @@ public sealed class LuaTable
         {
             ThrowIndexIsNil();
         }
+
 
         if (TryGetInteger(key, out var index))
         {
@@ -216,7 +229,7 @@ public sealed class LuaTable
         if (index != -1)
         {
             var span = array.AsSpan(index);
-            for (int i = 0; i < span.Length; i++)
+            for (var i = 0; i < span.Length; i++)
             {
                 if (span[i].Type is not LuaValueType.Nil)
                 {
@@ -248,6 +261,7 @@ public sealed class LuaTable
 
     public void Clear()
     {
+        array.AsSpan().Clear();
         dictionary.Clear();
     }
 
@@ -263,16 +277,17 @@ public sealed class LuaTable
 
     internal void EnsureArrayCapacity(int newCapacity)
     {
-        if (array.Length >= newCapacity) return;
+        if (array.Length >= newCapacity)
+        {
+            return;
+        }
 
         var prevLength = array.Length;
-        var newLength = array.Length;
-        if (newLength == 0) newLength = 8;
-        newLength = newCapacity <= 8 ? 8 : MathEx.NextPowerOfTwo(newCapacity);
+        var newLength = newCapacity <= 8 ? 8 : MathEx.NextPowerOfTwo(newCapacity);
 
         Array.Resize(ref array, newLength);
 
-        using var indexList = new PooledList<(int, LuaValue)>(dictionary.Count);
+        using PooledList<(int, LuaValue)> indexList = new(dictionary.Count);
 
         // Move some of the elements of the hash part to a newly allocated array
         foreach (var kv in dictionary)
@@ -286,7 +301,7 @@ public sealed class LuaTable
             }
         }
 
-        foreach ((var index, var value) in indexList.AsSpan())
+        foreach (var (index, value) in indexList.AsSpan())
         {
             dictionary.Remove(index);
             array[index - 1] = value;
@@ -314,5 +329,65 @@ public sealed class LuaTable
     static void ThrowIndexIsNaN()
     {
         throw new ArgumentException("the table index is NaN");
+    }
+
+    public LuaTableEnumerator GetEnumerator()
+    {
+        return new(this);
+    }
+
+    IEnumerator<KeyValuePair<LuaValue, LuaValue>> IEnumerable<KeyValuePair<LuaValue, LuaValue>>.GetEnumerator()
+    {
+        return new LuaTableEnumerator(this);
+    }
+
+    IEnumerator IEnumerable.GetEnumerator()
+    {
+        return new LuaTableEnumerator(this);
+    }
+
+    public struct LuaTableEnumerator(LuaTable table) : IEnumerator<KeyValuePair<LuaValue, LuaValue>>
+    {
+        public KeyValuePair<LuaValue, LuaValue> Current => current;
+
+        int index = -1;
+        readonly int version = table.dictionary.Version;
+        KeyValuePair<LuaValue, LuaValue> current = default;
+
+        public bool MoveNext()
+        {
+            if (index < 0)
+            {
+                var arrayIndex = -index - 1;
+                var span = table.array.AsSpan(arrayIndex);
+                for (var i = 0; i < span.Length; i++)
+                {
+                    if (span[i].Type is not LuaValueType.Nil)
+                    {
+                        current = new(arrayIndex + i + 1, span[i]);
+                        index = -arrayIndex - i - 2;
+                        return true;
+                    }
+                }
+
+                index = 0;
+            }
+
+            while (LuaValueDictionary.MoveNext(table.Dictionary, version, ref index, out current) && current.Value.Type is LuaValueType.Nil)
+            {
+            }
+
+            return current.Value.Type is not LuaValueType.Nil;
+        }
+
+        public void Reset()
+        {
+        }
+
+        object IEnumerator.Current => Current;
+
+        public void Dispose()
+        {
+        }
     }
 }

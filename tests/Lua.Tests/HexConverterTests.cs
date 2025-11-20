@@ -15,4 +15,15 @@ public class HexConverterTests
     {
         Assert.That(Math.Abs(HexConverter.ToDouble(text) - expected), Is.LessThanOrEqualTo(0.00001d));
     }
+
+    [TestCase(1.1, "0x1.199999999999ap+0")]
+    [TestCase(double.PositiveInfinity, "1e9999")]
+    [TestCase(double.NegativeInfinity, "-1e9999")]
+    [TestCase(double.NaN, "(0/0)")]
+    [TestCase(-1.5, "-0x1.8p+0")]
+    [TestCase(1.2e-39, "0x1.a22393b33036bp-130")]
+    public void Test_FromDouble(double value, string expected)
+    {
+        Assert.That(HexConverter.FromDouble(value), Is.EqualTo(expected.ToLower()));
+    }
 }

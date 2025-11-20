@@ -1,0 +1,16 @@
+<Solution>
+    <Folder Name="/sandbox/">
+        <File Path="sandbox/ConsoleApp2/.gitignore"/>
+        <Project Path="sandbox/Benchmark/Benchmark.csproj"/>
+        <Project Path="sandbox/ConsoleApp1/ConsoleApp1.csproj"/>
+        <Project Path="sandbox/ConsoleApp2/ConsoleApp2.csproj"/>
+        <Project Path="sandbox/JitTest/JitTest.csproj"/>
+    </Folder>
+    <Folder Name="/src/">
+        <Project Path="src/Lua.SourceGenerator/Lua.SourceGenerator.csproj"/>
+        <Project Path="src/Lua/Lua.csproj"/>
+    </Folder>
+    <Folder Name="/tests/">
+        <Project Path="tests/Lua.Tests/Lua.Tests.csproj"/>
+    </Folder>
+</Solution>

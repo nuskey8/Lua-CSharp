@@ -16,10 +16,10 @@ public enum BinaryOperator
     LessThanOrEqual,
     And,
     Or,
-    Concat,
+    Concat
 }
 
-internal static class BinaryOperatorEx
+static class BinaryOperatorEx
 {
     public static string ToDisplayString(this BinaryOperator @operator)
     {
@@ -40,7 +40,7 @@ internal static class BinaryOperatorEx
             BinaryOperator.And => Keywords.And,
             BinaryOperator.Or => Keywords.Or,
             BinaryOperator.Concat => Keywords.Concat,
-            _ => "",
+            _ => ""
         };
     }
 }

@@ -4,7 +4,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace Lua.SourceGenerator;
 
-internal class TypeMetadata
+class TypeMetadata
 {
     public TypeDeclarationSyntax Syntax { get; }
     public INamedTypeSymbol Symbol { get; }
@@ -25,13 +25,27 @@ internal class TypeMetadata
             .Where(x => x is (IFieldSymbol or IPropertySymbol) and { IsImplicitlyDeclared: false })
             .Where(x =>
             {
-                if (!x.ContainsAttribute(references.LuaMemberAttribute)) return false;
-                if (x.ContainsAttribute(references.LuaIgnoreMemberAttribute)) return false;
+                if (!x.ContainsAttribute(references.LuaMemberAttribute))
+                {
+                    return false;
+                }
+
+                if (x.ContainsAttribute(references.LuaIgnoreMemberAttribute))
+                {
+                    return false;
+                }
 
                 if (x is IPropertySymbol p)
                 {
-                    if (p.GetMethod == null || p.SetMethod == null) return false;
-                    if (p.IsIndexer) return false;
+                    if (p.GetMethod == null || p.SetMethod == null)
+                    {
+                        return false;
+                    }
+
+                    if (p.IsIndexer)
+                    {
+                        return false;
+                    }
                 }
 
                 return true;
@@ -44,7 +58,11 @@ internal class TypeMetadata
             .Select(x => (IMethodSymbol)x)
             .Where(x =>
             {
-                if (x.ContainsAttribute(references.LuaIgnoreMemberAttribute)) return false;
+                if (x.ContainsAttribute(references.LuaIgnoreMemberAttribute))
+                {
+                    return false;
+                }
+
                 return x.ContainsAttribute(references.LuaMemberAttribute) || x.ContainsAttribute(references.LuaMetamethodAttribute);
             })
             .Select(x => new MethodMetadata(x, references))

@@ -2,7 +2,7 @@ using Microsoft.CodeAnalysis;
 
 namespace Lua.SourceGenerator;
 
-internal class MethodMetadata
+class MethodMetadata
 {
     public IMethodSymbol Symbol { get; }
     public bool IsStatic { get; }
@@ -19,7 +19,7 @@ internal class MethodMetadata
         IsStatic = symbol.IsStatic;
 
         var returnType = symbol.ReturnType;
-        var fullName = (returnType.ContainingNamespace.IsGlobalNamespace ? "" : (returnType.ContainingNamespace + ".")) + returnType.Name;
+        var fullName = (returnType.ContainingNamespace.IsGlobalNamespace ? "" : returnType.ContainingNamespace + ".") + returnType.Name;
         IsAsync = fullName is "System.Threading.Tasks.Task"
             or "System.Threading.Tasks.ValueTask"
             or "Cysharp.Threading.Tasks.UniTask"

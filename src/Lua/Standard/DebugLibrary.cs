@@ -4,55 +4,56 @@ using Lua.Internal;
 
 namespace Lua.Standard;
 
-public class DebugLibrary
+public sealed class DebugLibrary
 {
     public static readonly DebugLibrary Instance = new();
 
     public DebugLibrary()
     {
+        var libraryName = "debug";
         Functions =
         [
-            new("getlocal", GetLocal),
-            new("setlocal", SetLocal),
-            new("getupvalue", GetUpValue),
-            new("setupvalue", SetUpValue),
-            new("getmetatable", GetMetatable),
-            new("setmetatable", SetMetatable),
-            new("getuservalue", GetUserValue),
-            new("setuservalue", SetUserValue),
-            new("traceback", Traceback),
-            new("getregistry", GetRegistry),
-            new("upvalueid", UpValueId),
-            new("upvaluejoin", UpValueJoin),
-            new("gethook", GetHook),
-            new("sethook", SetHook),
-            new("getinfo", GetInfo),
+            new(libraryName, "getlocal", GetLocal),
+            new(libraryName, "setlocal", SetLocal),
+            new(libraryName, "getupvalue", GetUpValue),
+            new(libraryName, "setupvalue", SetUpValue),
+            new(libraryName, "getmetatable", GetMetatable),
+            new(libraryName, "setmetatable", SetMetatable),
+            new(libraryName, "getuservalue", GetUserValue),
+            new(libraryName, "setuservalue", SetUserValue),
+            new(libraryName, "traceback", Traceback),
+            new(libraryName, "getregistry", GetRegistry),
+            new(libraryName, "upvalueid", UpValueId),
+            new(libraryName, "upvaluejoin", UpValueJoin),
+            new(libraryName, "gethook", GetHook),
+            new(libraryName, "sethook", SetHook),
+            new(libraryName, "getinfo", GetInfo)
         ];
     }
 
-    public readonly LuaFunction[] Functions;
+    public readonly LibraryFunction[] Functions;
 
 
-    static LuaThread GetLuaThread(in LuaFunctionExecutionContext context, out int argOffset)
+    static LuaState GetLuaThread(in LuaFunctionExecutionContext context, out int argOffset)
     {
         if (context.ArgumentCount < 1)
         {
             argOffset = 0;
-            return context.Thread;
+            return context.State;
         }
 
-        if (context.GetArgument(0).TryRead<LuaThread>(out var thread))
+        if (context.GetArgument(0).TryRead<LuaState>(out var state))
         {
             argOffset = 1;
-            return thread;
+            return state;
         }
 
         argOffset = 0;
-        return context.Thread;
+        return context.State;
     }
 
 
-    static ref LuaValue FindLocal(LuaThread thread, int level, int index, out string? name)
+    static ref LuaValue FindLocal(LuaState state, int level, int index, out string? name)
     {
         if (index == 0)
         {
@@ -60,7 +61,7 @@ public class DebugLibrary
             return ref Unsafe.NullRef<LuaValue>();
         }
 
-        var callStack = thread.GetCallStackFrames();
+        var callStack = state.GetCallStackFrames();
         var frame = callStack[^(level + 1)];
         if (index < 0)
         {
@@ -69,7 +70,7 @@ public class DebugLibrary
             if (frameVariableArgumentCount > 0 && index < frameVariableArgumentCount)
             {
                 name = "(*vararg)";
-                return ref thread.Stack.Get(frame.Base - frameVariableArgumentCount + index);
+                return ref state.Stack.Get(frame.Base - frameVariableArgumentCount + index);
             }
 
             name = null;
@@ -84,34 +85,42 @@ public class DebugLibrary
 
         if (frame.Function is LuaClosure closure)
         {
-            var locals = closure.Proto.Locals;
+            var locals = closure.Proto.LocalVariables;
             var nextFrame = callStack[^level];
             var currentPc = nextFrame.CallerInstructionIndex;
             {
-                int nextFrameBase = (closure.Proto.Instructions[currentPc].OpCode is OpCode.Call or OpCode.TailCall) ? nextFrame.Base - 1 : nextFrame.Base;
+                var nextFrameBase = closure.Proto.Code[currentPc].OpCode is OpCode.Call or OpCode.TailCall ? nextFrame.Base - 1 : nextFrame.Base;
                 if (nextFrameBase - 1 < frameBase + index)
                 {
                     name = null;
                     return ref Unsafe.NullRef<LuaValue>();
                 }
             }
-            foreach (var local in locals)
-            {
-                if (local.Index == index && currentPc >= local.StartPc && currentPc < local.EndPc)
-                {
-                    name = local.Name.ToString();
-                    return ref thread.Stack.Get(frameBase + local.Index);
-                }
 
-                if (local.Index > index)
+            var localId = index + 1;
+            foreach (var l in locals)
+            {
+                if (currentPc < l.StartPc)
                 {
                     break;
+                }
+
+                if (l.EndPc <= currentPc)
+                {
+                    continue;
+                }
+
+                localId--;
+                if (localId == 0)
+                {
+                    name = l.Name;
+                    return ref state.Stack.Get(frameBase + index);
                 }
             }
         }
         else
         {
-            int nextFrameBase = level != 0 ? callStack[^level].Base : thread.Stack.Count;
+            var nextFrameBase = level != 0 ? callStack[^level].Base : state.Stack.Count;
 
             if (nextFrameBase - 1 < frameBase + index)
             {
@@ -121,10 +130,10 @@ public class DebugLibrary
         }
 
         name = "(*temporary)";
-        return ref thread.Stack.Get(frameBase + index);
+        return ref state.Stack.Get(frameBase + index);
     }
 
-    public ValueTask<int> GetLocal(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public ValueTask<int> GetLocal(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
         static LuaValue GetParam(LuaFunction function, int index)
         {
@@ -133,69 +142,63 @@ public class DebugLibrary
                 var paramCount = closure.Proto.ParameterCount;
                 if (0 <= index && index < paramCount)
                 {
-                    return closure.Proto.Locals[index].Name.ToString();
+                    return closure.Proto.LocalVariables[index].Name;
                 }
             }
 
             return LuaValue.Nil;
         }
 
-        var thread = GetLuaThread(context, out var argOffset);
+        var state = GetLuaThread(context, out var argOffset);
 
         var index = context.GetArgument<int>(argOffset + 1);
         if (context.GetArgument(argOffset).TryReadFunction(out var f))
         {
-            buffer.Span[0] = GetParam(f, index - 1);
-            return new(1);
+            return new(context.Return(GetParam(f, index - 1)));
         }
 
         var level = context.GetArgument<int>(argOffset);
 
 
-        if (level < 0 || level >= thread.GetCallStackFrames().Length)
+        if (level < 0 || level >= state.GetCallStackFrames().Length)
         {
             context.ThrowBadArgument(1, "level out of range");
         }
 
-        ref var local = ref FindLocal(thread, level, index, out var name);
+        ref var local = ref FindLocal(state, level, index, out var name);
         if (name is null)
         {
-            buffer.Span[0] = LuaValue.Nil;
-            return new(1);
+            return new(context.Return(LuaValue.Nil));
         }
 
-        buffer.Span[0] = name;
-        buffer.Span[1] = local;
-        return new(2);
+        return new(context.Return(name, local));
     }
 
-    public ValueTask<int> SetLocal(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public ValueTask<int> SetLocal(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
-        var thread = GetLuaThread(context, out var argOffset);
+        var state = GetLuaThread(context, out var argOffset);
 
         var value = context.GetArgument(argOffset + 2);
         var index = context.GetArgument<int>(argOffset + 1);
         var level = context.GetArgument<int>(argOffset);
 
 
-        if (level < 0 || level >= thread.GetCallStackFrames().Length)
+        if (level < 0 || level >= state.GetCallStackFrames().Length)
         {
             context.ThrowBadArgument(1, "level out of range");
         }
 
-        ref var local = ref FindLocal(thread, level, index, out var name);
+        ref var local = ref FindLocal(state, level, index, out var name);
         if (name is null)
         {
-            buffer.Span[0] = LuaValue.Nil;
-            return new(1);
+            return new(context.Return(LuaValue.Nil));
         }
 
-        buffer.Span[0] = name;
         local = value;
-        return new(1);
+        return new(context.Return(name));
     }
 
-    public ValueTask<int> GetUpValue(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public ValueTask<int> GetUpValue(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
         var func = context.GetArgument<LuaFunction>(0);
         var index = context.GetArgument<int>(1) - 1;
@@ -206,15 +209,13 @@ public class DebugLibrary
                 var upValues = csClosure.UpValues;
                 if (index < 0 || index >= upValues.Length)
                 {
-                    return new(0);
+                    return new(context.Return());
                 }
 
-                buffer.Span[0] = "";
-                buffer.Span[1] = upValues[index];
-                return new(1);
+                return new(context.Return("", upValues[index]));
             }
 
-            return new(0);
+            return new(context.Return());
         }
 
         {
@@ -222,17 +223,15 @@ public class DebugLibrary
             var descriptions = closure.Proto.UpValues;
             if (index < 0 || index >= descriptions.Length)
             {
-                return new(0);
+                return new(context.Return());
             }
 
             var description = descriptions[index];
-            buffer.Span[0] = description.Name.ToString();
-            buffer.Span[1] = upValues[index].GetValue();
-            return new(2);
+            return new(context.Return(description.Name.ToString(), upValues[index].GetValue()));
         }
     }
 
-    public ValueTask<int> SetUpValue(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public ValueTask<int> SetUpValue(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
         var func = context.GetArgument<LuaFunction>(0);
         var index = context.GetArgument<int>(1) - 1;
@@ -244,15 +243,12 @@ public class DebugLibrary
                 var upValues = csClosure.UpValues;
                 if (index >= 0 && index < upValues.Length)
                 {
-                    buffer.Span[0] = "";
                     upValues[index] = value;
-                    return new(0);
+                    return new(context.Return(""));
                 }
-
-                return new(0);
             }
 
-            return new(0);
+            return new(context.Return());
         }
 
         {
@@ -260,159 +256,134 @@ public class DebugLibrary
             var descriptions = closure.Proto.UpValues;
             if (index < 0 || index >= descriptions.Length)
             {
-                return new(0);
+                return new(context.Return());
             }
 
             var description = descriptions[index];
-            buffer.Span[0] = description.Name.ToString();
             upValues[index].SetValue(value);
-            return new(1);
+            return new(context.Return(description.Name.ToString()));
         }
     }
 
-    public ValueTask<int> GetMetatable(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public ValueTask<int> GetMetatable(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
         var arg0 = context.GetArgument(0);
 
-        if (context.State.TryGetMetatable(arg0, out var table))
+        if (context.GlobalState.TryGetMetatable(arg0, out var table))
         {
-            buffer.Span[0] = table;
+            return new(context.Return(table));
         }
         else
         {
-            buffer.Span[0] = LuaValue.Nil;
+            return new(context.Return(LuaValue.Nil));
         }
-
-        return new(1);
     }
 
-    public ValueTask<int> SetMetatable(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public ValueTask<int> SetMetatable(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
         var arg0 = context.GetArgument(0);
         var arg1 = context.GetArgument(1);
 
         if (arg1.Type is not (LuaValueType.Nil or LuaValueType.Table))
         {
-            LuaRuntimeException.BadArgument(context.State.GetTraceback(), 2, "setmetatable", [LuaValueType.Nil, LuaValueType.Table]);
+            LuaRuntimeException.BadArgument(context.State, 2, [LuaValueType.Nil, LuaValueType.Table], arg1.Type);
         }
 
-        context.State.SetMetatable(arg0, arg1.UnsafeRead<LuaTable>());
+        context.GlobalState.SetMetatable(arg0, arg1.UnsafeRead<LuaTable>());
 
-        buffer.Span[0] = arg0;
-        return new(1);
+        return new(context.Return(arg0));
     }
 
-    public ValueTask<int> GetUserValue(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public ValueTask<int> GetUserValue(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
         if (!context.GetArgumentOrDefault(0).TryRead<ILuaUserData>(out var iUserData))
         {
-            buffer.Span[0] = LuaValue.Nil;
-            return new(1);
+            return new(context.Return(LuaValue.Nil));
         }
 
         var index = 1; // context.GetArgument<int>(1); //for lua 5.4
         var userValues = iUserData.UserValues;
-        if (index > userValues.Length
-            //index < 1 ||  // for lua 5.4
-           )
+        if (index > userValues.Length /* index < 1 ||  // for lua 5.4 */)
         {
-            buffer.Span[0] = LuaValue.Nil;
-            return new(1);
+            return new(context.Return(LuaValue.Nil));
         }
 
-        buffer.Span[0] = userValues[index - 1];
-        return new(1);
+        return new(context.Return(userValues[index - 1]));
     }
 
-    public ValueTask<int> SetUserValue(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public ValueTask<int> SetUserValue(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
         var iUserData = context.GetArgument<ILuaUserData>(0);
         var value = context.GetArgument(1);
-        var index = 1; // context.GetArgument<int>(2);// for lua 5.4
+        var index = 1; // context.GetArgument<int>(2); // for lua 5.4
         var userValues = iUserData.UserValues;
-        if (index > userValues.Length
-            //|| index < 1 // for lua 5.4
-           )
+        if (index > userValues.Length /* || index < 1 // for lua 5.4 */)
         {
-            buffer.Span[0] = LuaValue.Nil;
-            return new(1);
+            return new(context.Return(LuaValue.Nil));
         }
 
         userValues[index - 1] = value;
-        buffer.Span[0] = new LuaValue(iUserData);
-        return new(1);
+        return new(context.Return(new LuaValue(iUserData)));
     }
 
-    public ValueTask<int> Traceback(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public ValueTask<int> Traceback(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
-        var thread = GetLuaThread(context, out var argOffset);
+        var state = GetLuaThread(context, out var argOffset);
 
         var message = context.GetArgumentOrDefault(argOffset);
-        var level = context.GetArgumentOrDefault<int>(argOffset + 1, argOffset == 0 ? 1 : 0);
+        var level = context.GetArgumentOrDefault(argOffset + 1, argOffset == 0 ? 1 : 0);
 
         if (message.Type is not (LuaValueType.Nil or LuaValueType.String or LuaValueType.Number))
         {
-            buffer.Span[0] = message;
-            return new(1);
+            return new(context.Return(message));
         }
 
         if (level < 0)
         {
-            buffer.Span[0] = LuaValue.Nil;
-            return new(1);
+            return new(context.Return(LuaValue.Nil));
         }
 
-        if (thread is LuaCoroutine coroutine)
+        if (state is { IsCoroutine: true, LuaTraceback: { } traceback })
         {
-            if (coroutine.LuaTraceback is not null)
-            {
-                buffer.Span[0] = coroutine.LuaTraceback.ToString(level);
-                return new(1);
-            }
+            return new(context.Return(traceback.ToString(level)));
         }
 
-        var callStack = thread.GetCallStackFrames();
+        var callStack = state.GetCallStackFrames();
         if (callStack.Length == 0)
         {
-            buffer.Span[0] = "stack traceback:";
-            return new(1);
+            return new(context.Return("stack traceback:"));
         }
 
         var skipCount = Math.Min(Math.Max(level - 1, 0), callStack.Length - 1);
-        var frames = callStack[1..^skipCount];
-        buffer.Span[0] = Runtime.Traceback.GetTracebackString(context.State, (LuaClosure)callStack[0].Function, frames, message, level == 1);
-        return new(1);
+        var frames = callStack[..^skipCount];
+        return new(context.Return(Runtime.Traceback.CreateTracebackMessage(context.GlobalState, frames, message, level == 1 ? 1 : 0)));
     }
 
-    public ValueTask<int> GetRegistry(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public ValueTask<int> GetRegistry(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
-        buffer.Span[0] = context.State.Registry;
-        return new(1);
+        return new(context.Return(context.GlobalState.Registry));
     }
 
-    public ValueTask<int> UpValueId(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public ValueTask<int> UpValueId(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
         var n1 = context.GetArgument<int>(1);
         var f1 = context.GetArgument<LuaFunction>(0);
 
         if (f1 is not LuaClosure closure)
         {
-            buffer.Span[0] = LuaValue.Nil;
-            return new(1);
+            return new(context.Return(LuaValue.Nil));
         }
 
         var upValues = closure.GetUpValuesSpan();
         if (n1 <= 0 || n1 > upValues.Length)
         {
-            buffer.Span[0] = LuaValue.Nil;
-            return new(1);
+            return new(context.Return(LuaValue.Nil));
         }
 
-        buffer.Span[0] = new LuaValue(upValues[n1 - 1]);
-        return new(1);
+        return new(context.Return(LuaValue.FromObject(upValues[n1 - 1])));
     }
 
-    public ValueTask<int> UpValueJoin(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public ValueTask<int> UpValueJoin(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
         var n2 = context.GetArgument<int>(3);
         var f2 = context.GetArgument<LuaFunction>(2);
@@ -421,8 +392,7 @@ public class DebugLibrary
 
         if (f1 is not LuaClosure closure1 || f2 is not LuaClosure closure2)
         {
-            buffer.Span[0] = LuaValue.Nil;
-            return new(1);
+            return new(context.Return(LuaValue.Nil));
         }
 
         var upValues1 = closure1.GetUpValuesSpan();
@@ -441,140 +411,88 @@ public class DebugLibrary
         return new(0);
     }
 
-    public async ValueTask<int> SetHook(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public async ValueTask<int> SetHook(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
-        var thread = GetLuaThread(context, out var argOffset);
-        LuaFunction? hook = context.GetArgumentOrDefault<LuaFunction?>(argOffset);
+        var state = GetLuaThread(context, out var argOffset);
+        var hook = context.GetArgumentOrDefault<LuaFunction?>(argOffset);
+        var mask = context.GetArgumentOrDefault<string?>(argOffset + 1) ?? "";
+        var count = context.GetArgumentOrDefault<int>(argOffset + 2);
+        state.SetHook(hook, mask, count);
         if (hook is null)
         {
-            thread.HookCount = -1;
-            thread.BaseHookCount = 0;
-            thread.IsCountHookEnabled = false;
-            thread.Hook = null;
-            thread.IsLineHookEnabled = false;
-            thread.IsCallHookEnabled = false;
-            thread.IsReturnHookEnabled = false;
             return 0;
         }
 
-        var mask = context.GetArgument<string>(argOffset + 1);
-        if (context.HasArgument(argOffset + 2))
+        if (state.IsReturnHookEnabled && context.State == state)
         {
-            var count = context.GetArgument<int>(argOffset + 2);
-            thread.BaseHookCount = count;
-            thread.HookCount = count;
-            if (count > 0)
-            {
-                thread.IsCountHookEnabled = true;
-            }
-        }
-        else
-        {
-            thread.HookCount = 0;
-            thread.BaseHookCount = 0;
-            thread.IsCountHookEnabled = false;
-        }
-
-        thread.IsLineHookEnabled = (mask.Contains('l'));
-        thread.IsCallHookEnabled = (mask.Contains('c'));
-        thread.IsReturnHookEnabled = (mask.Contains('r'));
-
-        if (thread.IsLineHookEnabled)
-        {
-            thread.LastPc = thread.CallStack.Count > 0 ? thread.GetCurrentFrame().CallerInstructionIndex : -1;
-        }
-
-        thread.Hook = hook;
-        if (thread.IsReturnHookEnabled && context.Thread == thread)
-        {
-            var stack = thread.Stack;
+            var stack = state.Stack;
+            var top = stack.Count;
             stack.Push("return");
             stack.Push(LuaValue.Nil);
-            var funcContext = new LuaFunctionExecutionContext
-            {
-                State = context.State,
-                Thread = context.Thread,
-                ArgumentCount = 2,
-                FrameBase = stack.Count - 2,
-            };
-            var frame = new CallStackFrame
-            {
-                Base = funcContext.FrameBase,
-                VariableArgumentCount = hook.GetVariableArgumentCount(2),
-                Function = hook,
-            };
-            frame.Flags |= CallStackFrameFlags.InHook;
-            thread.PushCallStackFrame(frame);
+            context.State.IsInHook = true;
+            var frame = context.State.CreateCallStackFrame(hook, 2, top, 0);
+            context.State.PushCallStackFrame(frame);
+            LuaFunctionExecutionContext funcContext = new() { State = context.State, ArgumentCount = stack.Count - frame.Base, ReturnFrameBase = frame.ReturnBase };
             try
             {
-                thread.IsInHook = true;
-                await hook.Func(funcContext, Memory<LuaValue>.Empty, cancellationToken);
+                await hook.Func(funcContext, cancellationToken);
             }
             finally
             {
-                thread.IsInHook = false;
+                context.State.IsInHook = false;
+                context.State.PopCallStackFrameWithStackPop();
             }
-
-            thread.PopCallStackFrame();
         }
 
         return 0;
     }
 
-
-    public ValueTask<int> GetHook(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public ValueTask<int> GetHook(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
-        var thread = GetLuaThread(context, out var argOffset);
-        if (thread.Hook is null)
+        var state = GetLuaThread(context, out _);
+        if (state.Hook is null)
         {
-            buffer.Span[0] = LuaValue.Nil;
-            buffer.Span[1] = LuaValue.Nil;
-            buffer.Span[2] = LuaValue.Nil;
-            return new(3);
+            return new(context.Return(LuaValue.Nil, LuaValue.Nil, LuaValue.Nil));
         }
 
-        buffer.Span[0] = thread.Hook;
-        buffer.Span[1] = (
-            (thread.IsCallHookEnabled ? "c" : "") +
-            (thread.IsReturnHookEnabled ? "r" : "") +
-            (thread.IsLineHookEnabled ? "l" : "")
-        );
-        buffer.Span[2] = thread.BaseHookCount;
-        return new(3);
+        return new(context.Return(state.Hook,
+            (state.IsCallHookEnabled ? "c" : "") +
+            (state.IsReturnHookEnabled ? "r" : "") +
+            (state.IsLineHookEnabled ? "l" : "")
+            , state.BaseHookCount));
     }
 
-    public ValueTask<int> GetInfo(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public ValueTask<int> GetInfo(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
-        //return new(0);
-        var thread = GetLuaThread(context, out var argOffset);
-        string what = context.GetArgumentOrDefault<string>(argOffset + 1, "flnStu");
+        // return new(0);
+        var state = GetLuaThread(context, out var argOffset);
+        var what = context.GetArgumentOrDefault(argOffset + 1, "flnStu");
         CallStackFrame? previousFrame = null;
         CallStackFrame? currentFrame = null;
-        int pc = 0;
+        var pc = 0;
         var arg1 = context.GetArgument(argOffset);
 
         if (arg1.TryReadFunction(out var functionToInspect))
         {
-            //what = ">" + what;
+            // what = ">" + what;
         }
         else if (arg1.TryReadNumber(out _))
         {
             var level = context.GetArgument<int>(argOffset) + 1;
 
-            var callStack = thread.GetCallStackFrames();
+            var callStack = state.GetCallStackFrames();
 
             if (level <= 0 || level > callStack.Length)
             {
-                buffer.Span[0] = LuaValue.Nil;
-                return new(1);
+                return new(context.Return(LuaValue.Nil));
             }
 
 
-            currentFrame = thread.GetCallStackFrames()[^(level)];
+            currentFrame = state.GetCallStackFrames()[^level];
             previousFrame = level + 1 <= callStack.Length ? callStack[^(level + 1)] : null;
             if (level != 1)
             {
-                pc = thread.GetCallStackFrames()[^(level - 1)].CallerInstructionIndex;
+                pc = state.GetCallStackFrames()[^(level - 1)].CallerInstructionIndex;
             }
 
             functionToInspect = currentFrame.Value.Function;
@@ -584,13 +502,13 @@ public class DebugLibrary
             context.ThrowBadArgument(argOffset, "function or level expected");
         }
 
-        using var debug = LuaDebug.Create(context.State, previousFrame, currentFrame, functionToInspect, pc, what, out var isValid);
+        using var debug = LuaDebug.Create(context.GlobalState, previousFrame, currentFrame, functionToInspect, pc, what, out var isValid);
         if (!isValid)
         {
             context.ThrowBadArgument(argOffset + 1, "invalid option");
         }
 
-        var table = new LuaTable(0, 1);
+        LuaTable table = new(0, 1);
         if (what.Contains('S'))
         {
             table["source"] = debug.Source ?? LuaValue.Nil;
@@ -616,9 +534,7 @@ public class DebugLibrary
         if (what.Contains('n'))
         {
             table["name"] = debug.Name ?? LuaValue.Nil;
-            ;
             table["namewhat"] = debug.NameWhat ?? LuaValue.Nil;
-            ;
         }
 
         if (what.Contains('t'))
@@ -635,18 +551,16 @@ public class DebugLibrary
         {
             if (functionToInspect is LuaClosure closure)
             {
-                var activeLines = new LuaTable(0, 8);
-                foreach (var pos in closure.Proto.SourcePositions)
+                LuaTable activeLines = new(0, 8);
+                foreach (var line in closure.Proto.LineInfo)
                 {
-                    activeLines[pos.Line] = true;
+                    activeLines[line] = true;
                 }
 
                 table["activelines"] = activeLines;
             }
         }
 
-        buffer.Span[0] = table;
-
-        return new(1);
+        return new(context.Return(table));
     }
 }

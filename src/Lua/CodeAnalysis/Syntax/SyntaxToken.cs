@@ -4,68 +4,250 @@ namespace Lua.CodeAnalysis.Syntax;
 
 public readonly struct SyntaxToken(SyntaxTokenType type, ReadOnlyMemory<char> text, SourcePosition position) : IEquatable<SyntaxToken>
 {
-    public static SyntaxToken EndOfLine(SourcePosition position) => new(SyntaxTokenType.EndOfLine, Keywords.LF.AsMemory(), position);
+    public static SyntaxToken EndOfLine(SourcePosition position)
+    {
+        return new(SyntaxTokenType.EndOfLine, Keywords.LF.AsMemory(), position);
+    }
 
-    public static SyntaxToken LParen(SourcePosition position) => new(SyntaxTokenType.LParen, Keywords.LParen.AsMemory(), position);
-    public static SyntaxToken RParen(SourcePosition position) => new(SyntaxTokenType.RParen, Keywords.RParen.AsMemory(), position);
-    public static SyntaxToken LCurly(SourcePosition position) => new(SyntaxTokenType.LCurly, Keywords.LCurly.AsMemory(), position);
-    public static SyntaxToken RCurly(SourcePosition position) => new(SyntaxTokenType.RCurly, Keywords.RCurly.AsMemory(), position);
-    public static SyntaxToken LSquare(SourcePosition position) => new(SyntaxTokenType.LSquare, Keywords.LSquare.AsMemory(), position);
-    public static SyntaxToken RSquare(SourcePosition position) => new(SyntaxTokenType.RSquare, Keywords.RSquare.AsMemory(), position);
+    public static SyntaxToken LParen(SourcePosition position)
+    {
+        return new(SyntaxTokenType.LParen, Keywords.LParen.AsMemory(), position);
+    }
 
-    public static SyntaxToken Nil(SourcePosition position) => new(SyntaxTokenType.Nil, Keywords.Nil.AsMemory(), position);
-    public static SyntaxToken True(SourcePosition position) => new(SyntaxTokenType.True, Keywords.True.AsMemory(), position);
-    public static SyntaxToken False(SourcePosition position) => new(SyntaxTokenType.False, Keywords.False.AsMemory(), position);
+    public static SyntaxToken RParen(SourcePosition position)
+    {
+        return new(SyntaxTokenType.RParen, Keywords.RParen.AsMemory(), position);
+    }
 
-    public static SyntaxToken Addition(SourcePosition position) => new(SyntaxTokenType.Addition, Keywords.Addition.AsMemory(), position);
-    public static SyntaxToken Subtraction(SourcePosition position) => new(SyntaxTokenType.Subtraction, Keywords.Subtraction.AsMemory(), position);
-    public static SyntaxToken Multiplication(SourcePosition position) => new(SyntaxTokenType.Multiplication, Keywords.Multiplication.AsMemory(), position);
-    public static SyntaxToken Division(SourcePosition position) => new(SyntaxTokenType.Division, Keywords.Division.AsMemory(), position);
-    public static SyntaxToken Modulo(SourcePosition position) => new(SyntaxTokenType.Modulo, Keywords.Modulo.AsMemory(), position);
-    public static SyntaxToken Exponentiation(SourcePosition position) => new(SyntaxTokenType.Exponentiation, Keywords.Exponentiation.AsMemory(), position);
+    public static SyntaxToken LCurly(SourcePosition position)
+    {
+        return new(SyntaxTokenType.LCurly, Keywords.LCurly.AsMemory(), position);
+    }
 
-    public static SyntaxToken Equality(SourcePosition position) => new(SyntaxTokenType.Equality, Keywords.Equality.AsMemory(), position);
-    public static SyntaxToken Inequality(SourcePosition position) => new(SyntaxTokenType.Inequality, Keywords.Inequality.AsMemory(), position);
-    public static SyntaxToken GreaterThan(SourcePosition position) => new(SyntaxTokenType.GreaterThan, Keywords.GreaterThan.AsMemory(), position);
-    public static SyntaxToken GreaterThanOrEqual(SourcePosition position) => new(SyntaxTokenType.GreaterThanOrEqual, Keywords.GreaterThanOrEqual.AsMemory(), position);
-    public static SyntaxToken LessThan(SourcePosition position) => new(SyntaxTokenType.LessThan, Keywords.LessThan.AsMemory(), position);
-    public static SyntaxToken LessThanOrEqual(SourcePosition position) => new(SyntaxTokenType.LessThanOrEqual, Keywords.LessThanOrEqual.AsMemory(), position);
+    public static SyntaxToken RCurly(SourcePosition position)
+    {
+        return new(SyntaxTokenType.RCurly, Keywords.RCurly.AsMemory(), position);
+    }
 
-    public static SyntaxToken Length(SourcePosition position) => new(SyntaxTokenType.Length, Keywords.Length.AsMemory(), position);
-    public static SyntaxToken Concat(SourcePosition position) => new(SyntaxTokenType.Concat, Keywords.Concat.AsMemory(), position);
-    public static SyntaxToken VarArg(SourcePosition position) => new(SyntaxTokenType.VarArg, "...".AsMemory(), position);
+    public static SyntaxToken LSquare(SourcePosition position)
+    {
+        return new(SyntaxTokenType.LSquare, Keywords.LSquare.AsMemory(), position);
+    }
 
-    public static SyntaxToken Assignment(SourcePosition position) => new(SyntaxTokenType.Assignment, Keywords.Assignment.AsMemory(), position);
+    public static SyntaxToken RSquare(SourcePosition position)
+    {
+        return new(SyntaxTokenType.RSquare, Keywords.RSquare.AsMemory(), position);
+    }
 
-    public static SyntaxToken And(SourcePosition position) => new(SyntaxTokenType.And, Keywords.And.AsMemory(), position);
-    public static SyntaxToken Or(SourcePosition position) => new(SyntaxTokenType.Or, Keywords.Or.AsMemory(), position);
-    public static SyntaxToken Not(SourcePosition position) => new(SyntaxTokenType.Not, Keywords.Not.AsMemory(), position);
+    public static SyntaxToken Nil(SourcePosition position)
+    {
+        return new(SyntaxTokenType.Nil, Keywords.Nil.AsMemory(), position);
+    }
 
-    public static SyntaxToken End(SourcePosition position) => new(SyntaxTokenType.End, Keywords.End.AsMemory(), position);
-    public static SyntaxToken Then(SourcePosition position) => new(SyntaxTokenType.Then, Keywords.Then.AsMemory(), position);
+    public static SyntaxToken True(SourcePosition position)
+    {
+        return new(SyntaxTokenType.True, Keywords.True.AsMemory(), position);
+    }
 
-    public static SyntaxToken If(SourcePosition position) => new(SyntaxTokenType.If, Keywords.If.AsMemory(), position);
-    public static SyntaxToken ElseIf(SourcePosition position) => new(SyntaxTokenType.ElseIf, Keywords.ElseIf.AsMemory(), position);
-    public static SyntaxToken Else(SourcePosition position) => new(SyntaxTokenType.Else, Keywords.Else.AsMemory(), position);
+    public static SyntaxToken False(SourcePosition position)
+    {
+        return new(SyntaxTokenType.False, Keywords.False.AsMemory(), position);
+    }
 
-    public static SyntaxToken Local(SourcePosition position) => new(SyntaxTokenType.Local, Keywords.Local.AsMemory(), position);
+    public static SyntaxToken Addition(SourcePosition position)
+    {
+        return new(SyntaxTokenType.Addition, Keywords.Addition.AsMemory(), position);
+    }
 
-    public static SyntaxToken Return(SourcePosition position) => new(SyntaxTokenType.Return, Keywords.Return.AsMemory(), position);
-    public static SyntaxToken Goto(SourcePosition position) => new(SyntaxTokenType.Goto, Keywords.Goto.AsMemory(), position);
+    public static SyntaxToken Subtraction(SourcePosition position)
+    {
+        return new(SyntaxTokenType.Subtraction, Keywords.Subtraction.AsMemory(), position);
+    }
 
-    public static SyntaxToken Comma(SourcePosition position) => new(SyntaxTokenType.Comma, ",".AsMemory(), position);
-    public static SyntaxToken Dot(SourcePosition position) => new(SyntaxTokenType.Dot, ".".AsMemory(), position);
-    public static SyntaxToken SemiColon(SourcePosition position) => new(SyntaxTokenType.SemiColon, ";".AsMemory(), position);
-    public static SyntaxToken Colon(SourcePosition position) => new(SyntaxTokenType.Colon, ":".AsMemory(), position);
+    public static SyntaxToken Multiplication(SourcePosition position)
+    {
+        return new(SyntaxTokenType.Multiplication, Keywords.Multiplication.AsMemory(), position);
+    }
 
-    public static SyntaxToken Do(SourcePosition position) => new(SyntaxTokenType.Do, Keywords.Do.AsMemory(), position);
-    public static SyntaxToken While(SourcePosition position) => new(SyntaxTokenType.While, Keywords.While.AsMemory(), position);
-    public static SyntaxToken Repeat(SourcePosition position) => new(SyntaxTokenType.Repeat, Keywords.Repeat.AsMemory(), position);
-    public static SyntaxToken Until(SourcePosition position) => new(SyntaxTokenType.Until, Keywords.Until.AsMemory(), position);
-    public static SyntaxToken Break(SourcePosition position) => new(SyntaxTokenType.Break, Keywords.Break.AsMemory(), position);
-    public static SyntaxToken Function(SourcePosition position) => new(SyntaxTokenType.Function, Keywords.Function.AsMemory(), position);
-    public static SyntaxToken For(SourcePosition position) => new(SyntaxTokenType.For, Keywords.For.AsMemory(), position);
-    public static SyntaxToken In(SourcePosition position) => new(SyntaxTokenType.In, Keywords.In.AsMemory(), position);
+    public static SyntaxToken Division(SourcePosition position)
+    {
+        return new(SyntaxTokenType.Division, Keywords.Division.AsMemory(), position);
+    }
+
+    public static SyntaxToken Modulo(SourcePosition position)
+    {
+        return new(SyntaxTokenType.Modulo, Keywords.Modulo.AsMemory(), position);
+    }
+
+    public static SyntaxToken Exponentiation(SourcePosition position)
+    {
+        return new(SyntaxTokenType.Exponentiation, Keywords.Exponentiation.AsMemory(), position);
+    }
+
+    public static SyntaxToken Equality(SourcePosition position)
+    {
+        return new(SyntaxTokenType.Equality, Keywords.Equality.AsMemory(), position);
+    }
+
+    public static SyntaxToken Inequality(SourcePosition position)
+    {
+        return new(SyntaxTokenType.Inequality, Keywords.Inequality.AsMemory(), position);
+    }
+
+    public static SyntaxToken GreaterThan(SourcePosition position)
+    {
+        return new(SyntaxTokenType.GreaterThan, Keywords.GreaterThan.AsMemory(), position);
+    }
+
+    public static SyntaxToken GreaterThanOrEqual(SourcePosition position)
+    {
+        return new(SyntaxTokenType.GreaterThanOrEqual, Keywords.GreaterThanOrEqual.AsMemory(), position);
+    }
+
+    public static SyntaxToken LessThan(SourcePosition position)
+    {
+        return new(SyntaxTokenType.LessThan, Keywords.LessThan.AsMemory(), position);
+    }
+
+    public static SyntaxToken LessThanOrEqual(SourcePosition position)
+    {
+        return new(SyntaxTokenType.LessThanOrEqual, Keywords.LessThanOrEqual.AsMemory(), position);
+    }
+
+    public static SyntaxToken Length(SourcePosition position)
+    {
+        return new(SyntaxTokenType.Length, Keywords.Length.AsMemory(), position);
+    }
+
+    public static SyntaxToken Concat(SourcePosition position)
+    {
+        return new(SyntaxTokenType.Concat, Keywords.Concat.AsMemory(), position);
+    }
+
+    public static SyntaxToken VarArg(SourcePosition position)
+    {
+        return new(SyntaxTokenType.VarArg, "...".AsMemory(), position);
+    }
+
+    public static SyntaxToken Assignment(SourcePosition position)
+    {
+        return new(SyntaxTokenType.Assignment, Keywords.Assignment.AsMemory(), position);
+    }
+
+    public static SyntaxToken And(SourcePosition position)
+    {
+        return new(SyntaxTokenType.And, Keywords.And.AsMemory(), position);
+    }
+
+    public static SyntaxToken Or(SourcePosition position)
+    {
+        return new(SyntaxTokenType.Or, Keywords.Or.AsMemory(), position);
+    }
+
+    public static SyntaxToken Not(SourcePosition position)
+    {
+        return new(SyntaxTokenType.Not, Keywords.Not.AsMemory(), position);
+    }
+
+    public static SyntaxToken End(SourcePosition position)
+    {
+        return new(SyntaxTokenType.End, Keywords.End.AsMemory(), position);
+    }
+
+    public static SyntaxToken Then(SourcePosition position)
+    {
+        return new(SyntaxTokenType.Then, Keywords.Then.AsMemory(), position);
+    }
+
+    public static SyntaxToken If(SourcePosition position)
+    {
+        return new(SyntaxTokenType.If, Keywords.If.AsMemory(), position);
+    }
+
+    public static SyntaxToken ElseIf(SourcePosition position)
+    {
+        return new(SyntaxTokenType.ElseIf, Keywords.ElseIf.AsMemory(), position);
+    }
+
+    public static SyntaxToken Else(SourcePosition position)
+    {
+        return new(SyntaxTokenType.Else, Keywords.Else.AsMemory(), position);
+    }
+
+    public static SyntaxToken Local(SourcePosition position)
+    {
+        return new(SyntaxTokenType.Local, Keywords.Local.AsMemory(), position);
+    }
+
+    public static SyntaxToken Return(SourcePosition position)
+    {
+        return new(SyntaxTokenType.Return, Keywords.Return.AsMemory(), position);
+    }
+
+    public static SyntaxToken Goto(SourcePosition position)
+    {
+        return new(SyntaxTokenType.Goto, Keywords.Goto.AsMemory(), position);
+    }
+
+    public static SyntaxToken Comma(SourcePosition position)
+    {
+        return new(SyntaxTokenType.Comma, ",".AsMemory(), position);
+    }
+
+    public static SyntaxToken Dot(SourcePosition position)
+    {
+        return new(SyntaxTokenType.Dot, ".".AsMemory(), position);
+    }
+
+    public static SyntaxToken SemiColon(SourcePosition position)
+    {
+        return new(SyntaxTokenType.SemiColon, ";".AsMemory(), position);
+    }
+
+    public static SyntaxToken Colon(SourcePosition position)
+    {
+        return new(SyntaxTokenType.Colon, ":".AsMemory(), position);
+    }
+
+    public static SyntaxToken Do(SourcePosition position)
+    {
+        return new(SyntaxTokenType.Do, Keywords.Do.AsMemory(), position);
+    }
+
+    public static SyntaxToken While(SourcePosition position)
+    {
+        return new(SyntaxTokenType.While, Keywords.While.AsMemory(), position);
+    }
+
+    public static SyntaxToken Repeat(SourcePosition position)
+    {
+        return new(SyntaxTokenType.Repeat, Keywords.Repeat.AsMemory(), position);
+    }
+
+    public static SyntaxToken Until(SourcePosition position)
+    {
+        return new(SyntaxTokenType.Until, Keywords.Until.AsMemory(), position);
+    }
+
+    public static SyntaxToken Break(SourcePosition position)
+    {
+        return new(SyntaxTokenType.Break, Keywords.Break.AsMemory(), position);
+    }
+
+    public static SyntaxToken Function(SourcePosition position)
+    {
+        return new(SyntaxTokenType.Function, Keywords.Function.AsMemory(), position);
+    }
+
+    public static SyntaxToken For(SourcePosition position)
+    {
+        return new(SyntaxTokenType.For, Keywords.For.AsMemory(), position);
+    }
+
+    public static SyntaxToken In(SourcePosition position)
+    {
+        return new(SyntaxTokenType.In, Keywords.In.AsMemory(), position);
+    }
 
     public SyntaxTokenType Type { get; } = type;
     public ReadOnlyMemory<char> Text { get; } = text;
@@ -165,20 +347,24 @@ public readonly struct SyntaxToken(SyntaxTokenType type, ReadOnlyMemory<char> te
             SyntaxTokenType.Return => Keywords.Return,
             SyntaxTokenType.Until => Keywords.Until,
             SyntaxTokenType.While => Keywords.While,
-            _ => "",
+            _ => ""
         };
     }
 
     public bool Equals(SyntaxToken other)
     {
         return other.Type == Type &&
-            other.Text.Span.SequenceEqual(Text.Span) &&
-            other.Position == Position;
+               other.Text.Span.SequenceEqual(Text.Span) &&
+               other.Position == Position;
     }
 
     public override bool Equals(object? obj)
     {
-        if (obj is SyntaxToken token) return Equals(token);
+        if (obj is SyntaxToken token)
+        {
+            return Equals(token);
+        }
+
         return false;
     }
 
@@ -214,6 +400,7 @@ public enum SyntaxTokenType
     /// Left parenthesis '('
     /// </summary>
     LParen,
+
     /// <summary>
     /// Right parenthesis ')'
     /// </summary>
@@ -223,6 +410,7 @@ public enum SyntaxTokenType
     /// Left curly bracket '{'
     /// </summary>
     LCurly,
+
     /// <summary>
     /// Right curly bracket '}'
     /// </summary>
@@ -232,6 +420,7 @@ public enum SyntaxTokenType
     /// Left square bracket '['
     /// </summary>
     LSquare,
+
     /// <summary>
     /// Right square bracket ']'
     /// </summary>
@@ -281,6 +470,7 @@ public enum SyntaxTokenType
     /// Boolean literal (true)
     /// </summary>
     True,
+
     /// <summary>
     /// Boolean literal (false)
     /// </summary>
@@ -300,65 +490,70 @@ public enum SyntaxTokenType
     /// Addition operator (+)
     /// </summary>
     Addition,
+
     /// <summary>
     /// Subtraction operator (-)
     /// </summary>
     Subtraction,
+
     /// <summary>
     /// Multiplication operator (*)
     /// </summary>
     Multiplication,
+
     /// <summary>
     /// Division operator (/)
     /// </summary>
     Division,
+
     /// <summary>
     /// Modulo operator (%)
     /// </summary>
     Modulo,
+
     /// <summary>
     /// Exponentiation operator (^)
     /// </summary>
     Exponentiation,
 
-    Equality,          // ==
-    Inequality,       // ~=
-    GreaterThan,        // >
-    LessThan,           // <
+    Equality, // ==
+    Inequality, // ~=
+    GreaterThan, // >
+    LessThan, // <
     GreaterThanOrEqual, // >=
-    LessThanOrEqual,    // <=
+    LessThanOrEqual, // <=
 
-    And,            // and
-    Not,            // not
-    Or,             // or
+    And, // and
+    Not, // not
+    Or, // or
 
     /// <summary>
     /// Assignment operator (=)
     /// </summary>
     Assignment,
 
-    Concat,         // ..
-    Length,         // #
+    Concat, // ..
+    Length, // #
 
-    VarArg,         // ...
+    VarArg, // ...
 
-    Break,          // break
-    Do,             // do
-    For,            // for
-    Goto,           // goto
+    Break, // break
+    Do, // do
+    For, // for
+    Goto, // goto
 
-    If,             // if
-    ElseIf,         // elseif
-    Else,           // else
-    Function,       // function
+    If, // if
+    ElseIf, // elseif
+    Else, // else
+    Function, // function
 
-    End,            // end
-    Then,           // then
+    End, // end
+    Then, // then
 
-    In,             // in
-    Local,          // local
-    Repeat,         // repeat
-    Return,         // return
-    Until,          // until
-    While,          // while
+    In, // in
+    Local, // local
+    Repeat, // repeat
+    Return, // return
+    Until, // until
+    While // while
 }

@@ -2,7 +2,7 @@ using System.Text;
 
 namespace Lua.SourceGenerator;
 
-internal sealed class CodeBuilder
+sealed class CodeBuilder
 {
     public ref struct IndentScope
     {
@@ -11,7 +11,11 @@ internal sealed class CodeBuilder
         public IndentScope(CodeBuilder source, string? startLine = null)
         {
             this.source = source;
-            source.AppendLine(startLine);
+            if (startLine != null)
+            {
+                source.AppendLine(startLine);
+            }
+
             source.IncreaseIndent();
         }
 
@@ -28,7 +32,11 @@ internal sealed class CodeBuilder
         public BlockScope(CodeBuilder source, string? startLine = null)
         {
             this.source = source;
-            source.AppendLine(startLine);
+            if (startLine != null)
+            {
+                source.AppendLine(startLine);
+            }
+
             source.BeginBlock();
         }
 
@@ -41,8 +49,15 @@ internal sealed class CodeBuilder
     readonly StringBuilder buffer = new();
     int indentLevel;
 
-    public IndentScope BeginIndentScope(string? startLine = null) => new(this, startLine);
-    public BlockScope BeginBlockScope(string? startLine = null) => new(this, startLine);
+    public IndentScope BeginIndentScope(string? startLine = null)
+    {
+        return new(this, startLine);
+    }
+
+    public BlockScope BeginBlockScope(string? startLine = null)
+    {
+        return new(this, startLine);
+    }
 
     public void Append(string value, bool indent = true)
     {
@@ -82,13 +97,18 @@ internal sealed class CodeBuilder
             {
                 buffer.Append(", ");
             }
+
             buffer.Append(x);
             first = false;
         }
+
         buffer.Append(" }");
     }
 
-    public override string ToString() => buffer.ToString();
+    public override string ToString()
+    {
+        return buffer.ToString();
+    }
 
     public void IncreaseIndent()
     {
@@ -98,7 +118,9 @@ internal sealed class CodeBuilder
     public void DecreaseIndent()
     {
         if (indentLevel > 0)
+        {
             indentLevel--;
+        }
     }
 
     public void BeginBlock()

@@ -2,7 +2,7 @@ namespace Lua.SourceGenerator;
 
 // same as Lua.LuaObjectMetamethod
 
-internal enum LuaObjectMetamethod
+enum LuaObjectMetamethod
 {
     Add,
     Sub,
@@ -19,5 +19,5 @@ internal enum LuaObjectMetamethod
     Concat,
     Pairs,
     IPairs,
-    ToString,
+    ToString
 }

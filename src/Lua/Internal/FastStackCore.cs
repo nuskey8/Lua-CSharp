@@ -14,25 +14,17 @@ public struct FastStackCore<T>
 
     public int Count => tail;
 
-    public readonly ReadOnlySpan<T> AsSpan()
+    public readonly Span<T?> AsSpan()
     {
-        if (array == null) return [];
-        return array.AsSpan(0, tail)!;
+        return array == null ? [] : array.AsSpan(0, tail)!;
     }
 
     public readonly Span<T?> GetBuffer()
     {
-        if (array == null) return [];
-        return array.AsSpan();
+        return array == null ? [] : array.AsSpan();
     }
 
-    public readonly T? this[int index]
-    {
-        get
-        {
-            return array[index];
-        }
-    }
+    public readonly T? this[int index] => array[index];
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Push(in T item)
@@ -71,6 +63,7 @@ public struct FastStackCore<T>
         {
             return false;
         }
+
         array[--tail] = default;
 
         return true;
@@ -78,8 +71,16 @@ public struct FastStackCore<T>
 
     public T Pop()
     {
-        if (!TryPop(out var result)) ThrowForEmptyStack();
+        if (!TryPop(out var result))
+            ThrowForEmptyStack();
+
         return result;
+    }
+
+    public void PopUntil(int top)
+    {
+        array.AsSpan(top, tail - top).Clear();
+        tail = top;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -97,7 +98,9 @@ public struct FastStackCore<T>
 
     public T Peek()
     {
-        if (!TryPeek(out var result)) ThrowForEmptyStack();
+        if (!TryPeek(out var result))
+            ThrowForEmptyStack();
+
         return result;
     }
 
@@ -133,7 +136,8 @@ public struct FastStackCore<T>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void NotifyTop(int top)
     {
-        if (tail < top) tail = top;
+        if (tail < top)
+            tail = top;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

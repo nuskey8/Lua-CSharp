@@ -21,7 +21,7 @@ public class TableTests
         var table = new LuaTable(2, 2);
         table[32] = 10; // hash part
 
-        for (int i = 1; i <= 31; i++)
+        for (var i = 1; i <= 31; i++)
         {
             table[i] = 10;
         }
@@ -46,13 +46,13 @@ public class TableTests
     public void Test_TableResize()
     {
         var table = new LuaTable();
-        int i = 1;
-        int count = 10000;
+        var i = 1;
+        var count = 10000;
         while (count > 0)
         {
             var key = i;
             table[key] = key;
-            table[key * 2 - key / 2] = key;
+            table[(key * 2) - (key / 2)] = key;
             i += key;
             count--;
         }

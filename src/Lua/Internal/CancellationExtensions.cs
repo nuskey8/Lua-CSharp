@@ -1,5 +1,4 @@
 #if NETSTANDARD2_0 || NETSTANDARD2_1
-
 namespace System.Threading;
 
 internal static class CancellationTokenExtensions
@@ -9,5 +8,4 @@ internal static class CancellationTokenExtensions
         return cancellationToken.Register(callback, state, useSynchronizationContext: false);
     }
 }
-
 #endif

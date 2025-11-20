@@ -3,7 +3,7 @@ using System.Text;
 
 namespace Lua.Standard.Internal;
 
-internal static class DateTimeHelper
+static class DateTimeHelper
 {
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static double GetUnixTime(DateTime dateTime)
@@ -15,7 +15,11 @@ internal static class DateTimeHelper
     public static double GetUnixTime(DateTime dateTime, DateTime epoch)
     {
         var time = (dateTime - epoch).TotalSeconds;
-        if (time < 0.0) return 0;
+        if (time < 0.0)
+        {
+            return 0;
+        }
+
         return time;
     }
 
@@ -34,7 +38,7 @@ internal static class DateTimeHelper
             {
                 if (required)
                 {
-                    throw new LuaRuntimeException(state.GetTraceback(), $"field '{key}' missing in date table");
+                    throw new LuaRuntimeException(state, $"field '{key}' missing in date table");
                 }
                 else
                 {
@@ -47,7 +51,7 @@ internal static class DateTimeHelper
                 return (int)d;
             }
 
-            throw new LuaRuntimeException(state.GetTraceback(), $"field '{key}' is not an integer");
+            throw new LuaRuntimeException(state, $"field '{key}' is not an integer");
         }
 
         var day = GetTimeField(state, table, "day");
@@ -57,7 +61,7 @@ internal static class DateTimeHelper
         var min = GetTimeField(state, table, "min", false, 0);
         var hour = GetTimeField(state, table, "hour", false, 12);
 
-        return new DateTime(year, month, day, hour, min, sec);
+        return new(year, month, day, hour, min, sec);
     }
 
     public static string StrFTime(LuaState state, ReadOnlySpan<char> format, DateTime d)
@@ -95,17 +99,17 @@ internal static class DateTimeHelper
                 'X' => "T",
                 'z' => "zzz",
                 'Z' => "zzz",
-                _ => null,
+                _ => null
             };
         }
 
-        var builder = new ValueStringBuilder();
+        ValueStringBuilder builder = new();
 
-        bool isEscapeSequence = false;
+        var isEscapeSequence = false;
 
-        for (int i = 0; i < format.Length; i++)
+        for (var i = 0; i < format.Length; i++)
         {
-            char c = format[i];
+            var c = format[i];
 
             if (c == '%')
             {
@@ -160,13 +164,17 @@ internal static class DateTimeHelper
             }
             else if (c == 'u')
             {
-                int weekDay = (int)d.DayOfWeek;
-                if (weekDay == 0) weekDay = 7;
+                var weekDay = (int)d.DayOfWeek;
+                if (weekDay == 0)
+                {
+                    weekDay = 7;
+                }
+
                 builder.Append(weekDay.ToString());
             }
             else if (c == 'w')
             {
-                int weekDay = (int)d.DayOfWeek;
+                var weekDay = (int)d.DayOfWeek;
                 builder.Append(weekDay.ToString());
             }
             else if (c == 'U')
@@ -186,7 +194,7 @@ internal static class DateTimeHelper
             }
             else
             {
-                throw new LuaRuntimeException(state.GetTraceback(), $"bad argument #1 to 'date' (invalid conversion specifier '{format.ToString()}')");
+                throw new LuaRuntimeException(state, $"bad argument #1 to 'date' (invalid conversion specifier '{format.ToString()}')");
             }
         }
 

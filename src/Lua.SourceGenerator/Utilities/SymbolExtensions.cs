@@ -2,7 +2,7 @@ using Microsoft.CodeAnalysis;
 
 namespace Lua.SourceGenerator;
 
-internal static class SymbolExtensions
+static class SymbolExtensions
 {
     public static bool ContainsAttribute(this ISymbol symbol, INamedTypeSymbol attribtue)
     {

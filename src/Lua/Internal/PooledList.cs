@@ -3,7 +3,7 @@ using System.Runtime.CompilerServices;
 
 namespace Lua.Internal;
 
-internal ref struct PooledList<T>
+struct PooledList<T> : IDisposable
 {
     T[]? buffer;
     int tail;
@@ -14,7 +14,10 @@ internal ref struct PooledList<T>
     }
 
     public bool IsDisposed => tail == -1;
+
     public int Count => tail;
+
+    public int Length => tail;
 
     public void Add(in T item)
     {
@@ -51,7 +54,7 @@ internal ref struct PooledList<T>
             {
                 newSize *= 2;
             }
-            
+
             var newArray = ArrayPool<T>.Shared.Rent(newSize);
             buffer.AsSpan().CopyTo(newArray);
             ArrayPool<T>.Shared.Return(buffer);
@@ -61,7 +64,31 @@ internal ref struct PooledList<T>
         items.CopyTo(buffer.AsSpan()[tail..]);
         tail += items.Length;
     }
-    
+
+    public void PopUntil(int count)
+    {
+        ThrowIfDisposed();
+
+        if (count > tail)
+        {
+            throw new ArgumentOutOfRangeException(nameof(count));
+        }
+
+        tail = count;
+    }
+
+    public void Pop(int count)
+    {
+        ThrowIfDisposed();
+
+        if (count > tail)
+        {
+            throw new ArgumentOutOfRangeException(nameof(count));
+        }
+
+        tail -= count;
+    }
+
     public void Clear()
     {
         ThrowIfDisposed();
@@ -90,26 +117,25 @@ internal ref struct PooledList<T>
     public T this[int index]
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        get
-        {
-            return AsSpan()[index];
-        }
+        get => AsSpan()[index];
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public ReadOnlySpan<T> AsSpan()
     {
-        return new ReadOnlySpan<T>(buffer, 0, tail);
+        return new(buffer, 0, tail);
     }
 
     void ThrowIfDisposed()
     {
-        if (tail == -1) ThrowDisposedException();
+        if (tail == -1)
+        {
+            ThrowDisposedException();
+        }
     }
-    
+
     void ThrowDisposedException()
     {
         throw new ObjectDisposedException(nameof(PooledList<T>));
     }
-    
 }

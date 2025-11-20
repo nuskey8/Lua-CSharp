@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
@@ -8,6 +9,7 @@ namespace Lua.Internal;
 /// </summary>
 /// <typeparam name="T">Element type</typeparam>
 [StructLayout(LayoutKind.Auto)]
+[DebuggerDisplay("Count = {Length}")]
 public struct FastListCore<T>
 {
     const int InitialCapacity = 8;
@@ -34,9 +36,16 @@ public struct FastListCore<T>
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void RemoveAtSwapback(int index)
+    public void Pop()
     {
-        if (array == null) throw new IndexOutOfRangeException();
+        CheckIndex(tailIndex - 1);
+        array![tailIndex - 1] = default!;
+        tailIndex--;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void RemoveAtSwapBack(int index)
+    {
         CheckIndex(index);
 
         array![index] = array[tailIndex - 1];
@@ -47,7 +56,10 @@ public struct FastListCore<T>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Shrink(int newSize)
     {
-        if (newSize >= tailIndex) return;
+        if (newSize >= tailIndex)
+        {
+            return;
+        }
 
         array.AsSpan(newSize).Clear();
         tailIndex = newSize;
@@ -56,11 +68,17 @@ public struct FastListCore<T>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Clear(bool removeArray = false)
     {
-        if (array == null) return;
+        if (array == null)
+        {
+            return;
+        }
 
         array.AsSpan().Clear();
         tailIndex = 0;
-        if (removeArray) array = null;
+        if (removeArray)
+        {
+            array = null;
+        }
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -97,11 +115,29 @@ public struct FastListCore<T>
         get => tailIndex;
     }
 
-    public readonly Span<T> AsSpan() => array == null ? Span<T>.Empty : array.AsSpan(0, tailIndex);
-    public readonly T[]? AsArray() => array;
+    public readonly Span<T> AsSpan()
+    {
+        return array == null ? Span<T>.Empty : array.AsSpan(0, tailIndex);
+    }
+
+    [DebuggerBrowsable(DebuggerBrowsableState.RootHidden)]
+    readonly Span<T> Span => AsSpan();
+
+    public readonly T[]? AsArray()
+    {
+        return array;
+    }
 
     readonly void CheckIndex(int index)
     {
-        if (index < 0 || index > tailIndex) throw new IndexOutOfRangeException();
+        if (array == null || index < 0 || index > tailIndex)
+        {
+            ThrowIndexOutOfRange();
+        }
+    }
+
+    static void ThrowIndexOutOfRange()
+    {
+        throw new IndexOutOfRangeException();
     }
 }

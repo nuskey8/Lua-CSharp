@@ -7,6 +7,12 @@
       "dependencies": {},
       "hash": "242f30ec55ef9c34f1e9953126e6e8350ec3f4c0"
     },
+    "com.nuskey8.lua.unity.internal": {
+      "version": "file:../../Lua/bin/Debug/netstandard2.1",
+      "depth": 0,
+      "source": "local",
+      "dependencies": {}
+    },
     "com.unity.addressables": {
       "version": "2.2.2",
       "depth": 0,
