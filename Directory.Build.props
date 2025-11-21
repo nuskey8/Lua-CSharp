@@ -3,9 +3,9 @@
     <PropertyGroup>
         <!-- NuGet Packaging -->
         <PackageVersion>0.4.2</PackageVersion>
-        <Authors>Annulus Games</Authors>
-        <Copyright>© Annulus Games</Copyright>
-        <PackageProjectUrl>https://github.com/AnnulusGames/Lua-CSharp</PackageProjectUrl>
+        <Authors>nuskey;Akeit0</Authors>
+        <Copyright>© Yusuke Nakada</Copyright>
+        <PackageProjectUrl>https://github.com/nuskey8/Lua-CSharp</PackageProjectUrl>
         <RepositoryUrl>$(PackageProjectUrl)</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
