@@ -5,7 +5,7 @@ High performance Lua interpreter implemented in C# for .NET and Unity
 ![img](docs/Header.png)
 
 [![NuGet](https://img.shields.io/nuget/v/LuaCSharp.svg)](https://www.nuget.org/packages/LuaCSharp)
-[![Releases](https://img.shields.io/github/release/AnnulusGames/Lua-CSharp.svg)](https://github.com/AnnulusGames/Lua-CSharp/releases)
+[![Releases](https://img.shields.io/github/release/nuskey8/Lua-CSharp.svg)](https://github.com/nuskey8/Lua-CSharp/releases)
 [![license](https://img.shields.io/badge/LICENSE-MIT-green.svg)](LICENSE)
 
 [English]((./README.md)) | 日本語
@@ -495,7 +495,7 @@ Lua-CSharpはUnityで利用することも可能です。(Mono/IL2CPPの両方�
 
 3. `Window > Package Manager`からPackage Managerウィンドウを開き、`[+] > Add package from git URL`から以下のURLを入力します。
     ```
-    https://github.com/AnnulusGames/Lua-CSharp.git?path=src/Lua.Unity/Assets/Lua.Unity
+    https://github.com/nuskey8/Lua-CSharp.git?path=src/Lua.Unity/Assets/Lua.Unity
     ```
 
 ### LuaImporter / LuaAsset
