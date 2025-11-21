@@ -1,9 +1,9 @@
 {
-    "name": "com.annulusgames.lua.unity",
-    "version": "0.4.2",
+    "name": "com.nuskey8.lua.unity",
+    "version": "0.5.0",
     "displayName": "Lua.Unity",
     "description": "Lua-CSharp extension for Unity",
     "author": {
-        "name": "Annulus Games"
+        "name": "nuskey"
     }
 }
