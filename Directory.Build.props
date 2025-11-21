@@ -2,7 +2,7 @@
 
     <PropertyGroup>
         <!-- NuGet Packaging -->
-        <PackageVersion>0.4.2</PackageVersion>
+        <PackageVersion>0.5.0</PackageVersion>
         <Authors>nuskey;Akeit0</Authors>
         <Copyright>© Yusuke Nakada</Copyright>
         <PackageProjectUrl>https://github.com/nuskey8/Lua-CSharp</PackageProjectUrl>
