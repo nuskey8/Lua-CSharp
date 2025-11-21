@@ -5,7 +5,7 @@ High performance Lua interpreter implemented in C# for .NET and Unity
 ![img](docs/Header.png)
 
 [![NuGet](https://img.shields.io/nuget/v/LuaCSharp.svg)](https://www.nuget.org/packages/LuaCSharp)
-[![Releases](https://img.shields.io/github/release/AnnulusGames/Lua-CSharp.svg)](https://github.com/AnnulusGames/Lua-CSharp/releases)
+[![Releases](https://img.shields.io/github/release/nuskey8/Lua-CSharp.svg)](https://github.com/nuskey8/Lua-CSharp/releases)
 [![license](https://img.shields.io/badge/LICENSE-MIT-green.svg)](LICENSE)
 
 English | [日本語](README_JA.md)
@@ -495,7 +495,7 @@ Lua-CSharp can also be used in Unity (works with both Mono and IL2CPP).
 3. Open the Package Manager window by selecting `Window > Package Manager`, then click on `[+] > Add package from git URL` and enter the following URL:
 
     ```
-    https://github.com/AnnulusGames/Lua-CSharp.git?path=src/Lua.Unity/Assets/Lua.Unity
+    https://github.com/nuskey8/Lua-CSharp.git?path=src/Lua.Unity/Assets/Lua.Unity
     ```
 
 ### LuaImporter / LuaAsset
