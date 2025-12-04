@@ -20,7 +20,7 @@ namespace Lua.Unity.Editor
             if (asset == null) asset = (LuacAsset)serializedObject.targetObject;
             if (bytes == null || !asset.bytes.AsSpan().SequenceEqual(bytes))
             {
-                var prototype = Prototype.FromByteCode(asset.bytes.AsSpan(), asset.name);
+                var prototype = Prototype.FromBytecode(asset.bytes.AsSpan(), asset.name);
                 if (sb == null)
                     sb = new StringBuilder();
                 sb.Clear();
