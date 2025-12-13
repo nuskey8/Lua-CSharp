@@ -118,6 +118,10 @@ static class DateTimeHelper
                     builder.Append('%');
                     isEscapeSequence = false;
                 }
+                else
+                {
+                    isEscapeSequence = true;
+                }
 
                 continue;
             }
