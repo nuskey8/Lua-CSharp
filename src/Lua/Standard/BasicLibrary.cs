@@ -135,10 +135,10 @@ public sealed class BasicLibrary
 
     public async ValueTask<int> IPairs(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
-        var arg0 = context.GetArgument<LuaTable>(0);
+        var arg0 = context.GetArgument(0);
 
         // If table has a metamethod __ipairs, calls it with table as argument and returns the first three results from the call.
-        if (arg0.Metatable != null && arg0.Metatable.TryGetValue(Metamethods.IPairs, out var metamethod))
+        if (context.State.GlobalState.TryGetMetatable(arg0,out var metaTable) && metaTable.TryGetValue(Metamethods.IPairs, out var metamethod))
         {
             var stack = context.State.Stack;
             var top = stack.Count;
@@ -148,6 +148,11 @@ public sealed class BasicLibrary
             await LuaVirtualMachine.Call(context.State, top, context.ReturnFrameBase, cancellationToken);
             stack.SetTop(context.ReturnFrameBase + 3);
             return 3;
+        }
+
+        if (arg0.Type != LuaValueType.Table)
+        {
+            LuaRuntimeException.BadArgument(context.State, 1, LuaValueType.Table, arg0.Type);
         }
 
         return context.Return(IPairsIterator, arg0, 0);
@@ -232,10 +237,10 @@ public sealed class BasicLibrary
 
     public async ValueTask<int> Pairs(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
-        var arg0 = context.GetArgument<LuaTable>(0);
+        var arg0 = context.GetArgument(0);
 
         // If table has a metamethod __pairs, calls it with table as argument and returns the first three results from the call.
-        if (arg0.Metatable != null && arg0.Metatable.TryGetValue(Metamethods.Pairs, out var metamethod))
+        if (context.State.GlobalState.TryGetMetatable(arg0, out var metaTable) && metaTable.TryGetValue(Metamethods.Pairs, out var metamethod))
         {
             var stack = context.State.Stack;
             var top = stack.Count;
@@ -245,6 +250,11 @@ public sealed class BasicLibrary
             await LuaVirtualMachine.Call(context.State, top, context.ReturnFrameBase, cancellationToken);
             stack.SetTop(context.ReturnFrameBase + 3);
             return 3;
+        }
+
+        if (arg0.Type != LuaValueType.Table)
+        {
+            LuaRuntimeException.BadArgument(context.State, 1, LuaValueType.Table, arg0.Type);
         }
 
         return context.Return(PairsIterator, arg0, LuaValue.Nil);
