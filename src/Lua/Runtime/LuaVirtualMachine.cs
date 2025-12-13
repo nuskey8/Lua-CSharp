@@ -1329,7 +1329,7 @@ public static partial class LuaVirtualMachine
             }
 
             state.ThrowIfCancellationRequested(cancellationToken);
-            return state.Stack.Count - funcIndex;
+            return state.Stack.Count - returnBase;
         }
         catch (OperationCanceledException operationCanceledException)
         {
