@@ -89,16 +89,17 @@ var isNil = results[0].Type == LuaValueType.Nil;
 
 Lua-C#間の型の対応を以下に示します。
 
-| Lua        | C#               |
-| ---------- | ---------------- |
-| `nil`      | `LuaValue.Nil`   |
-| `boolean`  | `bool`           |
-| `string`   | `string`         |
-| `number`   | `double`,`float` |
-| `table`    | `LuaTable`       |
-| `function` | `LuaFunction`    |
-| `userdata` | `LuaUserData`    |
-| `thread`   | `LuaThread`      |
+| Lua               | C#                    |
+|-------------------|-----------------------|
+| `nil`             | `LuaValue.Nil`        |
+| `boolean`         | `bool`                |
+| `string`          | `string`              |
+| `number`          | `double`,`float`,`int` |
+| `table`           | `LuaTable`            |
+| `function`        | `LuaFunction`         |
+| (light)`userdata` | `object`              |
+| `userdata`        | `ILuaUserData`        |
+| `thread`          | `LuaState`            |
 
 C#側から`LuaValue`を作成する際には、変換可能な型の場合であれば暗黙的に`LuaValue`に変換されます。
 
@@ -115,14 +116,14 @@ Luaのテーブルは`LuaTable`型で表現されます。これは通常の`Lua
 
 ```cs
 // Lua側でテーブルを作成
-var results = await state.DoStringAsync("return { a = 1, b = 2, c = 3 }")
+var results = await state.DoStringAsync("return { a = 1, b = 2, c = 3 }");
 var table1 = results[0].Read<LuaTable>();
 
 // 1
 Console.WriteLine(table1["a"]);
 
 // テーブルを作成
-results = await state.DoStringAsync("return { 1, 2, 3 }")
+results = await state.DoStringAsync("return { 1, 2, 3 }");
 var table2 = results[0].Read<LuaTable>();
 
 // 1 (Luaの配列は1-originであることに注意)
@@ -183,13 +184,31 @@ return add;
 
 ```cs
 var results = await state.DoFileAsync("lua2cs.lua");
-var func = results[0].Read<LuaFunction>();
+var func = results[0];
 
 // 引数を与えて関数を実行する
-var funcResults = await func.InvokeAsync(state, [1, 2]);
+var funcResults = await state.CallAsync(func, [1, 2]);
 
 // 3
 Console.WriteLine(funcResults[0]);
+```
+
+配列のアロケーションが気になる場合は
+```csharp
+var func = results[0];
+var basePos = state.Stack.Count;
+state.Push(func);
+state.Push(1);
+state.Push(2);
+var funcResultsCount = await state.CallAsync(funcIndex:basePos, returnBase: basePos);
+using (var reader = state.ReadStack(funcResultsCount))
+{
+    var span = reader.AsSpan();
+    for (int i = 0; i < span.Length; i++)
+    {
+        Console.WriteLine(span[i]);
+    }
+}
 ```
 
 ### C#の関数をLua側から呼び出す
@@ -198,17 +217,22 @@ Console.WriteLine(funcResults[0]);
 
 ```cs
 // グローバル環境に関数を追加
-state.Environment["add"] = new LuaFunction((context, buffer, ct) =>
+state.Environment["add"] = new LuaFunction((context, ct) =>
 {
     // context.GetArgument<T>()で引数を取得
     var arg0 = context.GetArgument<double>(0);
     var arg1 = context.GetArgument<double>(1);
 
-    // バッファに戻り値を記録
-    buffer.Span[0] = arg0 + arg1;
+    // contextに戻り値を渡す
+    context.Return(arg0 + arg1);
+    
+    // 複数なら以下のようにまとめて渡す必要がある
+    // context.Return(arg0, arg1);
+    // context.Return([arg0, arg1]);
 
     // 戻り値の数を返す
     return new(1);
+    // return new(context.Return(arg0 + arg1)); //でも可
 });
 
 // Luaスクリプトを実行
@@ -227,17 +251,37 @@ return add(1, 2)
 > [!TIP]
 > `LuaFunction`による関数の定義はやや記述量が多いため、関数をまとめて追加する際には`[LuaObject]`属性によるSource Generatorの使用を推奨します。詳細は[LuaObject](#luaobject)の項目を参照してください。
 
+## Lua API
+通常の関数呼出し以外でもC#から様々なLuaの操作を行えます。
+```csharp
+await state.CallAsync(func, [arg1, arg2]); // func(arg1,arg2) in lua
+await state.AddAsync(arg1, arg2); // arg1 + arg2 in lua
+await state.SubAsync(arg1, arg2); // arg1 - arg2 in lua
+await state.MulAsync(arg1, arg2); // arg1 * arg2 in lua
+await state.DivAsync(arg1, arg2); // arg1 / arg2 in lua
+await state.ModAsync(arg1, arg2); // arg1 % arg2 in lua
+await state.EqualsAsync(arg1, arg2); // arg1 == arg2 in lua
+await state.LessThanAsync(arg1, arg2); // arg1 < arg2 in lua
+await state.LessThanOrEqualsAsync(arg1, arg2); // arg1 <= arg2 in lua
+await state.ConcatAsync([arg1, arg2, arg3]); // arg1 .. arg2 .. arg3 in lua
+
+await state.GetTableAsync(table, key); // table[key] in lua
+await state.GetTableAsync(table, "x"); // table.x in lua
+await state.SetTableAsync(table, key, value); // table[key] = value in lua
+await state.SetTableAsync(table, "x",value); // table.x = value in lua
+```
+
 ## async/awaitとの統合
 
 `LuaFunction`は非同期メソッドとして動作します。そのため、以下のような関数を定義することでLua側から処理の待機を行うことも可能です。
 
 ```cs
 // 与えられた秒数だけTask.Delayで待機する関数を定義
-state.Environment["wait"] = new LuaFunction(async (context, buffer, ct) =>
+state.Environment["wait"] = new LuaFunction(async (context, ct) =>
 {
     var sec = context.GetArgument<double>(0);
     await Task.Delay(TimeSpan.FromSeconds(sec));
-    return 0;
+    return context.Return();
 });
 
 await state.DoFileAsync("sample.lua");
@@ -263,17 +307,16 @@ print "goodbye!"
 
 ## コルーチン
 
-Luaのコルーチンは`LuaThread`型で表現されます。
+Luaのコルーチンは`LuaState`型で表現されます。
 
 コルーチンはLuaスクリプト内で利用できるだけでなく、Luaで作成したコルーチンをC#で待機することも可能です。
 
 ```lua
 -- coroutine.lua
 
-local co = coroutine.create(function()
+ local co = coroutine.create(function()
     for i = 1, 10 do
-        print(i)
-        coroutine.yield()
+        print("lua:", coroutine.yield(i))
     end
 end)
 
@@ -283,14 +326,21 @@ return co
 ```cs
 var results = await state.DoFileAsync("coroutine.lua");
 var co = results[0].Read<LuaThread>();
+var stack = new LuaStack();
 
 for (int i = 0; i < 10; i++)
 {
-    var resumeResults = await co.ResumeAsync(state);
+    var resumeResultsCount = await co.ResumeAsync(stack);
 
     // coroutine.resume()と同様、成功時は最初の要素にtrue、それ以降に関数の戻り値を返す
     // 1, 2, 3, 4, ...
-    Console.WriteLine(resumeResults[1]);
+    if (resumeResultsCount > 1)
+    {
+        Console.WriteLine(stack[1]);
+    }
+
+    stack.Clear();
+    stack.Push(i);
 }
 ```
 
@@ -436,7 +486,8 @@ print(v1 - v2) -- <-1, -1, -1>
 
 ## モジュールの読み込み
 
-Luaでは`require`関数を用いてモジュールを読み込むことができます。通常のLuaでは`package.searchers`の検索関数を用いてモジュールの管理を行いますが、Lua-CSharpでは代わりに`ILuaModuleLoader`がモジュール読み込みの機構として提供されています。
+Luaでは`require`関数を用いてモジュールを読み込むことができます。通常のLuaでは`package.searchers`の検索関数を用いてモジュールの管理を行いますが、Lua-CSharpではそれに加えて`ILuaModuleLoader`がモジュール読み込みの機構として提供されています。
+これはpackage.searchersより先に実行されます。
 
 ```cs
 public interface ILuaModuleLoader
@@ -452,29 +503,52 @@ public interface ILuaModuleLoader
 
 ```cs
 state.ModuleLoader = CompositeModuleLoader.Create(
-    new FileModuleLoader(),
-    new CustomModuleLoader()
+    new CustomModuleLoader1(),
+    new CustomModuleLoader2()
 );
 ```
 
 また、ロード済みのモジュールは通常のLua同様に`package.loaded`テーブルにキャッシュされます。これは`LuaState.LoadedModules`からアクセスすることが可能です。
 
+## サンドボックス化
+Lua-CSharpではサンドボックス化のために環境の抽象化を`LuaPlatform`として提供しています。
+```cs
+var state = LuaState.Create(new new(FileSystem: new FileSystem(),
+            OsEnvironment: new SystemOsEnvironment(),
+            StandardIO: new ConsoleStandardIO(),
+            TimeProvider: TimeProvider.System));
+```
+
+[ILuaFileSystem](https://github.com/nuskey8/Lua-CSharp/blob/main/src/Lua/IO/ILuaFileSystem.cs),
+[ILuaOsEnvironment](https://github.com/nuskey8/Lua-CSharp/blob/main/src/Lua/Platforms/ILuaOsEnvironment.cs
+),
+[ILuaStandardIO](https://github.com/nuskey8/Lua-CSharp/blob/main/src/Lua/IO/ILuaStandardIO.cs
+),
+[ILuaStream](https://github.com/nuskey8/Lua-CSharp/blob/main/src/Lua/IO/ILuaStream.cs
+)
+
+これらは`require`,`print`,`dofile`や`os`moduleなどで使用されます。
 ## 例外処理
 
-Luaスクリプトの解析エラーや実行時例外は`LuaException`を継承した例外をスローします。これをcatchすることでエラー時の処理を行うことができます。
+Luaスクリプトの実行時例外は`LuaRuntimeException`を継承した例外をスローします。これをcatchすることでエラー時の処理を行うことができます。
 
 ```cs
 try
 {
     await state.DoFileAsync("filename.lua");
 }
-catch (LuaParseException)
+catch (LuaCompileException)
 {
     // 構文にエラーがあった際の処理
 }
 catch (LuaRuntimeException)
 {
     // 実行時例外が発生した際の処理
+}
+catch(OperationCanceledException)
+{
+    //　キャンセルが発生した際の処理
+    // LuaCanceledExceptionならlua内でのキャンセル位置を取得可能
 }
 ```
 
@@ -523,13 +597,18 @@ state.ModuleLoader = new ResourcesModuleLoader();
 state.ModuleLoader = new AddressablesModuleLoader();
 ```
 
+### Platform抽象化
+LuaPlatformの要素として
+`UnityStandardIO`,
+`UnityApplicationOsEnvironment`が提供されています。
+
+`UnityStandardIO`ではprintなどがDebug.Logに出力されるようになります。
+`UnityApplicationOsEnvironment`では環境変数を辞書で設定でき、`os.exit()`で`Application.Quit()`が呼ばれるようになります。
+
+あくまで簡易的なものなので、実際の運用ではあまり推奨されません。
 ## 互換性
 
 Lua-CSharpは.NETとの統合を念頭に設計されているため、C実装とは互換性がない仕様がいくつか存在します。
-
-### バイナリ
-
-Lua-CSharpはLuaバイトコードをサポートしません(luacなどは使用できません)。実行可能なのはLuaソースコードのみです。
 
 ### 文字コード
 
@@ -549,16 +628,6 @@ Stringライブラリの関数はすべて文字列をUTF-16として扱う実�
 Lua-CSharpはC#で実装されているため.NETのGCに依存しています。そのため、メモリ管理に関する動作が通常のLuaとは異なります。
 
 `collectgarbage()`は利用可能ですが、これは単に`GC.Collect()`の呼び出しです。引数の値は無視されます。また、弱参照テーブル(week tables)はサポートされません。
-
-### moduleライブラリ
-
-moduleライブラリは`require()`および`package.loaded`のみが利用でき、それ以外の関数は実装されていません。これはLua-CSharpは.NETに最適化された独自のモジュール読み込みの機能を有するためです。
-
-詳細は[モジュールの読み込み](#モジュールの読み込み)の項目を参照してください。
-
-### debugライブラリ
-
-現在debugライブラリの実装は提供されていません。これはLua-CSharpの内部実装がC実装とは大きく異なり、同じAPIのライブラリを提供することが難しいためです。これについては、v1までに実装可能な一部のAPIのみの提供、または代替となるデバッグ機能を検討しています。
 
 ## ライセンス
 
