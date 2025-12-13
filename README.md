@@ -267,7 +267,7 @@ await state.ConcatAsync([arg1, arg2, arg3]); // arg1 .. arg2 .. arg3 in lua
 await state.GetTableAsync(table, key); // table[key] in lua
 await state.GetTableAsync(table, "x"); // table.x in lua
 await state.SetTableAsync(table, key, value); // table[key] = value in lua
-await state.SetTableAsync(table, "x",value); // table.x = value in lua
+await state.SetTableAsync(table, "x", value); // table.x = value in lua
 ```
 
 ## Integration with async/await
