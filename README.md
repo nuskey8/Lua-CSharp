@@ -89,17 +89,17 @@ var isNil = results[0].Type == LuaValueType.Nil;
 
 Below is a table showing the type mapping between Lua and C#.
 
-| Lua               | C#                      |
-|-------------------|-------------------------|
-| `nil`             | `LuaValue.Nil`          |
-| `boolean`         | `bool`                  |
-| `string`          | `string`                |
-| `number`          | `double`, `float`,`int` |
-| `table`           | `LuaTable`              |
-| `function`        | `LuaFunction`           |
-| (light)`userdata` | `object`                |
-| `userdata`        | `ILuaUserData`          |
-| `thread`          | `LuaState`              |
+| Lua               | C#                       |
+|-------------------|--------------------------|
+| `nil`             | `LuaValue.Nil`           |
+| `boolean`         | `bool`                   |
+| `string`          | `string`                 |
+| `number`          | `double`, `float`, `int` |
+| `table`           | `LuaTable`               |
+| `function`        | `LuaFunction`            |
+| (light)`userdata` | `object`                 |
+| `userdata`        | `ILuaUserData`           |
+| `thread`          | `LuaState`               |
 
 When creating a `LuaValue` from the C# side, compatible types are implicitly converted into `LuaValue`.
 
@@ -495,7 +495,7 @@ public interface ILuaModuleLoader
 }
 ```
 
-You can set the `LuaState.ModuleLoader` to change how modules are loaded..
+You can set the `LuaState.ModuleLoader` to change how modules are loaded.
 
 You can also combine multiple loaders using `CompositeModuleLoader.Create(loader1, loader2, ...)`.
 
@@ -511,7 +511,7 @@ Loaded modules are cached in the `package.loaded` table, just like regular Lua. 
 ## Sandboxing
 In Lua-CSharp, environment abstraction is provided as `LuaPlatform` for sandboxing.
 ```cs
-var state = LuaState.Create(new new(FileSystem: new FileSystem(),
+var state = LuaState.Create(new LuaPlatform(FileSystem: new FileSystem(),
             OsEnvironment: new SystemOsEnvironment(),
             StandardIO: new ConsoleStandardIO(),
             TimeProvider: TimeProvider.System));

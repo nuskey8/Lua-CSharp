@@ -89,17 +89,17 @@ var isNil = results[0].Type == LuaValueType.Nil;
 
 Lua-C#間の型の対応を以下に示します。
 
-| Lua               | C#                    |
-|-------------------|-----------------------|
-| `nil`             | `LuaValue.Nil`        |
-| `boolean`         | `bool`                |
-| `string`          | `string`              |
-| `number`          | `double`,`float`,`int` |
-| `table`           | `LuaTable`            |
-| `function`        | `LuaFunction`         |
-| (light)`userdata` | `object`              |
-| `userdata`        | `ILuaUserData`        |
-| `thread`          | `LuaState`            |
+| Lua               | C#                       |
+|-------------------|--------------------------|
+| `nil`             | `LuaValue.Nil`           |
+| `boolean`         | `bool`                   |
+| `string`          | `string`                 |
+| `number`          | `double`, `float`, `int` |
+| `table`           | `LuaTable`               |
+| `function`        | `LuaFunction`            |
+| (light)`userdata` | `object`                 |
+| `userdata`        | `ILuaUserData`           |
+| `thread`          | `LuaState`               |
 
 C#側から`LuaValue`を作成する際には、変換可能な型の場合であれば暗黙的に`LuaValue`に変換されます。
 
@@ -513,7 +513,7 @@ state.ModuleLoader = CompositeModuleLoader.Create(
 ## サンドボックス化
 Lua-CSharpではサンドボックス化のために環境の抽象化を`LuaPlatform`として提供しています。
 ```cs
-var state = LuaState.Create(new new(FileSystem: new FileSystem(),
+var state = LuaState.Create(new LuaPlatform(FileSystem: new FileSystem(),
             OsEnvironment: new SystemOsEnvironment(),
             StandardIO: new ConsoleStandardIO(),
             TimeProvider: TimeProvider.System));
