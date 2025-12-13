@@ -277,6 +277,11 @@ public static class LuaStateExtensions
         return LuaVirtualMachine.Concat(state, concatCount, cancellationToken);
     }
 
+    public static ValueTask<int> CallAsync(this LuaState state, int funcIndex, CancellationToken cancellationToken = default)
+    {
+        return LuaVirtualMachine.Call(state, funcIndex, funcIndex, cancellationToken);
+    }
+    
     public static ValueTask<int> CallAsync(this LuaState state, int funcIndex, int returnBase, CancellationToken cancellationToken = default)
     {
         return LuaVirtualMachine.Call(state, funcIndex, returnBase, cancellationToken);
