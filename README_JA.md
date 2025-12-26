@@ -90,7 +90,7 @@ var isNil = results[0].Type == LuaValueType.Nil;
 Lua-C#間の型の対応を以下に示します。
 
 | Lua               | C#                       |
-|-------------------|--------------------------|
+| ----------------- | ------------------------ |
 | `nil`             | `LuaValue.Nil`           |
 | `boolean`         | `bool`                   |
 | `string`          | `string`                 |
@@ -193,14 +193,15 @@ var funcResults = await state.CallAsync(func, [1, 2]);
 Console.WriteLine(funcResults[0]);
 ```
 
-配列のアロケーションが気になる場合は
-```csharp
+配列のアロケーションを回避するために、スタックを用いて引数をやり取りするAPIも提供されています。
+
+```cs
 var func = results[0];
 var basePos = state.Stack.Count;
 state.Push(func);
 state.Push(1);
 state.Push(2);
-var funcResultsCount = await state.CallAsync(funcIndex:basePos, returnBase: basePos);
+var funcResultsCount = await state.CallAsync(funcIndex: basePos, returnBase: basePos);
 using (var reader = state.ReadStack(funcResultsCount))
 {
     var span = reader.AsSpan();
@@ -223,16 +224,15 @@ state.Environment["add"] = new LuaFunction((context, ct) =>
     var arg0 = context.GetArgument<double>(0);
     var arg1 = context.GetArgument<double>(1);
 
-    // contextに戻り値を渡す
-    context.Return(arg0 + arg1);
+    // context.Return()で戻り値を渡す
+    var count = context.Return(arg0 + arg1);
     
-    // 複数なら以下のようにまとめて渡す必要がある
+    // 複数の戻り値を渡すことも可能
     // context.Return(arg0, arg1);
     // context.Return([arg0, arg1]);
 
     // 戻り値の数を返す
-    return new(1);
-    // return new(context.Return(arg0 + arg1)); //でも可
+    return new(count);
 });
 
 // Luaスクリプトを実行
@@ -251,18 +251,23 @@ return add(1, 2)
 > [!TIP]
 > `LuaFunction`による関数の定義はやや記述量が多いため、関数をまとめて追加する際には`[LuaObject]`属性によるSource Generatorの使用を推奨します。詳細は[LuaObject](#luaobject)の項目を参照してください。
 
-## Lua API
-通常の関数呼出し以外でもC#から様々なLuaの操作を行えます。
+## 低レベルAPI
+
+通常の関数呼び出し以外にも、Luaの低レベルなAPIを直接呼び出すことが可能です。
+
 ```csharp
 await state.CallAsync(func, [arg1, arg2]); // func(arg1,arg2) in lua
+
 await state.AddAsync(arg1, arg2); // arg1 + arg2 in lua
 await state.SubAsync(arg1, arg2); // arg1 - arg2 in lua
 await state.MulAsync(arg1, arg2); // arg1 * arg2 in lua
 await state.DivAsync(arg1, arg2); // arg1 / arg2 in lua
 await state.ModAsync(arg1, arg2); // arg1 % arg2 in lua
+
 await state.EqualsAsync(arg1, arg2); // arg1 == arg2 in lua
 await state.LessThanAsync(arg1, arg2); // arg1 < arg2 in lua
 await state.LessThanOrEqualsAsync(arg1, arg2); // arg1 <= arg2 in lua
+
 await state.ConcatAsync([arg1, arg2, arg3]); // arg1 .. arg2 .. arg3 in lua
 
 await state.GetTableAsync(table, key); // table[key] in lua
@@ -487,7 +492,9 @@ print(v1 - v2) -- <-1, -1, -1>
 ## モジュールの読み込み
 
 Luaでは`require`関数を用いてモジュールを読み込むことができます。通常のLuaでは`package.searchers`の検索関数を用いてモジュールの管理を行いますが、Lua-CSharpではそれに加えて`ILuaModuleLoader`がモジュール読み込みの機構として提供されています。
-これはpackage.searchersより先に実行されます。
+
+> [!NOTE]
+> `ILuaModuleLoader`によるモジュールの解決は`package.searchers`より先に実行されます。
 
 ```cs
 public interface ILuaModuleLoader
@@ -510,24 +517,22 @@ state.ModuleLoader = CompositeModuleLoader.Create(
 
 また、ロード済みのモジュールは通常のLua同様に`package.loaded`テーブルにキャッシュされます。これは`LuaState.LoadedModules`からアクセスすることが可能です。
 
-## サンドボックス化
-Lua-CSharpではサンドボックス化のために環境の抽象化を`LuaPlatform`として提供しています。
+## LuaPlatform
+
+Lua-CSharpではサンドボックス化のための機能として、スクリプト環境の抽象化を`LuaPlatform`として提供しています。
+
 ```cs
-var state = LuaState.Create(new LuaPlatform(FileSystem: new FileSystem(),
-            OsEnvironment: new SystemOsEnvironment(),
-            StandardIO: new ConsoleStandardIO(),
-            TimeProvider: TimeProvider.System));
+var platform = new LuaPlatform(
+    FileSystem: new FileSystem(),
+    OsEnvironment: new SystemOsEnvironment(),
+    StandardIO: new ConsoleStandardIO(),
+    TimeProvider: TimeProvider.System);
+
+var state = LuaState.Create(platform);
 ```
 
-[ILuaFileSystem](https://github.com/nuskey8/Lua-CSharp/blob/main/src/Lua/IO/ILuaFileSystem.cs),
-[ILuaOsEnvironment](https://github.com/nuskey8/Lua-CSharp/blob/main/src/Lua/Platforms/ILuaOsEnvironment.cs
-),
-[ILuaStandardIO](https://github.com/nuskey8/Lua-CSharp/blob/main/src/Lua/IO/ILuaStandardIO.cs
-),
-[ILuaStream](https://github.com/nuskey8/Lua-CSharp/blob/main/src/Lua/IO/ILuaStream.cs
-)
+これらは`require`, `print`, `dofile`や`os`モジュールなどで使用されます。
 
-これらは`require`,`print`,`dofile`や`os`moduleなどで使用されます。
 ## 例外処理
 
 Luaスクリプトの実行時例外は`LuaRuntimeException`を継承した例外をスローします。これをcatchすることでエラー時の処理を行うことができます。
@@ -545,10 +550,10 @@ catch (LuaRuntimeException)
 {
     // 実行時例外が発生した際の処理
 }
-catch(OperationCanceledException)
+catch (OperationCanceledException)
 {
     //　キャンセルが発生した際の処理
-    // LuaCanceledExceptionならlua内でのキャンセル位置を取得可能
+    // LuaCanceledExceptionを代わりに用いることで、Luaスクリプト内部でのキャンセル位置を取得可能
 }
 ```
 
@@ -597,15 +602,23 @@ state.ModuleLoader = new ResourcesModuleLoader();
 state.ModuleLoader = new AddressablesModuleLoader();
 ```
 
-### Platform抽象化
-LuaPlatformの要素として
-`UnityStandardIO`,
-`UnityApplicationOsEnvironment`が提供されています。
+### UnityStandardIO / UnityApplicationOsEnvironment
 
-`UnityStandardIO`ではprintなどがDebug.Logに出力されるようになります。
-`UnityApplicationOsEnvironment`では環境変数を辞書で設定でき、`os.exit()`で`Application.Quit()`が呼ばれるようになります。
+Unity向けのLuaPlatformの要素として`UnityStandardIO`、`UnityApplicationOsEnvironment`が提供されています。
 
-あくまで簡易的なものなので、実際の運用ではあまり推奨されません。
+```cs
+var platform = new LuaPlatform(
+    FileSystem: new FileSystem(),
+    OsEnvironment: new UnityApplicationOsEnvironment(), // Unity向けのOsEnvironment
+    StandardIO: new UnityStandardIO(), // Unity向けのStandardIO
+    TimeProvider: TimeProvider.System);
+var state = LuaState.Create(platform);
+```
+
+`UnityStandardIO`では`print`などの標準出力が`Debug.Log()`に出力されるようになります。`UnityApplicationOsEnvironment`では環境変数をDictionaryで設定することが可能となり、`os.exit()`で`Application.Quit()`が呼ばれるようになります。
+
+これらはあくまで簡易的な実装であるため、実運用では必要に応じて独自実装を作成することを推奨します。
+
 ## 互換性
 
 Lua-CSharpは.NETとの統合を念頭に設計されているため、C実装とは互換性がない仕様がいくつか存在します。

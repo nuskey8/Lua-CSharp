@@ -90,7 +90,7 @@ var isNil = results[0].Type == LuaValueType.Nil;
 Below is a table showing the type mapping between Lua and C#.
 
 | Lua               | C#                       |
-|-------------------|--------------------------|
+| ----------------- | ------------------------ |
 | `nil`             | `LuaValue.Nil`           |
 | `boolean`         | `bool`                   |
 | `string`          | `string`                 |
@@ -193,14 +193,17 @@ var funcResults = await state.CallAsync(func, [1, 2]);
 // 3
 Console.WriteLine(funcResults[0]);
 ```
-If you are concerned about array allocation, you can directly handle the stack as follows.
-```csharp
+
+To avoid array allocation, an API is also provided that passes arguments using the stack.
+
+```cs
 var func = results[0];
 var basePos = state.Stack.Count;
 state.Push(func);
 state.Push(1);
 state.Push(2);
-var funcResultsCount = await state.CallAsync(funcIndex:basePos, returnBase: basePos);
+var funcResultsCount = await state.CallAsync(funcIndex: basePos, returnBase: basePos);
+
 using (var reader = state.ReadStack(funcResultsCount))
 {
     var span = reader.AsSpan();
@@ -210,6 +213,7 @@ using (var reader = state.ReadStack(funcResultsCount))
     }
 }
 ```
+
 ### Calling C# Functions from Lua
 
 It is possible to create a `LuaFunction` from a lambda expression.
@@ -250,18 +254,23 @@ return add(1, 2)
 > [!TIP]  
 > Defining functions with `LuaFunction` can be somewhat verbose. When adding multiple functions, it is recommended to use the Source Generator with the `[LuaObject]` attribute. For more details, see the [LuaObject](#luaobject) section.
 
-## Lua API
-Besides normal function calls, you can perform various Lua operations from C#.
+## Low-Level API
+
+In addition to normal function calls, it is possible to directly call Lua's low-level API.
+
 ```csharp
 await state.CallAsync(func, [arg1, arg2]); // func(arg1,arg2) in lua
+
 await state.AddAsync(arg1, arg2); // arg1 + arg2 in lua
 await state.SubAsync(arg1, arg2); // arg1 - arg2 in lua
 await state.MulAsync(arg1, arg2); // arg1 * arg2 in lua
 await state.DivAsync(arg1, arg2); // arg1 / arg2 in lua
 await state.ModAsync(arg1, arg2); // arg1 % arg2 in lua
+
 await state.EqualsAsync(arg1, arg2); // arg1 == arg2 in lua
 await state.LessThanAsync(arg1, arg2); // arg1 < arg2 in lua
 await state.LessThanOrEqualsAsync(arg1, arg2); // arg1 <= arg2 in lua
+
 await state.ConcatAsync([arg1, arg2, arg3]); // arg1 .. arg2 .. arg3 in lua
 
 await state.GetTableAsync(table, key); // table[key] in lua
@@ -485,7 +494,9 @@ print(v1 - v2) -- <-1, -1, -1>
 ## Module Loading
 
 In Lua, you can load modules using the `require` function. In regular Lua, modules are managed by searchers within the `package.searchers` function list. In addition to this, Lua-CSharp provides `ILuaModuleLoader` as a module loading mechanism.
-This is executed before `package.searchers`.
+
+> [!NOTE]
+> Module resolution by `ILuaModuleLoader` is performed before `package.searchers`.
 
 ```cs
 public interface ILuaModuleLoader
@@ -508,24 +519,22 @@ state.ModuleLoader = CompositeModuleLoader.Create(
 
 Loaded modules are cached in the `package.loaded` table, just like regular Lua. This can be accessed via `LuaState.LoadedModules`.
 
-## Sandboxing
+## LuaPlatform
+
 In Lua-CSharp, environment abstraction is provided as `LuaPlatform` for sandboxing.
+
 ```cs
-var state = LuaState.Create(new LuaPlatform(FileSystem: new FileSystem(),
-            OsEnvironment: new SystemOsEnvironment(),
-            StandardIO: new ConsoleStandardIO(),
-            TimeProvider: TimeProvider.System));
+var platform = new LuaPlatform(
+    FileSystem: new FileSystem(),
+    OsEnvironment: new SystemOsEnvironment(),
+    StandardIO: new ConsoleStandardIO(),
+    TimeProvider: TimeProvider.System);
+
+var state = LuaState.Create(platform);
 ```
 
-[ILuaFileSystem](https://github.com/nuskey8/Lua-CSharp/blob/main/src/Lua/IO/ILuaFileSystem.cs),
-[ILuaOsEnvironment](https://github.com/nuskey8/Lua-CSharp/blob/main/src/Lua/Platforms/ILuaOsEnvironment.cs
-),
-[ILuaStandardIO](https://github.com/nuskey8/Lua-CSharp/blob/main/src/Lua/IO/ILuaStandardIO.cs
-),
-[ILuaStream](https://github.com/nuskey8/Lua-CSharp/blob/main/src/Lua/IO/ILuaStream.cs
-)
-
 These are used for `require`, `print`, `dofile`, and the `os` module.
+
 ## Exception Handling
 
 Lua script runtime exceptions throw exceptions that inherit from `LuaException`. You can catch these to handle errors during execution.
@@ -545,7 +554,7 @@ catch (LuaRuntimeException)
 }
 catch(OperationCanceledException)
 {
-    //　Handle cancel exceptions
+    // Handle cancel exceptions
     // LuaCanceledException allows you to get the cancellation point within Lua.
 }
 ```
@@ -594,16 +603,23 @@ state.ModuleLoader = new ResourcesModuleLoader();
 // Use Addressables for module loading (requires the Addressables package)
 state.ModuleLoader = new AddressablesModuleLoader();
 ```
-### Platform abstraction
-As elements of LuaPlatform,
-`UnityStandardIO` and
-`UnityApplicationOsEnvironment` are provided.
 
+### UnityStandardIO / UnityApplicationOsEnvironment
 
-`UnityStandardIO` makes things like `print` output to `Debug.Log`.
-With `UnityApplicationOsEnvironment`, environment variables can be set as a dictionary, and `Application.Quit()` will be called by `os.exit()`.
+`UnityStandardIO` and `UnityApplicationOsEnvironment` are provided as LuaPlatform elements for Unity.
 
-These are only simplified versions, so they are not highly recommended for actual use.
+```cs
+var platform = new LuaPlatform(
+    FileSystem: new FileSystem(),
+    OsEnvironment: new UnityApplicationOsEnvironment(), // OsEnvironment for Unity
+    StandardIO: new UnityStandardIO(), // StandardIO for Unity
+    TimeProvider: TimeProvider.System);
+var state = LuaState.Create(platform);
+```
+
+With `UnityStandardIO`, standard output such as `print` will be output to `Debug.Log()`. With `UnityApplicationOsEnvironment`, environment variables can be set using a Dictionary, and `os.exit()` will call `Application.Quit()`.
+
+These are simple implementations only, so for actual use it is recommended creating your own implementations as needed.
 
 ## Compatibility
 
