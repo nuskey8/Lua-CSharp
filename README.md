@@ -89,16 +89,17 @@ var isNil = results[0].Type == LuaValueType.Nil;
 
 Below is a table showing the type mapping between Lua and C#.
 
-| Lua        | C#                |
-| ---------- | ----------------- |
-| `nil`      | `LuaValue.Nil`    |
-| `boolean`  | `bool`            |
-| `string`   | `string`          |
-| `number`   | `double`, `float` |
-| `table`    | `LuaTable`        |
-| `function` | `LuaFunction`     |
-| `userdata` | `LuaUserData`     |
-| `thread`   | `LuaThread`       |
+| Lua               | C#                       |
+| ----------------- | ------------------------ |
+| `nil`             | `LuaValue.Nil`           |
+| `boolean`         | `bool`                   |
+| `string`          | `string`                 |
+| `number`          | `double`, `float`, `int` |
+| `table`           | `LuaTable`               |
+| `function`        | `LuaFunction`            |
+| (light)`userdata` | `object`                 |
+| `userdata`        | `ILuaUserData`           |
+| `thread`          | `LuaState`               |
 
 When creating a `LuaValue` from the C# side, compatible types are implicitly converted into `LuaValue`.
 
@@ -182,14 +183,35 @@ return add;
 ```
 
 ```cs
+var state = LuaState.Create();
 var results = await state.DoFileAsync("lua2cs.lua");
-var func = results[0].Read<LuaFunction>();
+var func = results[0];
 
-// Execute the function with arguments
-var funcResults = await func.InvokeAsync(state, new[] { 1, 2 });
+// Execute the function or any callable with arguments
+var funcResults = await state.CallAsync(func, [1, 2]);
 
 // 3
 Console.WriteLine(funcResults[0]);
+```
+
+To avoid array allocation, an API is also provided that passes arguments using the stack.
+
+```cs
+var func = results[0];
+var basePos = state.Stack.Count;
+state.Push(func);
+state.Push(1);
+state.Push(2);
+var funcResultsCount = await state.CallAsync(funcIndex: basePos, returnBase: basePos);
+
+using (var reader = state.ReadStack(funcResultsCount))
+{
+    var span = reader.AsSpan();
+    for (int i = 0; i < span.Length; i++)
+    {
+        Console.WriteLine(span[i]);
+    }
+}
 ```
 
 ### Calling C# Functions from Lua
@@ -198,17 +220,22 @@ It is possible to create a `LuaFunction` from a lambda expression.
 
 ```cs
 // Add the function to the global environment
-state.Environment["add"] = new LuaFunction((context, buffer, ct) =>
+state.Environment["add"] = new LuaFunction((context, ct) =>
 {
     // Get the arguments using context.GetArgument<T>()
     var arg0 = context.GetArgument<double>(0);
     var arg1 = context.GetArgument<double>(1);
 
-    // Write the return value to the buffer
-    buffer.Span[0] = arg0 + arg1;
+    // Set the return value to the context
+    context.Return(arg0 + arg1);
+    
+    // If there are multiple values, you need to pass them together as follows.
+    // context.Return(arg0, arg1);
+    // context.Return([arg0, arg1]);
 
     // Return the number of values
     return new(1);
+    // return new(context.Return(arg0 + arg1)); // or this way
 });
 
 // Execute a Lua script
@@ -227,17 +254,42 @@ return add(1, 2)
 > [!TIP]  
 > Defining functions with `LuaFunction` can be somewhat verbose. When adding multiple functions, it is recommended to use the Source Generator with the `[LuaObject]` attribute. For more details, see the [LuaObject](#luaobject) section.
 
+## Low-Level API
+
+In addition to normal function calls, it is possible to directly call Lua's low-level API.
+
+```csharp
+await state.CallAsync(func, [arg1, arg2]); // func(arg1,arg2) in lua
+
+await state.AddAsync(arg1, arg2); // arg1 + arg2 in lua
+await state.SubAsync(arg1, arg2); // arg1 - arg2 in lua
+await state.MulAsync(arg1, arg2); // arg1 * arg2 in lua
+await state.DivAsync(arg1, arg2); // arg1 / arg2 in lua
+await state.ModAsync(arg1, arg2); // arg1 % arg2 in lua
+
+await state.EqualsAsync(arg1, arg2); // arg1 == arg2 in lua
+await state.LessThanAsync(arg1, arg2); // arg1 < arg2 in lua
+await state.LessThanOrEqualsAsync(arg1, arg2); // arg1 <= arg2 in lua
+
+await state.ConcatAsync([arg1, arg2, arg3]); // arg1 .. arg2 .. arg3 in lua
+
+await state.GetTableAsync(table, key); // table[key] in lua
+await state.GetTableAsync(table, "x"); // table.x in lua
+await state.SetTableAsync(table, key, value); // table[key] = value in lua
+await state.SetTableAsync(table, "x", value); // table.x = value in lua
+```
+
 ## Integration with async/await
 
 `LuaFunction` operates asynchronously. Therefore, you can define a function that waits for an operation in Lua, such as the example below:
 
 ```cs
 // Define a function that waits for the given number of seconds using Task.Delay
-state.Environment["wait"] = new LuaFunction(async (context, buffer, ct) =>
+state.Environment["wait"] = new LuaFunction(async (context, ct) =>
 {
     var sec = context.GetArgument<double>(0);
     await Task.Delay(TimeSpan.FromSeconds(sec));
-    return 0;
+    return context.Return();
 });
 
 await state.DoFileAsync("sample.lua");
@@ -263,17 +315,16 @@ This code can resume the execution of the Lua script after waiting with await, a
 
 ## Coroutines
 
-Lua coroutines are represented by the `LuaThread` type.
+Lua coroutines are represented by the `LuaState` type.
 
 Coroutines can not only be used within Lua scripts, but you can also await Lua-created coroutines from C#.
 
 ```lua
 -- coroutine.lua
 
-local co = coroutine.create(function()
+ local co = coroutine.create(function()
     for i = 1, 10 do
-        print(i)
-        coroutine.yield()
+        print("lua:", coroutine.yield(i - 1))
     end
 end)
 
@@ -282,15 +333,21 @@ return co
 
 ```cs
 var results = await state.DoFileAsync("coroutine.lua");
-var co = results[0].Read<LuaThread>();
-
+var co = results[0].Read<LuaState>();
+var stack = new LuaStack();
 for (int i = 0; i < 10; i++)
 {
-    var resumeResults = await co.ResumeAsync(state);
+    var resumeResultsCount = await co.ResumeAsync(stack);
 
     // Similar to coroutine.resume(), returns true on success and the return values afterward
     // 1, 2, 3, 4, ...
-    Console.WriteLine(resumeResults[1]);
+    if (resumeResultsCount > 1)
+    {
+        Console.WriteLine(stack[1]);
+    }
+
+    stack.Clear();
+    stack.Push(i);
 }
 ```
 
@@ -436,7 +493,10 @@ print(v1 - v2) -- <-1, -1, -1>
 
 ## Module Loading
 
-In Lua, you can load modules using the `require` function. In regular Lua, modules are managed by searchers within the `package.searchers` function list. In Lua-CSharp, this is replaced by the `ILuaModuleLoader` interface.
+In Lua, you can load modules using the `require` function. In regular Lua, modules are managed by searchers within the `package.searchers` function list. In addition to this, Lua-CSharp provides `ILuaModuleLoader` as a module loading mechanism.
+
+> [!NOTE]
+> Module resolution by `ILuaModuleLoader` is performed before `package.searchers`.
 
 ```cs
 public interface ILuaModuleLoader
@@ -446,35 +506,56 @@ public interface ILuaModuleLoader
 }
 ```
 
-You can set the `LuaState.ModuleLoader` to change how modules are loaded. By default, the `FileModuleLoader` is set to load modules from Lua files.
+You can set the `LuaState.ModuleLoader` to change how modules are loaded.
 
 You can also combine multiple loaders using `CompositeModuleLoader.Create(loader1, loader2, ...)`.
 
 ```cs
 state.ModuleLoader = CompositeModuleLoader.Create(
-    new FileModuleLoader(),
-    new CustomModuleLoader()
+    new CustomModuleLoader1(),
+    new CustomModuleLoader2()
 );
 ```
 
 Loaded modules are cached in the `package.loaded` table, just like regular Lua. This can be accessed via `LuaState.LoadedModules`.
 
+## LuaPlatform
+
+In Lua-CSharp, environment abstraction is provided as `LuaPlatform` for sandboxing.
+
+```cs
+var platform = new LuaPlatform(
+    FileSystem: new FileSystem(),
+    OsEnvironment: new SystemOsEnvironment(),
+    StandardIO: new ConsoleStandardIO(),
+    TimeProvider: TimeProvider.System);
+
+var state = LuaState.Create(platform);
+```
+
+These are used for `require`, `print`, `dofile`, and the `os` module.
+
 ## Exception Handling
 
-Lua script parsing errors and runtime exceptions throw exceptions that inherit from `LuaException`. You can catch these to handle errors during execution.
+Lua script runtime exceptions throw exceptions that inherit from `LuaException`. You can catch these to handle errors during execution.
 
 ```cs
 try
 {
     await state.DoFileAsync("filename.lua");
 }
-catch (LuaParseException)
+catch (LuaCompileException)
 {
     // Handle parsing errors
 }
 catch (LuaRuntimeException)
 {
     // Handle runtime exceptions
+}
+catch(OperationCanceledException)
+{
+    // Handle cancel exceptions
+    // LuaCanceledException allows you to get the cancellation point within Lua.
 }
 ```
 
@@ -523,13 +604,26 @@ state.ModuleLoader = new ResourcesModuleLoader();
 state.ModuleLoader = new AddressablesModuleLoader();
 ```
 
+### UnityStandardIO / UnityApplicationOsEnvironment
+
+`UnityStandardIO` and `UnityApplicationOsEnvironment` are provided as LuaPlatform elements for Unity.
+
+```cs
+var platform = new LuaPlatform(
+    FileSystem: new FileSystem(),
+    OsEnvironment: new UnityApplicationOsEnvironment(), // OsEnvironment for Unity
+    StandardIO: new UnityStandardIO(), // StandardIO for Unity
+    TimeProvider: TimeProvider.System);
+var state = LuaState.Create(platform);
+```
+
+With `UnityStandardIO`, standard output such as `print` will be output to `Debug.Log()`. With `UnityApplicationOsEnvironment`, environment variables can be set using a Dictionary, and `os.exit()` will call `Application.Quit()`.
+
+These are simple implementations only, so for actual use it is recommended creating your own implementations as needed.
+
 ## Compatibility
 
 Lua-CSharp is designed with integration into .NET in mind, so there are several differences from the C implementation.
-
-### Binary
-
-Lua-CSharp does not support Lua bytecode (tools like `luac` cannot be used). Only Lua source code can be executed.
 
 ### Character Encoding
 
