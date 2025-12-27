@@ -1,6 +1,6 @@
 {
     "name": "com.nuskey8.lua.unity",
-    "version": "0.5.0",
+    "version": "0.5.1",
     "displayName": "Lua.Unity",
     "description": "Lua-CSharp extension for Unity",
     "author": {
