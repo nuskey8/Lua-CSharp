@@ -4,6 +4,6 @@
         "vec3",
         "Vector3"
     ],
-    "Lua.runtime.version": "Lua 5.2",
+    "Lua.runtime.version": "LuaJIT",
     "dotnet.backgroundAnalysis.analyzerDiagnosticsScope": "fullSolution"
 }

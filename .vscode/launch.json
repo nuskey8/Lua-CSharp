@@ -1,0 +1,10 @@
+{
+	"configurations": [
+		{
+			"name": "C#: StringBufferTest",
+			"type": "dotnet",
+			"request": "launch",
+			"projectPath": "${workspaceFolder}\\sandbox\\StringBufferTest\\StringBufferTest.csproj",
+		}
+	]
+}
