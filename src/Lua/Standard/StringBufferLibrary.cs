@@ -735,7 +735,7 @@ public abstract class StringBufferLibrary<TStringBuffer>
             LuaValue @return = new(self);
             return new(context.Return(@return));
         }
-        return new LuaFunction(BUFFER_OBJECT_GET, Skip);
+        return new LuaFunction(BUFFER_OBJECT_SKIP, Skip);
     }
 
     private LuaFunction GenerateGetFunction()
