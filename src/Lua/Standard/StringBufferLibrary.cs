@@ -9,18 +9,39 @@ using LightUserData = (double value, object referenceValue);
 
 public abstract class StringBuffer : IDisposable
 {
+    /// <summary>
+    /// Gets current length of the buffer. (number of bytes available for reading)
+    /// </summary>
     public abstract int Length { get; }
 
+    /// <summary>
+    /// Gets or sets the capacity of the buffer.
+    /// </summary>
     public abstract int Capacity { get; set; }
 
+    /// <summary>
+    /// Called when preparing for reading.
+    /// </summary>
     public abstract void BeginRead(LuaState state);
 
+    /// <summary>
+    /// Called when reading ended.
+    /// </summary>
     public abstract void EndRead();
 
+    /// <summary>
+    /// Called when preparing for writing.
+    /// </summary>
     public abstract void BeginWrite(LuaState state);
 
+    /// <summary>
+    /// Called when writing ended.
+    /// </summary>
     public abstract void EndWrite();
 
+    /// <summary>
+    /// Skips a certain number of bytes for reading.
+    /// </summary>
     public abstract void SkipRead(int length);
 
     public abstract bool ReadBoolean();
@@ -86,7 +107,17 @@ public abstract class StringBuffer : IDisposable
     public abstract void Dispose();
 }
 
-public sealed class BasicStringBuffer : StringBuffer
+/// <summary>
+/// The basic string buffer object.
+/// <para>
+/// If you want to add your own serialization for userdata, override the following methods:
+/// <see cref="ReadUserData"/>
+/// <see cref="ReadLightUserData"/>
+/// <see cref="Write(ILuaUserData)"/>
+/// <see cref="Write(LightUserData)"/>
+/// </para>
+/// </summary>
+public class BasicStringBuffer : StringBuffer
 {
     private readonly MemoryStream stream;
 
@@ -329,6 +360,7 @@ public sealed class BasicStringBuffer : StringBuffer
         stream.Dispose();
         reader.Dispose();
         writer.Dispose();
+        disposed = true;
         GC.SuppressFinalize(this);
     }
 
@@ -440,7 +472,7 @@ public abstract class StringBufferLibrary<TStringBuffer>
         }
     }
 
-    public const string LIBRARY_NAME = "string.buffer";
+    internal const string LIBRARY_NAME = "string.buffer";
 
     private const byte TOKEN_NIL = (byte)LuaValueType.Nil;
     private const byte TOKEN_BOOLEAN = (byte)LuaValueType.Boolean;
@@ -484,6 +516,9 @@ public abstract class StringBufferLibrary<TStringBuffer>
         options = new Options(32, null),
     };
 
+    /// <summary>
+    /// Create the string buffer library.
+    /// </summary>
     public StringBufferLibrary()
     {
         Functions =
@@ -1188,6 +1223,14 @@ public abstract class StringBufferLibrary<TStringBuffer>
     }
 }
 
+/// <summary>
+/// The default string buffer library.
+/// This is sufficient usually, unless you want to provide serialization and deserialization for your own UserData classes.
+/// <see cref="BasicStringBuffer.ReadUserData"/>
+/// <see cref="BasicStringBuffer.ReadLightUserData"/>
+/// <see cref="BasicStringBuffer.Write(ILuaUserData)"/>
+/// <see cref="BasicStringBuffer.Write(LightUserData)"/>
+/// </summary>
 public sealed class StringBufferLibrary : StringBufferLibrary<BasicStringBuffer>
 {
     public static readonly StringBufferLibrary Instance = new();
