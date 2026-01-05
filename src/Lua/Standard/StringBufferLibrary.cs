@@ -2,6 +2,7 @@
 using System.Text;
 using System.Diagnostics;
 using System.Collections.ObjectModel;
+using Lua.Runtime;
 
 namespace Lua.Standard;
 
@@ -72,35 +73,35 @@ public abstract class StringBuffer : IDisposable
 
     public abstract ILuaUserData ReadUserData();
 
-    public abstract void Write(bool boolean);
+    public abstract void WriteBoolean(bool boolean);
 
-    public abstract void Write(byte @byte);
+    public abstract void WriteByte(byte @byte);
 
-    public abstract void Write(double @double);
+    public abstract void WriteDouble(double @double);
 
-    public abstract void Write(int int32);
+    public abstract void WriteInt32(int int32);
 
-    public abstract void Write(long int64);
+    public abstract void WriteInt64(long int64);
 
-    public abstract void Write(short int16);
+    public abstract void WriteInt16(short int16);
 
-    public abstract void Write(sbyte @sbyte);
+    public abstract void WriteSByte(sbyte @sbyte);
 
-    public abstract void Write(float single);
+    public abstract void WriteSingle(float single);
 
-    public abstract void Write(string @string);
+    public abstract void WriteString(string @string);
 
-    public abstract void Write(uint uint32);
+    public abstract void WriteUInt32(uint uint32);
 
-    public abstract void Write(ulong uint64);
+    public abstract void WriteUInt64(ulong uint64);
 
-    public abstract void Write(ushort uint16);
+    public abstract void WriteUInt16(ushort uint16);
 
-    public abstract void Write(LightUserData lightUserData);
+    public abstract void WriteLightUserData(LightUserData lightUserData);
 
-    public abstract void Write(ILuaUserData userData);
+    public abstract void WriteUserData(ILuaUserData userData);
 
-    public abstract void Write(ReadOnlySpan<char> chars);
+    public abstract void WriteChars(ReadOnlySpan<char> chars);
 
     public abstract void Reset();
 
@@ -113,8 +114,8 @@ public abstract class StringBuffer : IDisposable
 /// If you want to add your own serialization for userdata, override the following methods:
 /// <see cref="ReadUserData"/>
 /// <see cref="ReadLightUserData"/>
-/// <see cref="Write(ILuaUserData)"/>
-/// <see cref="Write(LightUserData)"/>
+/// <see cref="WriteUserData(ILuaUserData)"/>
+/// <see cref="WriteLightUserData(LightUserData)"/>
 /// </para>
 /// </summary>
 public class BasicStringBuffer : StringBuffer
@@ -285,31 +286,31 @@ public class BasicStringBuffer : StringBuffer
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public override void Write(bool boolean) => writer.Write(boolean);
+    public override void WriteBoolean(bool boolean) => writer.Write(boolean);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public override void Write(byte @byte) => writer.Write(@byte);
+    public override void WriteByte(byte @byte) => writer.Write(@byte);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public override void Write(double @double) => writer.Write(@double);
+    public override void WriteDouble(double @double) => writer.Write(@double);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public override void Write(int int32) => writer.Write(int32);
+    public override void WriteInt32(int int32) => writer.Write(int32);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public override void Write(long int64) => writer.Write(int64);
+    public override void WriteInt64(long int64) => writer.Write(int64);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public override void Write(short int16) => writer.Write(int16);
+    public override void WriteInt16(short int16) => writer.Write(int16);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public override void Write(sbyte @sbyte) => writer.Write(@sbyte);
+    public override void WriteSByte(sbyte @sbyte) => writer.Write(@sbyte);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public override void Write(float single) => writer.Write(single);
+    public override void WriteSingle(float single) => writer.Write(single);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public override void Write(string value)
+    public override void WriteString(string value)
     {
         ReadOnlySpan<char> str = value.AsSpan();
         writer.Write(str.Length);
@@ -317,26 +318,26 @@ public class BasicStringBuffer : StringBuffer
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public override void Write(uint uint32) => writer.Write(uint32);
+    public override void WriteUInt32(uint uint32) => writer.Write(uint32);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public override void Write(ulong uint64) => writer.Write(uint64);
+    public override void WriteUInt64(ulong uint64) => writer.Write(uint64);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public override void Write(ushort uint16) => writer.Write(uint16);
+    public override void WriteUInt16(ushort uint16) => writer.Write(uint16);
 
-    public override void Write(LightUserData lightUserData)
+    public override void WriteLightUserData(LightUserData lightUserData)
     {
         throw new LuaRuntimeException(state, $"attempt to serialize unsupported object type: {LuaValueType.LightUserData}");
     }
 
-    public override void Write(ILuaUserData userData)
+    public override void WriteUserData(ILuaUserData userData)
     {
         throw new LuaRuntimeException(state, $"attempt to serialize unsupported object type: {LuaValueType.UserData}");
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public override void Write(ReadOnlySpan<char> value) => writer.Write(value);
+    public override void WriteChars(ReadOnlySpan<char> value) => writer.Write(value);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public override void Reset()
@@ -379,39 +380,75 @@ public class BasicStringBuffer : StringBuffer
 public abstract class StringBufferLibrary<TStringBuffer>
     where TStringBuffer : StringBuffer, new()
 {
-    private struct Options
+    private readonly struct Options
     {
-        public int maxRecursions;
+        public const int DEFAULT_MAX_RECURSIONS = 32;
 
-        public readonly ReadOnlyDictionary<string, short>? dict;
+        public readonly int maxRecursions;
 
-        public readonly ReadOnlyDictionary<short, string>? dictInv;
+        public readonly ReadOnlyDictionary<string, ushort>? stringKey2Index;
 
-        public Options(int maxRecursions, LuaTable? dictTable)
+        public readonly string[]? stringIndex2Key;
+
+        public readonly ReadOnlyDictionary<LuaTable, ushort>? metatableKey2Index;
+
+        public readonly LuaTable?[]? metatableIndex2Key;
+
+        public Options()
+        {
+            maxRecursions = DEFAULT_MAX_RECURSIONS;
+        }
+
+        public Options(int maxRecursions, LuaTable? dictTable, LuaTable? metatableTable)
         {
             this.maxRecursions = maxRecursions;
 
             if (dictTable is not null)
             {
-                Dictionary<string, short> dict = [];
-                Dictionary<short, string> dictInv = [];
+                int length = Math.Min(dictTable.ArrayLength, ushort.MaxValue - 1);
+                Dictionary<string, ushort> key2index = new(length);
+                stringIndex2Key = new string[length];
 
-                for (short index = 0; index < Math.Min(dictTable.ArrayLength, short.MaxValue); ++index)
+                for (ushort index = 0; index < length; ++index)
                 {
-                    if (dictTable[index].TryReadString(out string key))
+                    if (!dictTable[index + 1].TryReadString(out string key))
                     {
-                        dict[key] = index;
-                        dictInv[index] = key;
+                        break;
                     }
+                    key2index[key] = index;
+                    stringIndex2Key[index] = key;
                 }
 
-                this.dict = new ReadOnlyDictionary<string, short>(dict);
-                this.dictInv = new ReadOnlyDictionary<short, string>(dictInv);
+                stringKey2Index = new ReadOnlyDictionary<string, ushort>(key2index);
             }
             else
             {
-                dict = null;
-                dictInv = null;
+                stringKey2Index = null;
+                stringIndex2Key = null;
+            }
+
+            if (metatableTable is not null)
+            {
+                int length = Math.Min(metatableTable.ArrayLength, ushort.MaxValue - 1);
+                Dictionary<LuaTable, ushort> key2index = new(length);
+                metatableIndex2Key = new LuaTable[length];
+
+                for (ushort index = 0; index < length; ++index)
+                {
+                    if (!metatableTable[index + 1].TryReadTable(out LuaTable metatable))
+                    {
+                        break;
+                    }
+                    key2index[metatable] = index;
+                    metatableIndex2Key[index] = metatable;
+                }
+
+                metatableKey2Index = new ReadOnlyDictionary<LuaTable, ushort>(key2index);
+            }
+            else
+            {
+                metatableKey2Index = null;
+                metatableIndex2Key = null;
             }
         }
     }
@@ -430,6 +467,8 @@ public abstract class StringBufferLibrary<TStringBuffer>
 
     private class BufferObjectData
     {
+        public const int DEFAULT_SIZE = 32;
+
         public required Options options;
 
         private TStringBuffer? stringBuffer;
@@ -440,7 +479,7 @@ public abstract class StringBufferLibrary<TStringBuffer>
             get => stringBuffer ??= new TStringBuffer();
         }
 
-        public BufferObjectData(int size)
+        public BufferObjectData(int size = DEFAULT_SIZE)
         {
             stringBuffer = new TStringBuffer
             {
@@ -499,6 +538,7 @@ public abstract class StringBufferLibrary<TStringBuffer>
     private const string BUFFER_OBJECT_SKIP = $"{BUFFER_OBJECT}.skip";
     private const string BUFFER_OBJECT_GET = $"{BUFFER_OBJECT}.get";
     private const string BUFFER_OBJECT_TOSTRING = $"{BUFFER_OBJECT}.tostring";
+    private const string BUFFER_OBJECT_LENGTH = $"{BUFFER_OBJECT}.length";
     private const string BUFFER_OBJECT_METATABLE = $"{BUFFER_OBJECT}.<metatable>";
     private const string BUFFER_OBJECT_METATABLE_NEWINDEX = $"{BUFFER_OBJECT_METATABLE}.__newindex";
     private const string BUFFER_OBJECT_METATABLE_LEN = $"{BUFFER_OBJECT_METATABLE}.__len";
@@ -511,9 +551,9 @@ public abstract class StringBufferLibrary<TStringBuffer>
 
     private readonly LuaTable bufferObjectMetatable;
 
-    private readonly BufferObjectData defaultBufferObjectData = new(32)
+    private readonly BufferObjectData defaultBufferObjectData = new()
     {
-        options = new Options(32, null),
+        options = new Options(),
     };
 
     /// <summary>
@@ -528,7 +568,7 @@ public abstract class StringBufferLibrary<TStringBuffer>
             new LibraryFunction(LIBRARY_NAME, "decode", Decode),
         ];
 
-        bufferObjectMetatable = new LuaTable(0, 2);
+        bufferObjectMetatable = new LuaTable(0, 10);
         bufferObjectMetatable["__index"] = new LuaTable()
         {
             Dictionary =
@@ -543,12 +583,14 @@ public abstract class StringBufferLibrary<TStringBuffer>
                 ["skip"] = GenerateSkipFunction(),
                 ["get"] = GenerateGetFunction(),
                 ["tostring"] = GenerateToStringFunction(),
+                // extended
+                ["length"] = GenerateLengthFunction(),
             }
         };
-        bufferObjectMetatable["__newindex"] = GenerateMetatableNewIndexFunction();
-        bufferObjectMetatable["__len"] = GenerateMetatableLenFunction();
-        bufferObjectMetatable["__tostring"] = GenerateMetatableToStringFunction();
-        bufferObjectMetatable["__concat"] = GenerateMetatableConcatFunction();
+        bufferObjectMetatable[Metamethods.NewIndex] = GenerateMetatableNewIndexFunction();
+        bufferObjectMetatable[Metamethods.Len] = GenerateMetatableLenFunction();
+        bufferObjectMetatable[Metamethods.ToString] = GenerateMetatableToStringFunction();
+        bufferObjectMetatable[Metamethods.Concat] = GenerateMetatableConcatFunction();
     }
 
     private ValueTask<int> New(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
@@ -566,7 +608,7 @@ public abstract class StringBufferLibrary<TStringBuffer>
         return new(context.Return(new LuaValue(bufferObject)));
     }
 
-    private int New_GetArgSize(LuaFunctionExecutionContext context)
+    private static int New_GetArgSize(LuaFunctionExecutionContext context)
     {
         if (context.ArgumentCount >= 1)
         {
@@ -580,7 +622,7 @@ public abstract class StringBufferLibrary<TStringBuffer>
                 throw new LuaRuntimeException(context.State, $"bad argument #1 to 'size': number or nil expected, got {arg1.TypeToString()}");
             }
         }
-        return 32;
+        return BufferObjectData.DEFAULT_SIZE;
     }
 
     private Options New_GetArgOptions(LuaFunctionExecutionContext context)
@@ -591,10 +633,10 @@ public abstract class StringBufferLibrary<TStringBuffer>
             LuaValue arg2 = context.Arguments[1];
             if (arg2.TryReadTable(out LuaTable table))
             {
-                if (table.TryGetValue(nameof(options.maxRecursions), out LuaValue maxRecursions) && maxRecursions.TryReadNumber(out double doubleValue))
-                {
-                    options.maxRecursions = (int)doubleValue;
-                }
+                int maxRecursions = table.TryGetValue(nameof(maxRecursions), out LuaValue v1) && v1.TryReadNumber(out double v11) ? (int)v11 : options.maxRecursions;
+                LuaTable? dict = table.TryGetValue(nameof(dict), out LuaValue v2) && v2.TryReadTable(out LuaTable v22) ? v22 : null;
+                LuaTable? metatable = table.TryGetValue(nameof(metatable), out LuaValue v3) && v3.TryReadTable(out LuaTable v33) ? v33 : null;
+                options = new Options(maxRecursions, dict, metatable);
             }
             else if (arg2.Type != LuaValueType.Nil)
             {
@@ -638,7 +680,7 @@ public abstract class StringBufferLibrary<TStringBuffer>
         return new LuaFunction(BUFFER_OBJECT_DECODE, Decode);
     }
 
-    private LuaFunction GenerateResetFunction()
+    private static LuaFunction GenerateResetFunction()
     {
         static ValueTask<int> Reset(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
         {
@@ -649,7 +691,7 @@ public abstract class StringBufferLibrary<TStringBuffer>
         return new LuaFunction(BUFFER_OBJECT_RESET, Reset);
     }
 
-    private LuaFunction GenerateFreeFunction()
+    private static LuaFunction GenerateFreeFunction()
     {
         static ValueTask<int> Free(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
         {
@@ -660,9 +702,9 @@ public abstract class StringBufferLibrary<TStringBuffer>
         return new LuaFunction(BUFFER_OBJECT_FREE, Free);
     }
 
-    private LuaFunction GeneratePutFunction()
+    private static LuaFunction GeneratePutFunction()
     {
-        ValueTask<int> Put(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+        static ValueTask<int> Put(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
         {
             (LuaUserData self, BufferObjectData data) = StringBufferObjectFetchSelf(context, BUFFER_OBJECT_PUT);
             TStringBuffer buffer = data.StringBuffer;
@@ -683,7 +725,7 @@ public abstract class StringBufferLibrary<TStringBuffer>
         // cache arguments to reduce gc
         LuaValue[] arguments = [];
 
-        ValueTask<int> PutF(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+        async ValueTask<int> PutF(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
         {
             (LuaUserData self, BufferObjectData data) = StringBufferObjectFetchSelf(context, BUFFER_OBJECT_PUTF);
             if (arguments.Length < context.ArgumentCount - 1)
@@ -695,12 +737,12 @@ public abstract class StringBufferLibrary<TStringBuffer>
                 arguments[index - 1] = context.Arguments[index];
             }
 
-            LuaValue[] results = context.State.CallAsync(formatFunction, arguments.AsSpan()).Result;
+            LuaValue[] results = await context.State.CallAsync(formatFunction, arguments.AsSpan(), cancellationToken);
             TStringBuffer buffer = data.StringBuffer;
             buffer.BeginWrite(context.State);
             try
             {
-                buffer.Write(results[0].UnsafeReadString().AsSpan());
+                buffer.WriteChars(results[0].UnsafeReadString().AsSpan());
             }
             finally
             {
@@ -710,7 +752,7 @@ public abstract class StringBufferLibrary<TStringBuffer>
                 }
                 buffer.EndWrite();
             }
-            return new(context.Return(new LuaValue(self)));
+            return context.Return(new LuaValue(self));
         }
         return new LuaFunction(BUFFER_OBJECT_PUTF, PutF);
     }
@@ -738,7 +780,7 @@ public abstract class StringBufferLibrary<TStringBuffer>
             StringBuffer buffer = data.StringBuffer;
             buffer.Reset();
             buffer.BeginWrite(context.State);
-            buffer.Write(str.AsSpan());
+            buffer.WriteChars(str.AsSpan());
             buffer.EndWrite();
             LuaValue @return = new(self);
             return new(context.Return(@return));
@@ -794,17 +836,17 @@ public abstract class StringBufferLibrary<TStringBuffer>
             }
             buffer.EndRead();
 
-            int returns = context.Return(results);
+            int @return = context.Return(results);
             for (int index = 0; index < results.Length; ++index)
             {
                 results[index] = LuaValue.Nil;
             }
-            return new(returns);
+            return new(@return);
         }
         return new LuaFunction(BUFFER_OBJECT_GET, Get);
     }
 
-    private LuaFunction GenerateToStringFunction(string functionName = BUFFER_OBJECT_TOSTRING)
+    private static LuaFunction GenerateToStringFunction(string functionName = BUFFER_OBJECT_TOSTRING)
     {
         static ValueTask<int> ToString(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
         {
@@ -814,7 +856,17 @@ public abstract class StringBufferLibrary<TStringBuffer>
         return new LuaFunction(BUFFER_OBJECT_TOSTRING, ToString);
     }
 
-    private LuaFunction GenerateMetatableNewIndexFunction()
+    private static LuaFunction GenerateLengthFunction(string functionName = BUFFER_OBJECT_LENGTH)
+    {
+        ValueTask<int> ToString(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+        {
+            (LuaUserData self, BufferObjectData data) = StringBufferObjectFetchSelf(context, functionName);
+            return new(context.Return(data.StringBuffer.Length));
+        }
+        return new LuaFunction(functionName, ToString);
+    }
+
+    private static LuaFunction GenerateMetatableNewIndexFunction()
     {
         static ValueTask<int> MetatableLength(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
         {
@@ -823,17 +875,9 @@ public abstract class StringBufferLibrary<TStringBuffer>
         return new LuaFunction(BUFFER_OBJECT_METATABLE_NEWINDEX, MetatableLength);
     }
 
-    private LuaFunction GenerateMetatableLenFunction()
-    {
-        static ValueTask<int> MetatableLen(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
-        {
-            (LuaUserData self, BufferObjectData data) = StringBufferObjectFetchSelf(context, BUFFER_OBJECT_METATABLE_LEN);
-            return new(context.Return(data.StringBuffer.Length));
-        }
-        return new LuaFunction(BUFFER_OBJECT_METATABLE_LEN, MetatableLen);
-    }
+    private static LuaFunction GenerateMetatableLenFunction() => GenerateLengthFunction(BUFFER_OBJECT_METATABLE_LEN);
 
-    private LuaFunction GenerateMetatableToStringFunction() => GenerateToStringFunction(BUFFER_OBJECT_METATABLE_TOSTRING);
+    private static LuaFunction GenerateMetatableToStringFunction() => GenerateToStringFunction(BUFFER_OBJECT_METATABLE_TOSTRING);
 
     private LuaFunction GenerateMetatableConcatFunction()
     {
@@ -848,7 +892,7 @@ public abstract class StringBufferLibrary<TStringBuffer>
                     builder.Append(value.UnsafeReadString());
                     break;
                 case LuaValueType.Number:
-                    builder.Append(value.UnsafeReadDouble().ToString());
+                    builder.Append(value.UnsafeReadDouble());
                     break;
                 case LuaValueType.UserData:
                     if (!value.TryRead(out LuaUserData userData) || !bufferObjectDataTable.TryGetValue(userData, out BufferObjectData? otherData))
@@ -932,7 +976,7 @@ public abstract class StringBufferLibrary<TStringBuffer>
             buffer.BeginWrite(context.State);
             try
             {
-                buffer.Write(str);
+                buffer.WriteString(str);
             }
             finally
             {
@@ -953,22 +997,22 @@ public abstract class StringBufferLibrary<TStringBuffer>
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void WriteLuaValue(LuaValue value, SerialContext serialContext)
+    private static void WriteLuaValue(LuaValue value, SerialContext serialContext)
     {
         TStringBuffer buffer = serialContext.data.StringBuffer;
-        buffer.Write((byte)value.Type);
+        buffer.WriteByte((byte)value.Type);
         switch (value.Type)
         {
             case LuaValueType.Nil:
                 break;
             case LuaValueType.Boolean:
-                buffer.Write(value.UnsafeReadDouble() != 0);
+                buffer.WriteBoolean(value.UnsafeReadDouble() != 0);
                 break;
             case LuaValueType.String:
-                buffer.Write(value.UnsafeReadString());
+                buffer.WriteString(value.UnsafeReadString());
                 break;
             case LuaValueType.Number:
-                buffer.Write(value.UnsafeReadDouble());
+                buffer.WriteDouble(value.UnsafeReadDouble());
                 break;
             case LuaValueType.Function:
                 WriteFunction(serialContext);
@@ -991,78 +1035,96 @@ public abstract class StringBufferLibrary<TStringBuffer>
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void WriteFunction(SerialContext serialContext)
+    private static void WriteFunction(SerialContext serialContext)
     {
         throw new LuaRuntimeException(serialContext.lua.State, $"attempt to serialize unsupported object type: {LuaValueType.Function}");
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void WriteThread(SerialContext serialContext)
+    private static void WriteThread(SerialContext serialContext)
     {
         throw new LuaRuntimeException(serialContext.lua.State, $"attempt to serialize unsupported object type: {LuaValueType.Thread}");
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void WriteLightUserData(SerialContext serialContext, LightUserData lightUserData)
+    private static void WriteLightUserData(SerialContext serialContext, LightUserData lightUserData)
     {
         TStringBuffer buffer = serialContext.data.StringBuffer;
-        buffer.Write(lightUserData);
+        buffer.WriteLightUserData(lightUserData);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void WriteUserData(SerialContext serialContext, ILuaUserData userData)
+    private static void WriteUserData(SerialContext serialContext, ILuaUserData userData)
     {
         TStringBuffer buffer = serialContext.data.StringBuffer;
-        buffer.Write(userData);
+        buffer.WriteUserData(userData);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void WriteTable(SerialContext serialContext, LuaTable luaTable)
+    private static void WriteTable(SerialContext serialContext, LuaTable luaTable)
     {
         if (serialContext.depth >= serialContext.data.options.maxRecursions)
         {
             throw DeeplyNestedTableException(serialContext.lua.State);
         }
 
-        if (serialContext.data.options.dict is not null)
+        if (serialContext.data.options.stringKey2Index is not null)
         {
-            WriteTableWithDict(serialContext, luaTable);
+            if (serialContext.data.options.metatableKey2Index is not null)
+            {
+                WriteTableWithDict(serialContext, luaTable);
+                WriteTableResolveMetatable(serialContext, luaTable);
+            }
+            else
+            {
+                WriteTableWithDict(serialContext, luaTable);
+            }
         }
         else
         {
-            WriteTableWithoutDict(serialContext, luaTable);
+            if (serialContext.data.options.metatableKey2Index is not null)
+            {
+                WriteTableWithoutDict(serialContext, luaTable);
+                WriteTableResolveMetatable(serialContext, luaTable);
+            }
+            else
+            {
+                WriteTableWithoutDict(serialContext, luaTable);
+            }
+        }
+    }
+
+    private static void WriteTableWithDict(SerialContext serialContext, LuaTable luaTable)
+    {
+        TStringBuffer buffer = serialContext.data.StringBuffer;
+        buffer.WriteInt32(luaTable.ArrayLength);
+        buffer.WriteInt32(luaTable.HashMapCount);
+        foreach ((LuaValue key, LuaValue value) in luaTable)
+        {
+            WriteTableEntryWithDict(serialContext, key);
+            WriteTableEntryWithDict(serialContext, value);
         }
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void WriteTableWithDict(SerialContext serialContext, LuaTable luaTable)
+    private static void WriteTableEntryWithDict(SerialContext serialContext, LuaValue value)
     {
-        ReadOnlyDictionary<string, short>? dict = serialContext.data.options.dict!;
-        TStringBuffer buffer = serialContext.data.StringBuffer;
-        buffer.Write(luaTable.ArrayLength);
-        buffer.Write(luaTable.HashMapCount);
-        foreach ((LuaValue key, LuaValue value) in luaTable)
+        if (value.Type == LuaValueType.String && serialContext.data.options.stringKey2Index!.TryGetValue(value.UnsafeReadString(), out ushort dictIndex))
         {
-            if (key.Type == LuaValueType.String && dict.TryGetValue(key.UnsafeReadString(), out short dictIndex))
-            {
-                Debug.Assert(dictIndex != 0);
-                buffer.Write(dictIndex);
-            }
-            else
-            {
-                buffer.Write(0);
-                WriteLuaValue(key, serialContext);
-            }
+            serialContext.data.StringBuffer.WriteUInt16((ushort)(dictIndex + 1));
+        }
+        else
+        {
+            serialContext.data.StringBuffer.WriteUInt16(0);
             WriteLuaValue(value, serialContext);
         }
     }
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void WriteTableWithoutDict(SerialContext serialContext, LuaTable luaTable)
+    private static void WriteTableWithoutDict(SerialContext serialContext, LuaTable luaTable)
     {
         TStringBuffer buffer = serialContext.data.StringBuffer;
-        buffer.Write(luaTable.ArrayLength);
-        buffer.Write(luaTable.HashMapCount);
+        buffer.WriteInt32(luaTable.ArrayLength);
+        buffer.WriteInt32(luaTable.HashMapCount);
         foreach ((LuaValue key, LuaValue value) in luaTable)
         {
             WriteLuaValue(key, serialContext);
@@ -1070,8 +1132,22 @@ public abstract class StringBufferLibrary<TStringBuffer>
         }
     }
 
+    private static void WriteTableResolveMetatable(SerialContext serialContext, LuaTable luaTable)
+    {
+        ReadOnlyDictionary<LuaTable, ushort> key2index = serialContext.data.options.metatableKey2Index!;
+        TStringBuffer buffer = serialContext.data.StringBuffer;
+        if (luaTable.Metatable is not null && key2index.TryGetValue(luaTable.Metatable, out ushort metatableIndex))
+        {
+            buffer.WriteUInt16((ushort)(metatableIndex + 1));
+        }
+        else
+        {
+            buffer.WriteUInt16(0);
+        }
+    }
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private LuaValue ReadLuaValue(SerialContext serialContext)
+    private static LuaValue ReadLuaValue(SerialContext serialContext)
     {
         if (serialContext.depth >= serialContext.data.options.maxRecursions)
         {
@@ -1096,7 +1172,7 @@ public abstract class StringBufferLibrary<TStringBuffer>
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private LuaValue ReadString(SerialContext serialContext)
+    private static LuaValue ReadString(SerialContext serialContext)
     {
         StringBuffer buffer = serialContext.data.StringBuffer;
         int length = buffer.ReadInt32();
@@ -1104,19 +1180,19 @@ public abstract class StringBufferLibrary<TStringBuffer>
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private LuaValue ReadFunction(SerialContext serialContext)
+    private static LuaValue ReadFunction(SerialContext serialContext)
     {
         throw new LuaRuntimeException(serialContext.lua.State, $"attempt to deserialize unsupported object type: {LuaValueType.Function}");
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private LuaValue ReadThread(SerialContext serialContext)
+    private static LuaValue ReadThread(SerialContext serialContext)
     {
         throw new LuaRuntimeException(serialContext.lua.State, $"attempt to deserialize unsupported object type: {LuaValueType.Thread}");
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private LuaValue ReadLightUserData(SerialContext serialContext)
+    private static LuaValue ReadLightUserData(SerialContext serialContext)
     {
         StringBuffer buffer = serialContext.data.StringBuffer;
         (double value, object? referenceValue) = buffer.ReadLightUserData();
@@ -1124,45 +1200,68 @@ public abstract class StringBufferLibrary<TStringBuffer>
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private LuaValue ReadUserData(SerialContext serialContext)
+    private static LuaValue ReadUserData(SerialContext serialContext)
     {
         StringBuffer buffer = serialContext.data.StringBuffer;
         return new LuaValue(buffer.ReadUserData());
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private LuaTable ReadTable(SerialContext serialContext)
+    private static LuaTable ReadTable(SerialContext serialContext)
     {
-        if (serialContext.data.options.dict is not null)
+        if (serialContext.data.options.stringKey2Index is not null)
         {
-            return ReadTableWithDict(serialContext);
+            if (serialContext.data.options.metatableKey2Index is not null)
+            {
+                return ReadTableSolveMetatable(serialContext, ReadTableWithDict(serialContext));
+            }
+            else
+            {
+                return ReadTableWithDict(serialContext);
+            }
         }
         else
         {
-            return ReadTableWithoutDict(serialContext);
+            if (serialContext.data.options.metatableKey2Index is not null)
+            {
+                return ReadTableSolveMetatable(serialContext, ReadTableWithoutDict(serialContext));
+            }
+            else
+            {
+                return ReadTableWithoutDict(serialContext);
+            }
         }
     }
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private LuaTable ReadTableWithDict(SerialContext serialContext)
+    private static LuaTable ReadTableWithDict(SerialContext serialContext)
     {
-        ReadOnlyDictionary<short, string> dictInv = serialContext.data.options.dictInv!;
         StringBuffer buffer = serialContext.data.StringBuffer;
         int arrayLength = buffer.ReadInt32();
         int hashMapCount = buffer.ReadInt32();
         LuaTable table = new(arrayLength, hashMapCount);
         for (int _ = 0; _ < arrayLength + hashMapCount; ++_)
         {
-            short dictIndex = buffer.ReadInt16();
-            LuaValue key = dictIndex != 0 ? dictInv[dictIndex] : ReadLuaValue(serialContext);
-            LuaValue value = ReadLuaValue(serialContext);
+            LuaValue key = ReadLuaTableEntryWithDict(serialContext);
+            LuaValue value = ReadLuaTableEntryWithDict(serialContext);
             table[key] = value;
         }
         return table;
     }
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private LuaTable ReadTableWithoutDict(SerialContext serialContext)
+    private static LuaValue ReadLuaTableEntryWithDict(SerialContext serialContext)
+    {
+        ushort dictIndex = serialContext.data.StringBuffer.ReadUInt16();
+        if (dictIndex != 0)
+        {
+            return serialContext.data.options.stringIndex2Key![dictIndex - 1];
+        }
+        else
+        {
+            return ReadLuaValue(serialContext);
+        }
+    }
+
+    private static LuaTable ReadTableWithoutDict(SerialContext serialContext)
     {
         StringBuffer buffer = serialContext.data.StringBuffer;
         int arrayLength = buffer.ReadInt32();
@@ -1177,25 +1276,37 @@ public abstract class StringBufferLibrary<TStringBuffer>
         return table;
     }
 
+    private static LuaTable ReadTableSolveMetatable(SerialContext serialContext, LuaTable luaTable)
+    {
+        StringBuffer buffer = serialContext.data.StringBuffer;
+        LuaTable[] index2key = serialContext.data.options.metatableIndex2Key!;
+        ushort metatableIndex = buffer.ReadUInt16();
+        if (metatableIndex != 0)
+        {
+            luaTable.Metatable = index2key[metatableIndex - 1];
+        }
+        return luaTable;
+    }
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void BufferObjectPutValue(LuaFunctionExecutionContext context, BufferObjectData data, int index)
+    private async static void BufferObjectPutValue(LuaFunctionExecutionContext context, BufferObjectData data, int index)
     {
         StringBuffer buffer = data.StringBuffer;
         LuaValue value = context.Arguments[index];
         switch (value.Type)
         {
             case LuaValueType.String:
-                buffer.Write(value.UnsafeReadString().AsSpan());
+                buffer.WriteChars(value.UnsafeReadString().AsSpan());
                 break;
             case LuaValueType.Number:
-                buffer.Write(value.UnsafeReadDouble());
+                buffer.WriteDouble(value.UnsafeReadDouble());
                 break;
             case LuaValueType.Table:
-                if (!StringBufferLibraryUtility.LuaTableMetatableString(context.State, value.UnsafeRead<LuaTable>(), out string str))
                 {
-                    throw new LuaRuntimeException(context.State, $"bad argument #2 to '{BUFFER_OBJECT_PUT}': table require meta-method '__tostring'");
+                    string? str = await StringBufferLibraryUtility.LuaTableMetatableString(context.State, value.UnsafeRead<LuaTable>())
+                        ?? throw new LuaRuntimeException(context.State, $"bad argument #2 to '{BUFFER_OBJECT_PUT}': table require meta-method '__tostring'");
+                    buffer.WriteChars(str.AsSpan());
                 }
-                buffer.Write(str.AsSpan());
                 break;
             default:
                 throw new LuaRuntimeException(context.State, $"bad argument #2 to '{BUFFER_OBJECT_PUT}': string,number/table expected, got {value.TypeToString()}");
@@ -1203,7 +1314,7 @@ public abstract class StringBufferLibrary<TStringBuffer>
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private LuaValue BufferObjectGetValue(LuaFunctionExecutionContext context, BufferObjectData data, int index)
+    private static LuaValue BufferObjectGetValue(LuaFunctionExecutionContext context, BufferObjectData data, int index)
     {
         LuaValue value = index < context.ArgumentCount ? context.Arguments[index] : LuaValue.Nil;
         if (value.Type == LuaValueType.Nil)
@@ -1217,7 +1328,8 @@ public abstract class StringBufferLibrary<TStringBuffer>
         throw new LuaRuntimeException(context.State, $"bad argument #{index + 1} to '{BUFFER_OBJECT_GET}': number/nil expected, got {value.TypeToString()}");
     }
 
-    private Exception DeeplyNestedTableException(LuaState luaState)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static LuaRuntimeException DeeplyNestedTableException(LuaState luaState)
     {
         return new LuaRuntimeException(luaState, "failed to serialize deeply nested table");
     }
@@ -1228,8 +1340,8 @@ public abstract class StringBufferLibrary<TStringBuffer>
 /// This is sufficient usually, unless you want to provide serialization and deserialization for your own UserData classes.
 /// <see cref="BasicStringBuffer.ReadUserData"/>
 /// <see cref="BasicStringBuffer.ReadLightUserData"/>
-/// <see cref="BasicStringBuffer.Write(ILuaUserData)"/>
-/// <see cref="BasicStringBuffer.Write(LightUserData)"/>
+/// <see cref="BasicStringBuffer.WriteUserData(ILuaUserData)"/>
+/// <see cref="BasicStringBuffer.WriteLightUserData(LightUserData)"/>
 /// </summary>
 public sealed class StringBufferLibrary : StringBufferLibrary<BasicStringBuffer>
 {
@@ -1242,19 +1354,17 @@ internal static class StringBufferLibraryUtility
     private static readonly LuaValue[] _LuaTableMetatableString_arguments = [LuaValue.Nil];
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static bool LuaTableMetatableString(LuaState state, LuaTable luaTable, out string result)
+    internal static async Task<string?> LuaTableMetatableString(LuaState state, LuaTable luaTable)
     {
         if (luaTable.Metatable is not null && luaTable.Metatable.TryGetValue("__tostring", out LuaValue tostring))
         {
             _LuaTableMetatableString_arguments[0] = luaTable;
-            LuaValue[] results = state.CallAsync(tostring, _LuaTableMetatableString_arguments).Result;
+            LuaValue[] results = await state.CallAsync(tostring, _LuaTableMetatableString_arguments);
             if (results.Length >= 1)
             {
-                result = results[0].ToString();
-                return true;
+                return results[0].ToString();
             }
         }
-        result = string.Empty;
-        return false;
+        return null;
     }
 }

@@ -11,6 +11,7 @@ try
     state.OpenTableLibrary();
     state.OpenModuleLibrary();
     state.OpenStringBufferLibrary();
+    state.OpenOperatingSystemLibrary();
 
     await state.DoFileAsync("D:/repos/Lua-CSharp/sandbox/StringBufferTest/StringBufferTest.lua");
 
