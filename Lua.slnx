@@ -5,6 +5,7 @@
         <Project Path="sandbox/ConsoleApp1/ConsoleApp1.csproj"/>
         <Project Path="sandbox/ConsoleApp2/ConsoleApp2.csproj"/>
         <Project Path="sandbox/JitTest/JitTest.csproj"/>
+        <Project Path="sandbox/StringBufferTest/StringBufferTest.csproj" />
     </Folder>
     <Folder Name="/src/">
         <Project Path="src/Lua.SourceGenerator/Lua.SourceGenerator.csproj"/>

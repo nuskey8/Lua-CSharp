@@ -168,6 +168,20 @@ public static class OpenLibsExtensions
         globalState.LoadedModules["debug"] = debug;
     }
 
+    public static void OpenStringBufferLibrary(this LuaState state)
+    {
+        LuaGlobalState globalState = state.GlobalState;
+
+        LibraryFunction[] functions = StringBufferLibrary.Instance.Functions;
+        LuaTable stringBuffer = new(0, functions.Length);
+        foreach (LibraryFunction func in functions)
+        {
+            stringBuffer[func.Name] = func.Func;
+        }
+
+        globalState.LoadedModules[StringBufferLibrary.LIBRARY_NAME] = stringBuffer;
+    }
+
     public static void OpenStandardLibraries(this LuaState state)
     {
         state.OpenBasicLibrary();
@@ -180,5 +194,6 @@ public static class OpenLibsExtensions
         state.OpenStringLibrary();
         state.OpenTableLibrary();
         state.OpenDebugLibrary();
+        state.OpenStringBufferLibrary();
     }
 }
