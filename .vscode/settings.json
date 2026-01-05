@@ -1,9 +1,0 @@
-{
-    "dotnet.defaultSolution": "Lua.sln",
-    "Lua.diagnostics.globals": [
-        "vec3",
-        "Vector3"
-    ],
-    "Lua.runtime.version": "LuaJIT",
-    "dotnet.backgroundAnalysis.analyzerDiagnosticsScope": "fullSolution"
-}
