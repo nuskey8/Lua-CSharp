@@ -35,4 +35,16 @@ public class BufferedOutputStream(Action<ReadOnlyMemory<char>> onFlush) : ILuaSt
 
         return default;
     }
+
+    public ValueTask CloseAsync(CancellationToken cancellationToken = default)
+    {
+        if (buffer.Length > 0)
+        {
+            onFlush(buffer.AsArray().AsMemory(0, buffer.Length));
+            buffer.Clear();
+        }
+
+        IsOpen = false;
+        return default;
+    }
 }
