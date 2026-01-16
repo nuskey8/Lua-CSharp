@@ -315,6 +315,29 @@ public class LuaState : IDisposable
         callStack.PopUntil(top);
     }
 
+    public LuaTable GetCurrentEnvironment()
+    {
+        var callStack = GetCallStackFrames();
+        for (int i = callStack.Length - 1; i >= 0; i--)
+        {
+            var function = callStack[i].Function;
+            if (function is not LuaClosure closure || closure.Proto.UpValues.Length == 0)
+            {
+                continue;
+            }
+
+            if (closure.Proto.UpValues[0].Name != "_ENV")
+            {
+                continue;
+            }
+
+            var upValue = closure.UpValues[0];
+            return upValue.GetValue().Read<LuaTable>();
+        }
+
+        return Environment;
+    }
+
     public void SetHook(LuaFunction? hook, string mask, int count = 0)
     {
         if (hook is null)
