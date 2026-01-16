@@ -13,7 +13,8 @@ partial class LuaObjectGenerator
             : "(";
     }
 
-    static bool TryEmit(TypeMetadata typeMetadata, CodeBuilder builder, SymbolReferences references, Compilation compilation, in SourceProductionContext context, Dictionary<INamedTypeSymbol, TypeMetadata> metaDict)
+    static bool TryEmit(TypeMetadata typeMetadata, CodeBuilder builder, SymbolReferences references, Compilation compilation, in SourceProductionContext context, Dictionary<INamedTypeSymbol, TypeMetadata> metaDict,
+        TempCollections tempCollections)
     {
         try
         {
@@ -87,19 +88,19 @@ partial class LuaObjectGenerator
 
             using var _ = builder.BeginBlockScope($"partial {typeDeclarationKeyword} {typeMetadata.TypeName} : global::Lua.ILuaUserData");
 
-            var metamethodSet = new HashSet<LuaObjectMetamethod>();
+            var metamethodSet = tempCollections.Metamethods;
 
             if (!TryEmitMethods(typeMetadata, builder, references, compilation, metamethodSet, context))
             {
                 return false;
             }
 
-            if (!TryEmitIndexMetamethod(typeMetadata, builder, references, compilation, context))
+            if (!TryEmitIndexMetamethod(typeMetadata, builder, references, compilation, context, tempCollections))
             {
                 return false;
             }
 
-            if (!TryEmitNewIndexMetamethod(typeMetadata, builder, references, context))
+            if (!TryEmitNewIndexMetamethod(typeMetadata, builder, references, context, tempCollections))
             {
                 return false;
             }
@@ -269,20 +270,26 @@ partial class LuaObjectGenerator
         return isValid;
     }
 
-    static bool TryEmitIndexMetamethod(TypeMetadata typeMetadata, CodeBuilder builder, SymbolReferences references, Compilation compilation, in SourceProductionContext context)
+    static bool TryEmitIndexMetamethod(TypeMetadata typeMetadata, CodeBuilder builder, SymbolReferences references, Compilation compilation, in SourceProductionContext context, TempCollections tempCollections)
     {
         builder.AppendLine(@"static readonly global::Lua.LuaFunction __metamethod_index = new global::Lua.LuaFunction(""index"", (context, ct) =>");
 
         using (builder.BeginBlockScope())
         {
             builder.AppendLine($"var userData = context.GetArgument<{typeMetadata.FullTypeName}>(0);");
-            builder.AppendLine($"var key = context.GetArgument<global::System.String>(1);");
+            builder.AppendLine("var key = context.GetArgument<global::System.String>(1);");
             builder.AppendLine("var result = key switch");
-
             using (builder.BeginBlockScope())
             {
                 foreach (var propertyMetadata in typeMetadata.Properties)
                 {
+                    if (propertyMetadata.IsWriteOnly)
+                    {
+                        tempCollections.InvalidMemberNames.Add(propertyMetadata.LuaMemberName);
+                        continue;
+                    }
+
+
                     var conversionPrefix = GetLuaValuePrefix(propertyMetadata.Type, references, compilation);
                     if (propertyMetadata.IsStatic)
                     {
@@ -300,7 +307,35 @@ partial class LuaObjectGenerator
                     builder.AppendLine(@$"""{methodMetadata.LuaMemberName}"" => new global::Lua.LuaValue(__function_{methodMetadata.LuaMemberName}),");
                 }
 
-                builder.AppendLine(@$"_ => global::Lua.LuaValue.Nil,");
+                builder.Append("_ => ");
+                {
+                    if (tempCollections.InvalidMemberNames.Count > 0)
+                    {
+                        builder.Append("(key is ", false);
+                        for (var index = 0; index < tempCollections.InvalidMemberNames.Count; index++)
+                        {
+                            var name = tempCollections.InvalidMemberNames[index];
+                            builder.Append("\"", false);
+                            builder.Append(name, false);
+                            builder.Append("\"", false);
+                            if (index < tempCollections.InvalidMemberNames.Count - 1)
+                            {
+                                builder.Append(" or ", false);
+                            }
+                        }
+
+                        builder.AppendLine(")", false);
+                        using (builder.BeginIndentScope())
+                        {
+                            builder.AppendLine(@"? throw new global::Lua.LuaRuntimeException(context.State, $""'{key}' cannot be read."")");
+                            builder.AppendLine(": global::Lua.LuaValue.Nil,");
+                        }
+
+                        tempCollections.InvalidMemberNames.Clear();
+                    }
+                    else
+                        builder.AppendLine(@"global::Lua.LuaValue.Nil,");
+                }
             }
 
             builder.AppendLine(";");
@@ -313,29 +348,31 @@ partial class LuaObjectGenerator
         return true;
     }
 
-    static bool TryEmitNewIndexMetamethod(TypeMetadata typeMetadata, CodeBuilder builder, SymbolReferences references, in SourceProductionContext context)
+    static bool TryEmitNewIndexMetamethod(TypeMetadata typeMetadata, CodeBuilder builder, SymbolReferences references, in SourceProductionContext context, TempCollections tempCollections)
     {
         builder.AppendLine(@"static readonly global::Lua.LuaFunction __metamethod_newindex = new global::Lua.LuaFunction(""newindex"", (context, ct) =>");
 
         using (builder.BeginBlockScope())
         {
             builder.AppendLine($"var userData = context.GetArgument<{typeMetadata.FullTypeName}>(0);");
-            builder.AppendLine($"var key = context.GetArgument<global::System.String>(1);");
+            builder.AppendLine("var key = context.GetArgument<global::System.String>(1);");
             builder.AppendLine("switch (key)");
 
             using (builder.BeginBlockScope())
             {
                 foreach (var propertyMetadata in typeMetadata.Properties)
                 {
+                    if (propertyMetadata.IsReadOnly)
+                    {
+                        tempCollections.InvalidMemberNames.Add(propertyMetadata.LuaMemberName);
+                        continue;
+                    }
+
                     builder.AppendLine(@$"case ""{propertyMetadata.LuaMemberName}"":");
 
                     using (builder.BeginIndentScope())
                     {
-                        if (propertyMetadata.IsReadOnly)
-                        {
-                            builder.AppendLine($@"throw new global::Lua.LuaRuntimeException(context.State, $""'{{key}}' cannot overwrite."");");
-                        }
-                        else if (propertyMetadata.IsStatic)
+                        if (propertyMetadata.IsStatic)
                         {
                             if (SymbolEqualityComparer.Default.Equals(propertyMetadata.Type, references.LuaValue))
                             {
@@ -367,19 +404,42 @@ partial class LuaObjectGenerator
                 foreach (var methodMetadata in typeMetadata.Methods
                              .Where(x => x.HasMemberAttribute))
                 {
-                    builder.AppendLine(@$"case ""{methodMetadata.LuaMemberName}"":");
-
-                    using (builder.BeginIndentScope())
-                    {
-                        builder.AppendLine($@"throw new global::Lua.LuaRuntimeException(context.State, $""'{{key}}' cannot overwrite."");");
-                    }
+                    tempCollections.InvalidMemberNames.Add(methodMetadata.LuaMemberName);
                 }
 
-                builder.AppendLine(@$"default:");
+                builder.AppendLine(@"default:");
 
                 using (builder.BeginIndentScope())
                 {
-                    builder.AppendLine(@$"throw new global::Lua.LuaRuntimeException(context.State, $""'{{key}}' not found."");");
+                    if (tempCollections.InvalidMemberNames.Count > 0)
+                    {
+                        builder.AppendLine("throw new global::Lua.LuaRuntimeException(context.State,");
+                        using (builder.BeginIndentScope())
+                        {
+                            builder.Append("(key is ");
+                            for (var index = 0; index < tempCollections.InvalidMemberNames.Count; index++)
+                            {
+                                var name = tempCollections.InvalidMemberNames[index];
+                                builder.Append("\"", false);
+                                builder.Append(name, false);
+                                builder.Append("\"", false);
+                                if (index < tempCollections.InvalidMemberNames.Count - 1)
+                                {
+                                    builder.Append(" or ", false);
+                                }
+                            }
+
+                            builder.AppendLine(")", false);
+                            using (builder.BeginIndentScope())
+                            {
+                                builder.AppendLine(@"? $""'{key}' cannot overwrite.""");
+                                tempCollections.InvalidMemberNames.Clear();
+                                builder.AppendLine(@": $""'{key}' not found."");");
+                            }
+                        }
+                    }
+                    else
+                        builder.AppendLine(@"throw new global::Lua.LuaRuntimeException(context.State, $""'{key}' not found."");");
                 }
             }
 
@@ -471,7 +531,8 @@ partial class LuaObjectGenerator
                     }
                     else
                     {
-                        builder.AppendLine($"var arg{index} = context.HasArgument({index}) ?  context.GetArgument<{parameterType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}>({index}) : {syntax.Default!.Value.ToFullString()};");
+                        builder.AppendLine(
+                            $"var arg{index} = context.HasArgument({index}) ?  context.GetArgument<{parameterType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}>({index}) : {syntax.Default!.Value.ToFullString()};");
                     }
                 }
                 else

@@ -9,6 +9,7 @@ public class PropertyMetadata
     public string TypeFullName { get; }
     public bool IsStatic { get; }
     public bool IsReadOnly { get; }
+    public bool IsWriteOnly { get; }
     public string LuaMemberName { get; }
 
     public PropertyMetadata(ISymbol symbol, SymbolReferences references)
@@ -27,7 +28,8 @@ public class PropertyMetadata
         {
             Type = property.Type;
             TypeFullName = property.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
-            IsReadOnly = property.SetMethod == null;
+            IsReadOnly = property.IsReadOnly || property.SetMethod == null || property.SetMethod.IsInitOnly;
+            IsWriteOnly = property.IsWriteOnly;
         }
         else
         {

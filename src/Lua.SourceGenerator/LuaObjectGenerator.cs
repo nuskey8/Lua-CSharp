@@ -39,10 +39,11 @@ public partial class LuaObjectGenerator : IIncrementalGenerator
                     metaDict.Add(symbol, typeMeta);
                 }
 
+                var tempCollections = new TempCollections();
                 foreach (var pair in metaDict)
                 {
                     var typeMeta = pair.Value;
-                    if (TryEmit(typeMeta, builder, references, compilation, in sourceProductionContext, metaDict))
+                    if (TryEmit(typeMeta, builder, references, compilation, in sourceProductionContext, metaDict, tempCollections))
                     {
                         var fullType = typeMeta.FullTypeName
                             .Replace("global::", "")
@@ -52,6 +53,7 @@ public partial class LuaObjectGenerator : IIncrementalGenerator
                         sourceProductionContext.AddSource($"{fullType}.LuaObject.g.cs", builder.ToString());
                     }
 
+                    tempCollections.Clear();
                     builder.Clear();
                 }
             });
