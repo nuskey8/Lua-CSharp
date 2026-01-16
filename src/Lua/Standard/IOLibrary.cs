@@ -191,7 +191,7 @@ public sealed class IOLibrary
 
         if (arg0.TryRead<FileHandle>(out var file))
         {
-            return new(context.Return(file.IsOpen ? " file" : "closed file"));
+            return new(context.Return(file.IsOpen ? "file" : "closed file"));
         }
         else
         {

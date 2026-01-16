@@ -68,7 +68,7 @@ public static class LuaFileOpenModeExtensions
             "w+b" => LuaFileOpenMode.WriteUpdate,
             "a+" => LuaFileOpenMode.AppendUpdate,
             "a+b" => LuaFileOpenMode.AppendUpdate,
-            _ => 0
+            _ => (LuaFileOpenMode)(-1)
         };
     }
 
