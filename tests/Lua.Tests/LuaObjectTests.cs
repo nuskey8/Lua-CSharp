@@ -1,59 +1,59 @@
 using Lua.Standard;
 
 namespace Lua.Tests;
+
 [LuaObject]
-public partial class LuaTestObj {
+public partial class LuaTestObj
+{
     int x;
     int y;
 
     [LuaMember("x")]
-    public int X {
+    public int X
+    {
         get => x;
         set => x = value;
     }
 
     [LuaMember("y")]
-    public int Y {
+    public int Y
+    {
         get => y;
         set => y = value;
     }
 
     [LuaMember("create")]
-    public static LuaTestObj Create(int x, int y) {
-        return new LuaTestObj() {
-            x = x,
-            y = y
-        };
+    public static LuaTestObj Create(int x, int y)
+    {
+        return new LuaTestObj() { x = x, y = y };
     }
 
     [LuaMetamethod(LuaObjectMetamethod.Add)]
-    public static LuaTestObj Add(LuaTestObj a, LuaTestObj b) {
-        return new LuaTestObj() {
-            x = a.x + b.x,
-            y = a.y + b.y
-        };
+    public static LuaTestObj Add(LuaTestObj a, LuaTestObj b)
+    {
+        return new LuaTestObj() { x = a.x + b.x, y = a.y + b.y };
     }
-    
+
     [LuaMetamethod(LuaObjectMetamethod.Sub)]
-    public static async Task<LuaTestObj> Sub(LuaTestObj a, LuaTestObj b) {
+    public static async Task<LuaTestObj> Sub(LuaTestObj a, LuaTestObj b)
+    {
         await Task.Delay(1);
-        return new LuaTestObj() {
-            x = a.x - b.x,
-            y = a.y - b.y
-        };
+        return new LuaTestObj() { x = a.x - b.x, y = a.y - b.y };
     }
 }
+
 [LuaObject]
 public partial class TestUserData
 {
-    [LuaMember]
-    public int Property { get; set; }
+    [LuaMember] public int Property { get; init; }
 
-    [LuaMember]
-    public LuaValue LuaValueProperty { get; set; }
+    [LuaMember] public int ReadOnlyProperty { get; }
 
-    [LuaMember("p2")]
-    public string PropertyWithName { get; set; } = "";
+    [LuaMember] public int SetOnlyProperty { set { } }
+
+    [LuaMember] public LuaValue LuaValueProperty { get; set; }
+
+    [LuaMember("p2")] public string PropertyWithName { get; set; } = "";
 
     [LuaMember]
     public static void MethodVoid()
@@ -201,7 +201,7 @@ public class LuaObjectTests
         Assert.That(results, Has.Length.EqualTo(1));
         Assert.That(results[0], Is.EqualTo(new LuaValue("Called!")));
     }
-    
+
     [Test]
     public async Task Test_ArithMetamethod()
     {
@@ -209,7 +209,7 @@ public class LuaObjectTests
 
         var state = LuaState.Create();
         state.OpenBasicLibrary();
-        state.Environment["TestObj"]=userData;
+        state.Environment["TestObj"] = userData;
         var results = await state.DoStringAsync("""
                                                 local a = TestObj.create(1, 2)
                                                 local b = TestObj.create(3, 4)

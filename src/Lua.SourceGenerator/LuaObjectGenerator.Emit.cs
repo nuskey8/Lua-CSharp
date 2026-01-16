@@ -283,6 +283,12 @@ partial class LuaObjectGenerator
             {
                 foreach (var propertyMetadata in typeMetadata.Properties)
                 {
+                    if (propertyMetadata.IsWriteOnly)
+                    {
+                        builder.AppendLine(@$"""{propertyMetadata.LuaMemberName}"" => throw new global::Lua.LuaRuntimeException(context.State, $""'{{key}}' cannot be read.""),");
+                        continue;
+                    }
+
                     var conversionPrefix = GetLuaValuePrefix(propertyMetadata.Type, references, compilation);
                     if (propertyMetadata.IsStatic)
                     {

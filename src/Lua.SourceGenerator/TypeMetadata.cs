@@ -37,11 +37,6 @@ class TypeMetadata
 
                 if (x is IPropertySymbol p)
                 {
-                    if (p.GetMethod == null || p.SetMethod == null)
-                    {
-                        return false;
-                    }
-
                     if (p.IsIndexer)
                     {
                         return false;
