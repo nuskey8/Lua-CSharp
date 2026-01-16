@@ -1266,6 +1266,7 @@ public static partial class LuaVirtualMachine
             if (!task.IsCompleted)
             {
                 context.PostOperation = PostOperationType.Call;
+                context.CurrentReturnFrameBase = returnBase;
                 context.Task = task;
                 return false;
             }
@@ -2002,6 +2003,7 @@ public static partial class LuaVirtualMachine
             if (!task.IsCompleted)
             {
                 context.PostOperation = PostOperationType.SetResult;
+                context.CurrentReturnFrameBase = newFrame.ReturnBase;
                 context.Task = task;
                 return false;
             }
@@ -2010,7 +2012,7 @@ public static partial class LuaVirtualMachine
                 = task.GetAwaiter().GetResult() != 0
                     ? stack.FastGet(newFrame.ReturnBase)
                     : default;
-            stack.PopUntil(newBase - variableArgumentCount);
+            stack.PopUntil(newFrame.ReturnBase + 1);
             context.State.PopCallStackFrame();
             return true;
         }
@@ -2129,6 +2131,7 @@ public static partial class LuaVirtualMachine
             if (!task.IsCompleted)
             {
                 context.PostOperation = PostOperationType.SetResult;
+                context.CurrentReturnFrameBase = newFrame.ReturnBase;
                 context.Task = task;
                 return false;
             }
@@ -2137,7 +2140,7 @@ public static partial class LuaVirtualMachine
                 ? stack.Get(newFrame.ReturnBase)
                 : default;
             stack.Get(context.Instruction.A + context.FrameBase) = result;
-            stack.PopUntil(newBase - variableArgumentCount);
+            stack.PopUntil(newFrame.ReturnBase + 1);
             context.State.PopCallStackFrame();
             return true;
         }
@@ -2271,6 +2274,7 @@ public static partial class LuaVirtualMachine
             if (!task.IsCompleted)
             {
                 context.PostOperation = PostOperationType.Compare;
+                context.CurrentReturnFrameBase = newFrame.ReturnBase;
                 context.Task = task;
                 return false;
             }
