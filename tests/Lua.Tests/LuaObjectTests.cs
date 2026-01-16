@@ -1,7 +1,48 @@
 using Lua.Standard;
 
 namespace Lua.Tests;
+[LuaObject]
+public partial class LuaTestObj {
+    int x;
+    int y;
 
+    [LuaMember("x")]
+    public int X {
+        get => x;
+        set => x = value;
+    }
+
+    [LuaMember("y")]
+    public int Y {
+        get => y;
+        set => y = value;
+    }
+
+    [LuaMember("create")]
+    public static LuaTestObj Create(int x, int y) {
+        return new LuaTestObj() {
+            x = x,
+            y = y
+        };
+    }
+
+    [LuaMetamethod(LuaObjectMetamethod.Add)]
+    public static LuaTestObj Add(LuaTestObj a, LuaTestObj b) {
+        return new LuaTestObj() {
+            x = a.x + b.x,
+            y = a.y + b.y
+        };
+    }
+    
+    [LuaMetamethod(LuaObjectMetamethod.Sub)]
+    public static async Task<LuaTestObj> Sub(LuaTestObj a, LuaTestObj b) {
+        await Task.Delay(1);
+        return new LuaTestObj() {
+            x = a.x - b.x,
+            y = a.y - b.y
+        };
+    }
+}
 [LuaObject]
 public partial class TestUserData
 {
@@ -159,5 +200,29 @@ public class LuaObjectTests
 
         Assert.That(results, Has.Length.EqualTo(1));
         Assert.That(results[0], Is.EqualTo(new LuaValue("Called!")));
+    }
+    
+    [Test]
+    public async Task Test_ArithMetamethod()
+    {
+        var userData = new LuaTestObj();
+
+        var state = LuaState.Create();
+        state.OpenBasicLibrary();
+        state.Environment["TestObj"]=userData;
+        var results = await state.DoStringAsync("""
+                                                local a = TestObj.create(1, 2)
+                                                local b = TestObj.create(3, 4)
+                                                return a + b, a - b
+                                                """);
+        Assert.That(results, Has.Length.EqualTo(2));
+        Assert.That(results[0].Read<object>(), Is.TypeOf<LuaTestObj>());
+        var objAdd = results[0].Read<LuaTestObj>();
+        Assert.That(objAdd.X, Is.EqualTo(4));
+        Assert.That(objAdd.Y, Is.EqualTo(6));
+        Assert.That(results[1].Read<object>(), Is.TypeOf<LuaTestObj>());
+        var objSub = results[1].Read<LuaTestObj>();
+        Assert.That(objSub.X, Is.EqualTo(-2));
+        Assert.That(objSub.Y, Is.EqualTo(-2));
     }
 }
