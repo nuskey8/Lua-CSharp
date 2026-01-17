@@ -40,6 +40,9 @@ public partial class LuaTestObj
         await Task.Delay(1);
         return new LuaTestObj() { x = a.x - b.x, y = a.y - b.y };
     }
+
+    [LuaMember]
+    public object GetObj() => this;
 }
 
 [LuaObject]
