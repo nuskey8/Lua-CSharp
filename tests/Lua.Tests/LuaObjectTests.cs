@@ -97,6 +97,30 @@ public partial class TestUserData
     }
 }
 
+[LuaObject]
+public partial class IntArrayUserData
+{
+    public int[] Array { get; } = new int[10];
+
+    public int this[int index]
+    {
+        get => Array[index];
+        set => Array[index] = value;
+    }
+
+    [LuaMetamethod(LuaObjectMetamethod.Index)]
+    public int GetAt(int index)
+    {
+        return Array[index];
+    }
+
+    [LuaMetamethod(LuaObjectMetamethod.NewIndex)]
+    public void SetAt(int index, int value)
+    {
+        Array[index] = value;
+    }
+}
+
 public class LuaObjectTests
 {
     [Test]
@@ -227,5 +251,35 @@ public class LuaObjectTests
         var objSub = results[1].Read<LuaTestObj>();
         Assert.That(objSub.X, Is.EqualTo(-2));
         Assert.That(objSub.Y, Is.EqualTo(-2));
+    }
+
+    [Test]
+    public async Task Test_IndexMetamethod()
+    {
+        var userData = new IntArrayUserData();
+
+        userData[0] = 1;
+        userData[1] = 1;
+        userData[2] = 2;
+        userData[3] = 3;
+        userData[4] = 5;
+
+        var state = LuaState.Create();
+        state.OpenBasicLibrary();
+        state.Environment["TestObj"] = userData;
+        var results = await state.DoStringAsync("""
+                                                return TestObj[0], TestObj[1], TestObj[2], TestObj[3], TestObj[4]
+                                                """);
+        Assert.That(results, Has.Length.EqualTo(5));
+        Assert.That(results[0].TryRead<int>(out var result), Is.True);
+        Assert.That(result, Is.EqualTo(1));
+        Assert.That(results[1].TryRead<int>(out result), Is.True);
+        Assert.That(result, Is.EqualTo(1));
+        Assert.That(results[2].TryRead<int>(out result), Is.True);
+        Assert.That(result, Is.EqualTo(2));
+        Assert.That(results[3].TryRead<int>(out result), Is.True);
+        Assert.That(result, Is.EqualTo(3));
+        Assert.That(results[4].TryRead<int>(out result), Is.True);
+        Assert.That(result, Is.EqualTo(5));
     }
 }
