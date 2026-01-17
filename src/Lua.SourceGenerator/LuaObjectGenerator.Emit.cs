@@ -8,6 +8,11 @@ partial class LuaObjectGenerator
 {
     static string GetLuaValuePrefix(ITypeSymbol typeSymbol, SymbolReferences references, Compilation compilation)
     {
+        if (SymbolEqualityComparer.Default.Equals(typeSymbol, references.Object))
+        {
+            return "global::Lua.LuaValue.FromObject(";
+        }
+
         return compilation.ClassifyCommonConversion(typeSymbol, references.LuaUserData).Exists
             ? "global::Lua.LuaValue.FromUserData("
             : "(";
