@@ -1979,7 +1979,7 @@ public static partial class LuaVirtualMachine
             stack.Push(vc);
             var (argCount, variableArgumentCount) = PrepareForFunctionCall(context.State, func, newBase);
             newBase += variableArgumentCount;
-            var newFrame = func.CreateNewFrame(context, newBase, newBase, variableArgumentCount);
+            var newFrame = func.CreateNewFrame(context, newBase, context.Instruction.A + context.FrameBase, variableArgumentCount);
 
             context.State.PushCallStackFrame(newFrame);
             if (context.State.CallOrReturnHookMask.Value != 0 && !context.State.IsInHook)
@@ -2008,10 +2008,11 @@ public static partial class LuaVirtualMachine
                 return false;
             }
 
-            stack.Get(context.Instruction.A + context.FrameBase)
-                = task.GetAwaiter().GetResult() != 0
-                    ? stack.FastGet(newFrame.ReturnBase)
-                    : default;
+            if (task.GetAwaiter().GetResult() == 0)
+            {
+                stack.Get(newFrame.ReturnBase) = default;
+            }
+
             stack.PopUntil(newFrame.ReturnBase + 1);
             context.State.PopCallStackFrame();
             return true;
@@ -2107,7 +2108,7 @@ public static partial class LuaVirtualMachine
             var (argCount, variableArgumentCount) = PrepareForFunctionCall(context.State, func, newBase);
             newBase += variableArgumentCount;
 
-            var newFrame = func.CreateNewFrame(context, newBase, newBase, variableArgumentCount);
+            var newFrame = func.CreateNewFrame(context, newBase, context.Instruction.A + context.FrameBase, variableArgumentCount);
 
             context.State.PushCallStackFrame(newFrame);
             if (context.State.CallOrReturnHookMask.Value != 0 && !context.State.IsInHook)
@@ -2136,10 +2137,11 @@ public static partial class LuaVirtualMachine
                 return false;
             }
 
-            var result = stack.Count > newFrame.ReturnBase
-                ? stack.Get(newFrame.ReturnBase)
-                : default;
-            stack.Get(context.Instruction.A + context.FrameBase) = result;
+            if (task.GetAwaiter().GetResult() == 0)
+            {
+                stack.Get(newFrame.ReturnBase) = default;
+            }
+
             stack.PopUntil(newFrame.ReturnBase + 1);
             context.State.PopCallStackFrame();
             return true;
