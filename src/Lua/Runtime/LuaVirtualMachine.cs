@@ -263,6 +263,7 @@ public static partial class LuaVirtualMachine
                     toCatchFlag = true;
                     await Task;
                     Task = default;
+                    CurrentReturnFrameBase = State.GetCurrentFrame().ReturnBase;
                     if (PostOperation is not (PostOperationType.TailCall or PostOperationType.DontPop))
                     {
                         State.PopCallStackFrame();
@@ -1266,7 +1267,6 @@ public static partial class LuaVirtualMachine
             if (!task.IsCompleted)
             {
                 context.PostOperation = PostOperationType.Call;
-                context.CurrentReturnFrameBase = returnBase;
                 context.Task = task;
                 return false;
             }
@@ -2003,7 +2003,6 @@ public static partial class LuaVirtualMachine
             if (!task.IsCompleted)
             {
                 context.PostOperation = PostOperationType.SetResult;
-                context.CurrentReturnFrameBase = newFrame.ReturnBase;
                 context.Task = task;
                 return false;
             }
@@ -2132,7 +2131,6 @@ public static partial class LuaVirtualMachine
             if (!task.IsCompleted)
             {
                 context.PostOperation = PostOperationType.SetResult;
-                context.CurrentReturnFrameBase = newFrame.ReturnBase;
                 context.Task = task;
                 return false;
             }
@@ -2276,7 +2274,6 @@ public static partial class LuaVirtualMachine
             if (!task.IsCompleted)
             {
                 context.PostOperation = PostOperationType.Compare;
-                context.CurrentReturnFrameBase = newFrame.ReturnBase;
                 context.Task = task;
                 return false;
             }
