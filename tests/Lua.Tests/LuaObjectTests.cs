@@ -45,13 +45,14 @@ public partial class LuaTestObj
     public object GetObj() => this;
 
     [LuaMember]
-    public static double Sum(double a,ReadOnlySpan<LuaValue> values,CancellationToken ct)
+    public static double Sum(double a, ReadOnlySpan<LuaValue> values, CancellationToken ct)
     {
         var sum = a;
         foreach (var v in values)
         {
             sum += v.Read<double>();
         }
+
         return sum;
     }
 }
@@ -239,7 +240,7 @@ public class LuaObjectTests
         Assert.That(objSub.X, Is.EqualTo(-2));
         Assert.That(objSub.Y, Is.EqualTo(-2));
     }
-    
+
     [Test]
     public async Task Test_Params()
     {
