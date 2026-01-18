@@ -230,14 +230,21 @@ partial class LuaObjectGenerator
             }
 
         PARAMETERS:
-            for (var index = 0; index < method.Symbol.Parameters.Length; index++)
+            var lengthToProcess = method.Symbol.Parameters.Length;
+            if (method.HasCancellationTokenParameter)
+            {
+                lengthToProcess--;
+            }
+
+            if (method.HasParamsLikeParameter)
+            {
+                lengthToProcess--;
+            }
+
+            for (var index = 0; index < lengthToProcess; index++)
             {
                 var parameterSymbol = method.Symbol.Parameters[index];
                 var typeSymbol = parameterSymbol.Type;
-                if (index == method.Symbol.Parameters.Length - 1 && SymbolEqualityComparer.Default.Equals(typeSymbol, references.CancellationToken))
-                {
-                    continue;
-                }
 
                 if (SymbolEqualityComparer.Default.Equals(typeSymbol, references.LuaValue))
                 {
@@ -269,7 +276,7 @@ partial class LuaObjectGenerator
                 {
                     context.ReportDiagnostic(Diagnostic.Create(
                         DiagnosticDescriptors.InvalidParameterType,
-                        typeSymbol.Locations.FirstOrDefault(),
+                        method.Symbol.Locations.FirstOrDefault(),
                         typeSymbol.Name));
 
                     isValid = false;
@@ -517,19 +524,22 @@ partial class LuaObjectGenerator
                 index++;
             }
 
-            var hasCancellationToken = false;
+            var lengthToProcess = methodMetadata.Symbol.Parameters.Length;
+            if (methodMetadata.HasCancellationTokenParameter)
+            {
+                lengthToProcess--;
+            }
 
-            for (var i = 0; i < methodMetadata.Symbol.Parameters.Length; i++)
+            if (methodMetadata.HasParamsLikeParameter)
+            {
+                lengthToProcess--;
+            }
+
+            for (var i = 0; i < lengthToProcess; i++)
             {
                 var parameter = methodMetadata.Symbol.Parameters[i];
                 var parameterType = parameter.Type;
                 var isParameterLuaValue = SymbolEqualityComparer.Default.Equals(parameterType, references.LuaValue);
-
-                if (i == methodMetadata.Symbol.Parameters.Length - 1 && SymbolEqualityComparer.Default.Equals(parameterType, references.CancellationToken))
-                {
-                    hasCancellationToken = true;
-                    break;
-                }
 
                 if (parameter.HasExplicitDefaultValue)
                 {
@@ -575,9 +585,15 @@ partial class LuaObjectGenerator
                 builder.Append($"{typeMetadata.FullTypeName}.{methodMetadata.Symbol.Name}(", !(methodMetadata.HasReturnValue || methodMetadata.IsAsync));
                 builder.Append(string.Join(",", Enumerable.Range(0, index).Select(x => $"arg{x}")), false);
 
-                if (hasCancellationToken)
+                if (methodMetadata.HasParamsLikeParameter)
                 {
-                    builder.Append(index > 0 ? ",ct" : "ct", false);
+                    builder.Append(index > 0 ? $", {methodMetadata.ParamsString}[{index}..]" : $"{methodMetadata.ParamsString}", false);
+                    index++;
+                }
+
+                if (methodMetadata.HasCancellationTokenParameter)
+                {
+                    builder.Append(index > 0 ? ", ct" : "ct", false);
                 }
 
                 builder.AppendLine(");", false);
@@ -587,9 +603,15 @@ partial class LuaObjectGenerator
                 builder.Append($"userData.{methodMetadata.Symbol.Name}(", !(methodMetadata.HasReturnValue || methodMetadata.IsAsync));
                 builder.Append(string.Join(",", Enumerable.Range(1, index - 1).Select(x => $"arg{x}")), false);
 
-                if (hasCancellationToken)
+                if (methodMetadata.HasParamsLikeParameter)
                 {
-                    builder.Append(index > 1 ? ",ct" : "ct", false);
+                    builder.Append(index > 1 ? $", {methodMetadata.ParamsString}[{index+1}..]" : $"{methodMetadata.ParamsString}[1..]", false);
+                    index++;
+                }
+
+                if (methodMetadata.HasCancellationTokenParameter)
+                {
+                    builder.Append(index > 1 ? ", ct" : "ct", false);
                 }
 
                 builder.AppendLine(");", false);
