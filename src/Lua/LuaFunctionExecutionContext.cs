@@ -25,7 +25,7 @@ public readonly record struct LuaFunctionExecutionContext
         }
     }
 
-    public ReadOnlyMemory<LuaValue> ArgumentsAsMemory
+    public ReadOnlyMemory<LuaValue> ArgumentsMemory
     {
         get
         {
