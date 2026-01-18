@@ -10,6 +10,10 @@ class MethodMetadata
     public bool HasReturnValue { get; }
     public bool HasMemberAttribute { get; }
     public bool HasMetamethodAttribute { get; }
+    public bool HasCancellationTokenParameter { get; }
+    public bool HasParamsLikeParameter { get; }
+    public bool ParamsAsMemory { get; }
+    public string ParamsString => ParamsAsMemory ? "context.ArgumentsAsMemory" : "context.Arguments";
     public string LuaMemberName { get; }
     public LuaObjectMetamethod Metamethod { get; }
 
@@ -50,6 +54,35 @@ class MethodMetadata
         if (metamethodAttribute != null)
         {
             Metamethod = (LuaObjectMetamethod)Enum.Parse(typeof(LuaObjectMetamethod), metamethodAttribute.ConstructorArguments[0].Value!.ToString());
+        }
+
+        var parameters = symbol.Parameters;
+        if (parameters.Length <= 0)
+        {
+            return;
+        }
+
+        if (SymbolEqualityComparer.Default.Equals(parameters[parameters.Length - 1].Type, references.CancellationToken))
+        {
+            HasCancellationTokenParameter = true;
+        }
+
+        var typeToCheck = parameters[parameters.Length - (HasCancellationTokenParameter ? 2 : 1)].Type;
+        if (typeToCheck is INamedTypeSymbol { TypeArguments.Length: 1 } namedTypeSymbol)
+        {
+            if (!SymbolEqualityComparer.Default.Equals(namedTypeSymbol.OriginalDefinition, references.LuaValueSpan))
+            {
+                ParamsAsMemory = true;
+                if (!SymbolEqualityComparer.Default.Equals(namedTypeSymbol.OriginalDefinition, references.LuaValueMemory))
+                {
+                    return;
+                }
+            }
+            
+            if (SymbolEqualityComparer.Default.Equals(namedTypeSymbol.TypeArguments[0], references.LuaValue))
+            {
+                HasParamsLikeParameter = true;
+            }
         }
     }
 }

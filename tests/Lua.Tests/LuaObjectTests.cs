@@ -43,6 +43,18 @@ public partial class LuaTestObj
 
     [LuaMember]
     public object GetObj() => this;
+
+    [LuaMember]
+    public static double Sum(double a, ReadOnlySpan<LuaValue> values, CancellationToken ct)
+    {
+        var sum = a;
+        foreach (var v in values)
+        {
+            sum += v.Read<double>();
+        }
+
+        return sum;
+    }
 }
 
 [LuaObject]
@@ -227,5 +239,21 @@ public class LuaObjectTests
         var objSub = results[1].Read<LuaTestObj>();
         Assert.That(objSub.X, Is.EqualTo(-2));
         Assert.That(objSub.Y, Is.EqualTo(-2));
+    }
+
+    [Test]
+    public async Task Test_Params()
+    {
+        var userData = new LuaTestObj();
+
+        var state = LuaState.Create();
+        state.OpenBasicLibrary();
+        state.Environment["TestObj"] = userData;
+        var results = await state.DoStringAsync("""
+                                                local a = TestObj.Sum(1, 2, 3)
+                                                return TestObj.Sum(1, 2, 3)
+                                                """);
+        Assert.That(results, Has.Length.EqualTo(1));
+        Assert.That(results[0].Read<double>(), Is.EqualTo(6.0));
     }
 }
