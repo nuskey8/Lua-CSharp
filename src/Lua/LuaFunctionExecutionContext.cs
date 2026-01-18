@@ -24,14 +24,14 @@ public readonly record struct LuaFunctionExecutionContext
             return stack[^ArgumentCount..];
         }
     }
-    
+
     public ReadOnlyMemory<LuaValue> ArgumentsAsMemory
     {
         get
         {
             var stack = State.Stack;
             var memory = stack.GetBufferMemory();
-            return memory[(stack.Count-ArgumentCount)..stack.Count];
+            return memory[(stack.Count - ArgumentCount)..stack.Count];
         }
     }
 
