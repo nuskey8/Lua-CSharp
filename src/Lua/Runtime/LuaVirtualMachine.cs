@@ -215,10 +215,11 @@ public static partial class LuaVirtualMachine
             State.PopCallStackFrameUntil(BaseCallStackCount);
         }
 
-        bool ExecutePostOperation(PostOperationType postOperation)
+        bool ExecutePostOperation(int varArgs, PostOperationType postOperation)
         {
             var stackCount = Stack.Count;
             var resultsSpan = Stack.GetBuffer()[CurrentReturnFrameBase..];
+            var lastTop = CurrentReturnFrameBase - varArgs;
             switch (postOperation)
             {
                 case PostOperationType.Nop: break;
@@ -226,7 +227,7 @@ public static partial class LuaVirtualMachine
                     var RA = Instruction.A + FrameBase;
                     Stack.Get(RA) = stackCount > CurrentReturnFrameBase ? Stack.Get(CurrentReturnFrameBase) : LuaValue.Nil;
                     Stack.NotifyTop(RA + 1);
-                    Stack.PopUntil(RA + 1);
+                    Stack.PopUntil(Math.Max(RA + 1, lastTop));
                     break;
                 case PostOperationType.TForCall:
                     TForCallPostOperation(this);
@@ -242,10 +243,10 @@ public static partial class LuaVirtualMachine
 
                     break;
                 case PostOperationType.Self:
-                    SelfPostOperation(this, resultsSpan);
+                    SelfPostOperation(this, lastTop, resultsSpan);
                     break;
                 case PostOperationType.Compare:
-                    ComparePostOperation(this, resultsSpan);
+                    ComparePostOperation(this, lastTop, resultsSpan);
                     break;
             }
 
@@ -263,13 +264,15 @@ public static partial class LuaVirtualMachine
                     toCatchFlag = true;
                     await Task;
                     Task = default;
-                    CurrentReturnFrameBase = State.GetCurrentFrame().ReturnBase;
+                    ref readonly var frame = ref State.GetCurrentFrame();
+                    CurrentReturnFrameBase = frame.ReturnBase;
+                    var variableArgumentCount = frame.VariableArgumentCount;
                     if (PostOperation is not (PostOperationType.TailCall or PostOperationType.DontPop))
                     {
                         State.PopCallStackFrame();
                     }
 
-                    if (!ExecutePostOperation(PostOperation))
+                    if (!ExecutePostOperation(variableArgumentCount, PostOperation))
                     {
                         break;
                     }
@@ -351,7 +354,7 @@ public static partial class LuaVirtualMachine
     {
         try
         {
-        // This is a label to restart the execution when new function is called or restarted
+            // This is a label to restart the execution when new function is called or restarted
         Restart:
             ref var instructionsHead = ref Unsafe.AsRef(in context.Prototype.Code[0]);
             var frameBase = context.FrameBase;
@@ -412,6 +415,7 @@ public static partial class LuaVirtualMachine
                         {
                             context.Pc++;
                         }
+
                         continue;
                     case OpCode.LoadNil:
                         Markers.LoadNil();
@@ -958,7 +962,7 @@ public static partial class LuaVirtualMachine
         return mod;
     }
 
-    static void SelfPostOperation(VirtualMachineExecutionContext context, Span<LuaValue> results)
+    static void SelfPostOperation(VirtualMachineExecutionContext context, int lastTop, Span<LuaValue> results)
     {
         var stack = context.Stack;
         var instruction = context.Instruction;
@@ -968,6 +972,7 @@ public static partial class LuaVirtualMachine
         var table = Unsafe.Add(ref stackHead, RB);
         Unsafe.Add(ref stackHead, RA + 1) = table;
         Unsafe.Add(ref stackHead, RA) = results.Length == 0 ? LuaValue.Nil : results[0];
+        stack.PopUntil(Math.Max(RA + 2, lastTop));
         stack.NotifyTop(RA + 2);
     }
 
@@ -1558,7 +1563,7 @@ public static partial class LuaVirtualMachine
         stack.PopUntil(RA + 1);
     }
 
-    static void ComparePostOperation(VirtualMachineExecutionContext context, Span<LuaValue> results)
+    static void ComparePostOperation(VirtualMachineExecutionContext context, int lastTop, Span<LuaValue> results)
     {
         var compareResult = results.Length != 0 && results[0].ToBoolean();
         if (compareResult != (context.Instruction.A == 1))
@@ -1567,6 +1572,7 @@ public static partial class LuaVirtualMachine
         }
 
         results.Clear();
+        context.Stack.PopUntil(lastTop);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -1979,7 +1985,7 @@ public static partial class LuaVirtualMachine
             stack.Push(vc);
             var (argCount, variableArgumentCount) = PrepareForFunctionCall(context.State, func, newBase);
             newBase += variableArgumentCount;
-            var newFrame = func.CreateNewFrame(context, newBase, context.Instruction.A + context.FrameBase, variableArgumentCount);
+            var newFrame = func.CreateNewFrame(context, newBase, newBase, variableArgumentCount);
 
             context.State.PushCallStackFrame(newFrame);
             if (context.State.CallOrReturnHookMask.Value != 0 && !context.State.IsInHook)
@@ -2007,12 +2013,16 @@ public static partial class LuaVirtualMachine
                 return false;
             }
 
-            if (task.GetAwaiter().GetResult() == 0)
+            var destIndex = context.Instruction.A + context.FrameBase;
+            if (newFrame.ReturnBase != destIndex)
             {
-                stack.Get(newFrame.ReturnBase) = default;
+                stack.Get(destIndex)
+                    = task.GetAwaiter().GetResult() != 0
+                        ? stack.FastGet(newFrame.ReturnBase)
+                        : default;
             }
 
-            stack.PopUntil(newFrame.ReturnBase + 1);
+            stack.PopUntil(Math.Max(destIndex + 1, newFrame.Base - newFrame.VariableArgumentCount));
             context.State.PopCallStackFrame();
             return true;
         }
@@ -2107,7 +2117,7 @@ public static partial class LuaVirtualMachine
             var (argCount, variableArgumentCount) = PrepareForFunctionCall(context.State, func, newBase);
             newBase += variableArgumentCount;
 
-            var newFrame = func.CreateNewFrame(context, newBase, context.Instruction.A + context.FrameBase, variableArgumentCount);
+            var newFrame = func.CreateNewFrame(context, newBase, newBase, variableArgumentCount);
 
             context.State.PushCallStackFrame(newFrame);
             if (context.State.CallOrReturnHookMask.Value != 0 && !context.State.IsInHook)
@@ -2135,12 +2145,16 @@ public static partial class LuaVirtualMachine
                 return false;
             }
 
-            if (task.GetAwaiter().GetResult() == 0)
+            var destIndex = context.Instruction.A + context.FrameBase;
+            if (newFrame.ReturnBase != destIndex)
             {
-                stack.Get(newFrame.ReturnBase) = default;
+                stack.Get(destIndex)
+                    = task.GetAwaiter().GetResult() != 0
+                        ? stack.FastGet(newFrame.ReturnBase)
+                        : default;
             }
 
-            stack.PopUntil(newFrame.ReturnBase + 1);
+            stack.PopUntil(Math.Max(destIndex + 1, newFrame.Base - newFrame.VariableArgumentCount));
             context.State.PopCallStackFrame();
             return true;
         }
@@ -2279,14 +2293,14 @@ public static partial class LuaVirtualMachine
             }
 
             var results = stack.AsSpan()[newFrame.ReturnBase..];
-            var compareResult = results.Length == 0 && results[0].ToBoolean();
+            var compareResult = results.Length > 0 && results[0].ToBoolean();
             compareResult = reverseLe ? !compareResult : compareResult;
             if (compareResult != (context.Instruction.A == 1))
             {
                 context.Pc++;
             }
 
-            stack.PopUntil(newFrame.ReturnBase + 1);
+            stack.PopUntil(newFrame.Base - newFrame.VariableArgumentCount + 1);
             context.State.PopCallStackFrame();
 
             return true;
