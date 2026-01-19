@@ -147,13 +147,13 @@ public class MetaTests
     [Test]
     public async Task TestMetaIndex()
     {
-        var lua = LuaState.Create(LuaPlatform.Default with{StandardIO = new TestStandardIO()}) ;
+        var lua = LuaState.Create(LuaPlatform.Default with { StandardIO = new TestStandardIO() });
         lua.OpenBasicLibrary();
-        
+
         lua.Environment["getindentityMethod"] = new LuaFunction("getindentity", (context, ct) =>
         {
             var obj = context.GetArgument(0);
-            return new(context.Return(new LuaFunction("getIndexed", 
+            return new(context.Return(new LuaFunction("getIndexed",
                 (ctx, ct2) =>
                     new(ctx.Return(obj)))));
         });
@@ -165,7 +165,7 @@ public class MetaTests
     [Test]
     public async Task TestMetaIndexAsync()
     {
-        var lua = LuaState.Create(LuaPlatform.Default with{StandardIO = new TestStandardIO()}) ;
+        var lua = LuaState.Create(LuaPlatform.Default with { StandardIO = new TestStandardIO() });
         lua.OpenBasicLibrary();
 
 
