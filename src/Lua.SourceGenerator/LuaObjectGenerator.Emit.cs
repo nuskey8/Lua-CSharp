@@ -100,14 +100,24 @@ partial class LuaObjectGenerator
                 return false;
             }
 
-            if (!TryEmitIndexMetamethod(typeMetadata, builder, references, compilation, context, tempCollections))
+            if(!metamethodSet.Contains(LuaObjectMetamethod.Index))
             {
-                return false;
-            }
+                if (!TryEmitIndexMetamethod(typeMetadata, builder, references, compilation, context, tempCollections))
+                {
+                    return false;
+                }
 
-            if (!TryEmitNewIndexMetamethod(typeMetadata, builder, references, context, tempCollections))
+                metamethodSet.Add(LuaObjectMetamethod.Index);
+            }
+           
+            if(!metamethodSet.Contains(LuaObjectMetamethod.NewIndex))
             {
-                return false;
+                if (!TryEmitNewIndexMetamethod(typeMetadata, builder, references, context, tempCollections))
+                {
+                    return false;
+                }
+
+                metamethodSet.Add(LuaObjectMetamethod.NewIndex);
             }
 
             if (!TryEmitMetatable(builder, metamethodSet, context))
@@ -477,13 +487,14 @@ partial class LuaObjectGenerator
 
             if (methodMetadata.HasMetamethodAttribute)
             {
+                var metaMethodName = methodMetadata.Metamethod.ToString().ToLower();
                 if (!metamethodSet.Add(methodMetadata.Metamethod))
                 {
                     context.ReportDiagnostic(Diagnostic.Create(
                         DiagnosticDescriptors.DuplicateMetamethod,
                         methodMetadata.Symbol.Locations.FirstOrDefault(),
                         typeMetadata.TypeName,
-                        methodMetadata.Metamethod
+                        metaMethodName
                     ));
 
                     continue;
@@ -491,11 +502,11 @@ partial class LuaObjectGenerator
 
                 if (functionName == null)
                 {
-                    EmitMethodFunction($"__metamethod_{methodMetadata.Metamethod}", methodMetadata.Metamethod.ToString().ToLower(), typeMetadata, methodMetadata, builder, references, compilation);
+                    EmitMethodFunction($"__metamethod_{metaMethodName}", metaMethodName, typeMetadata, methodMetadata, builder, references, compilation);
                 }
                 else
                 {
-                    builder.AppendLine($"static global::Lua.LuaFunction __metamethod_{methodMetadata.Metamethod} => {functionName};");
+                    builder.AppendLine($"static global::Lua.LuaFunction __metamethod_{metaMethodName} => {functionName};");
                 }
             }
         }
@@ -629,14 +640,15 @@ partial class LuaObjectGenerator
             builder.AppendLine("get");
             using (builder.BeginBlockScope())
             {
+                
                 builder.AppendLine("if (__metatable != null) return __metatable;");
                 builder.AppendLine();
                 builder.AppendLine("__metatable = new();");
-                builder.AppendLine("__metatable[global::Lua.Runtime.Metamethods.Index] = __metamethod_index;");
-                builder.AppendLine("__metatable[global::Lua.Runtime.Metamethods.NewIndex] = __metamethod_newindex;");
                 foreach (var metamethod in metamethods)
                 {
-                    builder.AppendLine($"__metatable[global::Lua.Runtime.Metamethods.{metamethod}] = __metamethod_{metamethod};");
+                    var metaMethodName = metamethod.ToString();
+                    var lowerName = metaMethodName.ToLower();
+                    builder.AppendLine($"__metatable[global::Lua.Runtime.Metamethods.{metaMethodName}] = __metamethod_{lowerName};");
                 }
 
                 builder.AppendLine("return __metatable;");

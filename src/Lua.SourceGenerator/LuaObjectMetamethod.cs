@@ -19,5 +19,7 @@ enum LuaObjectMetamethod
     Concat,
     Pairs,
     IPairs,
-    ToString
+    ToString,
+    Index,
+    NewIndex,
 }
