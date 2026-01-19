@@ -626,6 +626,12 @@ partial class LuaObjectGenerator
         builder.AppendLine("global::Lua.LuaTable? global::Lua.ILuaUserData.Metatable");
         using (builder.BeginBlockScope())
         {
+            builder.AppendLine("get => Metatable;");
+            builder.AppendLine("set => Metatable = value;");
+        }
+        builder.AppendLine("static global::Lua.LuaTable? Metatable");
+        using (builder.BeginBlockScope())
+        {
             builder.AppendLine("get");
             using (builder.BeginBlockScope())
             {
