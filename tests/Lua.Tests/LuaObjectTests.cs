@@ -41,6 +41,19 @@ public partial class LuaTestObj
         return new LuaTestObj() { x = a.x - b.x, y = a.y - b.y };
     }
 
+    [LuaMetamethod(LuaObjectMetamethod.Len)]
+    public async Task<double> Len()
+    {
+        await Task.Delay(1);
+        return x + y;
+    }
+    
+    [LuaMetamethod(LuaObjectMetamethod.Unm)]
+    public LuaTestObj Unm()
+    {
+        return new LuaTestObj() { x = -x, y = -y };
+    }
+
     [LuaMember]
     public object GetObj() => this;
 }
@@ -252,7 +265,6 @@ public class LuaObjectTests
         Assert.That(objSub.X, Is.EqualTo(-2));
         Assert.That(objSub.Y, Is.EqualTo(-2));
     }
-
     [Test]
     public async Task Test_IndexMetamethod()
     {
@@ -281,5 +293,29 @@ public class LuaObjectTests
         Assert.That(result, Is.EqualTo(3));
         Assert.That(results[4].TryRead<int>(out result), Is.True);
         Assert.That(result, Is.EqualTo(5));
+    }
+    
+    [Test]
+    public async Task Test_LenMetamethod()
+    {
+        var userData = new LuaTestObj();
+
+        var state = LuaState.Create();
+        state.OpenBasicLibrary();
+        state.Environment["TestObj"] = userData;
+        var results = await state.DoStringAsync("""
+                                                function testLen(obj)
+                                                    return #obj
+                                                end
+                                                local obj = TestObj.create(1, 2)
+                                                return testLen(TestObj.create(1, 2)),-obj
+                                                """);
+        Assert.That(results, Has.Length.EqualTo(2));
+        Assert.That(results[0].Read<double>(), Is.EqualTo(3));
+        Assert.That(results[1].Read<object>(), Is.TypeOf<LuaTestObj>());
+        var objUnm = results[1].Read<LuaTestObj>();
+        Assert.That(objUnm.X, Is.EqualTo(-1));
+        Assert.That(objUnm.Y, Is.EqualTo(-2));
+        
     }
 }

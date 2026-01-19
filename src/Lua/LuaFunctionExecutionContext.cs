@@ -25,6 +25,16 @@ public readonly record struct LuaFunctionExecutionContext
         }
     }
 
+    public ReadOnlyMemory<LuaValue> ArgumentsMemory
+    {
+        get
+        {
+            var stack = State.Stack;
+            var memory = stack.GetBufferMemory();
+            return memory[(stack.Count - ArgumentCount)..stack.Count];
+        }
+    }
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool HasArgument(int index)
     {

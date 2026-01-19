@@ -259,6 +259,11 @@ partial class LuaObjectGenerator
                     continue;
                 }
 
+                if (SymbolEqualityComparer.Default.Equals(typeSymbol, references.Object))
+                {
+                    continue;
+                }
+
                 if (SymbolEqualityComparer.Default.Equals(typeSymbol, typeMetadata.Symbol))
                 {
                     continue;
