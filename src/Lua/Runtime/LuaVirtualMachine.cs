@@ -2293,7 +2293,7 @@ public static partial class LuaVirtualMachine
             }
 
             var results = stack.AsSpan()[newFrame.ReturnBase..];
-            var compareResult = results.Length == 0 && results[0].ToBoolean();
+            var compareResult = results.Length > 0 && results[0].ToBoolean();
             compareResult = reverseLe ? !compareResult : compareResult;
             if (compareResult != (context.Instruction.A == 1))
             {
