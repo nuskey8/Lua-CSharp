@@ -48,6 +48,7 @@ public sealed class FileHandle : ILuaUserData
     {
         fileHandleMetatable = new(0, 1);
         fileHandleMetatable[Metamethods.Index] = IndexMetamethod;
+        fileHandleMetatable["__gc"] = GcFunction;
         fileHandleMetatable["__tostring"] = ToStringFunction;
     }
 
@@ -232,5 +233,15 @@ public sealed class FileHandle : ILuaUserData
     {
         var file = context.GetArgument<FileHandle>(0);
         return new(context.Return($"file ({(file.IsOpen ? file.stream.GetHashCode() : "closed")})"));
+    });
+
+    static readonly LuaFunction GcFunction = new("file.__gc", (context, cancellationToken) =>
+    {
+        if (!context.HasArgument(0))
+        {
+            throw new LuaRuntimeException(context.State, "bad argument #1 to '__gc' (no value)");
+        }
+
+        return new(context.Return());
     });
 }
