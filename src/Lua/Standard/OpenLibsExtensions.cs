@@ -52,7 +52,9 @@ public static class OpenLibsExtensions
 
         var registry = globalState.Registry;
         var standardIO = globalState.Platform.StandardIO;
-        LuaValue stdin = new(new FileHandle(standardIO.Input));
+        var stdinHandle = new FileHandle(standardIO.Input);
+        ((ILuaUserData)stdinHandle).Metatable!["__gc"] = new LuaFunction("stdin.__gc", (context, cancellationToken) => throw new LuaRuntimeException(context.State, "bad argument #1 to '__gc' (no value)"));
+        LuaValue stdin = new(stdinHandle);
         LuaValue stdout = new(new FileHandle(standardIO.Output));
         LuaValue stderr = new(new FileHandle(standardIO.Error));
         registry["_IO_input"] = stdin;
