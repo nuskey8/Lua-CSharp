@@ -76,6 +76,28 @@ public readonly struct LuaValue : IEquatable<LuaValue>
                     result = Unsafe.As<long, T>(ref v);
                     return true;
                 }
+                else if (t == typeof(uint))
+                {
+                    if (!MathEx.IsInteger(value))
+                    {
+                        break;
+                    }
+
+                    var v = checked((uint)value);
+                    result = Unsafe.As<uint, T>(ref v);
+                    return true;
+                }
+                else if (t == typeof(ulong))
+                {
+                    if (!MathEx.IsInteger(value))
+                    {
+                        break;
+                    }
+
+                    var v = checked((ulong)value);
+                    result = Unsafe.As<ulong, T>(ref v);
+                    return true;
+                }
                 else if (t == typeof(object))
                 {
                     result = (T)(object)value;
