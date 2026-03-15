@@ -9,6 +9,20 @@ namespace Lua.Standard;
 public sealed class BasicLibrary
 {
     public static readonly BasicLibrary Instance = new();
+    static readonly HashSet<string> KnownCollectGarbageOptions = new(StringComparer.Ordinal)
+    {
+        "collect",
+        "stop",
+        "restart",
+        "count",
+        "step",
+        "setpause",
+        "setstepmul",
+        "setmajorinc",
+        "isrunning",
+        "incremental",
+        "generational"
+    };
 
     public BasicLibrary()
     {
@@ -83,7 +97,13 @@ public sealed class BasicLibrary
     {
         if (context.HasArgument(0))
         {
-            context.GetArgument<string>(0);
+            var option = context.GetArgument<string>(0);
+            if (!KnownCollectGarbageOptions.Contains(option))
+            {
+                throw new LuaRuntimeException(context.State, $"bad argument #1 to 'collectgarbage' (invalid option '{option}')");
+            }
+
+            // TODO: Implement Lua-compatible behavior for each collectgarbage option.
         }
 
         GC.Collect();
