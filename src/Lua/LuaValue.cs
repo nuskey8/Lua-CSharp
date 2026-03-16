@@ -466,6 +466,8 @@ public readonly struct LuaValue : IEquatable<LuaValue>
             ILuaUserData userData => FromUserData(userData),
             int intValue => intValue,
             long longValue => longValue,
+            uint uintValue => uintValue,
+            ulong ulongValue => ulongValue,
             float floatValue => floatValue,
             _ => new(obj)
         };
@@ -671,7 +673,7 @@ public readonly struct LuaValue : IEquatable<LuaValue>
 
     public static bool TryGetLuaValueType(Type type, out LuaValueType result)
     {
-        if (type == typeof(double) || type == typeof(float) || type == typeof(int) || type == typeof(long))
+        if (type == typeof(double) || type == typeof(float) || type == typeof(int) || type == typeof(long) || type == typeof(uint) || type == typeof(ulong))
         {
             result = LuaValueType.Number;
             return true;
