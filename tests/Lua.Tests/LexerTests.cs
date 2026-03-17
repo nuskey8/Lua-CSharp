@@ -1,4 +1,5 @@
 using Lua.CodeAnalysis.Syntax;
+using System.Text;
 
 namespace Lua.Tests;
 
@@ -180,6 +181,21 @@ else
 end");
 
         CollectionAssert.AreEqual(expected, actual);
+    }
+
+    [Test]
+    public void Test_ManyComments()
+    {
+        var builder = new StringBuilder();
+        
+        for (int i = 0; i < 1000; i++)
+        {
+            builder.AppendLine("--");
+            builder.AppendLine("--");
+        }
+
+        var many = builder.ToString();
+        GetTokens(many);
     }
 
     static SyntaxToken[] GetTokens(string source)
