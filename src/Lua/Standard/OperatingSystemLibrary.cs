@@ -166,7 +166,14 @@ public sealed class OperatingSystemLibrary
 
     public ValueTask<int> SetLocale(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
-        // os.setlocale is not supported (always return nil)
+        // os.setlocale is not supported besides the standard "C" POSIX locale
+        // Any locale besides "C" will return nil
+        var locale = context.GetArgument<string>(0);
+        if (locale == "C")
+        {
+            return new(context.Return(locale));
+        }
+
         return new(context.Return(LuaValue.Nil));
     }
 
