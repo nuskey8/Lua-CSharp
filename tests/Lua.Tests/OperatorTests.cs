@@ -2,6 +2,39 @@ namespace Lua.Tests;
 
 public class OperatorTests
 {
+    [Test]
+    public void NilGreaterThan_ThrowsRuntimeException()
+    {
+        var state = LuaState.Create();
+
+        var ex = Assert.ThrowsAsync<LuaRuntimeException>(async () =>
+            await state.DoStringAsync("local test = nil > 5").AsTask());
+
+        Assert.That(ex!.Message, Does.Contain("attempt to compare a number value with a nil value"));
+    }
+
+    [Test]
+    public void NilGreaterThanOrEquals_ThrowsRuntimeException()
+    {
+        var state = LuaState.Create();
+
+        var ex = Assert.ThrowsAsync<LuaRuntimeException>(async () =>
+            await state.DoStringAsync("local test = nil >= 5").AsTask());
+
+        Assert.That(ex!.Message, Does.Contain("attempt to compare a number value with a nil value"));
+    }
+
+    [Test]
+    public void GreaterThanOrEqualsNil_ThrowsRuntimeException()
+    {
+        var state = LuaState.Create();
+
+        var ex = Assert.ThrowsAsync<LuaRuntimeException>(async () =>
+            await state.DoStringAsync("local test = 5 >= nil").AsTask());
+
+        Assert.That(ex!.Message, Does.Contain("attempt to compare a nil value with a number value"));
+    }
+
     [TestCase(1, 6)]
     [TestCase(2, 7)]
     [TestCase(3, 8)]
