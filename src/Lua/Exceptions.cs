@@ -72,11 +72,11 @@ public class LuaCompileException(string chunkName, SourcePosition position, int 
 
 public class LuaUndumpException(string message) : Exception(message);
 
-class LuaStackOverflowException() : Exception("stack overflow")
+class LuaStackOverflowException() : Exception("stack overflow (C stack overflow)")
 {
     public override string ToString()
     {
-        return "stack overflow";
+        return "stack overflow (C stack overflow)";
     }
 }
 
