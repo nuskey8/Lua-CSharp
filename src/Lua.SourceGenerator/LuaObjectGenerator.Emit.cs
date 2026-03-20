@@ -18,6 +18,11 @@ partial class LuaObjectGenerator
             : "(";
     }
 
+    static string GetLuaValueExpression(string expression, ITypeSymbol typeSymbol, SymbolReferences references, Compilation compilation)
+    {
+        return $"{GetLuaValuePrefix(typeSymbol, references, compilation)}{expression})";
+    }
+
     static bool TryEmit(TypeMetadata typeMetadata, CodeBuilder builder, SymbolReferences references, Compilation compilation, in SourceProductionContext context, Dictionary<INamedTypeSymbol, TypeMetadata> metaDict,
         TempCollections tempCollections)
     {
@@ -510,11 +515,15 @@ partial class LuaObjectGenerator
         using (builder.BeginBlockScope())
         {
             var index = 0;
+            var luaArgumentIndex = 0;
+            var callArguments = new List<string>();
+            var extraReturnValues = new List<string>();
 
             if (!methodMetadata.IsStatic)
             {
                 builder.AppendLine($"var userData = context.GetArgument<{typeMetadata.FullTypeName}>(0);");
                 index++;
+                luaArgumentIndex++;
             }
 
             var hasCancellationToken = false;
@@ -523,6 +532,8 @@ partial class LuaObjectGenerator
             {
                 var parameter = methodMetadata.Symbol.Parameters[i];
                 var parameterType = parameter.Type;
+                var parameterTypeName = parameterType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+                var variableName = $"arg{index}";
                 var isParameterLuaValue = SymbolEqualityComparer.Default.Equals(parameterType, references.LuaValue);
 
                 if (i == methodMetadata.Symbol.Parameters.Length - 1 && SymbolEqualityComparer.Default.Equals(parameterType, references.CancellationToken))
@@ -531,33 +542,53 @@ partial class LuaObjectGenerator
                     break;
                 }
 
+                if (parameter.RefKind == RefKind.Out)
+                {
+                    builder.AppendLine($"{parameterTypeName} {variableName};");
+                    callArguments.Add($"out {variableName}");
+                    extraReturnValues.Add(GetLuaValueExpression(variableName, parameterType, references, compilation));
+                    index++;
+                    continue;
+                }
+
                 if (parameter.HasExplicitDefaultValue)
                 {
                     var syntax = (ParameterSyntax)parameter.DeclaringSyntaxReferences[0].GetSyntax();
 
                     if (isParameterLuaValue)
                     {
-                        builder.AppendLine($"var arg{index} = context.HasArgument({index}) ? context.GetArgument({index}) : {syntax.Default!.Value.ToFullString()};");
+                        builder.AppendLine($"var {variableName} = context.HasArgument({luaArgumentIndex}) ? context.GetArgument({luaArgumentIndex}) : {syntax.Default!.Value.ToFullString()};");
                     }
                     else
                     {
                         builder.AppendLine(
-                            $"var arg{index} = context.HasArgument({index}) ?  context.GetArgument<{parameterType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}>({index}) : {syntax.Default!.Value.ToFullString()};");
+                            $"var {variableName} = context.HasArgument({luaArgumentIndex}) ? context.GetArgument<{parameterTypeName}>({luaArgumentIndex}) : {syntax.Default!.Value.ToFullString()};");
                     }
                 }
                 else
                 {
                     if (isParameterLuaValue)
                     {
-                        builder.AppendLine($"var arg{index} = context.GetArgument({index});");
+                        builder.AppendLine($"var {variableName} = context.GetArgument({luaArgumentIndex});");
                     }
                     else
                     {
-                        builder.AppendLine($"var arg{index} = context.GetArgument<{parameterType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}>({index});");
+                        builder.AppendLine($"var {variableName} = context.GetArgument<{parameterTypeName}>({luaArgumentIndex});");
                     }
                 }
 
+                if (parameter.RefKind == RefKind.Ref)
+                {
+                    callArguments.Add($"ref {variableName}");
+                    extraReturnValues.Add(GetLuaValueExpression(variableName, parameterType, references, compilation));
+                }
+                else
+                {
+                    callArguments.Add(variableName);
+                }
+
                 index++;
+                luaArgumentIndex++;
             }
 
             if (methodMetadata.HasReturnValue)
@@ -573,11 +604,11 @@ partial class LuaObjectGenerator
             if (methodMetadata.IsStatic)
             {
                 builder.Append($"{typeMetadata.FullTypeName}.{methodMetadata.Symbol.Name}(", !(methodMetadata.HasReturnValue || methodMetadata.IsAsync));
-                builder.Append(string.Join(",", Enumerable.Range(0, index).Select(x => $"arg{x}")), false);
+                builder.Append(string.Join(",", callArguments), false);
 
                 if (hasCancellationToken)
                 {
-                    builder.Append(index > 0 ? ",ct" : "ct", false);
+                    builder.Append(callArguments.Count > 0 ? ",ct" : "ct", false);
                 }
 
                 builder.AppendLine(");", false);
@@ -585,17 +616,17 @@ partial class LuaObjectGenerator
             else
             {
                 builder.Append($"userData.{methodMetadata.Symbol.Name}(", !(methodMetadata.HasReturnValue || methodMetadata.IsAsync));
-                builder.Append(string.Join(",", Enumerable.Range(1, index - 1).Select(x => $"arg{x}")), false);
+                builder.Append(string.Join(",", callArguments), false);
 
                 if (hasCancellationToken)
                 {
-                    builder.Append(index > 1 ? ",ct" : "ct", false);
+                    builder.Append(callArguments.Count > 0 ? ",ct" : "ct", false);
                 }
 
                 builder.AppendLine(");", false);
             }
 
-            builder.Append("return ");
+            var returnValueExpressions = new List<string>();
             if (methodMetadata.HasReturnValue)
             {
                 var returnType = methodMetadata.Symbol.ReturnType;
@@ -608,12 +639,43 @@ partial class LuaObjectGenerator
                     }
                 }
 
-                var conversionPrefix = GetLuaValuePrefix(returnType, references, compilation);
-                builder.AppendLine(methodMetadata.IsAsync ? $"context.Return({conversionPrefix}result));" : $"new global::System.Threading.Tasks.ValueTask<int>(context.Return({conversionPrefix}result)));", false);
+                returnValueExpressions.Add(GetLuaValueExpression("result", returnType, references, compilation));
             }
-            else
+
+            returnValueExpressions.AddRange(extraReturnValues);
+
+            switch (returnValueExpressions.Count)
             {
-                builder.AppendLine(methodMetadata.IsAsync ? "context.Return();" : "new global::System.Threading.Tasks.ValueTask<int>(context.Return());", false);
+                case 0:
+                    builder.AppendLine(methodMetadata.IsAsync ? "return context.Return();" : "return new global::System.Threading.Tasks.ValueTask<int>(context.Return());");
+                    break;
+                case 1:
+                    builder.AppendLine(methodMetadata.IsAsync
+                        ? $"return context.Return({returnValueExpressions[0]});"
+                        : $"return new global::System.Threading.Tasks.ValueTask<int>(context.Return({returnValueExpressions[0]}));");
+                    break;
+                case 2:
+                    builder.AppendLine(methodMetadata.IsAsync
+                        ? $"return context.Return({returnValueExpressions[0]}, {returnValueExpressions[1]});"
+                        : $"return new global::System.Threading.Tasks.ValueTask<int>(context.Return({returnValueExpressions[0]}, {returnValueExpressions[1]}));");
+                    break;
+                case 3:
+                    builder.AppendLine(methodMetadata.IsAsync
+                        ? $"return context.Return({returnValueExpressions[0]}, {returnValueExpressions[1]}, {returnValueExpressions[2]});"
+                        : $"return new global::System.Threading.Tasks.ValueTask<int>(context.Return({returnValueExpressions[0]}, {returnValueExpressions[1]}, {returnValueExpressions[2]}));");
+                    break;
+                default:
+                    builder.AppendLine($"var __returnValues = context.GetReturnBuffer({returnValueExpressions.Count});");
+                    for (var i = 0; i < returnValueExpressions.Count; i++)
+                    {
+                        builder.AppendLine($"__returnValues[{i}] = {returnValueExpressions[i]};");
+                    }
+
+                    builder.AppendLine(methodMetadata.IsAsync
+                        ? $"return {returnValueExpressions.Count};"
+                        : $"return new global::System.Threading.Tasks.ValueTask<int>({returnValueExpressions.Count});");
+
+                    break;
             }
         }
 
