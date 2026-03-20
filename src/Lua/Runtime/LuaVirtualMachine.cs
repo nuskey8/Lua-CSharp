@@ -2306,7 +2306,7 @@ public static partial class LuaVirtualMachine
             return true;
         }
 
-        if (opCode == OpCode.Le)
+        if (opCode == OpCode.Le && !reverseLe)
         {
             reverseLe = true;
             name = Metamethods.Lt;
@@ -2392,7 +2392,7 @@ public static partial class LuaVirtualMachine
             }
         }
 
-        if (opCode == OpCode.Le)
+        if (opCode == OpCode.Le && !reverseLe)
         {
             reverseLe = true;
             name = Metamethods.Lt;
