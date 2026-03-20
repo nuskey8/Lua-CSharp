@@ -6,7 +6,6 @@ namespace Lua.Tests;
 public class LuaTests
 {
     [Test]
-    [Parallelizable(ParallelScope.All)]
     [TestCase("tests-lua/code.lua")]
     [TestCase("tests-lua/goto.lua")]
     [TestCase("tests-lua/constructs.lua")]
