@@ -39,6 +39,13 @@ public readonly struct LuaValue : IEquatable<LuaValue>
     {
         var t = typeof(T);
 
+        if (t == typeof(LuaValue))
+        {
+            var v = this;
+            result = Unsafe.As<LuaValue, T>(ref v);
+            return true;
+        }
+
         switch (Type)
         {
             case LuaValueType.Number:

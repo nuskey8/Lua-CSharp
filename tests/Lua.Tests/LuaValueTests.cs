@@ -3,6 +3,48 @@ namespace Lua.Tests;
 public class LuaValueTests
 {
     [Test]
+    public void TryRead_LuaValue_ReturnsOriginalValue()
+    {
+        LuaValue value = "hello";
+
+        var success = value.TryRead<LuaValue>(out var result);
+
+        Assert.That(success, Is.True);
+        Assert.That(result, Is.EqualTo(value));
+    }
+
+    [Test]
+    public void TryRead_LuaValue_SucceedsForNil()
+    {
+        var success = LuaValue.Nil.TryRead<LuaValue>(out var result);
+
+        Assert.That(success, Is.True);
+        Assert.That(result, Is.EqualTo(LuaValue.Nil));
+    }
+
+    [Test]
+    public void Read_LuaValue_ReturnsOriginalValue()
+    {
+        LuaValue value = 42;
+
+        var result = value.Read<LuaValue>();
+
+        Assert.That(result, Is.EqualTo(value));
+    }
+
+    [Test]
+    public void TryRead_LuaTable_ReturnsOriginalTable()
+    {
+        var table = new LuaTable();
+        LuaValue value = table;
+
+        var success = value.TryRead<LuaTable>(out var result);
+
+        Assert.That(success, Is.True);
+        Assert.That(result, Is.SameAs(table));
+    }
+
+    [Test]
     public void FromObject_ConvertsUIntToNumber()
     {
         object value = (uint)42;
