@@ -510,7 +510,7 @@ public class LuaState : IDisposable
 
     public void Dispose()
     {
-        if(CoreData == null) return;
+        if (CoreData == null) return;
         if (CoreData.CallStack.Count != 0)
         {
             throw new InvalidOperationException("This state is running! Call stack is not empty!!");

@@ -47,7 +47,7 @@ public partial class LuaTestObj
         await Task.Delay(1);
         return x + y;
     }
-    
+
     [LuaMetamethod(LuaObjectMetamethod.Unm)]
     public LuaTestObj Unm()
     {
@@ -315,6 +315,5 @@ public class LuaObjectTests
         var objUnm = results[1].Read<LuaTestObj>();
         Assert.That(objUnm.X, Is.EqualTo(-1));
         Assert.That(objUnm.Y, Is.EqualTo(-2));
-        
     }
 }
