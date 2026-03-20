@@ -187,7 +187,7 @@ end");
     public void Test_ManyComments()
     {
         var builder = new StringBuilder();
-        
+
         for (int i = 0; i < 1000; i++)
         {
             builder.AppendLine("--");
