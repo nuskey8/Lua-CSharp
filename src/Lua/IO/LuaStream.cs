@@ -55,6 +55,8 @@ public sealed class LuaStream(LuaFileOpenMode mode, Stream innerStream) : ILuaSt
 
     public ValueTask WriteAsync(ReadOnlyMemory<char> buffer, CancellationToken cancellationToken)
     {
+        mode.ThrowIfNotWritable();
+
         if (mode.IsAppend())
         {
             innerStream.Seek(0, SeekOrigin.End);

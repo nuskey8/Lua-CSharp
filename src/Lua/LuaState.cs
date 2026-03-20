@@ -97,7 +97,7 @@ public class LuaState : IDisposable
             return coroutine.YieldAsyncCore(context.State.Stack, context.ArgumentCount, context.ReturnFrameBase, context.State, cancellationToken);
         }
 
-        throw new LuaRuntimeException(context.State, "cannot yield from a non-running coroutine");
+        throw new LuaRuntimeException(context.State, "attempt to yield from outside a coroutine");
     }
 
     public ValueTask<int> YieldAsync(LuaStack stack, CancellationToken cancellationToken = default)
@@ -107,7 +107,7 @@ public class LuaState : IDisposable
             return coroutine.YieldAsyncCore(stack, stack.Count, 0, null, cancellationToken);
         }
 
-        throw new LuaRuntimeException(null, "cannot yield from a non-running coroutine");
+        throw new LuaRuntimeException(null, "attempt to yield from outside a coroutine");
     }
 
     class ThreadCoreData : IPoolNode<ThreadCoreData>
@@ -510,7 +510,7 @@ public class LuaState : IDisposable
 
     public void Dispose()
     {
-        if(CoreData == null) return;
+        if (CoreData == null) return;
         if (CoreData.CallStack.Count != 0)
         {
             throw new InvalidOperationException("This state is running! Call stack is not empty!!");
