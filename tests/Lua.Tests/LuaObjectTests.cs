@@ -103,6 +103,22 @@ public partial class TestUserData
         return value;
     }
 
+    [LuaMember]
+    public static double RefOutTestMethod(int x, ref double a, out string b, out LuaValue c)
+    {
+        a += x;
+        b = $"x:{x}";
+        c = a * 2;
+        return a / 2;
+    }
+
+    [LuaMember]
+    public static void OutOnlyTestMethod(int x, out string b, out LuaValue c)
+    {
+        b = $"value:{x}";
+        c = x + 1;
+    }
+
     [LuaMetamethod(LuaObjectMetamethod.Call)]
     public string Call()
     {
@@ -199,6 +215,42 @@ public class LuaObjectTests
 
         Assert.That(results, Has.Length.EqualTo(1));
         Assert.That(results[0], Is.EqualTo(new LuaValue(2)));
+    }
+
+    [Test]
+    public async Task Test_StaticMethodWithRefAndOutParameters()
+    {
+        var userData = new TestUserData();
+
+        var state = LuaState.Create();
+        state.Environment["test"] = userData;
+        var results = await state.DoStringAsync("""
+                                                local ret, a, b, c = test.RefOutTestMethod(4, 1.5)
+                                                return ret, a, b, c
+                                                """);
+
+        Assert.That(results, Has.Length.EqualTo(4));
+        Assert.That(results[0], Is.EqualTo(new LuaValue(2.75)));
+        Assert.That(results[1], Is.EqualTo(new LuaValue(5.5)));
+        Assert.That(results[2], Is.EqualTo(new LuaValue("x:4")));
+        Assert.That(results[3], Is.EqualTo(new LuaValue(11)));
+    }
+
+    [Test]
+    public async Task Test_StaticMethodWithOutParametersAndNoReturnValue()
+    {
+        var userData = new TestUserData();
+
+        var state = LuaState.Create();
+        state.Environment["test"] = userData;
+        var results = await state.DoStringAsync("""
+                                                local b, c = test.OutOnlyTestMethod(4)
+                                                return b, c
+                                                """);
+
+        Assert.That(results, Has.Length.EqualTo(2));
+        Assert.That(results[0], Is.EqualTo(new LuaValue("value:4")));
+        Assert.That(results[1], Is.EqualTo(new LuaValue(5)));
     }
 
     [Test]
