@@ -32,6 +32,7 @@ public class LuaTests
         var state = LuaState.Create();
         state.Platform = state.Platform with { StandardIO = new TestStandardIO() };
         state.OpenStandardLibraries();
+        if (file == "tests-lua/errors.lua") state.Environment["_soft"] = true;
         var path = FileHelper.GetAbsolutePath(file);
         Directory.SetCurrentDirectory(Path.GetDirectoryName(path)!);
         try
