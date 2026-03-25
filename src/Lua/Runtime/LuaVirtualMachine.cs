@@ -339,6 +339,11 @@ public static partial class LuaVirtualMachine
 
     internal static ValueTask<int> ExecuteClosureAsync(LuaState state, CancellationToken cancellationToken)
     {
+        if (!RuntimeHelpers.TryEnsureSufficientExecutionStack())
+        {
+            throw new LuaStackOverflowException();
+        }
+
         ref readonly var frame = ref state.GetCurrentFrame();
 
         var context = VirtualMachineExecutionContext.Get(state, in frame,
