@@ -14,6 +14,22 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Validate release versions
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          PROPS_VERSION=$(grep -oPm1 '(?<=<PackageVersion>)[^<]+' Directory.Build.props)
+          UNITY_VERSION=$(grep -oPm1 '(?<="version": ")[^"]+' src/Lua.Unity/Assets/Lua.Unity/package.json)
+
+          echo "Tag version:   ${TAG_VERSION}"
+          echo "Props version: ${PROPS_VERSION}"
+          echo "Unity version: ${UNITY_VERSION}"
+
+          if [ "${TAG_VERSION}" != "${PROPS_VERSION}" ] || [ "${TAG_VERSION}" != "${UNITY_VERSION}" ]; then
+            echo "Version mismatch detected."
+            exit 1
+          fi
+
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
