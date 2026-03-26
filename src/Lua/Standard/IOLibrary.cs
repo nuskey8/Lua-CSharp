@@ -168,7 +168,7 @@ public sealed class IOLibrary
         }
         else
         {
-            var stream = await context.GlobalState.Platform.FileSystem.Open(arg.ToString(), LuaFileOpenMode.WriteUpdate, cancellationToken);
+            var stream = await context.GlobalState.Platform.FileSystem.Open(arg.ToString(), LuaFileOpenMode.Write, cancellationToken);
             FileHandle handle = new(stream);
             io["_IO_output"] = new(handle);
             return context.Return(new LuaValue(handle));
