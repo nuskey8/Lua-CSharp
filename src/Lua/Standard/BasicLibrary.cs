@@ -138,7 +138,7 @@ public sealed class BasicLibrary
         var arg0 = context.GetArgument(0);
 
         // If table has a metamethod __ipairs, calls it with table as argument and returns the first three results from the call.
-        if (context.State.GlobalState.TryGetMetatable(arg0,out var metaTable) && metaTable.TryGetValue(Metamethods.IPairs, out var metamethod))
+        if (context.State.GlobalState.TryGetMetatable(arg0, out var metaTable) && metaTable.TryGetValue(Metamethods.IPairs, out var metamethod))
         {
             var stack = context.State.Stack;
             var top = stack.Count;

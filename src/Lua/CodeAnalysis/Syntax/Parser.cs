@@ -602,8 +602,7 @@ public ref struct Parser
             return false;
         }
 
-    // nested table access & function call
-    RECURSIVE:
+    RECURSIVE: // Nested table access & function call.
         enumerator.SkipEoL();
 
         var nextType = enumerator.GetNext().Type;
