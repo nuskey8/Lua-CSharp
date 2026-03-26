@@ -1,5 +1,5 @@
 {
-    "dotnet.defaultSolution": "Lua.sln",
+    "dotnet.defaultSolution": "Lua.slnx",
     "Lua.diagnostics.globals": [
         "vec3",
         "Vector3"
