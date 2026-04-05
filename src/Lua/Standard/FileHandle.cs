@@ -119,7 +119,7 @@ public sealed class FileHandle : ILuaUserData
 
     public async ValueTask Close(CancellationToken cancellationToken)
     {
-        if (!stream.IsOpen)
+        if (stream == null || !stream.IsOpen)
             throw new ObjectDisposedException(nameof(FileHandle));
 
         await stream.CloseAsync(cancellationToken);

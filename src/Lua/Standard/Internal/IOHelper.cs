@@ -37,6 +37,11 @@ static class IOHelper
     // TODO: optimize (use IBuffertWrite<byte>, async)
     public static async ValueTask<int> WriteAsync(FileHandle file, string name, LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
+        if (!file.IsOpen)
+        {
+            throw new LuaRuntimeException(context.State, "attempt to use a closed file");
+        }
+
         try
         {
             for (var i = 0; i < context.ArgumentCount; i++)
@@ -78,6 +83,11 @@ static class IOHelper
 
     public static async ValueTask<int> ReadAsync(LuaState state, FileHandle file, string name, int startArgumentIndex, ReadOnlyMemory<LuaValue> formats, bool throwError, CancellationToken cancellationToken)
     {
+        if (!file.IsOpen)
+        {
+            throw new LuaRuntimeException(state, "attempt to use a closed file");
+        }
+
         if (formats.Length == 0)
         {
             formats = defaultReadFormat;
@@ -110,7 +120,7 @@ static class IOHelper
                         case "L":
                         case "*L":
                             var text = await file.ReadLineAsync(true, cancellationToken);
-                            stack.Push(text == null ? LuaValue.Nil : text + Environment.NewLine);
+                            stack.Push(text == null ? LuaValue.Nil : text);
                             break;
                     }
                 }

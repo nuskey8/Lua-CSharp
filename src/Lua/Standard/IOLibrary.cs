@@ -86,34 +86,43 @@ public sealed class IOLibrary
 
     public async ValueTask<int> Lines(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
-        if (context.ArgumentCount == 0)
+        if (context.ArgumentCount == 0 || context.Arguments[0].Type is LuaValueType.Nil)
         {
             var file = context.GlobalState.Registry["_IO_input"].Read<FileHandle>();
-            return context.Return(new CSharpClosure("iterator", [new(file)], static async (context, cancellationToken) =>
+            LuaValue[] upValues = new LuaValue[context.ArgumentCount == 0 ? 1 : context.ArgumentCount];
+            upValues[0] = new(file);
+            if (context.ArgumentCount > 1)
             {
-                var file = context.GetCsClosure()!.UpValues[0].Read<FileHandle>();
-                context.Return();
-                var resultCount = await IOHelper.ReadAsync(context.State, file, "io.lines", 0, Memory<LuaValue>.Empty, true, cancellationToken);
-                if (resultCount > 0 && context.State.Stack.Get(context.ReturnFrameBase).Type is LuaValueType.Nil)
-                {
-                    await file.Close(cancellationToken);
-                }
+                context.Arguments.Slice(1, context.ArgumentCount - 1).CopyTo(upValues.AsSpan(1));
+            }
 
+            return context.Return(new CSharpClosure("iterator", upValues, static async (context, cancellationToken) =>
+            {
+                var upValues = context.GetCsClosure()!.UpValues.AsMemory();
+                var file = upValues.Span[0].Read<FileHandle>();
+                context.Return();
+                var resultCount = await IOHelper.ReadAsync(context.State, file, "io.lines", 0, upValues[1..], true, cancellationToken);
                 return resultCount;
             }));
         }
         else
         {
             var fileName = context.GetArgument<string>(0);
+            LuaValue[] formats = context.ArgumentCount > 1
+                ? context.Arguments[1..context.ArgumentCount].ToArray()
+                : [];
             var stack = context.State.Stack;
             context.Return();
 
             await IOHelper.Open(context.State, fileName, "r", true, cancellationToken);
 
             var file = stack.Get(context.ReturnFrameBase).Read<FileHandle>();
-            var upValues = new LuaValue[context.Arguments.Length];
+            var upValues = new LuaValue[formats.Length + 1];
             upValues[0] = new(file);
-            context.Arguments[1..].CopyTo(upValues[1..]);
+            if (formats.Length > 0)
+            {
+                formats.CopyTo(upValues.AsSpan(1));
+            }
 
             return context.Return(new CSharpClosure("iterator", upValues, static async (context, cancellationToken) =>
             {
@@ -154,6 +163,9 @@ public sealed class IOLibrary
     public async ValueTask<int> Output(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
         var io = context.GlobalState.Registry;
+        var previousOutput = io["_IO_output"].TryRead<FileHandle>(out var currentOutput)
+            ? currentOutput
+            : null;
 
         if (context.ArgumentCount == 0 || context.Arguments[0].Type is LuaValueType.Nil)
         {
@@ -163,11 +175,21 @@ public sealed class IOLibrary
         var arg = context.Arguments[0];
         if (arg.TryRead<FileHandle>(out var file))
         {
+            if (!ReferenceEquals(previousOutput, file) && previousOutput is { IsOpen: true })
+            {
+                await previousOutput.FlushAsync(cancellationToken);
+            }
+
             io["_IO_output"] = new(file);
             return context.Return(new LuaValue(file));
         }
         else
         {
+            if (previousOutput is { IsOpen: true })
+            {
+                await previousOutput.FlushAsync(cancellationToken);
+            }
+
             var stream = await context.GlobalState.Platform.FileSystem.Open(arg.ToString(), LuaFileOpenMode.Write, cancellationToken);
             FileHandle handle = new(stream);
             io["_IO_output"] = new(handle);

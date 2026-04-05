@@ -6,11 +6,9 @@ namespace Lua.Internal;
 
 sealed class Utf8Reader
 {
-    [ThreadStatic]
-    static byte[]? scratchBuffer;
+    [ThreadStatic] static byte[]? scratchBuffer;
 
-    [ThreadStatic]
-    internal static bool scratchBufferUsed;
+    [ThreadStatic] internal static bool scratchBufferUsed;
 
     readonly byte[] buffer;
     int bufPos, bufLen;
@@ -235,7 +233,7 @@ sealed class Utf8Reader
                 }
             }
 
-            if (!dataRead || len != charCount)
+            if (!dataRead)
             {
                 return null;
             }
@@ -413,6 +411,11 @@ sealed class Utf8Reader
         {
             ArrayPool<char>.Shared.Return(resultBuffer);
         }
+    }
+
+    public bool IsEndOfStream(Stream stream)
+    {
+        return PeekByte(stream) < 0;
     }
 
     int PeekByte(Stream stream, int offset = 0)
