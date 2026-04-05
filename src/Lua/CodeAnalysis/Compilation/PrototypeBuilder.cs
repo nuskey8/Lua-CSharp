@@ -55,6 +55,11 @@ class PrototypeBuilder : IPoolNode<PrototypeBuilder>
         }
 
         f.Source = source;
+        f.LineDefined = 0;
+        f.LastLineDefined = 0;
+        f.ParameterCount = 0;
+        f.MaxStackSize = 0;
+        f.IsVarArg = false;
         return f;
     }
 
@@ -66,6 +71,11 @@ class PrototypeBuilder : IPoolNode<PrototypeBuilder>
         LineInfoList.Clear();
         LocalVariablesList.Clear();
         UpValuesList.Clear();
+        LineDefined = 0;
+        LastLineDefined = 0;
+        ParameterCount = 0;
+        MaxStackSize = 0;
+        IsVarArg = false;
         pool.TryPush(this);
     }
 
