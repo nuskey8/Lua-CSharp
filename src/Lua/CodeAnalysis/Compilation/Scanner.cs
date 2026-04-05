@@ -221,6 +221,24 @@ struct Scanner
         Current = R.TryRead(out var c) ? c : EndOfStream;
     }
 
+    void SkipFirstLineComment()
+    {
+        if (Current != '#')
+        {
+            return;
+        }
+
+        while (!IsNewLine(Current) && Current != EndOfStream)
+        {
+            Advance();
+        }
+
+        if (IsNewLine(Current))
+        {
+            IncrementLineNumber();
+        }
+    }
+
     public void SaveAndAdvance()
     {
         Save(Current);
@@ -806,7 +824,15 @@ struct Scanner
 
                     return ReadNumber(pos);
                 case 0:
-                    Advance();
+                    if (R.Position == 0)
+                    {
+                        Advance();
+                        SkipFirstLineComment();
+                    }
+                    else
+                    {
+                        Advance();
+                    }
                     pos = R.Position;
                     break;
                 default:
