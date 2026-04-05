@@ -274,7 +274,7 @@ struct Scanner
             IncrementLineNumber();
         }
 
-        for (; ; )
+        for (;;)
         {
             switch (Current)
             {
@@ -343,7 +343,7 @@ struct Scanner
 
         position++;
         var i = 0;
-        for (; ; )
+        for (;;)
         {
             switch (c)
             {
