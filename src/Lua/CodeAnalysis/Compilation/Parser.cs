@@ -125,6 +125,11 @@ class Parser : IPoolNode<Parser>, IDisposable
 
     public TempBlock EnterLevel()
     {
+        if (!RuntimeHelpers.TryEnsureSufficientExecutionStack())
+        {
+            Scanner.SyntaxError("too many syntax levels");
+        }
+
         Scanner.L.CallCount++;
         CheckLimit(Scanner.L.CallCount, MaxCallCount, "Go levels");
         return new(Scanner.L);
