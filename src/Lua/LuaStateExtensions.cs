@@ -12,8 +12,36 @@ public static class LuaStateExtensions
     {
         var name = "@" + fileName;
         using var stream = await state.GlobalState.Platform.FileSystem.Open(fileName, LuaFileOpenMode.Read, cancellationToken);
-        var source = await stream.ReadAllAsync(cancellationToken);
-        var closure = state.Load(source, name, environment);
+
+        LuaClosure closure;
+        if (stream is ILuaByteStream byteStream)
+        {
+            var firstByte = await byteStream.ReadByteAsync(cancellationToken);
+            stream.Seek(SeekOrigin.Begin, 0);
+            if (firstByte == '\e')
+            {
+                var source = await byteStream.ReadAllBytesAsync(cancellationToken);
+                closure = state.Load(source, name, mode, environment);
+            }
+            else if (!mode.Contains('t'))
+            {
+                throw new Exception("attempt to load a text chunk (mode is 'b')");
+            }
+            else
+            {
+                var source = await stream.ReadAllAsync(cancellationToken);
+                closure = state.Load(source, name, environment);
+            }
+        }
+        else if (!mode.Contains('t'))
+        {
+            throw new Exception("attempt to load a text chunk (mode is 'b')");
+        }
+        else
+        {
+            var source = await stream.ReadAllAsync(cancellationToken);
+            closure = state.Load(source, name, environment);
+        }
 
         return closure;
     }

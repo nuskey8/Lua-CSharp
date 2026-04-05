@@ -3,11 +3,12 @@ using System.Text;
 
 namespace Lua.IO;
 
-public sealed class LuaStream(LuaFileOpenMode mode, Stream innerStream) : ILuaStream
+public sealed class LuaStream(LuaFileOpenMode mode, Stream innerStream) : ILuaStream, ILuaByteStream
 {
     Utf8Reader? reader;
     ulong flushSize = ulong.MaxValue;
     ulong nextFlushSize = ulong.MaxValue;
+    LuaFileBufferingMode bufferingMode = LuaFileBufferingMode.FullBuffering;
     bool disposed;
 
     public LuaFileOpenMode Mode => mode;
@@ -27,6 +28,51 @@ public sealed class LuaStream(LuaFileOpenMode mode, Stream innerStream) : ILuaSt
         reader ??= new();
         var text = reader.ReadToEnd(innerStream);
         return new(text);
+    }
+
+    public ValueTask<byte[]> ReadAllBytesAsync(CancellationToken cancellationToken)
+    {
+        mode.ThrowIfNotReadable();
+
+        if (innerStream.CanSeek)
+        {
+            var remaining = innerStream.Length - innerStream.Position;
+            if (remaining <= 0)
+            {
+                return new([]);
+            }
+
+            var bytes = new byte[remaining];
+            var totalRead = 0;
+            while (totalRead < bytes.Length)
+            {
+                var read = innerStream.Read(bytes, totalRead, bytes.Length - totalRead);
+                if (read == 0)
+                {
+                    break;
+                }
+
+                totalRead += read;
+            }
+
+            if (totalRead == bytes.Length)
+            {
+                return new(bytes);
+            }
+
+            Array.Resize(ref bytes, totalRead);
+            return new(bytes);
+        }
+
+        using MemoryStream memoryStream = new();
+        innerStream.CopyTo(memoryStream);
+        return new(memoryStream.ToArray());
+    }
+
+    public ValueTask<int> ReadByteAsync(CancellationToken cancellationToken)
+    {
+        mode.ThrowIfNotReadable();
+        return new(innerStream.ReadByte());
     }
 
     public ValueTask<string?> ReadAsync(int count, CancellationToken cancellationToken)
@@ -90,7 +136,20 @@ public sealed class LuaStream(LuaFileOpenMode mode, Stream innerStream) : ILuaSt
             remainingChars = remainingChars[charsUsed..];
         }
 
-        if (nextFlushSize < (ulong)totalBytes)
+        if (bufferingMode == LuaFileBufferingMode.NoBuffering)
+        {
+            innerStream.Flush();
+            nextFlushSize = flushSize;
+        }
+        else if (bufferingMode == LuaFileBufferingMode.LineBuffering)
+        {
+            if (buffer.Span.IndexOf('\n') >= 0)
+            {
+                innerStream.Flush();
+                nextFlushSize = flushSize;
+            }
+        }
+        else if (nextFlushSize < (ulong)totalBytes)
         {
             innerStream.Flush();
             nextFlushSize = flushSize;
@@ -109,11 +168,17 @@ public sealed class LuaStream(LuaFileOpenMode mode, Stream innerStream) : ILuaSt
 
     public void SetVBuf(LuaFileBufferingMode mode, int size)
     {
+        bufferingMode = mode;
         // Ignore size parameter
-        if (mode is LuaFileBufferingMode.NoBuffering or LuaFileBufferingMode.LineBuffering)
+        if (mode is LuaFileBufferingMode.NoBuffering)
         {
             nextFlushSize = 0;
             flushSize = 0;
+        }
+        else if (mode is LuaFileBufferingMode.LineBuffering)
+        {
+            nextFlushSize = ulong.MaxValue;
+            flushSize = ulong.MaxValue;
         }
         else
         {
