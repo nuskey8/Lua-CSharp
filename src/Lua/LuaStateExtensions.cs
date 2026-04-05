@@ -1,4 +1,6 @@
+using System.Buffers;
 using System.Runtime.CompilerServices;
+using Lua.Internal;
 using Lua.IO;
 using Lua.Runtime;
 
@@ -12,8 +14,38 @@ public static class LuaStateExtensions
     {
         var name = "@" + fileName;
         using var stream = await state.GlobalState.Platform.FileSystem.Open(fileName, LuaFileOpenMode.Read, cancellationToken);
-        var source = await stream.ReadAllAsync(cancellationToken);
-        var closure = state.Load(source, name, environment);
+
+        LuaClosure closure;
+        if (stream is ILuaByteStream byteStream)
+        {
+            var firstByte = await byteStream.ReadByteAsync(cancellationToken);
+            if (firstByte != '\e' && !mode.Contains('t'))
+            {
+                throw new Exception("attempt to load a text chunk (mode is 'b')");
+            }
+
+            if (firstByte < 0)
+            {
+                closure = state.Load(ReadOnlySpan<byte>.Empty, name, mode, environment);
+            }
+            else
+            {
+                using var source = new ArrayPoolBufferWriter<byte>();
+                source.GetSpan(1)[0] = (byte)firstByte;
+                source.Advance(1);
+                await byteStream.ReadBytesAsync(source, cancellationToken);
+                closure = state.Load(source.WrittenSpan, name, mode, environment);
+            }
+        }
+        else if (!mode.Contains('t'))
+        {
+            throw new Exception("attempt to load a text chunk (mode is 'b')");
+        }
+        else
+        {
+            var source = await stream.ReadAllAsync(cancellationToken);
+            closure = state.Load(source, name, environment);
+        }
 
         return closure;
     }

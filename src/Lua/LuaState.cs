@@ -452,12 +452,27 @@ public class LuaState : IDisposable
 
     public LuaClosure Load(ReadOnlySpan<byte> chunk, string? chunkName = null, string mode = "bt", LuaTable? environment = null)
     {
+        static bool AllowsMode(string mode, char chunkMode)
+        {
+            return mode.IndexOf(chunkMode) >= 0;
+        }
+
         if (chunk.Length > 4)
         {
             if (chunk[0] == '\e')
             {
+                if (!AllowsMode(mode, 'b'))
+                {
+                    throw new Exception("attempt to load a binary chunk (mode is 't')");
+                }
+
                 return new(this, Parser.Undump(chunk, chunkName), environment);
             }
+        }
+
+        if (!AllowsMode(mode, 't'))
+        {
+            throw new Exception("attempt to load a text chunk (mode is 'b')");
         }
 
         chunk = BomUtility.GetEncodingFromBytes(chunk, out var encoding);
