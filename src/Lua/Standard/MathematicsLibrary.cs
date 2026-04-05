@@ -212,17 +212,29 @@ public sealed class MathematicsLibrary
         {
             return new(context.Return(rand.NextDouble()));
         }
-        else if (context.ArgumentCount == 1)
+
+        if (context.ArgumentCount == 1)
         {
             var arg0 = context.GetArgument<double>(0);
-            return new(context.Return((rand.NextDouble() * (arg0 - 1)) + 1));
+            LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.State, 1, arg0);
+            if (arg0 < 1)
+            {
+                context.ThrowBadArgument(1, "interval is empty");
+            }
+
+            return new(context.Return(Math.Floor(rand.NextDouble() * arg0) + 1));
         }
-        else
+
+        var arg0Min = context.GetArgument<double>(0);
+        var arg1Max = context.GetArgument<double>(1);
+        LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.State, 1, arg0Min);
+        LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.State, 2, arg1Max);
+        if (arg0Min > arg1Max)
         {
-            var arg0 = context.GetArgument<double>(0);
-            var arg1 = context.GetArgument<double>(1);
-            return new(context.Return((rand.NextDouble() * (arg1 - arg0)) + arg0));
+            context.ThrowBadArgument(2, "interval is empty");
         }
+
+        return new(context.Return(Math.Floor(rand.NextDouble() * ((arg1Max - arg0Min) + 1)) + arg0Min));
     }
 
     public ValueTask<int> RandomSeed(LuaFunctionExecutionContext context, CancellationToken cancellationToken)

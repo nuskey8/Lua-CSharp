@@ -254,30 +254,30 @@ if not _port then
 end
 
 
--- if not _port then
---     print("testing 'math.random'")
---     math.randomseed(0)
+ if not _port then
+     print("testing 'math.random'")
+     math.randomseed(0)
 
---     local function aux(x1, x2, p)
---         local Max = -math.huge
---         local Min = math.huge
---         for i = 0, 20000 do
---             local t = math.random(table.unpack(p))
---             Max = math.max(Max, t)
---             Min = math.min(Min, t)
---             if eq(Max, x2, 0.001) and eq(Min, x1, 0.001) then
---                 goto ok
---             end
---         end
---         -- loop ended without satisfing condition
---         assert(false)
---         ::ok::
---         assert(x1 <= Min and Max <= x2)
---     end
+     local function aux(x1, x2, p)
+         local Max = -math.huge
+         local Min = math.huge
+         for i = 0, 20000 do
+             local t = math.random(table.unpack(p))
+             Max = math.max(Max, t)
+             Min = math.min(Min, t)
+             if eq(Max, x2, 0.001) and eq(Min, x1, 0.001) then
+                 goto ok
+             end
+         end
+         -- loop ended without satisfing condition
+         assert(false)
+         ::ok::
+         assert(x1 <= Min and Max <= x2)
+     end
 
---     aux(0, 1, {})
---     aux(-10, 0, { -10, 0 })
--- end
+     aux(0, 1, {})
+     aux(-10, 0, { -10, 0 })
+ end
 
 for i = 1, 10 do
   local t = math.random(5)
