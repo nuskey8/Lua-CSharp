@@ -62,6 +62,22 @@ public sealed class LuaClosure : LuaFunction
         upValues[index].SetValue(value);
     }
 
+    internal void SetEnvironment(LuaValue environment)
+    {
+        if (Proto.UpValues.Length == 0 || Proto.UpValues[0].Name != "_ENV")
+        {
+            return;
+        }
+
+        if (upValues.Length == 0)
+        {
+            upValues.Add(UpValue.Closed(environment));
+            return;
+        }
+
+        upValues[0] = UpValue.Closed(environment);
+    }
+
     static UpValue GetUpValueFromDescription(LuaGlobalState globalState, LuaState state, UpValueDesc description, int baseIndex = 0)
     {
         if (description.IsLocal)
