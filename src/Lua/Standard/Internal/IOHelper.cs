@@ -107,7 +107,12 @@ static class IOHelper
                     {
                         case "*n":
                         case "*number":
-                            stack.Push(await file.ReadNumberAsync(cancellationToken) ?? LuaValue.Nil);
+                            var number = await file.ReadNumberAsync(cancellationToken);
+                            stack.Push(number ?? LuaValue.Nil);
+                            if (number == null)
+                            {
+                                return i + 1;
+                            }
                             break;
                         case "*a":
                         case "*all":
@@ -115,12 +120,21 @@ static class IOHelper
                             break;
                         case "*l":
                         case "*line":
-                            stack.Push(await file.ReadLineAsync(false, cancellationToken) ?? LuaValue.Nil);
+                            var line = await file.ReadLineAsync(false, cancellationToken);
+                            stack.Push(line ?? LuaValue.Nil);
+                            if (line == null)
+                            {
+                                return i + 1;
+                            }
                             break;
                         case "L":
                         case "*L":
                             var text = await file.ReadLineAsync(true, cancellationToken);
                             stack.Push(text == null ? LuaValue.Nil : text);
+                            if (text == null)
+                            {
+                                return i + 1;
+                            }
                             break;
                     }
                 }
@@ -129,9 +143,8 @@ static class IOHelper
                     var ret = await file.ReadStringAsync(count, cancellationToken);
                     if (ret == null)
                     {
-                        stack.PopUntil(top);
                         stack.Push(default);
-                        return 1;
+                        return i + 1;
                     }
                     else
                     {
