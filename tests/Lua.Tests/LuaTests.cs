@@ -1,11 +1,13 @@
 using Lua.Standard;
 using Lua.Tests.Helpers;
+using Lua.IO;
 
 namespace Lua.Tests;
 
 public class LuaTests
 {
     [Test]
+    [Parallelizable(ParallelScope.All)]
     [TestCase("tests-lua/code.lua")]
     [TestCase("tests-lua/goto.lua")]
     [TestCase("tests-lua/constructs.lua")]
@@ -16,7 +18,7 @@ public class LuaTests
     //[TestCase("tests-lua/calls.lua")] //  string.dump and reader function for load chunk is not implemented
     [TestCase("tests-lua/files.lua")]
     [TestCase("tests-lua/closure.lua")]
-    [TestCase("tests-lua/errors.lua")] // get table name  if nil is not implemented
+    [TestCase("tests-lua/errors.lua")]
     [TestCase("tests-lua/events.lua")]
     [TestCase("tests-lua/vararg.lua")]
     [TestCase("tests-lua/nextvar.lua")]
@@ -28,12 +30,16 @@ public class LuaTests
     [TestCase("tests-lua/verybig.lua")]
     public async Task Test_Lua(string file)
     {
+        var path = FileHelper.GetAbsolutePath(file);
+        var baseDirectory = Path.GetDirectoryName(path)!;
         var state = LuaState.Create();
-        state.Platform = state.Platform with { StandardIO = new TestStandardIO() };
+        state.Platform = state.Platform with
+        {
+            StandardIO = new TestStandardIO(),
+            FileSystem = new FileSystem(baseDirectory)
+        };
         state.OpenStandardLibraries();
         if (file == "tests-lua/errors.lua") state.Environment["_soft"] = true;
-        var path = FileHelper.GetAbsolutePath(file);
-        Directory.SetCurrentDirectory(Path.GetDirectoryName(path)!);
         try
         {
             await state.DoFileAsync(Path.GetFileName(file));
