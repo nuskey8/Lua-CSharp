@@ -46,4 +46,26 @@ public class ShebangTests
         Assert.That(exception!.Position.Line, Is.EqualTo(2));
         Assert.That(exception.Message, Does.Contain("shebang.lua:2"));
     }
+
+    [Test]
+    public void Load_SourceStartingWithNul_Throws()
+    {
+        using var state = LuaState.Create();
+
+        var exception = Assert.Throws<LuaCompileException>(() => state.Load("\0=1", "@nul.lua"));
+
+        Assert.That(exception, Is.Not.Null);
+        Assert.That(exception!.Message, Does.Contain("unexpected symbol"));
+    }
+
+    [Test]
+    public void Load_LeadingHashInNonFileChunk_IsNotIgnored()
+    {
+        using var state = LuaState.Create();
+
+        var exception = Assert.Throws<LuaCompileException>(() => state.Load("#=1", "=expr"));
+
+        Assert.That(exception, Is.Not.Null);
+        Assert.That(exception!.Message, Does.Contain("unexpected symbol"));
+    }
 }
