@@ -36,28 +36,33 @@ public sealed class OperatingSystemLibrary
         var format = context.HasArgument(0)
             ? context.GetArgument<string>(0).AsSpan()
             : "%c".AsSpan();
+        if (format.IsEmpty) return new(context.Return(""));
+
+        var useUtc = format[0] == '!';
+        if (useUtc)
+        {
+            format = format[1..];
+        }
 
         DateTime now;
         if (context.HasArgument(1))
         {
             var time = context.GetArgument<double>(1);
             now = DateTimeHelper.FromUnixTime(time);
+            if (!useUtc)
+            {
+                now = now.ToLocalTime();
+            }
         }
         else
         {
-            now = context.GlobalState.Platform.TimeProvider.GetUtcNow().DateTime;
+            var provider = context.GlobalState.Platform.TimeProvider;
+            now = useUtc
+                ? provider.GetUtcNow().DateTime
+                : provider.GetLocalNow().DateTime;
         }
 
-        var isDst = false;
-        if (format[0] == '!')
-        {
-            format = format[1..];
-        }
-        else
-        {
-            now = context.GlobalState.Platform.TimeProvider.GetLocalNow().DateTime;
-            isDst = now.IsDaylightSavingTime();
-        }
+        var isDst = !useUtc && now.IsDaylightSavingTime();
 
         if (format is "*t")
         {
@@ -183,11 +188,11 @@ public sealed class OperatingSystemLibrary
         {
             var table = context.GetArgument<LuaTable>(0);
             var date = DateTimeHelper.ParseTimeTable(context.State, table);
-            return new(context.Return(DateTimeHelper.GetUnixTime(date)));
+            return new(context.Return(DateTimeHelper.GetUnixTimeFromLocalTime(date)));
         }
         else
         {
-            return new(context.Return(DateTimeHelper.GetUnixTime(context.GlobalState.Platform.TimeProvider.GetUtcNow().DateTime)));
+            return new(context.Return((double)context.GlobalState.Platform.TimeProvider.GetUtcNow().ToUnixTimeSeconds()));
         }
     }
 
