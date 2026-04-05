@@ -167,7 +167,13 @@ internal static class NumberReaderHelper
         }
         else
         {
-            return double.TryParse(span, NumberStyles.Float, CultureInfo.InvariantCulture, out result);
+            if (double.TryParse(span, NumberStyles.Float, CultureInfo.InvariantCulture, out result))
+            {
+                result *= sign;
+                return true;
+            }
+
+            return false;
         }
     }
 
