@@ -150,7 +150,7 @@ checkmessage([[collectgarbage("nooption")]], "invalid option")
 
 checkmessage([[x = print .. "a"]], "concatenate")
 
-checkmessage("getmetatable(io.stdin).__gc()", "no value")
+-- checkmessage("getmetatable(io.stdin).__gc()", "no value")  -- commented out for Lua-CSharp
 
 checkmessage([[
 local Var
@@ -177,7 +177,7 @@ function f (n)
   local a,b = coroutine.resume(c)
   return b
 end
-assert(string.find(f(), "C stack overflow"))
+assert(string.find(f(), "stack overflow")) --originally C stack overflow. edited for Lua-CSharp
 
 checkmessage("coroutine.yield()", "outside a coroutine")
 

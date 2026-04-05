@@ -109,6 +109,42 @@ struct Scanner
         return c is >= '0' and <= '9';
     }
 
+    int RawTokenLength(int pos)
+    {
+        return R.Position - pos + (Current == EndOfStream ? 1 : 0);
+    }
+
+    static string CharTokenToLiteral(int t)
+    {
+        return t is >= ' ' and <= '~' ? $"{(char)t}" : $"char({t})";
+    }
+
+    static string QuoteNearToken(string token)
+    {
+        return token.StartsWith('<') || token.StartsWith("char(") ? token : $"'{token}'";
+    }
+
+    static bool IsQuotedStringLiteral(string token)
+    {
+        return token.Length >= 2 &&
+               ((token[0] == '\'' && token[^1] == '\'') ||
+                (token[0] == '"' && token[^1] == '"'));
+    }
+
+    static string FormatStringNearToken(string token)
+    {
+        return IsQuotedStringLiteral(token) && token.Contains('\\')
+            ? token
+            : QuoteNearToken(token);
+    }
+
+    string? GetTokenRawText()
+    {
+        return Token.RawLength > 0
+            ? new string(R.Span[(Token.Pos - 1)..((Token.Pos - 1) + Token.RawLength)])
+            : null;
+    }
+
 
     public static string TokenToString(Token t)
     {
@@ -134,12 +170,17 @@ struct Scanner
         };
     }
 
-    public static string TokenRuteToString(int t)
+    string FormatNearToken(int t)
     {
+        var raw = GetTokenRawText();
+
         return t switch
         {
-            < FirstReserved => $"{(char)t}", // TODO check for printable rune
-            <= TkString => $"'{tokens[t - FirstReserved]}'",
+            TkName => QuoteNearToken(raw ?? Token.S),
+            TkString => FormatStringNearToken(raw ?? Token.S),
+            TkNumber => $"'{raw ?? Token.N.ToString(CultureInfo.InvariantCulture)}'",
+            < FirstReserved => QuoteNearToken(CharTokenToLiteral(t)),
+            < TkEos => QuoteNearToken(tokens[t - FirstReserved]),
             _ => tokens[t - FirstReserved]
         };
     }
@@ -152,7 +193,7 @@ struct Scanner
         string? nearToken = null;
         if (token != 0)
         {
-            nearToken = TokenToString(token);
+            nearToken = FormatNearToken(token);
         }
 
         throw new LuaCompileException(buff, new(LineNumber, pos - lastNewLinePos + 1), pos - 1, message, nearToken);
@@ -233,7 +274,7 @@ struct Scanner
             IncrementLineNumber();
         }
 
-        for (; ; )
+        for (;;)
         {
             switch (Current)
             {
@@ -302,7 +343,7 @@ struct Scanner
 
         position++;
         var i = 0;
-        for (; ; )
+        for (;;)
         {
             switch (c)
             {
@@ -389,7 +430,7 @@ struct Scanner
                 Buffer.Clear();
             }
 
-            return new(pos, fraction * Math.Pow(2, exponent));
+            return new(pos, fraction * Math.Pow(2, exponent), RawTokenLength(pos));
         }
 
         c = ReadDigits();
@@ -417,7 +458,7 @@ struct Scanner
             if (strSpan.Length == 1)
             {
                 Buffer.Clear();
-                return new(pos, 0d);
+                return new(pos, 0d, RawTokenLength(pos));
             }
 
             while (strSpan.Length > 1 && strSpan[0] == '0' && strSpan[1] == '0')
@@ -432,7 +473,7 @@ struct Scanner
         }
 
         Buffer.Clear();
-        return new(pos, f);
+        return new(pos, f, RawTokenLength(pos));
     }
 
     static readonly Dictionary<int, char> escapes = new()
@@ -597,7 +638,7 @@ struct Scanner
         // }
         var str = Intern(Buffer.AsSpan().Slice(1, length));
         Buffer.Clear();
-        return new(pos, TkString, str);
+        return new(pos, TkString, str, RawTokenLength(pos));
     }
 
     public static bool IsReserved(string s)
@@ -613,20 +654,20 @@ struct Scanner
         return false;
     }
 
-    public Token ReservedOrName()
+    public Token ReservedOrName(int pos)
     {
-        var pos = R.Position - Buffer.Length;
+        var rawLength = RawTokenLength(pos);
         var str = Intern(Buffer.AsSpan());
         Buffer.Clear();
         for (var i = 0; i < Tokens.Length; i++)
         {
             if (str == Tokens[i])
             {
-                return new(pos, i + FirstReserved, str);
+                return new(pos, i + FirstReserved, str, rawLength);
             }
         }
 
-        return new(pos, TkName, str);
+        return new(pos, TkName, str, rawLength);
     }
 
     public Token Scan()
@@ -681,7 +722,7 @@ struct Scanner
                         var sep = SkipSeparator();
                         if (sep >= 0)
                         {
-                            return new(pos, TkString, ReadMultiLine(str, sep));
+                            return new(pos, TkString, ReadMultiLine(str, sep), RawTokenLength(pos));
                         }
 
                         Buffer.Clear();
@@ -782,7 +823,7 @@ struct Scanner
                                 SaveAndAdvance();
                             }
 
-                            return ReservedOrName();
+                            return ReservedOrName(pos);
                         }
 
                         Advance();
