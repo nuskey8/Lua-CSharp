@@ -26,6 +26,7 @@ struct Scanner
 
     public const int FirstReserved = ushort.MaxValue + 257;
     public const int EndOfStream = -1;
+    public const int InitialState = -2;
 
     public const int MaxInt = int.MaxValue >> (1 + 1); // 9223372036854775807
 
@@ -223,7 +224,7 @@ struct Scanner
 
     void SkipFirstLineComment()
     {
-        if (Current != '#')
+        if (Current != '#' || Source.Length == 0 || Source[0] != '@')
         {
             return;
         }
@@ -823,16 +824,9 @@ struct Scanner
                     }
 
                     return ReadNumber(pos);
-                case 0:
-                    if (R.Position == 0)
-                    {
-                        Advance();
-                        SkipFirstLineComment();
-                    }
-                    else
-                    {
-                        Advance();
-                    }
+                case InitialState:
+                    Advance();
+                    SkipFirstLineComment();
                     pos = R.Position;
                     break;
                 default:

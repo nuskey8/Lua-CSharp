@@ -945,6 +945,7 @@ class Parser : IPoolNode<Parser>, IDisposable
         using var p = Get(new()
         {
             R = r,
+            Current = InitialState,
             LineNumber = 1,
             LastLine = 1,
             LookAheadToken = new(0, TkEos),
