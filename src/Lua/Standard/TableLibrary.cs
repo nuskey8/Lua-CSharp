@@ -25,19 +25,6 @@ public sealed class TableLibrary
 
     public readonly LibraryFunction[] Functions;
 
-    // TODO: optimize
-    static readonly Prototype defaultComparer = new(
-        "comp", 0, 0, 2, 2, false,
-        [],
-        [
-            Instruction.Le(1, 0, 1),
-            Instruction.LoadBool(2, 1, 1),
-            Instruction.LoadBool(2, 0, 0),
-            Instruction.Return(2, 2)
-        ], [], [0, 0, 0, 0], [new() { Name = "a", StartPc = 0, EndPc = 4 }, new() { Name = "b", StartPc = 0, EndPc = 4 }],
-        []
-    );
-
     public ValueTask<int> Concat(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
         var arg0 = context.GetArgument<LuaTable>(0);
@@ -143,64 +130,159 @@ public sealed class TableLibrary
         return new(context.Return(table.RemoveAt(n)));
     }
 
-    public async ValueTask<int> Sort(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    public ValueTask<int> Sort(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
-        var arg0 = context.GetArgument<LuaTable>(0);
-        var arg1 = context.HasArgument(1)
+        var table = context.GetArgument<LuaTable>(0);
+        var comparer = context.HasArgument(1)
             ? context.GetArgument<LuaFunction>(1)
-            : new LuaClosure(context.State, defaultComparer);
+            : null;
 
-        // discard extra  arguments
-        context = context with { ArgumentCount = 2 };
-        context.State.Stack.PopUntil(context.FrameBase + 2);
+        var length = table.ArrayLength;
+        if (length <= 1)
+        {
+            return new(context.Return());
+        }
 
-        context.State.PushCallStackFrame(new() { Base = context.FrameBase, ReturnBase = context.ReturnFrameBase, VariableArgumentCount = 0, Function = arg1 });
+        var sortTask = AuxSortAsync(context.State, table.GetArrayMemory()[..length], 0, length - 1, comparer, cancellationToken);
+        if (sortTask.IsCompletedSuccessfully)
+        {
+            sortTask.GetAwaiter().GetResult();
+            return new(context.Return());
+        }
+
+        return AwaitSortAsync(context, sortTask);
+    }
+
+    static async ValueTask<int> AwaitSortAsync(LuaFunctionExecutionContext context, ValueTask sortTask)
+    {
+        await sortTask;
+        return context.Return();
+    }
+
+    async ValueTask AuxSortAsync(LuaState state, Memory<LuaValue> memory, int lo, int up, LuaFunction? comparer, CancellationToken cancellationToken)
+    {
+        while (lo < up)
+        {
+            if (await CompareAsync(state, comparer, memory.Span[up], memory.Span[lo], cancellationToken))
+            {
+                Swap(memory.Span, lo, up);
+            }
+
+            if (up - lo == 1)
+            {
+                return;
+            }
+
+            var pivotIndex = (lo + up) / 2;
+            if (await CompareAsync(state, comparer, memory.Span[pivotIndex], memory.Span[lo], cancellationToken))
+            {
+                Swap(memory.Span, pivotIndex, lo);
+            }
+            else if (await CompareAsync(state, comparer, memory.Span[up], memory.Span[pivotIndex], cancellationToken))
+            {
+                Swap(memory.Span, pivotIndex, up);
+            }
+
+            if (up - lo == 2)
+            {
+                return;
+            }
+
+            Swap(memory.Span, pivotIndex, up - 1);
+            pivotIndex = await PartitionAsync(state, memory, lo, up, comparer, cancellationToken);
+
+            if (pivotIndex - lo < up - pivotIndex)
+            {
+                var sortTask = AuxSortAsync(state, memory, lo, pivotIndex - 1, comparer, cancellationToken);
+                if (!sortTask.IsCompletedSuccessfully)
+                {
+                    await sortTask;
+                }
+
+                lo = pivotIndex + 1;
+            }
+            else
+            {
+                var sortTask = AuxSortAsync(state, memory, pivotIndex + 1, up, comparer, cancellationToken);
+                if (!sortTask.IsCompletedSuccessfully)
+                {
+                    await sortTask;
+                }
+
+                up = pivotIndex - 1;
+            }
+        }
+    }
+
+    async ValueTask<int> PartitionAsync(LuaState state, Memory<LuaValue> memory, int lo, int up, LuaFunction? comparer, CancellationToken cancellationToken)
+    {
+        var pivot = memory.Span[up - 1];
+        var i = lo;
+        var j = up - 1;
+
+        while (true)
+        {
+            while (await CompareAsync(state, comparer, memory.Span[++i], pivot, cancellationToken))
+            {
+                if (i == up - 1)
+                {
+                    throw new LuaRuntimeException(state, "invalid order function for sorting");
+                }
+            }
+
+            while (await CompareAsync(state, comparer, pivot, memory.Span[--j], cancellationToken))
+            {
+                if (j < i)
+                {
+                    throw new LuaRuntimeException(state, "invalid order function for sorting");
+                }
+            }
+
+            if (j < i)
+            {
+                Swap(memory.Span, up - 1, i);
+                return i;
+            }
+
+            Swap(memory.Span, i, j);
+        }
+    }
+
+    ValueTask<bool> CompareAsync(LuaState state, LuaFunction? comparer, LuaValue left, LuaValue right, CancellationToken cancellationToken)
+    {
+        if (comparer == null)
+        {
+            return state.LessThanAsync(left, right, cancellationToken);
+        }
+
+        var stack = state.Stack;
+        var top = stack.Count;
+        stack.Push(left);
+        stack.Push(right);
+
+        var runTask = state.RunAsync(comparer, 2, cancellationToken);
+        if (runTask.IsCompletedSuccessfully)
+        {
+            var returnCount = runTask.GetAwaiter().GetResult();
+            var result = returnCount > 0 && state.Stack.Get(top).ToBoolean();
+            stack.PopUntil(top);
+            return new(result);
+        }
+
+        return AwaitCompareAsync(state, top, runTask);
+    }
+
+    static async ValueTask<bool> AwaitCompareAsync(LuaState state, int top, ValueTask<int> runTask)
+    {
         try
         {
-            await QuickSortAsync(context, arg0.GetArrayMemory(), 0, arg0.ArrayLength - 1, arg1, cancellationToken);
-            return context.Return();
+            var returnCount = await runTask;
+            return returnCount > 0 && state.Stack.Get(top).ToBoolean();
         }
         finally
         {
-            context.State.PopCallStackFrameWithStackPop();
-        }
-    }
-
-    async ValueTask QuickSortAsync(LuaFunctionExecutionContext context, Memory<LuaValue> memory, int low, int high, LuaFunction comparer, CancellationToken cancellationToken)
-    {
-        if (low < high)
-        {
-            var pivotIndex = await PartitionAsync(context, memory, low, high, comparer, cancellationToken);
-            await QuickSortAsync(context, memory, low, pivotIndex - 1, comparer, cancellationToken);
-            await QuickSortAsync(context, memory, pivotIndex + 1, high, comparer, cancellationToken);
-        }
-    }
-
-    async ValueTask<int> PartitionAsync(LuaFunctionExecutionContext context, Memory<LuaValue> memory, int low, int high, LuaFunction comparer, CancellationToken cancellationToken)
-    {
-        var pivot = memory.Span[high];
-        var i = low - 1;
-        var state = context.State;
-
-        for (var j = low; j < high; j++)
-        {
-            var stack = state.Stack;
-            var top = stack.Count;
-            stack.Push(memory.Span[j]);
-            stack.Push(pivot);
-            await state.RunAsync(comparer, 2, cancellationToken);
-
-            if (state.Stack.Get(top).ToBoolean())
-            {
-                i++;
-                Swap(memory.Span, i, j);
-            }
-
             state.Stack.PopUntil(top);
         }
-
-        Swap(memory.Span, i + 1, high);
-        return i + 1;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

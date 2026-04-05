@@ -12,7 +12,7 @@ public class LuaTests
     [TestCase("tests-lua/locals.lua")]
     [TestCase("tests-lua/literals.lua")]
     //[TestCase("tests-lua/pm.lua")] //string.match is not implemented
-    //[TestCase("tests-lua/sort.lua")] //check for "invalid order function" is not implemented
+    [TestCase("tests-lua/sort.lua")]
     //[TestCase("tests-lua/calls.lua")] //  string.dump and reader function for load chunk is not implemented
     [TestCase("tests-lua/files.lua")]
     [TestCase("tests-lua/closure.lua")]
