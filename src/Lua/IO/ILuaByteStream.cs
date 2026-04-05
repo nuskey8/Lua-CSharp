@@ -1,8 +1,10 @@
+using System.Buffers;
+
 namespace Lua.IO;
 
 public interface ILuaByteStream
 {
-    ValueTask<byte[]> ReadAllBytesAsync(CancellationToken cancellationToken);
-
     ValueTask<int> ReadByteAsync(CancellationToken cancellationToken);
+
+    ValueTask ReadBytesAsync(IBufferWriter<byte> writer, CancellationToken cancellationToken);
 }

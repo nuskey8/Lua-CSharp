@@ -1,4 +1,6 @@
+using System.Buffers;
 using System.Runtime.CompilerServices;
+using Lua.Internal;
 using Lua.IO;
 using Lua.Runtime;
 
@@ -17,20 +19,22 @@ public static class LuaStateExtensions
         if (stream is ILuaByteStream byteStream)
         {
             var firstByte = await byteStream.ReadByteAsync(cancellationToken);
-            stream.Seek(SeekOrigin.Begin, 0);
-            if (firstByte == '\e')
-            {
-                var source = await byteStream.ReadAllBytesAsync(cancellationToken);
-                closure = state.Load(source, name, mode, environment);
-            }
-            else if (!mode.Contains('t'))
+            if (firstByte != '\e' && !mode.Contains('t'))
             {
                 throw new Exception("attempt to load a text chunk (mode is 'b')");
             }
+
+            if (firstByte < 0)
+            {
+                closure = state.Load(ReadOnlySpan<byte>.Empty, name, mode, environment);
+            }
             else
             {
-                var source = await stream.ReadAllAsync(cancellationToken);
-                closure = state.Load(source, name, environment);
+                using var source = new ArrayPoolBufferWriter<byte>();
+                source.GetSpan(1)[0] = (byte)firstByte;
+                source.Advance(1);
+                await byteStream.ReadBytesAsync(source, cancellationToken);
+                closure = state.Load(source.WrittenSpan, name, mode, environment);
             }
         }
         else if (!mode.Contains('t'))

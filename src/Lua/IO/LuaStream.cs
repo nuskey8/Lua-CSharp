@@ -1,3 +1,4 @@
+using System.Buffers;
 using Lua.Internal;
 using System.Text;
 
@@ -30,43 +31,21 @@ public sealed class LuaStream(LuaFileOpenMode mode, Stream innerStream) : ILuaSt
         return new(text);
     }
 
-    public ValueTask<byte[]> ReadAllBytesAsync(CancellationToken cancellationToken)
+    public ValueTask ReadBytesAsync(IBufferWriter<byte> writer, CancellationToken cancellationToken)
     {
         mode.ThrowIfNotReadable();
-
-        if (innerStream.CanSeek)
+        while (true)
         {
-            var remaining = innerStream.Length - innerStream.Position;
-            if (remaining <= 0)
+            cancellationToken.ThrowIfCancellationRequested();
+            var buffer = writer.GetSpan(4096);
+            var read = innerStream.Read(buffer);
+            if (read == 0)
             {
-                return new([]);
+                return default;
             }
 
-            var bytes = new byte[remaining];
-            var totalRead = 0;
-            while (totalRead < bytes.Length)
-            {
-                var read = innerStream.Read(bytes, totalRead, bytes.Length - totalRead);
-                if (read == 0)
-                {
-                    break;
-                }
-
-                totalRead += read;
-            }
-
-            if (totalRead == bytes.Length)
-            {
-                return new(bytes);
-            }
-
-            Array.Resize(ref bytes, totalRead);
-            return new(bytes);
+            writer.Advance(read);
         }
-
-        using MemoryStream memoryStream = new();
-        innerStream.CopyTo(memoryStream);
-        return new(memoryStream.ToArray());
     }
 
     public ValueTask<int> ReadByteAsync(CancellationToken cancellationToken)
