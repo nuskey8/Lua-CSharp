@@ -33,6 +33,11 @@ public sealed class LuaStream(LuaFileOpenMode mode, Stream innerStream) : ILuaSt
     {
         mode.ThrowIfNotReadable();
         reader ??= new();
+        if (count == 0)
+        {
+            return new(reader.IsEndOfStream(innerStream) ? null : string.Empty);
+        }
+
         return new(reader.Read(innerStream, count));
     }
 
@@ -64,13 +69,25 @@ public sealed class LuaStream(LuaFileOpenMode mode, Stream innerStream) : ILuaSt
 
         using PooledArray<byte> byteBuffer = new(4096);
         var encoder = Encoding.UTF8.GetEncoder();
-        var totalBytes = encoder.GetByteCount(buffer.Span, true);
-        var remainingBytes = totalBytes;
-        while (0 < remainingBytes)
+        var remainingChars = buffer.Span;
+        var totalBytes = 0;
+        while (!remainingChars.IsEmpty)
         {
-            var byteCount = encoder.GetBytes(buffer.Span, byteBuffer.AsSpan(), false);
-            innerStream.Write(byteBuffer.AsSpan()[..byteCount]);
-            remainingBytes -= byteCount;
+            encoder.Convert(
+                remainingChars,
+                byteBuffer.AsSpan(),
+                flush: true,
+                out var charsUsed,
+                out var bytesUsed,
+                out _);
+
+            if (bytesUsed > 0)
+            {
+                innerStream.Write(byteBuffer.AsSpan()[..bytesUsed]);
+                totalBytes += bytesUsed;
+            }
+
+            remainingChars = remainingChars[charsUsed..];
         }
 
         if (nextFlushSize < (ulong)totalBytes)

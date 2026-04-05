@@ -81,6 +81,11 @@ public sealed class FileSystem(string? baseDirectory = null) : ILuaFileSystem
     public ValueTask Remove(string path, CancellationToken cancellationToken)
     {
         path = GetFullPath(path);
+        if (!File.Exists(path))
+        {
+            throw new FileNotFoundException("No such file or directory", path);
+        }
+
         File.Delete(path);
         return default;
     }

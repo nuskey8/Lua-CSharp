@@ -9,6 +9,7 @@ namespace Lua.Standard;
 public sealed class BasicLibrary
 {
     public static readonly BasicLibrary Instance = new();
+
     static readonly HashSet<string> KnownCollectGarbageOptions = new(StringComparer.Ordinal)
     {
         "collect",
@@ -182,14 +183,21 @@ public sealed class BasicLibrary
         var mode = context.HasArgument(1)
             ? context.GetArgument<string>(1)
             : "bt";
-        var arg2 = context.HasArgument(2)
-            ? context.GetArgument<LuaTable>(2)
-            : null;
+        var hasEnvironment = context.ArgumentCount > 2;
+        var environment = hasEnvironment
+            ? context.GetArgument(2)
+            : LuaValue.Nil;
 
         // do not use LuaState.DoFileAsync as it uses the newExecutionContext
         try
         {
-            return context.Return(await context.State.LoadFileAsync(arg0, mode, arg2, cancellationToken));
+            var closure = await context.State.LoadFileAsync(arg0, mode, null, cancellationToken);
+            if (hasEnvironment)
+            {
+                closure.SetEnvironment(environment);
+            }
+
+            return context.Return(closure);
         }
         catch (Exception ex)
         {
@@ -199,7 +207,6 @@ public sealed class BasicLibrary
 
     public ValueTask<int> Load(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
     {
-        // Lua-CSharp does not support binary chunks, the mode argument is ignored.
         var arg0 = context.GetArgument(0);
 
         var name = context.HasArgument(1)
@@ -210,16 +217,28 @@ public sealed class BasicLibrary
             ? context.GetArgument<string>(2)
             : "bt";
 
-        var arg3 = context.HasArgument(3)
-            ? context.GetArgument<LuaTable>(3)
-            : null;
+        var hasEnvironment = context.ArgumentCount > 3;
+        var environment = hasEnvironment
+            ? context.GetArgument(3)
+            : LuaValue.Nil;
 
         // do not use LuaState.DoFileAsync as it uses the newExecutionContext
         try
         {
             if (arg0.TryRead<string>(out var str))
             {
-                return new(context.Return(context.State.Load(str, name ?? str, arg3)));
+                if (!mode.Contains('t'))
+                {
+                    throw new Exception("attempt to load a text chunk (mode is 'b')");
+                }
+
+                var closure = context.State.Load(str, name ?? str, null);
+                if (hasEnvironment)
+                {
+                    closure.SetEnvironment(environment);
+                }
+
+                return new(context.Return(closure));
             }
             else if (arg0.TryRead<LuaFunction>(out var function))
             {
