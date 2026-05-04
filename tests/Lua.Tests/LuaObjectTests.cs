@@ -185,6 +185,23 @@ public partial class StringKeyUserData
     }
 }
 
+[LuaObject]
+public abstract partial class ParentClass
+{
+    [LuaMember("value")]
+    public string Value { get; set; } = "";
+
+    [LuaMember("getValue")]
+    public string GetValue() => $"{GetType().Name}:{Value}";
+}
+
+[LuaObject]
+public partial class ChildClass : ParentClass
+{
+    [LuaMember("number")]
+    public int Number { get; set; }
+}
+
 public class LuaObjectTests
 {
     [Test]
@@ -327,6 +344,27 @@ public class LuaObjectTests
 
         Assert.That(results, Has.Length.EqualTo(1));
         Assert.That(results[0], Is.EqualTo(new LuaValue("Called!")));
+    }
+
+    [Test]
+    public async Task Test_AbstractBaseLuaObjectMembersAreInherited()
+    {
+        var userData = new ChildClass { Value = "initial", Number = 7 };
+
+        var state = LuaState.Create();
+        state.Environment["child"] = userData;
+        var results = await state.DoStringAsync("""
+                                                child.value = child.value .. '-updated'
+                                                child.number = child.number + 1
+                                                return child.value, child.number, child:getValue()
+                                                """);
+
+        Assert.That(results, Has.Length.EqualTo(3));
+        Assert.That(results[0], Is.EqualTo(new LuaValue("initial-updated")));
+        Assert.That(results[1], Is.EqualTo(new LuaValue(8)));
+        Assert.That(results[2], Is.EqualTo(new LuaValue("ChildClass:initial-updated")));
+        Assert.That(userData.Value, Is.EqualTo("initial-updated"));
+        Assert.That(userData.Number, Is.EqualTo(8));
     }
 
     [Test]
