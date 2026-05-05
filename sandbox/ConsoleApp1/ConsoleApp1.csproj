@@ -1,11 +1,12 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <ItemGroup>
-        <ProjectReference Include="..\..\src\Lua\Lua.csproj"/>
+        <ProjectReference Include="..\..\src\Lua\Lua.csproj" />
         <ProjectReference Include="..\..\src\Lua.SourceGenerator\Lua.SourceGenerator.csproj">
             <OutputItemType>Analyzer</OutputItemType>
             <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
         </ProjectReference>
+        <ProjectReference Include="..\..\src\Lua.Annotations\Lua.Annotations.csproj" />
     </ItemGroup>
 
     <PropertyGroup>

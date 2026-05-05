@@ -18,12 +18,6 @@
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
             <PrivateAssets>all</PrivateAssets>
         </PackageReference>
-
-        <None
-            Include="..\Lua.SourceGenerator\bin\$(Configuration)\netstandard2.0\Lua.SourceGenerator.dll"
-            PackagePath="analyzers\dotnet\cs"
-            Pack="true"
-            Visible="false" />
     </ItemGroup>
     <ItemGroup Condition="$(TargetFramework) == 'net6.0' Or $(TargetFramework) == 'netstandard2.1'">
         <PackageReference Include="Microsoft.Bcl.TimeProvider" Version="8.0.0" />
@@ -39,9 +33,8 @@
     </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\Lua.SourceGenerator\Lua.SourceGenerator.csproj"
-            OutputItemType="Analyzer"
-            ReferenceOutputAssembly="false" />
+        <ProjectReference Include="..\Lua.SourceGenerator\Lua.SourceGenerator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+        <ProjectReference Include="..\Lua.Annotations\Lua.Annotations.csproj" />
     </ItemGroup>
 
 </Project>
