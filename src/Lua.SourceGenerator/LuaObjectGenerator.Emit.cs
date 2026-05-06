@@ -50,16 +50,6 @@ partial class LuaObjectGenerator
                 error = true;
             }
 
-            // verify abstract/interface
-            if (typeMetadata.Symbol.IsAbstract)
-            {
-                context.ReportDiagnostic(Diagnostic.Create(
-                    DiagnosticDescriptors.AbstractNotAllowed,
-                    typeMetadata.Syntax.Identifier.GetLocation(),
-                    typeMetadata.TypeName));
-                error = true;
-            }
-
             if (!ValidateMembers(typeMetadata, compilation, references, context, metaDict))
             {
                 error = true;
