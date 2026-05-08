@@ -57,7 +57,7 @@ public partial struct Instruction(uint value)
         "SETLIST",
         "CLOSURE",
         "VARARG",
-        "EXTRAARG"
+        "EXTRAARG",
     ];
 
     /*
@@ -243,7 +243,6 @@ func createAx(op opCode, a int) instruction { return instruction(op)<<posOp | in
     {
         return (uint)(((byte)op << PosOp) | (a << PosAx));
     }
-
 
     /*
     func (i instruction) String() string {
@@ -447,46 +446,46 @@ func createAx(op opCode, a int) instruction { return instruction(op)<<posOp | in
     static readonly byte[] opModes =
     [
         //         T   A    B         C          mode	opcode]
-        OpMode(0, 1, OpArgR, OpArgN, IABC),  // opMove
-        OpMode(0, 1, OpArgK, OpArgN, IABx),  // opLoadConstant
-        OpMode(0, 1, OpArgN, OpArgN, IABx),  // opLoadConstantEx
-        OpMode(0, 1, OpArgU, OpArgU, IABC),  // opLoadBool
-        OpMode(0, 1, OpArgU, OpArgN, IABC),  // opLoadNil
-        OpMode(0, 1, OpArgU, OpArgN, IABC),  // opGetUpValue
-        OpMode(0, 1, OpArgU, OpArgK, IABC),  // opGetTableUp
-        OpMode(0, 1, OpArgR, OpArgK, IABC),  // opGetTable
-        OpMode(0, 0, OpArgK, OpArgK, IABC),  // opSetTableUp
-        OpMode(0, 0, OpArgU, OpArgN, IABC),  // opSetUpValue
-        OpMode(0, 0, OpArgK, OpArgK, IABC),  // opSetTable
-        OpMode(0, 1, OpArgU, OpArgU, IABC),  // opNewTable
-        OpMode(0, 1, OpArgR, OpArgK, IABC),  // opSelf
-        OpMode(0, 1, OpArgK, OpArgK, IABC),  // opAdd
-        OpMode(0, 1, OpArgK, OpArgK, IABC),  // opSub
-        OpMode(0, 1, OpArgK, OpArgK, IABC),  // opMul
-        OpMode(0, 1, OpArgK, OpArgK, IABC),  // opDiv
-        OpMode(0, 1, OpArgK, OpArgK, IABC),  // opMod
-        OpMode(0, 1, OpArgK, OpArgK, IABC),  // opPow
-        OpMode(0, 1, OpArgR, OpArgN, IABC),  // opUnaryMinus
-        OpMode(0, 1, OpArgR, OpArgN, IABC),  // opNot
-        OpMode(0, 1, OpArgR, OpArgN, IABC),  // opLength
-        OpMode(0, 1, OpArgR, OpArgR, IABC),  // opConcat
+        OpMode(0, 1, OpArgR, OpArgN, IABC), // opMove
+        OpMode(0, 1, OpArgK, OpArgN, IABx), // opLoadConstant
+        OpMode(0, 1, OpArgN, OpArgN, IABx), // opLoadConstantEx
+        OpMode(0, 1, OpArgU, OpArgU, IABC), // opLoadBool
+        OpMode(0, 1, OpArgU, OpArgN, IABC), // opLoadNil
+        OpMode(0, 1, OpArgU, OpArgN, IABC), // opGetUpValue
+        OpMode(0, 1, OpArgU, OpArgK, IABC), // opGetTableUp
+        OpMode(0, 1, OpArgR, OpArgK, IABC), // opGetTable
+        OpMode(0, 0, OpArgK, OpArgK, IABC), // opSetTableUp
+        OpMode(0, 0, OpArgU, OpArgN, IABC), // opSetUpValue
+        OpMode(0, 0, OpArgK, OpArgK, IABC), // opSetTable
+        OpMode(0, 1, OpArgU, OpArgU, IABC), // opNewTable
+        OpMode(0, 1, OpArgR, OpArgK, IABC), // opSelf
+        OpMode(0, 1, OpArgK, OpArgK, IABC), // opAdd
+        OpMode(0, 1, OpArgK, OpArgK, IABC), // opSub
+        OpMode(0, 1, OpArgK, OpArgK, IABC), // opMul
+        OpMode(0, 1, OpArgK, OpArgK, IABC), // opDiv
+        OpMode(0, 1, OpArgK, OpArgK, IABC), // opMod
+        OpMode(0, 1, OpArgK, OpArgK, IABC), // opPow
+        OpMode(0, 1, OpArgR, OpArgN, IABC), // opUnaryMinus
+        OpMode(0, 1, OpArgR, OpArgN, IABC), // opNot
+        OpMode(0, 1, OpArgR, OpArgN, IABC), // opLength
+        OpMode(0, 1, OpArgR, OpArgR, IABC), // opConcat
         OpMode(0, 0, OpArgR, OpArgN, IAsBx), // opJump
-        OpMode(1, 0, OpArgK, OpArgK, IABC),  // opEqual
-        OpMode(1, 0, OpArgK, OpArgK, IABC),  // opLessThan
-        OpMode(1, 0, OpArgK, OpArgK, IABC),  // opLessOrEqual
-        OpMode(1, 0, OpArgN, OpArgU, IABC),  // opTest
-        OpMode(1, 1, OpArgR, OpArgU, IABC),  // opTestSet
-        OpMode(0, 1, OpArgU, OpArgU, IABC),  // opCall
-        OpMode(0, 1, OpArgU, OpArgU, IABC),  // opTailCall
-        OpMode(0, 0, OpArgU, OpArgN, IABC),  // opReturn
+        OpMode(1, 0, OpArgK, OpArgK, IABC), // opEqual
+        OpMode(1, 0, OpArgK, OpArgK, IABC), // opLessThan
+        OpMode(1, 0, OpArgK, OpArgK, IABC), // opLessOrEqual
+        OpMode(1, 0, OpArgN, OpArgU, IABC), // opTest
+        OpMode(1, 1, OpArgR, OpArgU, IABC), // opTestSet
+        OpMode(0, 1, OpArgU, OpArgU, IABC), // opCall
+        OpMode(0, 1, OpArgU, OpArgU, IABC), // opTailCall
+        OpMode(0, 0, OpArgU, OpArgN, IABC), // opReturn
         OpMode(0, 1, OpArgR, OpArgN, IAsBx), // opForLoop
         OpMode(0, 1, OpArgR, OpArgN, IAsBx), // opForPrep
-        OpMode(0, 0, OpArgN, OpArgU, IABC),  // opTForCall
+        OpMode(0, 0, OpArgN, OpArgU, IABC), // opTForCall
         OpMode(0, 1, OpArgR, OpArgN, IAsBx), // opTForLoop
-        OpMode(0, 0, OpArgU, OpArgU, IABC),  // opSetList
-        OpMode(0, 1, OpArgU, OpArgN, IABx),  // opClosure
-        OpMode(0, 1, OpArgU, OpArgN, IABC),  // opVarArg
-        OpMode(0, 0, OpArgU, OpArgU, IAx)    // opExtraArg
+        OpMode(0, 0, OpArgU, OpArgU, IABC), // opSetList
+        OpMode(0, 1, OpArgU, OpArgN, IABx), // opClosure
+        OpMode(0, 1, OpArgU, OpArgN, IABC), // opVarArg
+        OpMode(0, 0, OpArgU, OpArgU, IAx), // opExtraArg
     ];
 
     /// <summary>
@@ -494,7 +493,12 @@ func createAx(op opCode, a int) instruction { return instruction(op)<<posOp | in
     /// </summary>
     public static Instruction Move(byte a, ushort b)
     {
-        return new() { OpCode = OpCode.Move, A = a, B = b };
+        return new()
+        {
+            OpCode = OpCode.Move,
+            A = a,
+            B = b,
+        };
     }
 
     /// <summary>
@@ -502,7 +506,12 @@ func createAx(op opCode, a int) instruction { return instruction(op)<<posOp | in
     /// </summary>
     public static Instruction LoadK(byte a, uint bx)
     {
-        return new() { OpCode = OpCode.LoadK, A = a, Bx = (int)bx };
+        return new()
+        {
+            OpCode = OpCode.LoadK,
+            A = a,
+            Bx = (int)bx,
+        };
     }
 
     /// <summary>
@@ -519,7 +528,13 @@ func createAx(op opCode, a int) instruction { return instruction(op)<<posOp | in
     /// </summary>
     public static Instruction LoadBool(byte a, ushort b, ushort c)
     {
-        return new() { OpCode = OpCode.LoadBool, A = a, B = b, C = c };
+        return new()
+        {
+            OpCode = OpCode.LoadBool,
+            A = a,
+            B = b,
+            C = c,
+        };
     }
 
     /// <summary>
@@ -527,7 +542,12 @@ func createAx(op opCode, a int) instruction { return instruction(op)<<posOp | in
     /// </summary>
     public static Instruction LoadNil(byte a, ushort b)
     {
-        return new() { OpCode = OpCode.LoadNil, A = a, B = b };
+        return new()
+        {
+            OpCode = OpCode.LoadNil,
+            A = a,
+            B = b,
+        };
     }
 
     /// <summary>
@@ -535,7 +555,12 @@ func createAx(op opCode, a int) instruction { return instruction(op)<<posOp | in
     /// </summary>
     public static Instruction GetUpVal(byte a, ushort b)
     {
-        return new() { OpCode = OpCode.GetUpVal, A = a, B = b };
+        return new()
+        {
+            OpCode = OpCode.GetUpVal,
+            A = a,
+            B = b,
+        };
     }
 
     /// <summary>
@@ -543,7 +568,13 @@ func createAx(op opCode, a int) instruction { return instruction(op)<<posOp | in
     /// </summary>
     public static Instruction GetTabUp(byte a, ushort b, ushort c)
     {
-        return new() { OpCode = OpCode.GetTabUp, A = a, B = b, C = c };
+        return new()
+        {
+            OpCode = OpCode.GetTabUp,
+            A = a,
+            B = b,
+            C = c,
+        };
     }
 
     /// <summary>
@@ -551,7 +582,13 @@ func createAx(op opCode, a int) instruction { return instruction(op)<<posOp | in
     /// </summary>
     public static Instruction GetTable(byte a, ushort b, ushort c)
     {
-        return new() { OpCode = OpCode.GetTable, A = a, B = b, C = c };
+        return new()
+        {
+            OpCode = OpCode.GetTable,
+            A = a,
+            B = b,
+            C = c,
+        };
     }
 
     /// <summary>
@@ -559,7 +596,12 @@ func createAx(op opCode, a int) instruction { return instruction(op)<<posOp | in
     /// </summary>
     public static Instruction SetUpVal(byte a, ushort b)
     {
-        return new() { OpCode = OpCode.SetUpVal, A = a, B = b };
+        return new()
+        {
+            OpCode = OpCode.SetUpVal,
+            A = a,
+            B = b,
+        };
     }
 
     /// <summary>
@@ -567,7 +609,13 @@ func createAx(op opCode, a int) instruction { return instruction(op)<<posOp | in
     /// </summary>
     public static Instruction SetTabUp(byte a, ushort b, ushort c)
     {
-        return new() { OpCode = OpCode.SetTabUp, A = a, B = b, C = c };
+        return new()
+        {
+            OpCode = OpCode.SetTabUp,
+            A = a,
+            B = b,
+            C = c,
+        };
     }
 
     /// <summary>
@@ -575,7 +623,13 @@ func createAx(op opCode, a int) instruction { return instruction(op)<<posOp | in
     /// </summary>
     public static Instruction SetTable(byte a, ushort b, ushort c)
     {
-        return new() { OpCode = OpCode.SetTable, A = a, B = b, C = c };
+        return new()
+        {
+            OpCode = OpCode.SetTable,
+            A = a,
+            B = b,
+            C = c,
+        };
     }
 
     /// <summary>
@@ -583,7 +637,13 @@ func createAx(op opCode, a int) instruction { return instruction(op)<<posOp | in
     /// </summary>
     public static Instruction NewTable(byte a, ushort b, ushort c)
     {
-        return new() { OpCode = OpCode.NewTable, A = a, B = b, C = c };
+        return new()
+        {
+            OpCode = OpCode.NewTable,
+            A = a,
+            B = b,
+            C = c,
+        };
     }
 
     /// <summary>
@@ -591,7 +651,13 @@ func createAx(op opCode, a int) instruction { return instruction(op)<<posOp | in
     /// </summary>
     public static Instruction Self(byte a, ushort b, ushort c)
     {
-        return new() { OpCode = OpCode.Self, A = a, B = b, C = c };
+        return new()
+        {
+            OpCode = OpCode.Self,
+            A = a,
+            B = b,
+            C = c,
+        };
     }
 
     /// <summary>
@@ -599,7 +665,13 @@ func createAx(op opCode, a int) instruction { return instruction(op)<<posOp | in
     /// </summary>
     public static Instruction Add(byte a, ushort b, ushort c)
     {
-        return new() { OpCode = OpCode.Add, A = a, B = b, C = c };
+        return new()
+        {
+            OpCode = OpCode.Add,
+            A = a,
+            B = b,
+            C = c,
+        };
     }
 
     /// <summary>
@@ -607,7 +679,13 @@ func createAx(op opCode, a int) instruction { return instruction(op)<<posOp | in
     /// </summary>
     public static Instruction Sub(byte a, ushort b, ushort c)
     {
-        return new() { OpCode = OpCode.Sub, A = a, B = b, C = c };
+        return new()
+        {
+            OpCode = OpCode.Sub,
+            A = a,
+            B = b,
+            C = c,
+        };
     }
 
     /// <summary>
@@ -615,7 +693,13 @@ func createAx(op opCode, a int) instruction { return instruction(op)<<posOp | in
     /// </summary>
     public static Instruction Mul(byte a, ushort b, ushort c)
     {
-        return new() { OpCode = OpCode.Mul, A = a, B = b, C = c };
+        return new()
+        {
+            OpCode = OpCode.Mul,
+            A = a,
+            B = b,
+            C = c,
+        };
     }
 
     /// <summary>
@@ -623,7 +707,13 @@ func createAx(op opCode, a int) instruction { return instruction(op)<<posOp | in
     /// </summary>
     public static Instruction Div(byte a, ushort b, ushort c)
     {
-        return new() { OpCode = OpCode.Div, A = a, B = b, C = c };
+        return new()
+        {
+            OpCode = OpCode.Div,
+            A = a,
+            B = b,
+            C = c,
+        };
     }
 
     /// <summary>
@@ -631,7 +721,13 @@ func createAx(op opCode, a int) instruction { return instruction(op)<<posOp | in
     /// </summary>
     public static Instruction Mod(byte a, ushort b, ushort c)
     {
-        return new() { OpCode = OpCode.Mod, A = a, B = b, C = c };
+        return new()
+        {
+            OpCode = OpCode.Mod,
+            A = a,
+            B = b,
+            C = c,
+        };
     }
 
     /// <summary>
@@ -639,7 +735,13 @@ func createAx(op opCode, a int) instruction { return instruction(op)<<posOp | in
     /// </summary>
     public static Instruction Pow(byte a, ushort b, ushort c)
     {
-        return new() { OpCode = OpCode.Pow, A = a, B = b, C = c };
+        return new()
+        {
+            OpCode = OpCode.Pow,
+            A = a,
+            B = b,
+            C = c,
+        };
     }
 
     /// <summary>
@@ -647,7 +749,12 @@ func createAx(op opCode, a int) instruction { return instruction(op)<<posOp | in
     /// </summary>
     public static Instruction Unm(byte a, ushort b)
     {
-        return new() { OpCode = OpCode.Unm, A = a, B = b };
+        return new()
+        {
+            OpCode = OpCode.Unm,
+            A = a,
+            B = b,
+        };
     }
 
     /// <summary>
@@ -655,7 +762,12 @@ func createAx(op opCode, a int) instruction { return instruction(op)<<posOp | in
     /// </summary>
     public static Instruction Not(byte a, ushort b)
     {
-        return new() { OpCode = OpCode.Not, A = a, B = b };
+        return new()
+        {
+            OpCode = OpCode.Not,
+            A = a,
+            B = b,
+        };
     }
 
     /// <summary>
@@ -663,7 +775,12 @@ func createAx(op opCode, a int) instruction { return instruction(op)<<posOp | in
     /// </summary>
     public static Instruction Len(byte a, ushort b)
     {
-        return new() { OpCode = OpCode.Len, A = a, B = b };
+        return new()
+        {
+            OpCode = OpCode.Len,
+            A = a,
+            B = b,
+        };
     }
 
     /// <summary>
@@ -671,7 +788,13 @@ func createAx(op opCode, a int) instruction { return instruction(op)<<posOp | in
     /// </summary>
     public static Instruction Concat(byte a, ushort b, ushort c)
     {
-        return new() { OpCode = OpCode.Concat, A = a, B = b, C = c };
+        return new()
+        {
+            OpCode = OpCode.Concat,
+            A = a,
+            B = b,
+            C = c,
+        };
     }
 
     /// <summary>
@@ -680,7 +803,12 @@ func createAx(op opCode, a int) instruction { return instruction(op)<<posOp | in
     /// </summary>
     public static Instruction Jmp(byte a, int sBx)
     {
-        return new() { OpCode = OpCode.Jmp, A = a, SBx = sBx };
+        return new()
+        {
+            OpCode = OpCode.Jmp,
+            A = a,
+            SBx = sBx,
+        };
     }
 
     /// <summary>
@@ -688,7 +816,13 @@ func createAx(op opCode, a int) instruction { return instruction(op)<<posOp | in
     /// </summary>
     public static Instruction Eq(byte a, ushort b, ushort c)
     {
-        return new() { OpCode = OpCode.Eq, A = a, B = b, C = c };
+        return new()
+        {
+            OpCode = OpCode.Eq,
+            A = a,
+            B = b,
+            C = c,
+        };
     }
 
     /// <summary>
@@ -696,7 +830,13 @@ func createAx(op opCode, a int) instruction { return instruction(op)<<posOp | in
     /// </summary>
     public static Instruction Lt(byte a, ushort b, ushort c)
     {
-        return new() { OpCode = OpCode.Lt, A = a, B = b, C = c };
+        return new()
+        {
+            OpCode = OpCode.Lt,
+            A = a,
+            B = b,
+            C = c,
+        };
     }
 
     /// <summary>
@@ -704,7 +844,13 @@ func createAx(op opCode, a int) instruction { return instruction(op)<<posOp | in
     /// </summary>
     public static Instruction Le(byte a, ushort b, ushort c)
     {
-        return new() { OpCode = OpCode.Le, A = a, B = b, C = c };
+        return new()
+        {
+            OpCode = OpCode.Le,
+            A = a,
+            B = b,
+            C = c,
+        };
     }
 
     /// <summary>
@@ -712,7 +858,12 @@ func createAx(op opCode, a int) instruction { return instruction(op)<<posOp | in
     /// </summary>
     public static Instruction Test(byte a, ushort c)
     {
-        return new() { OpCode = OpCode.Test, A = a, C = c };
+        return new()
+        {
+            OpCode = OpCode.Test,
+            A = a,
+            C = c,
+        };
     }
 
     /// <summary>
@@ -720,7 +871,13 @@ func createAx(op opCode, a int) instruction { return instruction(op)<<posOp | in
     /// </summary>
     public static Instruction TestSet(byte a, ushort b, ushort c)
     {
-        return new() { OpCode = OpCode.TestSet, A = a, B = b, C = c };
+        return new()
+        {
+            OpCode = OpCode.TestSet,
+            A = a,
+            B = b,
+            C = c,
+        };
     }
 
     /// <summary>
@@ -728,7 +885,13 @@ func createAx(op opCode, a int) instruction { return instruction(op)<<posOp | in
     /// </summary>
     public static Instruction Call(byte a, ushort b, ushort c)
     {
-        return new() { OpCode = OpCode.Call, A = a, B = b, C = c };
+        return new()
+        {
+            OpCode = OpCode.Call,
+            A = a,
+            B = b,
+            C = c,
+        };
     }
 
     /// <summary>
@@ -736,7 +899,13 @@ func createAx(op opCode, a int) instruction { return instruction(op)<<posOp | in
     /// </summary>
     public static Instruction TailCall(byte a, ushort b, ushort c)
     {
-        return new() { OpCode = OpCode.TailCall, A = a, B = b, C = c };
+        return new()
+        {
+            OpCode = OpCode.TailCall,
+            A = a,
+            B = b,
+            C = c,
+        };
     }
 
     /// <summary>
@@ -744,7 +913,12 @@ func createAx(op opCode, a int) instruction { return instruction(op)<<posOp | in
     /// </summary>
     public static Instruction Return(byte a, ushort b)
     {
-        return new() { OpCode = OpCode.Return, A = a, B = b };
+        return new()
+        {
+            OpCode = OpCode.Return,
+            A = a,
+            B = b,
+        };
     }
 
     /// <summary>
@@ -753,7 +927,12 @@ func createAx(op opCode, a int) instruction { return instruction(op)<<posOp | in
     /// </summary>
     public static Instruction ForLoop(byte a, int sBx)
     {
-        return new() { OpCode = OpCode.ForLoop, A = a, SBx = sBx };
+        return new()
+        {
+            OpCode = OpCode.ForLoop,
+            A = a,
+            SBx = sBx,
+        };
     }
 
     /// <summary>
@@ -762,7 +941,12 @@ func createAx(op opCode, a int) instruction { return instruction(op)<<posOp | in
     /// </summary>
     public static Instruction ForPrep(byte a, int sBx)
     {
-        return new() { OpCode = OpCode.ForPrep, A = a, SBx = sBx };
+        return new()
+        {
+            OpCode = OpCode.ForPrep,
+            A = a,
+            SBx = sBx,
+        };
     }
 
     /// <summary>
@@ -770,7 +954,12 @@ func createAx(op opCode, a int) instruction { return instruction(op)<<posOp | in
     /// </summary>
     public static Instruction TForCall(byte a, ushort c)
     {
-        return new() { OpCode = OpCode.TForCall, A = a, C = c };
+        return new()
+        {
+            OpCode = OpCode.TForCall,
+            A = a,
+            C = c,
+        };
     }
 
     /// <summary>
@@ -778,7 +967,12 @@ func createAx(op opCode, a int) instruction { return instruction(op)<<posOp | in
     /// </summary>
     public static Instruction TForLoop(byte a, int sBx)
     {
-        return new() { OpCode = OpCode.TForLoop, A = a, SBx = sBx };
+        return new()
+        {
+            OpCode = OpCode.TForLoop,
+            A = a,
+            SBx = sBx,
+        };
     }
 
     /// <summary>
@@ -786,7 +980,13 @@ func createAx(op opCode, a int) instruction { return instruction(op)<<posOp | in
     /// </summary>
     public static Instruction SetList(byte a, ushort b, ushort c)
     {
-        return new() { OpCode = OpCode.SetList, A = a, B = b, C = c };
+        return new()
+        {
+            OpCode = OpCode.SetList,
+            A = a,
+            B = b,
+            C = c,
+        };
     }
 
     /// <summary>
@@ -794,7 +994,12 @@ func createAx(op opCode, a int) instruction { return instruction(op)<<posOp | in
     /// </summary>
     public static Instruction Closure(byte a, int sBx)
     {
-        return new() { OpCode = OpCode.Closure, A = a, SBx = sBx };
+        return new()
+        {
+            OpCode = OpCode.Closure,
+            A = a,
+            SBx = sBx,
+        };
     }
 
     /// <summary>
@@ -802,7 +1007,12 @@ func createAx(op opCode, a int) instruction { return instruction(op)<<posOp | in
     /// </summary>
     public static Instruction VarArg(byte a, ushort b)
     {
-        return new() { OpCode = OpCode.VarArg, A = a, B = b };
+        return new()
+        {
+            OpCode = OpCode.VarArg,
+            A = a,
+            B = b,
+        };
     }
 
     /// <summary>

@@ -33,12 +33,20 @@ static class DateTimeHelper
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static double GetUnixTimeFromLocalTime(DateTime dateTime)
     {
-        return new DateTimeOffset(DateTime.SpecifyKind(dateTime, DateTimeKind.Local)).ToUnixTimeSeconds();
+        return new DateTimeOffset(
+            DateTime.SpecifyKind(dateTime, DateTimeKind.Local)
+        ).ToUnixTimeSeconds();
     }
 
     public static DateTime ParseTimeTable(LuaState state, LuaTable table)
     {
-        static int GetTimeField(LuaState state, LuaTable table, string key, bool required = true, int defaultValue = 0)
+        static int GetTimeField(
+            LuaState state,
+            LuaTable table,
+            string key,
+            bool required = true,
+            int defaultValue = 0
+        )
         {
             if (!table.TryGetValue(key, out var value))
             {
@@ -77,7 +85,10 @@ static class DateTimeHelper
         [MethodImpl(MethodImplOptions.NoInlining)]
         static void ThrowInvalidConversionSpecifier(LuaState state, ReadOnlySpan<char> format)
         {
-            throw new LuaRuntimeException(state, $"bad argument #1 to 'date' (invalid conversion specifier '{format.ToString()}')");
+            throw new LuaRuntimeException(
+                state,
+                $"bad argument #1 to 'date' (invalid conversion specifier '{format.ToString()}')"
+            );
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -111,7 +122,7 @@ static class DateTimeHelper
                 'X' => "T",
                 'z' => "zzz",
                 'Z' => "zzz",
-                _ => null
+                _ => null,
             };
         }
 
@@ -156,28 +167,29 @@ static class DateTimeHelper
             {
                 builder.Append(d.ToString(pattern));
             }
-            else switch (c)
-            {
-                case 'e':
+            else
+                switch (c)
+                {
+                    case 'e':
                     {
                         var s = d.ToString("%d");
                         builder.Append(s.Length < 2 ? $" {s}" : s);
                         break;
                     }
-                case 'n':
-                    builder.Append('\n');
-                    break;
-                case 't':
-                    builder.Append('\t');
-                    break;
-                case 'C':
-                    // TODO: reduce allocation
-                    builder.Append((d.Year / 100).ToString());
-                    break;
-                case 'j':
-                    builder.Append(d.DayOfYear.ToString("000"));
-                    break;
-                case 'u':
+                    case 'n':
+                        builder.Append('\n');
+                        break;
+                    case 't':
+                        builder.Append('\t');
+                        break;
+                    case 'C':
+                        // TODO: reduce allocation
+                        builder.Append((d.Year / 100).ToString());
+                        break;
+                    case 'j':
+                        builder.Append(d.DayOfYear.ToString("000"));
+                        break;
+                    case 'u':
                     {
                         var weekDay = (int)d.DayOfWeek;
                         if (weekDay == 0)
@@ -188,24 +200,24 @@ static class DateTimeHelper
                         builder.Append(weekDay.ToString());
                         break;
                     }
-                case 'w':
+                    case 'w':
                     {
                         var weekDay = (int)d.DayOfWeek;
                         builder.Append(weekDay.ToString());
                         break;
                     }
-                case 'U':
-                // ISO 8601 week number (00-53)
-                case 'V':
-                // Week number with the first Monday as the first day of week one (00-53)
-                case 'W':
-                    // Week number with the first Sunday as the first day of week one (00-53)
-                    builder.Append("??");
-                    break;
-                default:
-                    ThrowInvalidConversionSpecifier(state, format);
-                    break;
-            }
+                    case 'U':
+                    // ISO 8601 week number (00-53)
+                    case 'V':
+                    // Week number with the first Monday as the first day of week one (00-53)
+                    case 'W':
+                        // Week number with the first Sunday as the first day of week one (00-53)
+                        builder.Append("??");
+                        break;
+                    default:
+                        ThrowInvalidConversionSpecifier(state, format);
+                        break;
+                }
         }
 
         if (isEscapeSequence)

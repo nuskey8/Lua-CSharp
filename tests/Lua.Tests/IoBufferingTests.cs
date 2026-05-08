@@ -5,7 +5,10 @@ namespace Lua.Tests;
 
 public sealed class IoBufferingTests : IDisposable
 {
-    readonly string testDirectory = Path.Combine(Path.GetTempPath(), $"LuaIoBufferingTests_{Guid.NewGuid()}");
+    readonly string testDirectory = Path.Combine(
+        Path.GetTempPath(),
+        $"LuaIoBufferingTests_{Guid.NewGuid()}"
+    );
 
     public IoBufferingTests()
     {
@@ -41,7 +44,8 @@ public sealed class IoBufferingTests : IDisposable
             writer:close()
             reader:close()
             return before, after
-            """);
+            """
+        );
 
         Assert.That(result, Has.Length.EqualTo(2));
         Assert.That(result[0], Is.EqualTo(new LuaValue("")));

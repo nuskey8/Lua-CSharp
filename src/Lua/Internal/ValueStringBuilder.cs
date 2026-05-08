@@ -32,10 +32,7 @@ ref partial struct ValueStringBuilder
 
     public int Length
     {
-        get
-        {
-            return _pos;
-        }
+        get { return _pos; }
         set
         {
             Debug.Assert(value >= 0);
@@ -46,10 +43,7 @@ ref partial struct ValueStringBuilder
 
     public int Capacity
     {
-        get
-        {
-            return _chars.Length;
-        }
+        get { return _chars.Length; }
     }
 
     public void EnsureCapacity(int capacity)
@@ -109,10 +103,7 @@ ref partial struct ValueStringBuilder
     /// <summary>Returns the underlying storage of the builder.</summary>
     public Span<char> RawChars
     {
-        get
-        {
-            return _chars;
-        }
+        get { return _chars; }
     }
 
     /// <summary>
@@ -192,9 +183,9 @@ ref partial struct ValueStringBuilder
         _chars.Slice(index, remaining).CopyTo(_chars.Slice(index + count));
         s
 #if !NET
-                .AsSpan()
+        .AsSpan()
 #endif
-            .CopyTo(_chars.Slice(index));
+        .CopyTo(_chars.Slice(index));
         _pos += count;
     }
 
@@ -244,9 +235,9 @@ ref partial struct ValueStringBuilder
 
         s
 #if !NET
-                .AsSpan()
+        .AsSpan()
 #endif
-            .CopyTo(_chars.Slice(pos));
+        .CopyTo(_chars.Slice(pos));
         _pos += s.Length;
     }
 
@@ -327,15 +318,20 @@ ref partial struct ValueStringBuilder
     void Grow(int additionalCapacityBeyondPos)
     {
         Debug.Assert(additionalCapacityBeyondPos > 0);
-        Debug.Assert(_pos > _chars.Length - additionalCapacityBeyondPos, "Grow called incorrectly, no resize is needed.");
+        Debug.Assert(
+            _pos > _chars.Length - additionalCapacityBeyondPos,
+            "Grow called incorrectly, no resize is needed."
+        );
 
         const uint ArrayMaxLength = 0x7FFFFFC7; // same as Array.MaxLength
 
         // Increase to at least the required size (_pos + additionalCapacityBeyondPos), but try
         // to double the size if possible, bounding the doubling to not go beyond the max array length.
-        var newCapacity = (int)Math.Max(
-            (uint)(_pos + additionalCapacityBeyondPos),
-            Math.Min((uint)_chars.Length * 2, ArrayMaxLength));
+        var newCapacity = (int)
+            Math.Max(
+                (uint)(_pos + additionalCapacityBeyondPos),
+                Math.Min((uint)_chars.Length * 2, ArrayMaxLength)
+            );
 
         // Make sure to let Rent throw an exception if the caller has a bug and the desired capacity is negative.
         // This could also go negative if the actual required length wraps around.

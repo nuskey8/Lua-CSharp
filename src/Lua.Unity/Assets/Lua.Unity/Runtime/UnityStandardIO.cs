@@ -1,8 +1,8 @@
-﻿using Lua.IO;
-using System;
+﻿using System;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Lua.IO;
 
 namespace Lua.Unity
 {
@@ -46,7 +46,10 @@ namespace Lua.Unity
 
         private readonly StringBuilder stringBuilder = new();
 
-        ValueTask ILuaStream.WriteAsync(ReadOnlyMemory<char> content, CancellationToken cancellationToken)
+        ValueTask ILuaStream.WriteAsync(
+            ReadOnlyMemory<char> content,
+            CancellationToken cancellationToken
+        )
         {
             stringBuilder.Append(content.Span);
             return default;

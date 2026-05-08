@@ -5,7 +5,13 @@ namespace Lua.Standard.Internal;
 
 static class IOHelper
 {
-    public static async ValueTask<int> Open(LuaState state, string fileName, string mode, bool throwError, CancellationToken cancellationToken)
+    public static async ValueTask<int> Open(
+        LuaState state,
+        string fileName,
+        string mode,
+        bool throwError,
+        CancellationToken cancellationToken
+    )
     {
         var fileMode = LuaFileOpenModeExtensions.ParseModeFromString(mode);
         if (!fileMode.IsValid())
@@ -15,7 +21,11 @@ static class IOHelper
 
         try
         {
-            var stream = await state.GlobalState.Platform.FileSystem.Open(fileName, fileMode, cancellationToken);
+            var stream = await state.GlobalState.Platform.FileSystem.Open(
+                fileName,
+                fileMode,
+                cancellationToken
+            );
 
             state.Stack.Push(new(new FileHandle(stream)));
             return 1;
@@ -35,7 +45,12 @@ static class IOHelper
     }
 
     // TODO: optimize (use IBuffertWrite<byte>, async)
-    public static async ValueTask<int> WriteAsync(FileHandle file, string name, LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    public static async ValueTask<int> WriteAsync(
+        FileHandle file,
+        string name,
+        LuaFunctionExecutionContext context,
+        CancellationToken cancellationToken
+    )
     {
         if (!file.IsOpen)
         {
@@ -56,7 +71,10 @@ static class IOHelper
                     using PooledArray<char> fileBuffer = new(64);
                     var span = fileBuffer.AsSpan();
                     d.TryFormat(span, out var charsWritten);
-                    await file.WriteAsync(fileBuffer.UnderlyingArray.AsMemory(0, charsWritten), cancellationToken);
+                    await file.WriteAsync(
+                        fileBuffer.UnderlyingArray.AsMemory(0, charsWritten),
+                        cancellationToken
+                    );
                 }
                 else
                 {
@@ -81,7 +99,15 @@ static class IOHelper
 
     static readonly LuaValue[] defaultReadFormat = ["*l"];
 
-    public static async ValueTask<int> ReadAsync(LuaState state, FileHandle file, string name, int startArgumentIndex, ReadOnlyMemory<LuaValue> formats, bool throwError, CancellationToken cancellationToken)
+    public static async ValueTask<int> ReadAsync(
+        LuaState state,
+        FileHandle file,
+        string name,
+        int startArgumentIndex,
+        ReadOnlyMemory<LuaValue> formats,
+        bool throwError,
+        CancellationToken cancellationToken
+    )
     {
         if (!file.IsOpen)
         {
@@ -153,7 +179,12 @@ static class IOHelper
                 }
                 else
                 {
-                    LuaRuntimeException.BadArgument(state, i + 1, ["string", "integer"], format.TypeToString());
+                    LuaRuntimeException.BadArgument(
+                        state,
+                        i + 1,
+                        ["string", "integer"],
+                        format.TypeToString()
+                    );
                 }
             }
 

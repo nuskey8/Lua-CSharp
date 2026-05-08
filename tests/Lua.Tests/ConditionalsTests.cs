@@ -5,7 +5,8 @@ public class ConditionalsTests
     [Test]
     public async Task Test_Clamp()
     {
-        var source = @"
+        var source =
+            @"
 function clamp(x, min, max)
     return x < min and min or (x > max and max or x)
 end

@@ -1,12 +1,12 @@
-﻿using Lua.Internal;
-using Lua.Runtime;
-using System.Buffers;
+﻿using System.Buffers;
 using System.Buffers.Binary;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
+using Lua.Internal;
+using Lua.Runtime;
 
 namespace Lua.CodeAnalysis.Compilation;
 
@@ -18,9 +18,14 @@ unsafe struct Header
     public static ReadOnlySpan<byte> LuaTail => [0x19, 0x93, 0x0d, 0x0a, 0x1a, 0x0a];
 
     public fixed byte Signature[4];
-    public byte Version, Format, Endianness, IntSize;
-    public byte PointerSize, InstructionSize;
-    public byte NumberSize, IntegralNumber;
+    public byte Version,
+        Format,
+        Endianness,
+        IntSize;
+    public byte PointerSize,
+        InstructionSize;
+    public byte NumberSize,
+        IntegralNumber;
     public fixed byte Tail[6];
 
     public const int Size = 18;
@@ -60,10 +65,19 @@ unsafe struct Header
         var minor = Version & 0xF;
         if (major != Constants.VersionMajor || minor != Constants.VersionMinor)
         {
-            throw new LuaUndumpException($"{name.ToString()}: version mismatch in precompiled chunk {major}.{minor} != {Constants.VersionMajor}.{Constants.VersionMinor}");
+            throw new LuaUndumpException(
+                $"{name.ToString()}: version mismatch in precompiled chunk {major}.{minor} != {Constants.VersionMajor}.{Constants.VersionMinor}"
+            );
         }
 
-        if (IntSize != 4 || Format != 0 || IntegralNumber != 0 || PointerSize is not (4 or 8) || InstructionSize != 4 || NumberSize != 8)
+        if (
+            IntSize != 4
+            || Format != 0
+            || IntegralNumber != 0
+            || PointerSize is not (4 or 8)
+            || InstructionSize != 4
+            || NumberSize != 8
+        )
         {
             goto ErrIncompatible;
         }
@@ -77,7 +91,7 @@ unsafe struct Header
         }
 
         return;
-    ErrIncompatible:
+        ErrIncompatible:
         throw new LuaUndumpException($"{name.ToString()}: incompatible precompiled chunk");
     }
 }
@@ -122,7 +136,6 @@ unsafe ref struct DumpState(IBufferWriter<byte> writer, bool reversedEndian)
         DumpHeader();
         DumpFunction(prototype);
     }
-
 
     void DumpFunction(Prototype prototype)
     {
@@ -233,7 +246,8 @@ unsafe ref struct DumpState(IBufferWriter<byte> writer, bool reversedEndian)
             WriteByte((byte)c.Type);
             switch (c.Type)
             {
-                case LuaValueType.Nil: break;
+                case LuaValueType.Nil:
+                    break;
                 case LuaValueType.Boolean:
                     WriteBool(c.UnsafeReadDouble() != 0);
                     break;
@@ -278,7 +292,11 @@ unsafe ref struct DumpState(IBufferWriter<byte> writer, bool reversedEndian)
     }
 }
 
-unsafe ref struct UndumpState(ReadOnlySpan<byte> span, ReadOnlySpan<char> name, StringInternPool internPool)
+unsafe ref struct UndumpState(
+    ReadOnlySpan<byte> span,
+    ReadOnlySpan<char> name,
+    StringInternPool internPool
+)
 {
     public ReadOnlySpan<byte> Unread = span;
     bool otherEndian;
@@ -382,7 +400,6 @@ unsafe ref struct UndumpState(ReadOnlySpan<byte> span, ReadOnlySpan<char> name, 
         return UndumpFunction();
     }
 
-
     Prototype UndumpFunction()
     {
         var lineDefined = ReadInt(); // 4
@@ -404,16 +421,31 @@ unsafe ref struct UndumpState(ReadOnlySpan<byte> span, ReadOnlySpan<char> name, 
         ReadInToIntSpan(lineInfo.AsSpan());
         var localVariables = ReadLocalVariables();
         var upValueCount = ReadInt();
-        Debug.Assert(upValueCount == upValues.Length, $"upvalue count mismatch: {upValueCount} != {upValues.Length}");
+        Debug.Assert(
+            upValueCount == upValues.Length,
+            $"upvalue count mismatch: {upValueCount} != {upValues.Length}"
+        );
         foreach (ref var desc in upValues.AsSpan())
         {
             var name = ReadString();
             desc.Name = name;
         }
 
-        return new(source, lineDefined, lastLineDefined, parameterCount, maxStackSize, isVarArg, constants, code, prototypes, lineInfo, localVariables, upValues);
+        return new(
+            source,
+            lineDefined,
+            lastLineDefined,
+            parameterCount,
+            maxStackSize,
+            isVarArg,
+            constants,
+            code,
+            prototypes,
+            lineInfo,
+            localVariables,
+            upValues
+        );
     }
-
 
     void ReadInToIntSpan(Span<int> toWrite)
     {
@@ -422,7 +454,6 @@ unsafe ref struct UndumpState(ReadOnlySpan<byte> span, ReadOnlySpan<char> name, 
             toWrite[i] = ReadInt();
         }
     }
-
 
     string ReadString()
     {
@@ -442,7 +473,10 @@ unsafe ref struct UndumpState(ReadOnlySpan<byte> span, ReadOnlySpan<char> name, 
 
             var l = ReadByte();
             Debug.Assert(l == 0);
-            var chars = len <= 128 ? stackalloc char[len * 2] : (charArrayPooled = ArrayPool<char>.Shared.Rent(len * 2));
+            var chars =
+                len <= 128
+                    ? stackalloc char[len * 2]
+                    : (charArrayPooled = ArrayPool<char>.Shared.Rent(len * 2));
             var count = Encoding.UTF8.GetChars(span, chars);
             return internPool.Intern(chars[..count]);
         }
@@ -465,7 +499,8 @@ unsafe ref struct UndumpState(ReadOnlySpan<byte> span, ReadOnlySpan<char> name, 
             var type = (LuaValueType)ReadByte();
             switch (type)
             {
-                case LuaValueType.Nil: break;
+                case LuaValueType.Nil:
+                    break;
                 case LuaValueType.Boolean:
                     constants[i] = ReadByte() == 1;
                     break;
@@ -502,7 +537,12 @@ unsafe ref struct UndumpState(ReadOnlySpan<byte> span, ReadOnlySpan<char> name, 
             var name = ReadString();
             var startPc = ReadInt();
             var endPc = ReadInt();
-            localVariables[i] = new() { Name = name, StartPc = startPc, EndPc = endPc };
+            localVariables[i] = new()
+            {
+                Name = name,
+                StartPc = startPc,
+                EndPc = endPc,
+            };
         }
 
         return localVariables;

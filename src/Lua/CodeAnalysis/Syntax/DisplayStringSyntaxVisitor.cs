@@ -3,7 +3,8 @@ using Lua.CodeAnalysis.Syntax.Nodes;
 
 namespace Lua.CodeAnalysis.Syntax;
 
-public sealed class DisplayStringSyntaxVisitor : ISyntaxNodeVisitor<DisplayStringSyntaxVisitor.Context, bool>
+public sealed class DisplayStringSyntaxVisitor
+    : ISyntaxNodeVisitor<DisplayStringSyntaxVisitor.Context, bool>
 {
     public sealed class Context
     {
@@ -148,7 +149,10 @@ public sealed class DisplayStringSyntaxVisitor : ISyntaxNodeVisitor<DisplayStrin
         return true;
     }
 
-    public bool VisitFunctionDeclarationExpressionNode(FunctionDeclarationExpressionNode node, Context context)
+    public bool VisitFunctionDeclarationExpressionNode(
+        FunctionDeclarationExpressionNode node,
+        Context context
+    )
     {
         context.Append("function(");
         VisitSyntaxNodes(node.ParameterNodes, context);
@@ -178,7 +182,10 @@ public sealed class DisplayStringSyntaxVisitor : ISyntaxNodeVisitor<DisplayStrin
         return true;
     }
 
-    public bool VisitFunctionDeclarationStatementNode(FunctionDeclarationStatementNode node, Context context)
+    public bool VisitFunctionDeclarationStatementNode(
+        FunctionDeclarationStatementNode node,
+        Context context
+    )
     {
         context.Append("function ");
         context.Append(node.Name.ToString());
@@ -210,7 +217,10 @@ public sealed class DisplayStringSyntaxVisitor : ISyntaxNodeVisitor<DisplayStrin
         return true;
     }
 
-    public bool VisitTableMethodDeclarationStatementNode(TableMethodDeclarationStatementNode node, Context context)
+    public bool VisitTableMethodDeclarationStatementNode(
+        TableMethodDeclarationStatementNode node,
+        Context context
+    )
     {
         context.Append("function ");
 
@@ -358,13 +368,19 @@ public sealed class DisplayStringSyntaxVisitor : ISyntaxNodeVisitor<DisplayStrin
         return true;
     }
 
-    public bool VisitLocalAssignmentStatementNode(LocalAssignmentStatementNode node, Context context)
+    public bool VisitLocalAssignmentStatementNode(
+        LocalAssignmentStatementNode node,
+        Context context
+    )
     {
         context.Append("local ");
         return VisitAssignmentStatementNode(node, context);
     }
 
-    public bool VisitLocalFunctionDeclarationStatementNode(LocalFunctionDeclarationStatementNode node, Context context)
+    public bool VisitLocalFunctionDeclarationStatementNode(
+        LocalFunctionDeclarationStatementNode node,
+        Context context
+    )
     {
         context.Append("local ");
         return VisitFunctionDeclarationStatementNode(node, context);
@@ -465,7 +481,10 @@ public sealed class DisplayStringSyntaxVisitor : ISyntaxNodeVisitor<DisplayStrin
         return true;
     }
 
-    public bool VisitTableConstructorExpressionNode(TableConstructorExpressionNode node, Context context)
+    public bool VisitTableConstructorExpressionNode(
+        TableConstructorExpressionNode node,
+        Context context
+    )
     {
         context.AppendLine("{");
         using (context.BeginIndentScope())
@@ -500,7 +519,10 @@ public sealed class DisplayStringSyntaxVisitor : ISyntaxNodeVisitor<DisplayStrin
         return true;
     }
 
-    public bool VisitTableIndexerAccessExpressionNode(TableIndexerAccessExpressionNode node, Context context)
+    public bool VisitTableIndexerAccessExpressionNode(
+        TableIndexerAccessExpressionNode node,
+        Context context
+    )
     {
         node.TableNode.Accept(this, context);
         context.Append("[");
@@ -509,14 +531,20 @@ public sealed class DisplayStringSyntaxVisitor : ISyntaxNodeVisitor<DisplayStrin
         return true;
     }
 
-    public bool VisitTableMemberAccessExpressionNode(TableMemberAccessExpressionNode node, Context context)
+    public bool VisitTableMemberAccessExpressionNode(
+        TableMemberAccessExpressionNode node,
+        Context context
+    )
     {
         node.TableNode.Accept(this, context);
         context.Append($".{node.MemberName}");
         return true;
     }
 
-    public bool VisitCallTableMethodExpressionNode(CallTableMethodExpressionNode node, Context context)
+    public bool VisitCallTableMethodExpressionNode(
+        CallTableMethodExpressionNode node,
+        Context context
+    )
     {
         node.TableNode.Accept(this, context);
         context.Append($":{node.MethodName}(");
@@ -525,7 +553,10 @@ public sealed class DisplayStringSyntaxVisitor : ISyntaxNodeVisitor<DisplayStrin
         return true;
     }
 
-    public bool VisitCallTableMethodStatementNode(CallTableMethodStatementNode node, Context context)
+    public bool VisitCallTableMethodStatementNode(
+        CallTableMethodStatementNode node,
+        Context context
+    )
     {
         return node.Expression.Accept(this, context);
     }
@@ -563,7 +594,10 @@ public sealed class DisplayStringSyntaxVisitor : ISyntaxNodeVisitor<DisplayStrin
         return true;
     }
 
-    public bool VisitVariableArgumentsExpressionNode(VariableArgumentsExpressionNode node, Context context)
+    public bool VisitVariableArgumentsExpressionNode(
+        VariableArgumentsExpressionNode node,
+        Context context
+    )
     {
         context.Append("...");
         return true;

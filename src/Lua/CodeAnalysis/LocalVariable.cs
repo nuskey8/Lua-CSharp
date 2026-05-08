@@ -3,5 +3,6 @@
 public record struct LocalVariable
 {
     public string Name;
-    public int StartPc, EndPc;
+    public int StartPc,
+        EndPc;
 }

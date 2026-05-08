@@ -9,40 +9,22 @@ public partial class LVec3
     [LuaMember("x")]
     public float X
     {
-        get
-        {
-            return value.X;
-        }
-        set
-        {
-            this.value = this.value with { X = value };
-        }
+        get { return value.X; }
+        set { this.value = this.value with { X = value }; }
     }
 
     [LuaMember("y")]
     public float Y
     {
-        get
-        {
-            return value.Y;
-        }
-        set
-        {
-            this.value = this.value with { Y = value };
-        }
+        get { return value.Y; }
+        set { this.value = this.value with { Y = value }; }
     }
 
     [LuaMember("z")]
     public float Z
     {
-        get
-        {
-            return value.Z;
-        }
-        set
-        {
-            this.value = this.value with { Z = value };
-        }
+        get { return value.Z; }
+        set { this.value = this.value with { Z = value }; }
     }
 
     [LuaMember("create")]

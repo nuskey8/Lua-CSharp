@@ -36,7 +36,7 @@ public sealed class MathematicsLibrary
             new(libraryName, "sinh", Sinh),
             new(libraryName, "sqrt", Sqrt),
             new(libraryName, "tan", Tan),
-            new(libraryName, "tanh", Tanh)
+            new(libraryName, "tanh", Tanh),
         ];
     }
 
@@ -55,25 +55,37 @@ public sealed class MathematicsLibrary
         public Random Random { get; } = random;
     }
 
-    public ValueTask<int> Abs(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    public ValueTask<int> Abs(
+        LuaFunctionExecutionContext context,
+        CancellationToken cancellationToken
+    )
     {
         var arg0 = context.GetArgument<double>(0);
         return new(context.Return(Math.Abs(arg0)));
     }
 
-    public ValueTask<int> Acos(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    public ValueTask<int> Acos(
+        LuaFunctionExecutionContext context,
+        CancellationToken cancellationToken
+    )
     {
         var arg0 = context.GetArgument<double>(0);
         return new(context.Return(Math.Acos(arg0)));
     }
 
-    public ValueTask<int> Asin(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    public ValueTask<int> Asin(
+        LuaFunctionExecutionContext context,
+        CancellationToken cancellationToken
+    )
     {
         var arg0 = context.GetArgument<double>(0);
         return new(context.Return(Math.Asin(arg0)));
     }
 
-    public ValueTask<int> Atan2(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    public ValueTask<int> Atan2(
+        LuaFunctionExecutionContext context,
+        CancellationToken cancellationToken
+    )
     {
         var arg0 = context.GetArgument<double>(0);
         var arg1 = context.GetArgument<double>(1);
@@ -81,56 +93,83 @@ public sealed class MathematicsLibrary
         return new(context.Return(Math.Atan2(arg0, arg1)));
     }
 
-    public ValueTask<int> Atan(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    public ValueTask<int> Atan(
+        LuaFunctionExecutionContext context,
+        CancellationToken cancellationToken
+    )
     {
         var arg0 = context.GetArgument<double>(0);
         return new(context.Return(Math.Atan(arg0)));
     }
 
-    public ValueTask<int> Ceil(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    public ValueTask<int> Ceil(
+        LuaFunctionExecutionContext context,
+        CancellationToken cancellationToken
+    )
     {
         var arg0 = context.GetArgument<double>(0);
         return new(context.Return(Math.Ceiling(arg0)));
     }
 
-    public ValueTask<int> Cos(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    public ValueTask<int> Cos(
+        LuaFunctionExecutionContext context,
+        CancellationToken cancellationToken
+    )
     {
         var arg0 = context.GetArgument<double>(0);
         return new(context.Return(Math.Cos(arg0)));
     }
 
-    public ValueTask<int> Cosh(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    public ValueTask<int> Cosh(
+        LuaFunctionExecutionContext context,
+        CancellationToken cancellationToken
+    )
     {
         var arg0 = context.GetArgument<double>(0);
         return new(context.Return(Math.Cosh(arg0)));
     }
 
-    public ValueTask<int> Deg(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    public ValueTask<int> Deg(
+        LuaFunctionExecutionContext context,
+        CancellationToken cancellationToken
+    )
     {
         var arg0 = context.GetArgument<double>(0);
         return new(context.Return(arg0 * (180.0 / Math.PI)));
     }
 
-    public ValueTask<int> Exp(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    public ValueTask<int> Exp(
+        LuaFunctionExecutionContext context,
+        CancellationToken cancellationToken
+    )
     {
         var arg0 = context.GetArgument<double>(0);
         return new(context.Return(Math.Exp(arg0)));
     }
 
-    public ValueTask<int> Floor(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    public ValueTask<int> Floor(
+        LuaFunctionExecutionContext context,
+        CancellationToken cancellationToken
+    )
     {
         var arg0 = context.GetArgument<double>(0);
         return new(context.Return(Math.Floor(arg0)));
     }
 
-    public ValueTask<int> Fmod(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    public ValueTask<int> Fmod(
+        LuaFunctionExecutionContext context,
+        CancellationToken cancellationToken
+    )
     {
         var arg0 = context.GetArgument<double>(0);
         var arg1 = context.GetArgument<double>(1);
         return new(context.Return(arg0 % arg1));
     }
 
-    public ValueTask<int> Frexp(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    public ValueTask<int> Frexp(
+        LuaFunctionExecutionContext context,
+        CancellationToken cancellationToken
+    )
     {
         var arg0 = context.GetArgument<double>(0);
 
@@ -138,7 +177,10 @@ public sealed class MathematicsLibrary
         return new(context.Return(m, e));
     }
 
-    public ValueTask<int> Ldexp(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    public ValueTask<int> Ldexp(
+        LuaFunctionExecutionContext context,
+        CancellationToken cancellationToken
+    )
     {
         var arg0 = context.GetArgument<double>(0);
         var arg1 = context.GetArgument<double>(1);
@@ -146,7 +188,10 @@ public sealed class MathematicsLibrary
         return new(context.Return(arg0 * Math.Pow(2, arg1)));
     }
 
-    public ValueTask<int> Log(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    public ValueTask<int> Log(
+        LuaFunctionExecutionContext context,
+        CancellationToken cancellationToken
+    )
     {
         var arg0 = context.GetArgument<double>(0);
 
@@ -161,7 +206,10 @@ public sealed class MathematicsLibrary
         }
     }
 
-    public ValueTask<int> Max(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    public ValueTask<int> Max(
+        LuaFunctionExecutionContext context,
+        CancellationToken cancellationToken
+    )
     {
         var x = context.GetArgument<double>(0);
         for (var i = 1; i < context.ArgumentCount; i++)
@@ -172,7 +220,10 @@ public sealed class MathematicsLibrary
         return new(context.Return(x));
     }
 
-    public ValueTask<int> Min(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    public ValueTask<int> Min(
+        LuaFunctionExecutionContext context,
+        CancellationToken cancellationToken
+    )
     {
         var x = context.GetArgument<double>(0);
         for (var i = 1; i < context.ArgumentCount; i++)
@@ -183,14 +234,20 @@ public sealed class MathematicsLibrary
         return new(context.Return(x));
     }
 
-    public ValueTask<int> Modf(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    public ValueTask<int> Modf(
+        LuaFunctionExecutionContext context,
+        CancellationToken cancellationToken
+    )
     {
         var arg0 = context.GetArgument<double>(0);
         var (i, f) = MathEx.Modf(arg0);
         return new(context.Return(i, f));
     }
 
-    public ValueTask<int> Pow(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    public ValueTask<int> Pow(
+        LuaFunctionExecutionContext context,
+        CancellationToken cancellationToken
+    )
     {
         var arg0 = context.GetArgument<double>(0);
         var arg1 = context.GetArgument<double>(1);
@@ -198,13 +255,19 @@ public sealed class MathematicsLibrary
         return new(context.Return(Math.Pow(arg0, arg1)));
     }
 
-    public ValueTask<int> Rad(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    public ValueTask<int> Rad(
+        LuaFunctionExecutionContext context,
+        CancellationToken cancellationToken
+    )
     {
         var arg0 = context.GetArgument<double>(0);
         return new(context.Return(arg0 * (Math.PI / 180.0)));
     }
 
-    public ValueTask<int> Random(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    public ValueTask<int> Random(
+        LuaFunctionExecutionContext context,
+        CancellationToken cancellationToken
+    )
     {
         var rand = context.GlobalState.Environment[RandomInstanceKey].Read<RandomUserData>().Random;
 
@@ -234,41 +297,63 @@ public sealed class MathematicsLibrary
             context.ThrowBadArgument(2, "interval is empty");
         }
 
-        return new(context.Return(Math.Floor(rand.NextDouble() * ((arg1Max - arg0Min) + 1)) + arg0Min));
+        return new(
+            context.Return(Math.Floor(rand.NextDouble() * ((arg1Max - arg0Min) + 1)) + arg0Min)
+        );
     }
 
-    public ValueTask<int> RandomSeed(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    public ValueTask<int> RandomSeed(
+        LuaFunctionExecutionContext context,
+        CancellationToken cancellationToken
+    )
     {
         var arg0 = context.GetArgument<double>(0);
-        context.GlobalState.Environment[RandomInstanceKey] = new(new RandomUserData(new((int)BitConverter.DoubleToInt64Bits(arg0))));
+        context.GlobalState.Environment[RandomInstanceKey] = new(
+            new RandomUserData(new((int)BitConverter.DoubleToInt64Bits(arg0)))
+        );
         return new(context.Return());
     }
 
-    public ValueTask<int> Sin(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    public ValueTask<int> Sin(
+        LuaFunctionExecutionContext context,
+        CancellationToken cancellationToken
+    )
     {
         var arg0 = context.GetArgument<double>(0);
         return new(context.Return(Math.Sin(arg0)));
     }
 
-    public ValueTask<int> Sinh(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    public ValueTask<int> Sinh(
+        LuaFunctionExecutionContext context,
+        CancellationToken cancellationToken
+    )
     {
         var arg0 = context.GetArgument<double>(0);
         return new(context.Return(Math.Sinh(arg0)));
     }
 
-    public ValueTask<int> Sqrt(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    public ValueTask<int> Sqrt(
+        LuaFunctionExecutionContext context,
+        CancellationToken cancellationToken
+    )
     {
         var arg0 = context.GetArgument<double>(0);
         return new(context.Return(Math.Sqrt(arg0)));
     }
 
-    public ValueTask<int> Tan(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    public ValueTask<int> Tan(
+        LuaFunctionExecutionContext context,
+        CancellationToken cancellationToken
+    )
     {
         var arg0 = context.GetArgument<double>(0);
         return new(context.Return(Math.Tan(arg0)));
     }
 
-    public ValueTask<int> Tanh(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    public ValueTask<int> Tanh(
+        LuaFunctionExecutionContext context,
+        CancellationToken cancellationToken
+    )
     {
         var arg0 = context.GetArgument<double>(0);
         return new(context.Return(Math.Tanh(arg0)));

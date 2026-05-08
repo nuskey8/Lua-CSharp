@@ -1,5 +1,5 @@
-﻿using Lua.Internal;
-using System.Runtime.CompilerServices;
+﻿using System.Runtime.CompilerServices;
+using Lua.Internal;
 
 namespace Lua.CodeAnalysis.Compilation;
 
@@ -40,23 +40,34 @@ unsafe struct AssignmentTarget(ref AssignmentTarget previous, ExprDesc exprDesc)
 struct Label
 {
     public string Name;
-    public int Pc, Line;
+    public int Pc,
+        Line;
     public int ActiveVariableCount;
 }
 
 class Block : IPoolNode<Block>
 {
     public Block? Previous;
-    public int FirstLabel, FirstGoto;
+    public int FirstLabel,
+        FirstGoto;
     public int ActiveVariableCount;
-    public bool HasUpValue, IsLoop;
+    public bool HasUpValue,
+        IsLoop;
+
     Block() { }
 
     ref Block? IPoolNode<Block>.NextNode => ref Previous;
 
     static LinkedPool<Block> Pool;
 
-    public static Block Get(Block? previous, int firstLabel, int firstGoto, int activeVariableCount, bool hasUpValue, bool isLoop)
+    public static Block Get(
+        Block? previous,
+        int firstLabel,
+        int firstGoto,
+        int activeVariableCount,
+        bool hasUpValue,
+        bool isLoop
+    )
     {
         if (!Pool.TryPop(out var block))
         {
@@ -69,7 +80,6 @@ class Block : IPoolNode<Block>
         block.ActiveVariableCount = activeVariableCount;
         block.HasUpValue = hasUpValue;
         block.IsLoop = isLoop;
-
 
         return block;
     }
@@ -88,7 +98,8 @@ struct ExprDesc
     public int Table;
     public Kind TableType;
     public int Info;
-    public int T, F;
+    public int T,
+        F;
     public double Value;
 
     public readonly bool HasJumps()
@@ -127,5 +138,5 @@ enum Kind
     Jump = 10,
     Relocatable = 11,
     Call = 12,
-    VarArg = 13
+    VarArg = 13,
 }

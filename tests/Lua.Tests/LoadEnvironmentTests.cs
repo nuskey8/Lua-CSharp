@@ -6,7 +6,10 @@ namespace Lua.Tests;
 
 public sealed class LoadEnvironmentTests : IDisposable
 {
-    readonly string testDirectory = Path.Combine(Path.GetTempPath(), $"LuaLoadEnvironmentTests_{Guid.NewGuid()}");
+    readonly string testDirectory = Path.Combine(
+        Path.GetTempPath(),
+        $"LuaLoadEnvironmentTests_{Guid.NewGuid()}"
+    );
 
     public LoadEnvironmentTests()
     {
@@ -27,7 +30,9 @@ public sealed class LoadEnvironmentTests : IDisposable
         using var state = LuaState.Create();
         state.OpenStandardLibraries();
 
-        var result = await state.DoStringAsync("local f = assert(load('return _ENV', nil, 't', nil)); return f()");
+        var result = await state.DoStringAsync(
+            "local f = assert(load('return _ENV', nil, 't', nil)); return f()"
+        );
 
         Assert.That(result, Has.Length.EqualTo(1));
         Assert.That(result[0], Is.EqualTo(LuaValue.Nil));
@@ -38,13 +43,16 @@ public sealed class LoadEnvironmentTests : IDisposable
     {
         await File.WriteAllBytesAsync(
             Path.Combine(testDirectory, "env.lua"),
-            Encoding.UTF8.GetBytes("return _ENV"));
+            Encoding.UTF8.GetBytes("return _ENV")
+        );
 
         using var state = LuaState.Create();
         state.Platform = state.Platform with { FileSystem = new FileSystem(testDirectory) };
         state.OpenStandardLibraries();
 
-        var result = await state.DoStringAsync("local f = assert(loadfile('env.lua', 't', nil)); return f()");
+        var result = await state.DoStringAsync(
+            "local f = assert(loadfile('env.lua', 't', nil)); return f()"
+        );
 
         Assert.That(result, Has.Length.EqualTo(1));
         Assert.That(result[0], Is.EqualTo(LuaValue.Nil));

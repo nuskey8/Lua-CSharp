@@ -13,7 +13,11 @@ public class Traceback(LuaState state, ReadOnlySpan<CallStackFrame> stackFrames)
     public LuaFunction RootFunc => StackFrames[0].Function;
     public ReadOnlySpan<CallStackFrame> StackFrames => stackFramesArray;
 
-    internal static void WriteLastLuaTrace(ReadOnlySpan<CallStackFrame> stackFrames, ref PooledList<char> list, int level = 1)
+    internal static void WriteLastLuaTrace(
+        ReadOnlySpan<CallStackFrame> stackFrames,
+        ref PooledList<char> list,
+        int level = 1
+    )
     {
         if (level < 1)
         {
@@ -38,7 +42,12 @@ public class Traceback(LuaState state, ReadOnlySpan<CallStackFrame> stackFrames)
                 }
                 else
                 {
-                    p.LineInfo[frame.CallerInstructionIndex].TryFormat(intFormatBuffer, out var charsWritten, provider: CultureInfo.InvariantCulture);
+                    p.LineInfo[frame.CallerInstructionIndex]
+                        .TryFormat(
+                            intFormatBuffer,
+                            out var charsWritten,
+                            provider: CultureInfo.InvariantCulture
+                        );
                     list.AddRange(intFormatBuffer[..charsWritten]);
                 }
 
@@ -66,7 +75,10 @@ public class Traceback(LuaState state, ReadOnlySpan<CallStackFrame> stackFrames)
                 if (!frame.IsTailCall && lastFunc is LuaClosure closure)
                 {
                     var p = closure.Proto;
-                    if (frame.CallerInstructionIndex < 0 || p.LineInfo.Length <= frame.CallerInstructionIndex)
+                    if (
+                        frame.CallerInstructionIndex < 0
+                        || p.LineInfo.Length <= frame.CallerInstructionIndex
+                    )
                     {
                         Console.WriteLine($"Trace back error");
                         return default;
@@ -93,7 +105,10 @@ public class Traceback(LuaState state, ReadOnlySpan<CallStackFrame> stackFrames)
                 if (!frame.IsTailCall && lastFunc is LuaClosure closure)
                 {
                     var p = closure.Proto;
-                    if (frame.CallerInstructionIndex < 0 || p.LineInfo.Length <= frame.CallerInstructionIndex)
+                    if (
+                        frame.CallerInstructionIndex < 0
+                        || p.LineInfo.Length <= frame.CallerInstructionIndex
+                    )
                     {
                         Console.WriteLine($"Trace back error");
                         return default;
@@ -122,12 +137,26 @@ public class Traceback(LuaState state, ReadOnlySpan<CallStackFrame> stackFrames)
         return CreateTracebackMessage(GlobalState, StackFrames, LuaValue.Nil, skipFrames);
     }
 
-    public static string CreateTracebackMessage(LuaState state, LuaValue message, int stackFramesSkipCount = 0)
+    public static string CreateTracebackMessage(
+        LuaState state,
+        LuaValue message,
+        int stackFramesSkipCount = 0
+    )
     {
-        return CreateTracebackMessage(state.GlobalState, state.GetCallStackFrames(), message, stackFramesSkipCount);
+        return CreateTracebackMessage(
+            state.GlobalState,
+            state.GetCallStackFrames(),
+            message,
+            stackFramesSkipCount
+        );
     }
 
-    internal static string CreateTracebackMessage(LuaGlobalState globalState, ReadOnlySpan<CallStackFrame> stackFrames, LuaValue message, int skipCount = 0)
+    internal static string CreateTracebackMessage(
+        LuaGlobalState globalState,
+        ReadOnlySpan<CallStackFrame> stackFrames,
+        LuaValue message,
+        int skipCount = 0
+    )
     {
         using var list = new PooledList<char>(64);
         if (message.Type is not LuaValueType.Nil)
@@ -179,7 +208,12 @@ public class Traceback(LuaState state, ReadOnlySpan<CallStackFrame> stackFrames)
                 }
                 else
                 {
-                    p.LineInfo[frame.CallerInstructionIndex].TryFormat(intFormatBuffer, out var charsWritten, provider: CultureInfo.InvariantCulture);
+                    p.LineInfo[frame.CallerInstructionIndex]
+                        .TryFormat(
+                            intFormatBuffer,
+                            out var charsWritten,
+                            provider: CultureInfo.InvariantCulture
+                        );
                     list.AddRange(intFormatBuffer[..charsWritten]);
                 }
 
@@ -202,9 +236,11 @@ public class Traceback(LuaState state, ReadOnlySpan<CallStackFrame> stackFrames)
 
                 foreach (var pair in globalState.Environment.Dictionary)
                 {
-                    if (pair.Key.TryReadString(out var name)
-                        && pair.Value.TryReadFunction(out var result) &&
-                        result == closure)
+                    if (
+                        pair.Key.TryReadString(out var name)
+                        && pair.Value.TryReadFunction(out var result)
+                        && result == closure
+                    )
                     {
                         list.AddRange("function '");
                         list.AddRange(name);
@@ -216,7 +252,11 @@ public class Traceback(LuaState state, ReadOnlySpan<CallStackFrame> stackFrames)
                 var caller = index > 0 ? stackFrames[index - 1].Function : stackFrames[0].Function;
                 if (index > 0 && caller is LuaClosure callerClosure)
                 {
-                    var t = LuaDebug.GetFuncName(callerClosure.Proto, stackFrames[index].CallerInstructionIndex, out var name);
+                    var t = LuaDebug.GetFuncName(
+                        callerClosure.Proto,
+                        stackFrames[index].CallerInstructionIndex,
+                        out var name
+                    );
                     if (t is not null)
                     {
                         if (t is "global")
@@ -241,12 +281,17 @@ public class Traceback(LuaState state, ReadOnlySpan<CallStackFrame> stackFrames)
                 list.AddRange(shortSourceBuffer[..len]);
                 list.AddRange(":");
                 {
-                    p.LineDefined.TryFormat(intFormatBuffer, out var charsWritten, provider: CultureInfo.InvariantCulture);
+                    p.LineDefined.TryFormat(
+                        intFormatBuffer,
+                        out var charsWritten,
+                        provider: CultureInfo.InvariantCulture
+                    );
                     list.AddRange(intFormatBuffer[..charsWritten]);
                     list.AddRange(">\n");
                 }
 
-            Next:;
+                Next:
+                ;
             }
         }
 

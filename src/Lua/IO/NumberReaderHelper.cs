@@ -1,5 +1,5 @@
-using Lua.Internal;
 using System.Globalization;
+using Lua.Internal;
 
 namespace Lua.IO;
 
@@ -44,7 +44,11 @@ internal static class NumberReaderHelper
         }
 
         // Check for hex prefix right at the start (after optional sign)
-        if (position < span.Length - 1 && span[position] == '0' && (span[position + 1] == 'x' || span[position + 1] == 'X'))
+        if (
+            position < span.Length - 1
+            && span[position] == '0'
+            && (span[position + 1] == 'x' || span[position + 1] == 'X')
+        )
         {
             isHex = true;
             position += 2; // Skip '0x' or '0X'

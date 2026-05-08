@@ -20,23 +20,32 @@ public sealed class OperatingSystemLibrary
             new("os", "rename", Rename),
             new("os", "setlocale", SetLocale),
             new("os", "time", Time),
-            new("os", "tmpname", TmpName)
+            new("os", "tmpname", TmpName),
         ];
     }
 
     public readonly LibraryFunction[] Functions;
 
-    public ValueTask<int> Clock(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    public ValueTask<int> Clock(
+        LuaFunctionExecutionContext context,
+        CancellationToken cancellationToken
+    )
     {
-        return new(context.Return(context.GlobalState.Platform.OsEnvironment.GetTotalProcessorTime()));
+        return new(
+            context.Return(context.GlobalState.Platform.OsEnvironment.GetTotalProcessorTime())
+        );
     }
 
-    public ValueTask<int> Date(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    public ValueTask<int> Date(
+        LuaFunctionExecutionContext context,
+        CancellationToken cancellationToken
+    )
     {
         var format = context.HasArgument(0)
             ? context.GetArgument<string>(0).AsSpan()
             : "%c".AsSpan();
-        if (format.IsEmpty) return new(context.Return(""));
+        if (format.IsEmpty)
+            return new(context.Return(""));
 
         var useUtc = format[0] == '!';
         if (useUtc)
@@ -57,9 +66,7 @@ public sealed class OperatingSystemLibrary
         else
         {
             var provider = context.GlobalState.Platform.TimeProvider;
-            now = useUtc
-                ? provider.GetUtcNow().DateTime
-                : provider.GetLocalNow().DateTime;
+            now = useUtc ? provider.GetUtcNow().DateTime : provider.GetLocalNow().DateTime;
         }
 
         var isDst = !useUtc && now.IsDaylightSavingTime();
@@ -76,7 +83,7 @@ public sealed class OperatingSystemLibrary
                 ["sec"] = now.Second,
                 ["wday"] = (int)now.DayOfWeek + 1,
                 ["yday"] = now.DayOfYear,
-                ["isdst"] = isDst
+                ["isdst"] = isDst,
             };
 
             return new(context.Return(table));
@@ -87,14 +94,20 @@ public sealed class OperatingSystemLibrary
         }
     }
 
-    public ValueTask<int> DiffTime(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    public ValueTask<int> DiffTime(
+        LuaFunctionExecutionContext context,
+        CancellationToken cancellationToken
+    )
     {
         var t2 = context.GetArgument<double>(0);
         var t1 = context.GetArgument<double>(1);
         return new(context.Return(t2 - t1));
     }
 
-    public ValueTask<int> Execute(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    public ValueTask<int> Execute(
+        LuaFunctionExecutionContext context,
+        CancellationToken cancellationToken
+    )
     {
         // os.execute(command) is not supported
 
@@ -108,7 +121,10 @@ public sealed class OperatingSystemLibrary
         }
     }
 
-    public async ValueTask<int> Exit(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    public async ValueTask<int> Exit(
+        LuaFunctionExecutionContext context,
+        CancellationToken cancellationToken
+    )
     {
         // Ignore 'close' parameter
         var exitCode = 0;
@@ -134,13 +150,24 @@ public sealed class OperatingSystemLibrary
         throw new InvalidOperationException("Unreachable code.. reached.");
     }
 
-    public ValueTask<int> GetEnv(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    public ValueTask<int> GetEnv(
+        LuaFunctionExecutionContext context,
+        CancellationToken cancellationToken
+    )
     {
         var variable = context.GetArgument<string>(0);
-        return new(context.Return(context.GlobalState.Platform.OsEnvironment.GetEnvironmentVariable(variable) ?? LuaValue.Nil));
+        return new(
+            context.Return(
+                context.GlobalState.Platform.OsEnvironment.GetEnvironmentVariable(variable)
+                    ?? LuaValue.Nil
+            )
+        );
     }
 
-    public async ValueTask<int> Remove(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    public async ValueTask<int> Remove(
+        LuaFunctionExecutionContext context,
+        CancellationToken cancellationToken
+    )
     {
         var fileName = context.GetArgument<string>(0);
         try
@@ -154,13 +181,20 @@ public sealed class OperatingSystemLibrary
         }
     }
 
-    public async ValueTask<int> Rename(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    public async ValueTask<int> Rename(
+        LuaFunctionExecutionContext context,
+        CancellationToken cancellationToken
+    )
     {
         var oldName = context.GetArgument<string>(0);
         var newName = context.GetArgument<string>(1);
         try
         {
-            await context.GlobalState.Platform.FileSystem.Rename(oldName, newName, cancellationToken);
+            await context.GlobalState.Platform.FileSystem.Rename(
+                oldName,
+                newName,
+                cancellationToken
+            );
             return context.Return(true);
         }
         catch (IOException ex)
@@ -169,7 +203,10 @@ public sealed class OperatingSystemLibrary
         }
     }
 
-    public ValueTask<int> SetLocale(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    public ValueTask<int> SetLocale(
+        LuaFunctionExecutionContext context,
+        CancellationToken cancellationToken
+    )
     {
         // os.setlocale is not supported besides the standard "C" POSIX locale
         // Any locale besides "C" will return nil
@@ -182,7 +219,10 @@ public sealed class OperatingSystemLibrary
         return new(context.Return(LuaValue.Nil));
     }
 
-    public ValueTask<int> Time(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    public ValueTask<int> Time(
+        LuaFunctionExecutionContext context,
+        CancellationToken cancellationToken
+    )
     {
         if (context.HasArgument(0))
         {
@@ -192,11 +232,19 @@ public sealed class OperatingSystemLibrary
         }
         else
         {
-            return new(context.Return((double)context.GlobalState.Platform.TimeProvider.GetUtcNow().ToUnixTimeSeconds()));
+            return new(
+                context.Return(
+                    (double)
+                        context.GlobalState.Platform.TimeProvider.GetUtcNow().ToUnixTimeSeconds()
+                )
+            );
         }
     }
 
-    public ValueTask<int> TmpName(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    public ValueTask<int> TmpName(
+        LuaFunctionExecutionContext context,
+        CancellationToken cancellationToken
+    )
     {
         return new(context.Return(context.GlobalState.Platform.FileSystem.GetTempFileName()));
     }

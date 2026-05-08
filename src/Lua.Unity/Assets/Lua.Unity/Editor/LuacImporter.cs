@@ -10,6 +10,7 @@ namespace Lua.Unity.Editor
     public sealed class LuacImporter : ScriptedImporter
     {
         static Texture2D icon;
+
         public override void OnImportAsset(AssetImportContext ctx)
         {
             var bytes = File.ReadAllBytes(ctx.assetPath);
@@ -23,7 +24,7 @@ namespace Lua.Unity.Editor
                     icon = EditorGUIUtility.IconContent("ScriptableObject Icon").image as Texture2D;
                 }
             }
-            EditorGUIUtility.SetIconForObject (asset,icon );
+            EditorGUIUtility.SetIconForObject(asset, icon);
             asset.bytes = bytes;
             ctx.AddObjectToAsset("Main", asset);
             ctx.SetMainObject(asset);

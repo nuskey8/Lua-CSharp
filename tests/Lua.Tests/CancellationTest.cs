@@ -1,5 +1,5 @@
-﻿using Lua.Standard;
-using System.Diagnostics;
+﻿using System.Diagnostics;
+using Lua.Standard;
 
 namespace Lua.Tests;
 
@@ -13,7 +13,8 @@ public class CancellationTest
         state = LuaState.Create();
         state.OpenStandardLibraries();
 
-        state.Environment["assert"] = new LuaFunction("assert_with_wait",
+        state.Environment["assert"] = new LuaFunction(
+            "assert_with_wait",
             async (context, ct) =>
             {
                 await Task.Delay(1, ct);
@@ -31,31 +32,36 @@ public class CancellationTest
                 }
 
                 return context.Return(context.Arguments);
-            });
-        state.Environment["sleep"] = new LuaFunction("sleep",
+            }
+        );
+        state.Environment["sleep"] = new LuaFunction(
+            "sleep",
             (context, _) =>
             {
                 Thread.Sleep(context.GetArgument<int>(0));
 
                 return new(context.Return());
-            });
-        state.Environment["wait"] = new LuaFunction("wait",
+            }
+        );
+        state.Environment["wait"] = new LuaFunction(
+            "wait",
             async (context, ct) =>
             {
                 await Task.Delay(context.GetArgument<int>(0), ct);
                 return context.Return();
-            });
+            }
+        );
     }
 
     [Test]
     public async Task PCall_WaitTest()
     {
         var source = """
-                     local function f(millisec)
-                         wait(millisec)
-                     end                     
-                     pcall(f, 500)
-                     """;
+            local function f(millisec)
+                wait(millisec)
+            end                     
+            pcall(f, 500)
+            """;
         var cancellationTokenSource = new CancellationTokenSource();
         cancellationTokenSource.CancelAfter(200);
 
@@ -80,11 +86,11 @@ public class CancellationTest
     public async Task PCall_SleepTest()
     {
         var source = """
-                     local function f(millisec)
-                         sleep(millisec)
-                     end                     
-                     pcall(f, 500)
-                     """;
+            local function f(millisec)
+                sleep(millisec)
+            end                     
+            pcall(f, 500)
+            """;
         var cancellationTokenSource = new CancellationTokenSource();
         cancellationTokenSource.CancelAfter(250);
 
@@ -109,12 +115,12 @@ public class CancellationTest
     public async Task ForLoopTest()
     {
         var source = """
-                     local ret = 0
-                     for i = 1, 1000000000 do
-                         ret = ret + i
-                     end
-                     return ret
-                     """;
+            local ret = 0
+            for i = 1, 1000000000 do
+                ret = ret + i
+            end
+            return ret
+            """;
         var cancellationTokenSource = new CancellationTokenSource();
         cancellationTokenSource.CancelAfter(100);
         cancellationTokenSource.Token.Register(() =>
@@ -146,12 +152,12 @@ public class CancellationTest
     public async Task GoToLoopTest()
     {
         var source = """
-                     local ret = 0
-                     ::loop::
-                     ret = ret + 1
-                     goto loop
-                     return ret
-                     """;
+            local ret = 0
+            ::loop::
+            ret = ret + 1
+            goto loop
+            return ret
+            """;
         var cancellationTokenSource = new CancellationTokenSource();
         cancellationTokenSource.CancelAfter(100);
         cancellationTokenSource.Token.Register(() =>
@@ -183,25 +189,32 @@ public class CancellationTest
     public async Task CancelByHookTest()
     {
         var source = """
-                     local ret = 0
-                     ::loop::
-                     ret = ret + 1
-                     goto loop
-                     return ret
-                     """;
+            local ret = 0
+            ::loop::
+            ret = ret + 1
+            goto loop
+            return ret
+            """;
         var cancellationTokenSource = new CancellationTokenSource();
         var sw = Stopwatch.StartNew();
-        state.SetHook(new("timeout", async (context, cancellationToken) =>
-        {
-            if (sw.ElapsedMilliseconds > 100)
-            {
-                await Task.Delay(1, cancellationToken);
-                cancellationTokenSource.Cancel();
-                cancellationToken.ThrowIfCancellationRequested();
-            }
+        state.SetHook(
+            new(
+                "timeout",
+                async (context, cancellationToken) =>
+                {
+                    if (sw.ElapsedMilliseconds > 100)
+                    {
+                        await Task.Delay(1, cancellationToken);
+                        cancellationTokenSource.Cancel();
+                        cancellationToken.ThrowIfCancellationRequested();
+                    }
 
-            return context.Return();
-        }), "", 10000);
+                    return context.Return();
+                }
+            ),
+            "",
+            10000
+        );
         cancellationTokenSource.Token.Register(() =>
         {
             Console.WriteLine("Cancellation requested");
@@ -217,7 +230,10 @@ public class CancellationTest
             Assert.That(e, Is.TypeOf<LuaCanceledException>());
             Console.WriteLine(e.StackTrace);
             var luaCancelledException = (LuaCanceledException)e;
-            Assert.That(luaCancelledException.InnerException, Is.TypeOf<OperationCanceledException>());
+            Assert.That(
+                luaCancelledException.InnerException,
+                Is.TypeOf<OperationCanceledException>()
+            );
             var traceback = luaCancelledException.LuaTraceback;
             if (traceback != null)
             {

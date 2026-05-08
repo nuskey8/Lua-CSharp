@@ -18,13 +18,14 @@ public interface ILuaStream : IDisposable
         Mode.ThrowIfNotReadable();
 
         // Default implementation using ReadStringAsync
-        throw new NotImplementedException($"ReadNumberAsync must be implemented by {GetType().Name}");
+        throw new NotImplementedException(
+            $"ReadNumberAsync must be implemented by {GetType().Name}"
+        );
     }
 
     ValueTask<string?> ReadLineAsync(bool keepEol, CancellationToken cancellationToken)
     {
         Mode.ThrowIfNotReadable();
-
 
         // Default implementation using ReadStringAsync
         throw new NotImplementedException($"ReadLineAsync must be implemented by {GetType().Name}");
@@ -35,7 +36,9 @@ public interface ILuaStream : IDisposable
         Mode.ThrowIfNotReadable();
 
         // Default implementation using ReadAllAsync
-        throw new NotImplementedException($"ReadStringAsync must be implemented by {GetType().Name}");
+        throw new NotImplementedException(
+            $"ReadStringAsync must be implemented by {GetType().Name}"
+        );
     }
 
     ValueTask WriteAsync(ReadOnlyMemory<char> content, CancellationToken cancellationToken)
@@ -80,7 +83,6 @@ public interface ILuaStream : IDisposable
     {
         return new CharMemoryStream(content);
     }
-
 
     ValueTask CloseAsync(CancellationToken cancellationToken)
     {

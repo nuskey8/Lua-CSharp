@@ -6,15 +6,24 @@ static class SymbolExtensions
 {
     public static bool ContainsAttribute(this ISymbol symbol, INamedTypeSymbol attribtue)
     {
-        return symbol.GetAttributes().Any(x => SymbolEqualityComparer.Default.Equals(x.AttributeClass, attribtue));
+        return symbol
+            .GetAttributes()
+            .Any(x => SymbolEqualityComparer.Default.Equals(x.AttributeClass, attribtue));
     }
 
     public static AttributeData? GetAttribute(this ISymbol symbol, INamedTypeSymbol attribtue)
     {
-        return symbol.GetAttributes().FirstOrDefault(x => SymbolEqualityComparer.Default.Equals(x.AttributeClass, attribtue));
+        return symbol
+            .GetAttributes()
+            .FirstOrDefault(x =>
+                SymbolEqualityComparer.Default.Equals(x.AttributeClass, attribtue)
+            );
     }
 
-    public static IEnumerable<ISymbol> GetAllMembers(this INamedTypeSymbol symbol, bool withoutOverride = true)
+    public static IEnumerable<ISymbol> GetAllMembers(
+        this INamedTypeSymbol symbol,
+        bool withoutOverride = true
+    )
     {
         // Iterate Parent -> Derived
         if (symbol.BaseType != null)

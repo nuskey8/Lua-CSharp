@@ -39,7 +39,6 @@ sealed class LuaValueDictionary
 
     public int NilCount => _nilCount;
 
-
     public LuaValue this[LuaValue key]
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -56,7 +55,6 @@ sealed class LuaValueDictionary
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         set => Insert(key, value);
     }
-
 
     public void Clear()
     {
@@ -96,7 +94,6 @@ sealed class LuaValueDictionary
         return false;
     }
 
-
     public Enumerator GetEnumerator()
     {
         return new(this);
@@ -129,13 +126,18 @@ sealed class LuaValueDictionary
                     }
 
                     entry = ref Unsafe.Add(ref entriesRef, i);
-                    if (entry.hashCode == hashCode && entry.keyType == key.Type &&
-                        key.Type switch
+                    if (
+                        entry.hashCode == hashCode
+                        && entry.keyType == key.Type
+                        && key.Type switch
                         {
-                            LuaValueType.String => Unsafe.As<string>(entry.keyObject) == key.UnsafeReadString(),
-                            LuaValueType.Number or LuaValueType.Boolean => entry.keyNumber == key.UnsafeReadDouble(),
-                            _ => entry.keyObject == key.UnsafeReadObject()
-                        })
+                            LuaValueType.String => Unsafe.As<string>(entry.keyObject)
+                                == key.UnsafeReadString(),
+                            LuaValueType.Number or LuaValueType.Boolean => entry.keyNumber
+                                == key.UnsafeReadDouble(),
+                            _ => entry.keyObject == key.UnsafeReadObject(),
+                        }
+                    )
                     {
                         index = i;
                         goto ReturnFound;
@@ -154,13 +156,13 @@ sealed class LuaValueDictionary
 
         goto ReturnNotFound;
 
-    ConcurrentOperation:
+        ConcurrentOperation:
         ThrowHelper.ThrowInvalidOperationException_ConcurrentOperationsNotSupported();
-    ReturnFound:
+        ReturnFound:
         ref var value = ref entry.value;
-    Return:
+        Return:
         return ref value;
-    ReturnNotFound:
+        ReturnNotFound:
         value = ref Unsafe.NullRef<LuaValue>();
         goto Return;
     }
@@ -200,7 +202,6 @@ sealed class LuaValueDictionary
         var entries = _entries;
         Debug.Assert(entries != null, "expected entries to be non-null");
 
-
         var hashCode = (uint)key.GetHashCode();
 
         uint collisionCount = 0;
@@ -212,13 +213,18 @@ sealed class LuaValueDictionary
             while ((uint)i < (uint)entries.Length)
             {
                 entry = ref entries[i];
-                if (entry.hashCode == hashCode && entry.keyType == key.Type &&
-                    key.Type switch
+                if (
+                    entry.hashCode == hashCode
+                    && entry.keyType == key.Type
+                    && key.Type switch
                     {
-                        LuaValueType.Number or LuaValueType.Boolean => entry.keyNumber == key.UnsafeReadDouble(),
-                        LuaValueType.String => Unsafe.As<string>(entry.keyObject) == key.UnsafeReadString(),
-                        _ => entry.keyObject == key.UnsafeReadObject()
-                    })
+                        LuaValueType.Number or LuaValueType.Boolean => entry.keyNumber
+                            == key.UnsafeReadDouble(),
+                        LuaValueType.String => Unsafe.As<string>(entry.keyObject)
+                            == key.UnsafeReadString(),
+                        _ => entry.keyObject == key.UnsafeReadObject(),
+                    }
+                )
                 {
                     if (entry.value.Type is LuaValueType.Nil)
                     {
@@ -245,7 +251,10 @@ sealed class LuaValueDictionary
         if (_freeCount > 0)
         {
             index = _freeList;
-            Debug.Assert(StartOfFreeList - entries[_freeList].next >= -1, "shouldn't overflow because `next` cannot underflow");
+            Debug.Assert(
+                StartOfFreeList - entries[_freeList].next >= -1,
+                "shouldn't overflow because `next` cannot underflow"
+            );
             _freeList = StartOfFreeList - entries[_freeList].next;
             _freeCount--;
         }
@@ -276,7 +285,6 @@ sealed class LuaValueDictionary
         }
     }
 
-
     void Resize()
     {
         Resize(_entries!.Length * 2);
@@ -292,7 +300,6 @@ sealed class LuaValueDictionary
 
         var count = _count;
         Array.Copy(_entries, entries, count);
-
 
         // Assign member variables after both arrays allocated to guard against corruption from OOM if second fails
         _buckets = new int[newSize];
@@ -321,7 +328,6 @@ sealed class LuaValueDictionary
             Debug.Assert(_entries != null, "entries should be non-null");
             uint collisionCount = 0;
 
-
             var hashCode = (uint)key.GetHashCode();
 
             ref var bucket = ref GetBucket(hashCode);
@@ -332,13 +338,18 @@ sealed class LuaValueDictionary
             {
                 ref var entry = ref entries[i];
 
-                if (entry.hashCode == hashCode && entry.keyType == key.Type &&
-                    key.Type switch
+                if (
+                    entry.hashCode == hashCode
+                    && entry.keyType == key.Type
+                    && key.Type switch
                     {
-                        LuaValueType.Number or LuaValueType.Boolean => entry.keyNumber == key.UnsafeReadDouble(),
-                        LuaValueType.String => Unsafe.As<string>(entry.keyObject) == key.UnsafeReadString(),
-                        _ => entry.keyObject == key.UnsafeReadObject()
-                    })
+                        LuaValueType.Number or LuaValueType.Boolean => entry.keyNumber
+                            == key.UnsafeReadDouble(),
+                        LuaValueType.String => Unsafe.As<string>(entry.keyObject)
+                            == key.UnsafeReadString(),
+                        _ => entry.keyObject == key.UnsafeReadObject(),
+                    }
+                )
                 {
                     if (last < 0)
                     {
@@ -349,7 +360,10 @@ sealed class LuaValueDictionary
                         entries[last].next = entry.next;
                     }
 
-                    Debug.Assert(StartOfFreeList - _freeList < 0, "shouldn't underflow because max hashtable length is MaxPrimeArrayLength = 0x7FEFFFFD(2146435069) _freelist underflow threshold 2147483646");
+                    Debug.Assert(
+                        StartOfFreeList - _freeList < 0,
+                        "shouldn't underflow because max hashtable length is MaxPrimeArrayLength = 0x7FEFFFFD(2146435069) _freelist underflow threshold 2147483646"
+                    );
                     entry.next = StartOfFreeList - _freeList;
 
                     if (entry.value.Type is LuaValueType.Nil)
@@ -444,14 +458,19 @@ sealed class LuaValueDictionary
 
     internal int Version => _version;
 
-    internal static bool MoveNext(LuaValueDictionary dictionary, int version, ref int index, out KeyValuePair<LuaValue, LuaValue> current)
+    internal static bool MoveNext(
+        LuaValueDictionary dictionary,
+        int version,
+        ref int index,
+        out KeyValuePair<LuaValue, LuaValue> current
+    )
     {
         if (version != dictionary._version)
         {
             ThrowHelper.ThrowInvalidOperationException_InvalidOperation_EnumFailedVersion();
         }
 
-    SearchNext:
+        SearchNext:
         // Use unsigned comparison since we set index to dictionary.count+1 when the enumeration ends.
         // dictionary.count+1 could be negative if dictionary.count is int.MaxValue
         while ((uint)index < (uint)dictionary._count)
@@ -512,7 +531,9 @@ sealed class LuaValueDictionary
 
         public static void ThrowInvalidOperationException_InvalidOperation_EnumFailedVersion()
         {
-            throw new InvalidOperationException("Collection was modified after the enumerator was instantiated.");
+            throw new InvalidOperationException(
+                "Collection was modified after the enumerator was instantiated."
+            );
         }
     }
 }

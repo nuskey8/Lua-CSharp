@@ -16,7 +16,8 @@ public class MetatableTests
     [Test]
     public async Task Test_Metamethod_Add()
     {
-        var source = @"
+        var source =
+            @"
 metatable = {
     __add = function(a, b)
         local t = { }
@@ -50,7 +51,8 @@ return a + b
     [Test]
     public async Task Test_Metamethod_Concat()
     {
-        var source = @"
+        var source =
+            @"
 metatable = {
     __concat = function(a, b)
         local t = { }
@@ -84,7 +86,8 @@ return a .. b
     [Test]
     public async Task Test_Metamethod_Index()
     {
-        var source = @"
+        var source =
+            @"
 metatable = {
     __index = {x=1}
 }
@@ -103,7 +106,8 @@ assert(a.x == 'x')
     [Test]
     public async Task Test_Metamethod_NewIndex()
     {
-        var source = @"
+        var source =
+            @"
 metatable = {
     __newindex = {}
 }
@@ -124,7 +128,8 @@ assert(metatable.__newindex.x == 2)
     [Test]
     public async Task Test_Metamethod_Call()
     {
-        var source = @"
+        var source =
+            @"
 metatable = {
     __call = function(a, b)
         return a.x + b
@@ -147,7 +152,8 @@ assert(tail(a, 3) == 4)
     [Test]
     public async Task Test_Metamethod_TForCall()
     {
-        var source = @"
+        var source =
+            @"
 local i =3
 function a(...)
   local v ={...}
@@ -176,14 +182,14 @@ end
     public async Task Test_Hook_Metamethods()
     {
         var source = """ 
-                     local t = {}
-                     local a =setmetatable({},{__add =function (a,b) return a end})
+            local t = {}
+            local a =setmetatable({},{__add =function (a,b) return a end})
 
-                     debug.sethook(function () table.insert(t,debug.traceback()) end,"c")
-                     a =a+a
-                     debug.sethook()
-                     return t
-                     """;
+            debug.sethook(function () table.insert(t,debug.traceback()) end,"c")
+            a =a+a
+            debug.sethook()
+            return t
+            """;
         var r = await state.DoStringAsync(source);
         Assert.That(r, Has.Length.EqualTo(1));
         Assert.That(r[0].Read<LuaTable>()[1].Read<string>(), Does.Contain("stack traceback:"));
@@ -193,24 +199,24 @@ end
     public async Task Test_Metamethod_MetaCallViaMeta()
     {
         var source = """
-                     local a = {name ="a"}
-                     setmetatable(a, {
-                         __call = function(a, b, c)
-                             return a.name..b.name..c.name
-                         end
-                     })
+            local a = {name ="a"}
+            setmetatable(a, {
+                __call = function(a, b, c)
+                    return a.name..b.name..c.name
+                end
+            })
 
 
-                     local b = setmetatable({name="b"},
-                       {__unm = a,
-                       __add= a,
-                       __concat =a
-                       
-                       })
-                     local c ={name ="c"}
-                     assert((b + c)== "abc")
-                     assert((b .. c)== "abc")
-                     """;
+            local b = setmetatable({name="b"},
+              {__unm = a,
+              __add= a,
+              __concat =a
+              
+              })
+            local c ={name ="c"}
+            assert((b + c)== "abc")
+            assert((b .. c)== "abc")
+            """;
         await state.DoStringAsync(source);
     }
 }

@@ -73,7 +73,7 @@ sealed class MatchState(LuaState state, string source, string pattern)
         }
 
         var endIdx = Pattern.Length;
-    Init:
+        Init:
         if (pIdx < endIdx)
         {
             switch (Pattern[pIdx])
@@ -96,7 +96,6 @@ sealed class MatchState(LuaState state, string source, string pattern)
                     sIdx = EndCapture(sIdx, pIdx + 1);
                     break;
 
-
                 case '$':
                     if (pIdx + 1 == Pattern.Length)
                     {
@@ -115,25 +114,28 @@ sealed class MatchState(LuaState state, string source, string pattern)
                     switch (Pattern[pIdx + 1])
                     {
                         case 'b':
+                        {
+                            sIdx = MatchBalance(sIdx, pIdx + 2);
+                            if (sIdx < 0)
                             {
-                                sIdx = MatchBalance(sIdx, pIdx + 2);
-                                if (sIdx < 0)
-                                {
-                                    MatchDepth++;
-                                    return -1;
-                                }
-
-                                pIdx += 4;
-                                goto Init;
+                                MatchDepth++;
+                                return -1;
                             }
+
+                            pIdx += 4;
+                            goto Init;
+                        }
 
                         case 'f':
                             if (pIdx + 2 < Pattern.Length && Pattern[pIdx + 2] == '[')
                             {
                                 var ep = ClassEnd(Pattern, pIdx + 2);
                                 var previous = sIdx > 0 ? Source[sIdx - 1] : '\0';
-                                if (!MatchBracketClass(previous, Pattern, pIdx + 2, ep - 1) &&
-                                    sIdx < Source.Length && MatchBracketClass(Source[sIdx], Pattern, pIdx + 2, ep - 1))
+                                if (
+                                    !MatchBracketClass(previous, Pattern, pIdx + 2, ep - 1)
+                                    && sIdx < Source.Length
+                                    && MatchBracketClass(Source[sIdx], Pattern, pIdx + 2, ep - 1)
+                                )
                                 {
                                     pIdx = ep;
                                     goto Init;
@@ -154,17 +156,17 @@ sealed class MatchState(LuaState state, string source, string pattern)
                         case '7':
                         case '8':
                         case '9':
+                        {
+                            sIdx = MatchCapture(sIdx, Pattern[pIdx + 1] - '1');
+                            if (sIdx < 0)
                             {
-                                sIdx = MatchCapture(sIdx, Pattern[pIdx + 1] - '1');
-                                if (sIdx < 0)
-                                {
-                                    MatchDepth++;
-                                    return -1;
-                                }
-
-                                pIdx += 2;
-                                goto Init;
+                                MatchDepth++;
+                                return -1;
                             }
+
+                            pIdx += 2;
+                            goto Init;
+                        }
 
                         default:
                             goto Default;
@@ -173,7 +175,7 @@ sealed class MatchState(LuaState state, string source, string pattern)
                     break;
 
                 default:
-                Default:
+                    Default:
                     {
                         var ep = ClassEnd(Pattern, pIdx);
                         if (!SingleMatch(sIdx, pIdx, ep))
@@ -202,18 +204,18 @@ sealed class MatchState(LuaState state, string source, string pattern)
                             switch (Pattern[ep])
                             {
                                 case '?':
+                                {
+                                    // Try matching with this character
+                                    var res = Match(sIdx + 1, ep + 1);
+                                    if (res >= 0)
                                     {
-                                        // Try matching with this character
-                                        var res = Match(sIdx + 1, ep + 1);
-                                        if (res >= 0)
-                                        {
-                                            MatchDepth++;
-                                            return res;
-                                        }
-
-                                        pIdx = ep + 1;
-                                        goto Init;
+                                        MatchDepth++;
+                                        return res;
                                     }
+
+                                    pIdx = ep + 1;
+                                    goto Init;
+                                }
 
                                 case '+':
                                     // For +, we need at least one match (already verified)
@@ -223,65 +225,68 @@ sealed class MatchState(LuaState state, string source, string pattern)
                                     goto case '*';
 
                                 case '*':
-                                    // Match zero or more occurrences
+                                // Match zero or more occurrences
+                                {
                                     {
+                                        var i = 0;
+                                        // Count how many we can match
+                                        while (
+                                            sIdx + i < Source.Length
+                                            && SingleMatch(sIdx + i, pIdx, ep)
+                                        )
                                         {
-                                            var i = 0;
-                                            // Count how many we can match
-                                            while (sIdx + i < Source.Length && SingleMatch(sIdx + i, pIdx, ep))
-                                            {
-                                                i++;
-                                            }
-
-                                            // Try matching from longest to shortest
-                                            while (i >= 0)
-                                            {
-                                                var res = Match(sIdx + i, ep + 1);
-                                                if (res >= 0)
-                                                {
-                                                    MatchDepth++;
-                                                    return res;
-                                                }
-
-                                                i--;
-                                            }
-
-                                            MatchDepth++;
-                                            return -1;
+                                            i++;
                                         }
-                                    }
 
-                                case '-':
-                                    // Match zero or more occurrences (minimal)
-                                    {
-                                        // for (;;) {
-                                        //     const char *res = match(ms, s, ep+1);
-                                        //     if (res != NULL)
-                                        //         return res;
-                                        //     else if (singlematch(ms, s, p, ep))
-                                        //         s++;  /* try with one more repetition */
-                                        //     else return NULL;
-                                        // }
-                                        while (true)
+                                        // Try matching from longest to shortest
+                                        while (i >= 0)
                                         {
-                                            var res = Match(sIdx, ep + 1);
+                                            var res = Match(sIdx + i, ep + 1);
                                             if (res >= 0)
                                             {
                                                 MatchDepth++;
                                                 return res;
                                             }
 
-                                            if (SingleMatch(sIdx, pIdx, ep))
-                                            {
-                                                sIdx++; // Try with one more repetition
-                                            }
-                                            else
-                                            {
-                                                MatchDepth++;
-                                                return -1; // No match found
-                                            }
+                                            i--;
+                                        }
+
+                                        MatchDepth++;
+                                        return -1;
+                                    }
+                                }
+
+                                case '-':
+                                // Match zero or more occurrences (minimal)
+                                {
+                                    // for (;;) {
+                                    //     const char *res = match(ms, s, ep+1);
+                                    //     if (res != NULL)
+                                    //         return res;
+                                    //     else if (singlematch(ms, s, p, ep))
+                                    //         s++;  /* try with one more repetition */
+                                    //     else return NULL;
+                                    // }
+                                    while (true)
+                                    {
+                                        var res = Match(sIdx, ep + 1);
+                                        if (res >= 0)
+                                        {
+                                            MatchDepth++;
+                                            return res;
+                                        }
+
+                                        if (SingleMatch(sIdx, pIdx, ep))
+                                        {
+                                            sIdx++; // Try with one more repetition
+                                        }
+                                        else
+                                        {
+                                            MatchDepth++;
+                                            return -1; // No match found
                                         }
                                     }
+                                }
 
                                 default:
                                     sIdx++;
@@ -439,18 +444,41 @@ sealed class MatchState(LuaState state, string source, string pattern)
         bool res;
         switch (char.ToLower(cl))
         {
-            case 'a': res = char.IsLetter(c); break;
-            case 'c': res = char.IsControl(c); break;
-            case 'd': res = char.IsDigit(c); break;
-            case 'g': res = !char.IsControl(c) && !char.IsWhiteSpace(c); break;
-            case 'l': res = char.IsLower(c); break;
-            case 'p': res = char.IsPunctuation(c); break;
-            case 's': res = char.IsWhiteSpace(c); break;
-            case 'u': res = char.IsUpper(c); break;
-            case 'w': res = char.IsLetterOrDigit(c); break;
-            case 'x': res = IsHexDigit(c); break;
-            case 'z': res = c == '\0'; break;
-            default: return cl == c;
+            case 'a':
+                res = char.IsLetter(c);
+                break;
+            case 'c':
+                res = char.IsControl(c);
+                break;
+            case 'd':
+                res = char.IsDigit(c);
+                break;
+            case 'g':
+                res = !char.IsControl(c) && !char.IsWhiteSpace(c);
+                break;
+            case 'l':
+                res = char.IsLower(c);
+                break;
+            case 'p':
+                res = char.IsPunctuation(c);
+                break;
+            case 's':
+                res = char.IsWhiteSpace(c);
+                break;
+            case 'u':
+                res = char.IsUpper(c);
+                break;
+            case 'w':
+                res = char.IsLetterOrDigit(c);
+                break;
+            case 'x':
+                res = IsHexDigit(c);
+                break;
+            case 'z':
+                res = c == '\0';
+                break;
+            default:
+                return cl == c;
         }
 
         return char.IsLower(cl) ? res : !res;

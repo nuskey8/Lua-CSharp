@@ -1,12 +1,13 @@
-﻿using Lua.Internal.CompilerServices;
-using Lua.Runtime;
-using System.Runtime.CompilerServices;
+﻿using System.Runtime.CompilerServices;
 using System.Threading.Tasks.Sources;
+using Lua.Internal.CompilerServices;
+using Lua.Runtime;
 
 namespace Lua.Internal;
 
-class CoroutineCore(LuaState state, LuaFunction function, bool isProtectedMode) : IValueTaskSource<CoroutineCore.YieldContext>,
-    IValueTaskSource<CoroutineCore.ResumeContext>
+class CoroutineCore(LuaState state, LuaFunction function, bool isProtectedMode)
+    : IValueTaskSource<CoroutineCore.YieldContext>,
+        IValueTaskSource<CoroutineCore.ResumeContext>
 {
     readonly struct YieldContext(LuaStack stack, int argCount)
     {
@@ -42,7 +43,12 @@ class CoroutineCore(LuaState state, LuaFunction function, bool isProtectedMode) 
         return yield.GetStatus(token);
     }
 
-    void IValueTaskSource<YieldContext>.OnCompleted(Action<object?> continuation, object? state, short token, ValueTaskSourceOnCompletedFlags flags)
+    void IValueTaskSource<YieldContext>.OnCompleted(
+        Action<object?> continuation,
+        object? state,
+        short token,
+        ValueTaskSourceOnCompletedFlags flags
+    )
     {
         yield.OnCompleted(continuation, state, token, flags);
     }
@@ -57,13 +63,24 @@ class CoroutineCore(LuaState state, LuaFunction function, bool isProtectedMode) 
         return resume.GetStatus(token);
     }
 
-    void IValueTaskSource<ResumeContext>.OnCompleted(Action<object?> continuation, object? state, short token, ValueTaskSourceOnCompletedFlags flags)
+    void IValueTaskSource<ResumeContext>.OnCompleted(
+        Action<object?> continuation,
+        object? state,
+        short token,
+        ValueTaskSourceOnCompletedFlags flags
+    )
     {
         resume.OnCompleted(continuation, state, token, flags);
     }
 
     [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder<>))]
-    internal async ValueTask<int> ResumeAsyncCore(LuaStack stack, int argCount, int returnBase, LuaState? baseThread, CancellationToken cancellationToken = default)
+    internal async ValueTask<int> ResumeAsyncCore(
+        LuaStack stack,
+        int argCount,
+        int returnBase,
+        LuaState? baseThread,
+        CancellationToken cancellationToken = default
+    )
     {
         if (baseThread != null)
         {
@@ -96,7 +113,10 @@ class CoroutineCore(LuaState state, LuaFunction function, bool isProtectedMode) 
                     }
                     else
                     {
-                        throw new LuaRuntimeException(baseThread, "cannot resume non-suspended coroutine");
+                        throw new LuaRuntimeException(
+                            baseThread,
+                            "cannot resume non-suspended coroutine"
+                        );
                     }
                 case LuaThreadStatus.Dead:
                     if (IsProtectedMode)
@@ -117,11 +137,14 @@ class CoroutineCore(LuaState state, LuaFunction function, bool isProtectedMode) 
             CancellationTokenRegistration registration = default;
             if (cancellationToken.CanBeCanceled)
             {
-                registration = cancellationToken.UnsafeRegister(static x =>
-                {
-                    var coroutine = (CoroutineCore)x!;
-                    coroutine.yield.SetException(new OperationCanceledException());
-                }, this);
+                registration = cancellationToken.UnsafeRegister(
+                    static x =>
+                    {
+                        var coroutine = (CoroutineCore)x!;
+                        coroutine.yield.SetException(new OperationCanceledException());
+                    },
+                    this
+                );
             }
 
             try
@@ -197,7 +220,13 @@ class CoroutineCore(LuaState state, LuaFunction function, bool isProtectedMode) 
     }
 
     [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder<>))]
-    internal async ValueTask<int> YieldAsyncCore(LuaStack stack, int argCount, int returnBase, LuaState? baseThread, CancellationToken cancellationToken = default)
+    internal async ValueTask<int> YieldAsyncCore(
+        LuaStack stack,
+        int argCount,
+        int returnBase,
+        LuaState? baseThread,
+        CancellationToken cancellationToken = default
+    )
     {
         if (Volatile.Read(ref status) != (byte)LuaThreadStatus.Running)
         {
@@ -208,7 +237,10 @@ class CoroutineCore(LuaState state, LuaFunction function, bool isProtectedMode) 
         {
             if (baseThread.GetCallStackFrames()[^2].Function is not LuaClosure)
             {
-                throw new LuaRuntimeException(baseThread, "attempt to yield across a C#-call boundary");
+                throw new LuaRuntimeException(
+                    baseThread,
+                    "attempt to yield across a C#-call boundary"
+                );
             }
         }
 
@@ -217,14 +249,17 @@ class CoroutineCore(LuaState state, LuaFunction function, bool isProtectedMode) 
         CancellationTokenRegistration registration = default;
         if (cancellationToken.CanBeCanceled)
         {
-            registration = cancellationToken.UnsafeRegister(static x =>
-            {
-                var coroutine = (CoroutineCore)x!;
-                coroutine.yield.SetException(new OperationCanceledException());
-            }, this);
+            registration = cancellationToken.UnsafeRegister(
+                static x =>
+                {
+                    var coroutine = (CoroutineCore)x!;
+                    coroutine.yield.SetException(new OperationCanceledException());
+                },
+                this
+            );
         }
 
-    RETRY:
+        RETRY:
         try
         {
             var result = await new ValueTask<YieldContext>(this, yield.Version);

@@ -30,10 +30,11 @@ class PrototypeBuilder : IPoolNode<PrototypeBuilder>
     public ReadOnlySpan<UpValueDesc> UpValues => UpValuesList.AsSpan();
 
     public string Source;
-    public int LineDefined, LastLineDefined;
-    public int ParameterCount, MaxStackSize;
+    public int LineDefined,
+        LastLineDefined;
+    public int ParameterCount,
+        MaxStackSize;
     public bool IsVarArg;
-
 
     internal PrototypeBuilder(string source)
     {
@@ -41,7 +42,6 @@ class PrototypeBuilder : IPoolNode<PrototypeBuilder>
     }
 
     static LinkedPool<PrototypeBuilder> pool;
-
 
     PrototypeBuilder? nextNode;
 
@@ -81,13 +81,27 @@ class PrototypeBuilder : IPoolNode<PrototypeBuilder>
 
     public Prototype CreatePrototypeAndRelease()
     {
-        var protoTypes = Prototypes.Length == 0 ? Array.Empty<Prototype>() : new Prototype[Prototypes.Length];
+        var protoTypes =
+            Prototypes.Length == 0 ? Array.Empty<Prototype>() : new Prototype[Prototypes.Length];
         for (var i = 0; i < Prototypes.Length; i++)
         {
             protoTypes[i] = Prototypes[i].CreatePrototypeAndRelease(); //ref
         }
 
-        Prototype p = new(Source, LineDefined, LastLineDefined, ParameterCount, MaxStackSize, IsVarArg, Constants.ToArray(), Code.ToArray(), protoTypes, LineInfo.ToArray(), LocalVariables.ToArray(), UpValues.ToArray());
+        Prototype p = new(
+            Source,
+            LineDefined,
+            LastLineDefined,
+            ParameterCount,
+            MaxStackSize,
+            IsVarArg,
+            Constants.ToArray(),
+            Code.ToArray(),
+            protoTypes,
+            LineInfo.ToArray(),
+            LocalVariables.ToArray(),
+            UpValues.ToArray()
+        );
         Release();
         return p;
     }

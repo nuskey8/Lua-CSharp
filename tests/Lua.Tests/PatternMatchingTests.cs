@@ -98,7 +98,9 @@ public class PatternMatchingTests
         Assert.That(result[0].Read<double>(), Is.EqualTo(3));
 
         // Email pattern
-        result = await state.DoStringAsync("return string.match('test@example.com', '(%w+)@(%w+)%.(%w+)')");
+        result = await state.DoStringAsync(
+            "return string.match('test@example.com', '(%w+)@(%w+)%.(%w+)')"
+        );
         Assert.That(result, Has.Length.EqualTo(3));
         Assert.That(result[0].Read<string>(), Is.EqualTo("test"));
         Assert.That(result[1].Read<string>(), Is.EqualTo("example"));
@@ -228,7 +230,9 @@ public class PatternMatchingTests
         state.OpenStringLibrary();
 
         // Plain search (4th parameter = true)
-        var result = await state.DoStringAsync("return string.find('hello (world)', '(world)', 1, true)");
+        var result = await state.DoStringAsync(
+            "return string.find('hello (world)', '(world)', 1, true)"
+        );
         Assert.That(result.Length, Is.EqualTo(2));
         Assert.That(result[0].Read<double>(), Is.EqualTo(7)); // Start of '(world)'
         Assert.That(result[1].Read<double>(), Is.EqualTo(13)); // End of '(world)'
@@ -291,13 +295,15 @@ public class PatternMatchingTests
         state.OpenStringLibrary();
         state.OpenTableLibrary();
         // Test basic gmatch iteration
-        var result = await state.DoStringAsync(@"
+        var result = await state.DoStringAsync(
+            @"
             local words = {}
             for word in string.gmatch('hello world lua', '%a+') do
                 table.insert(words, word)
             end
             return table.unpack(words)
-        ");
+        "
+        );
         Assert.That(result.Length, Is.EqualTo(3));
         Assert.That(result[0].Read<string>(), Is.EqualTo("hello"));
         Assert.That(result[1].Read<string>(), Is.EqualTo("world"));
@@ -312,13 +318,15 @@ public class PatternMatchingTests
         state.OpenTableLibrary();
 
         // Test gmatch with captures
-        var result = await state.DoStringAsync(@"
+        var result = await state.DoStringAsync(
+            @"
             local pairs = {}
             for key, value in string.gmatch('a=1 b=2 c=3', '(%a)=(%d)') do
                 table.insert(pairs, key .. ':' .. value)
             end
             return table.unpack(pairs)
-        ");
+        "
+        );
         Assert.That(result.Length, Is.EqualTo(3));
         Assert.That(result[0].Read<string>(), Is.EqualTo("a:1"));
         Assert.That(result[1].Read<string>(), Is.EqualTo("b:2"));
@@ -333,13 +341,15 @@ public class PatternMatchingTests
         state.OpenTableLibrary();
 
         // Extract all numbers from a string
-        var result = await state.DoStringAsync(@"
+        var result = await state.DoStringAsync(
+            @"
             local numbers = {}
             for num in string.gmatch('price: $12.50, tax: $2.75, total: $15.25', '%d+%.%d+') do
                 table.insert(numbers, num)
             end
             return table.unpack(numbers)
-        ");
+        "
+        );
         Assert.That(result.Length, Is.EqualTo(3));
         Assert.That(result[0].Read<string>(), Is.EqualTo("12.50"));
         Assert.That(result[1].Read<string>(), Is.EqualTo("2.75"));
@@ -354,14 +364,16 @@ public class PatternMatchingTests
         state.OpenTableLibrary();
 
         // Test with pattern that can match empty strings
-        var result = await state.DoStringAsync(@"
+        var result = await state.DoStringAsync(
+            @"
             local count = 0
             for match in string.gmatch('abc', 'a*') do
                 count = count + 1
                 if count > 10 then break end -- Prevent infinite loop
             end
             return count
-        ");
+        "
+        );
         Assert.That(result[0].Read<double>(), Is.EqualTo(3));
     }
 
@@ -373,14 +385,16 @@ public class PatternMatchingTests
         state.OpenTableLibrary();
 
         // Extract email-like patterns
-        var result = await state.DoStringAsync(@"
+        var result = await state.DoStringAsync(
+            @"
             local emails = {}
             local text = 'Contact us at info@example.com or support@test.org for help'
             for email in string.gmatch(text, '%w+@%w+%.%w+') do
                 table.insert(emails, email)
             end
             return table.unpack(emails)
-        ");
+        "
+        );
         Assert.That(result.Length, Is.EqualTo(2));
         Assert.That(result[0].Read<string>(), Is.EqualTo("info@example.com"));
         Assert.That(result[1].Read<string>(), Is.EqualTo("support@test.org"));
@@ -394,13 +408,15 @@ public class PatternMatchingTests
         state.OpenTableLibrary();
 
         // Test position captures with gmatch
-        var result = await state.DoStringAsync(@"
+        var result = await state.DoStringAsync(
+            @"
             local positions = {}
             for pos, char in string.gmatch('hello', '()(%a)') do
                 table.insert(positions, pos .. ':' .. char)
             end
             return table.unpack(positions)
-        ");
+        "
+        );
         Assert.That(result.Length, Is.EqualTo(5));
         Assert.That(result[0].Read<string>(), Is.EqualTo("1:h"));
         Assert.That(result[1].Read<string>(), Is.EqualTo("2:e"));
@@ -417,13 +433,15 @@ public class PatternMatchingTests
         state.OpenTableLibrary();
 
         // Test when no matches are found
-        var result = await state.DoStringAsync(@"
+        var result = await state.DoStringAsync(
+            @"
             local count = 0
             for match in string.gmatch('hello world', '%d+') do
                 count = count + 1
             end
             return count
-        ");
+        "
+        );
         Assert.That(result[0].Read<double>(), Is.EqualTo(0));
     }
 
@@ -435,13 +453,15 @@ public class PatternMatchingTests
         state.OpenTableLibrary();
 
         // Test matching single characters
-        var result = await state.DoStringAsync(@"
+        var result = await state.DoStringAsync(
+            @"
             local chars = {}
             for char in string.gmatch('a1b2c3', '%a') do
                 table.insert(chars, char)
             end
             return table.unpack(chars)
-        ");
+        "
+        );
         Assert.That(result.Length, Is.EqualTo(3));
         Assert.That(result[0].Read<string>(), Is.EqualTo("a"));
         Assert.That(result[1].Read<string>(), Is.EqualTo("b"));
@@ -455,7 +475,8 @@ public class PatternMatchingTests
         state.OpenStringLibrary();
 
         // Test that find and gmatch work consistently with the same pattern
-        var result = await state.DoStringAsync(@"
+        var result = await state.DoStringAsync(
+            @"
             local text = 'The quick brown fox jumps over the lazy dog'
             
             -- Find first word
@@ -465,7 +486,8 @@ public class PatternMatchingTests
             local word2 = string.gmatch(text, '%a+')()
             
             return word1, word2, start, end_pos
-        ");
+        "
+        );
         Assert.That(result.Length, Is.EqualTo(4));
         Assert.That(result[0].Read<string>(), Is.EqualTo("The")); // From find
         Assert.That(result[1].Read<string>(), Is.EqualTo("The")); // From gmatch
@@ -480,31 +502,37 @@ public class PatternMatchingTests
         state.OpenStringLibrary();
 
         // Test the problematic pattern ^([^:]*):
-        var result = await state.DoStringAsync(@"
+        var result = await state.DoStringAsync(
+            @"
             local text = 'key:value'
             local match = string.match(text, '^([^:]*):')
             return match
-        ");
+        "
+        );
 
         Assert.That(result.Length, Is.EqualTo(1));
         Assert.That(result[0].Read<string>(), Is.EqualTo("key"));
 
         // Test with empty match
-        result = await state.DoStringAsync(@"
+        result = await state.DoStringAsync(
+            @"
             local text = ':value'
             local match = string.match(text, '^([^:]*):')
             return match
-        ");
+        "
+        );
 
         Assert.That(result.Length, Is.EqualTo(1));
         Assert.That(result[0].Read<string>(), Is.EqualTo("")); // Empty string
 
         // Test with multiple captures
-        result = await state.DoStringAsync(@"
+        result = await state.DoStringAsync(
+            @"
             local text = '[key]:[value]:extra'
             local a, b = string.match(text, '^([^:]*):([^:]*)')
             return a, b
-        ");
+        "
+        );
 
         Assert.That(result.Length, Is.EqualTo(2));
         Assert.That(result[0].Read<string>(), Is.EqualTo("[key]"));
@@ -524,13 +552,17 @@ public class PatternMatchingTests
         Assert.That(result[1].Read<double>(), Is.EqualTo(1)); // Replacement count
 
         // Multiple replacements
-        result = await state.DoStringAsync("return string.gsub('hello hello hello', 'hello', 'hi')");
+        result = await state.DoStringAsync(
+            "return string.gsub('hello hello hello', 'hello', 'hi')"
+        );
         Assert.That(result.Length, Is.EqualTo(2));
         Assert.That(result[0].Read<string>(), Is.EqualTo("hi hi hi"));
         Assert.That(result[1].Read<double>(), Is.EqualTo(3));
 
         // Limited replacements
-        result = await state.DoStringAsync("return string.gsub('hello hello hello', 'hello', 'hi', 2)");
+        result = await state.DoStringAsync(
+            "return string.gsub('hello hello hello', 'hello', 'hi', 2)"
+        );
         Assert.That(result.Length, Is.EqualTo(2));
         Assert.That(result[0].Read<string>(), Is.EqualTo("hi hi hello"));
         Assert.That(result[1].Read<double>(), Is.EqualTo(2));
@@ -543,13 +575,17 @@ public class PatternMatchingTests
         state.OpenStringLibrary();
 
         // Character class patterns
-        var result = await state.DoStringAsync("return string.gsub('hello123world456', '%d+', 'X')");
+        var result = await state.DoStringAsync(
+            "return string.gsub('hello123world456', '%d+', 'X')"
+        );
         Assert.That(result.Length, Is.EqualTo(2));
         Assert.That(result[0].Read<string>(), Is.EqualTo("helloXworldX"));
         Assert.That(result[1].Read<double>(), Is.EqualTo(2));
 
         // Capture replacements
-        result = await state.DoStringAsync("return string.gsub('John Doe', '(%a+) (%a+)', '%2, %1')");
+        result = await state.DoStringAsync(
+            "return string.gsub('John Doe', '(%a+) (%a+)', '%2, %1')"
+        );
         Assert.That(result.Length, Is.EqualTo(2));
         Assert.That(result[0].Read<string>(), Is.EqualTo("Doe, John"));
         Assert.That(result[1].Read<double>(), Is.EqualTo(1));
@@ -568,32 +604,38 @@ public class PatternMatchingTests
         state.OpenStringLibrary();
 
         // Function replacement
-        var result = await state.DoStringAsync(@"
+        var result = await state.DoStringAsync(
+            @"
             return string.gsub('hello world', '%a+', function(s)
                 return s:upper()
             end)
-        ");
+        "
+        );
         Assert.That(result.Length, Is.EqualTo(2));
         Assert.That(result[0].Read<string>(), Is.EqualTo("HELLO WORLD"));
         Assert.That(result[1].Read<double>(), Is.EqualTo(2));
 
         // Function with position captures
-        result = await state.DoStringAsync(@"
+        result = await state.DoStringAsync(
+            @"
             return string.gsub('hello', '()l', function(pos)
                 return '[' .. pos .. ']'
             end)
-        ");
+        "
+        );
         Assert.That(result.Length, Is.EqualTo(2));
         Assert.That(result[0].Read<string>(), Is.EqualTo("he[3][4]o"));
         Assert.That(result[1].Read<double>(), Is.EqualTo(2));
 
         // Function returning nil (no replacement)
-        result = await state.DoStringAsync(@"
+        result = await state.DoStringAsync(
+            @"
             return string.gsub('a1b2c3', '%d', function(s)
                 if s == '2' then return nil end
                 return 'X'
             end)
-        ");
+        "
+        );
         Assert.That(result.Length, Is.EqualTo(2));
         Assert.That(result[0].Read<string>(), Is.EqualTo("aXb2cX"));
         Assert.That(result[1].Read<double>(), Is.EqualTo(3)); // Only 2 replacements made
@@ -606,19 +648,23 @@ public class PatternMatchingTests
         state.OpenStringLibrary();
 
         // Table replacement
-        var result = await state.DoStringAsync(@"
+        var result = await state.DoStringAsync(
+            @"
             local map = {hello = 'hi', world = 'lua'}
             return string.gsub('hello world', '%a+', map)
-        ");
+        "
+        );
         Assert.That(result.Length, Is.EqualTo(2));
         Assert.That(result[0].Read<string>(), Is.EqualTo("hi lua"));
         Assert.That(result[1].Read<double>(), Is.EqualTo(2));
 
         // Table with missing keys (no replacement)
-        result = await state.DoStringAsync(@"
+        result = await state.DoStringAsync(
+            @"
             local map = {hello = 'hi'}
             return string.gsub('hello world', '%a+', map)
-        ");
+        "
+        );
         Assert.That(result.Length, Is.EqualTo(2));
         Assert.That(result[0].Read<string>(), Is.EqualTo("hi world"));
         Assert.That(result[1].Read<double>(), Is.EqualTo(2)); // Only 'hello' was replaced
@@ -644,11 +690,13 @@ public class PatternMatchingTests
         state.OpenStringLibrary();
 
         // Balanced parentheses pattern
-        var result = await state.DoStringAsync(@"
+        var result = await state.DoStringAsync(
+            @"
             return string.gsub('(hello) and (world)', '%b()', function(s)
                 return s:upper()
             end)
-        ");
+        "
+        );
         Assert.That(result.Length, Is.EqualTo(2));
         Assert.That(result[0].Read<string>(), Is.EqualTo("(HELLO) and (WORLD)"));
         Assert.That(result[1].Read<double>(), Is.EqualTo(2));
@@ -705,21 +753,28 @@ public class PatternMatchingTests
         state.OpenStringLibrary();
 
         // Email replacement
-        var result = await state.DoStringAsync(@"
+        var result = await state.DoStringAsync(
+            @"
             local text = 'Contact john@example.com or jane@test.org'
             return string.gsub(text, '(%w+)@(%w+)%.(%w+)', function(user, domain, tld)
                 return user:upper() .. '@' .. domain:upper() .. '.' .. tld:upper()
             end)
-        ");
+        "
+        );
         Assert.That(result.Length, Is.EqualTo(2));
-        Assert.That(result[0].Read<string>(), Is.EqualTo("Contact JOHN@EXAMPLE.COM or JANE@TEST.ORG"));
+        Assert.That(
+            result[0].Read<string>(),
+            Is.EqualTo("Contact JOHN@EXAMPLE.COM or JANE@TEST.ORG")
+        );
         Assert.That(result[1].Read<double>(), Is.EqualTo(2));
 
         // URL path extraction
-        result = await state.DoStringAsync(@"
+        result = await state.DoStringAsync(
+            @"
             return string.gsub('http://example.com/path/to/file.html', 
                                '^https?://[^/]+(/.*)', '%1')
-        ");
+        "
+        );
         Assert.That(result.Length, Is.EqualTo(2));
         Assert.That(result[0].Read<string>(), Is.EqualTo("/path/to/file.html"));
         Assert.That(result[1].Read<double>(), Is.EqualTo(1));
@@ -732,7 +787,8 @@ public class PatternMatchingTests
         state.OpenStringLibrary();
 
         // Test that all string functions work consistently with same patterns
-        var result = await state.DoStringAsync(@"
+        var result = await state.DoStringAsync(
+            @"
             local text = 'The quick brown fox jumps over the lazy dog'
             local pattern = '%a+'
             
@@ -752,7 +808,8 @@ public class PatternMatchingTests
             end
             
             return word, match, count, gmatch_count, start, end_pos
-        ");
+        "
+        );
 
         Assert.That(result.Length, Is.EqualTo(6));
         Assert.That(result[0].Read<string>(), Is.EqualTo("The")); // find capture
@@ -770,9 +827,11 @@ public class PatternMatchingTests
         state.OpenStringLibrary();
 
         // Frontier pattern %f
-        var result = await state.DoStringAsync(@"
+        var result = await state.DoStringAsync(
+            @"
             return string.gsub('hello world', '%f[%a]', '[')
-        ");
+        "
+        );
         Assert.That(result.Length, Is.EqualTo(2));
         Assert.That(result[0].Read<string>(), Is.EqualTo("[hello [world"));
         Assert.That(result[1].Read<double>(), Is.EqualTo(2));
@@ -782,7 +841,9 @@ public class PatternMatchingTests
         Assert.That(result[0].Read<string>(), Is.EqualTo("aaab"));
 
         // Optional quantifier ?
-        result = await state.DoStringAsync("return string.gsub('color colour', 'colou?r', 'COLOR')");
+        result = await state.DoStringAsync(
+            "return string.gsub('color colour', 'colou?r', 'COLOR')"
+        );
         Assert.That(result.Length, Is.EqualTo(2));
         Assert.That(result[0].Read<string>(), Is.EqualTo("COLOR COLOR"));
         Assert.That(result[1].Read<double>(), Is.EqualTo(2));
@@ -796,17 +857,22 @@ public class PatternMatchingTests
 
         // Invalid pattern - missing closing bracket
         var exception = Assert.ThrowsAsync<LuaRuntimeException>(async () =>
-            await state.DoStringAsync("return string.match('test', '[abc')"));
+            await state.DoStringAsync("return string.match('test', '[abc')")
+        );
         Assert.That(exception.Message, Does.Contain("missing ']'"));
 
         // Invalid pattern - missing %b arguments
         exception = Assert.ThrowsAsync<LuaRuntimeException>(async () =>
-            await state.DoStringAsync("return string.match('test', '%b')"));
+            await state.DoStringAsync("return string.match('test', '%b')")
+        );
         Assert.That(exception.Message, Does.Contain("missing arguments to '%b'"));
 
         // Pattern too complex (exceeds recursion limit)
         exception = Assert.ThrowsAsync<LuaRuntimeException>(async () =>
-            await state.DoStringAsync("return string.match(string.rep('a', 1000), string.rep('a?', 1000) .. string.rep('a', 1000))"));
+            await state.DoStringAsync(
+                "return string.match(string.rep('a', 1000), string.rep('a?', 1000) .. string.rep('a', 1000))"
+            )
+        );
         Assert.That(exception.Message, Does.Contain("pattern too complex"));
     }
 
@@ -819,7 +885,8 @@ public class PatternMatchingTests
 
         // Test the problematic pattern from the user's code
         // The pattern "$([^$]+)" won't work because $ needs to be escaped as %$
-        var result = await state.DoStringAsync(@"
+        var result = await state.DoStringAsync(
+            @"
             local prog = 'Hello $world$ and $123$ test'
             local matches = {}
             
@@ -829,11 +896,13 @@ public class PatternMatchingTests
             end
             
             return #matches
-        ");
+        "
+        );
         Assert.That(result[0].Read<double>(), Is.EqualTo(4));
 
         // Test the correct pattern with escaped dollar signs
-        result = await state.DoStringAsync(@"
+        result = await state.DoStringAsync(
+            @"
             local prog = 'Hello $world$ and $123$ test'
             local matches = {}
             
@@ -843,7 +912,8 @@ public class PatternMatchingTests
             end
             
             return table.unpack(matches)
-        ");
+        "
+        );
         Assert.That(result.Length, Is.EqualTo(4));
         Assert.That(result[0].Read<string>(), Is.EqualTo("world"));
 
@@ -861,7 +931,8 @@ public class PatternMatchingTests
         state.OpenBasicLibrary();
 
         // Simulate the user's use case with corrected pattern
-        var result = await state.DoStringAsync(@"
+        var result = await state.DoStringAsync(
+            @"
             local prog = 'Start $1$ middle $hello$ end $2$'
             local F = {
                 [1] = function() return 'FIRST' end,
@@ -894,7 +965,8 @@ public class PatternMatchingTests
             end
             
             return table.concat(output)
-        ");
+        "
+        );
 
         Assert.That(result[0].Read<string>(), Is.EqualTo("Start FIRST middle hello end SECOND"));
     }
@@ -907,13 +979,15 @@ public class PatternMatchingTests
         state.OpenTableLibrary();
 
         // Test empty content between dollar signs
-        var result = await state.DoStringAsync(@"
+        var result = await state.DoStringAsync(
+            @"
             local matches = {}
             for s in string.gmatch('$$ and $empty$', '%$([^%$]*)') do
                 table.insert(matches, s)
             end
             return table.unpack(matches)
-        ");
+        "
+        );
         Assert.That(result.Length, Is.EqualTo(4));
         Assert.That(result[0].Read<string>(), Is.EqualTo("")); // Empty match
         Assert.That(result[1].Read<string>(), Is.EqualTo(" and ")); // Match with spaces
@@ -921,13 +995,15 @@ public class PatternMatchingTests
         Assert.That(result[3].Read<string>(), Is.EqualTo("")); // Trailing empty match
 
         // Test nested or adjacent dollar signs
-        result = await state.DoStringAsync(@"
+        result = await state.DoStringAsync(
+            @"
             local matches = {}
             for s in string.gmatch('$a$$b$', '%$([^%$]+)') do
                 table.insert(matches, s)
             end
             return table.unpack(matches)
-        ");
+        "
+        );
         Assert.That(result.Length, Is.EqualTo(2));
         Assert.That(result[0].Read<string>(), Is.EqualTo("a"));
         Assert.That(result[1].Read<string>(), Is.EqualTo("b"));

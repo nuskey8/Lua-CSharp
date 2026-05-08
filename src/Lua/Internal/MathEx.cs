@@ -1,5 +1,4 @@
 using System.Runtime.CompilerServices;
-
 #if NET6_0_OR_GREATER
 using System.Numerics;
 #endif
@@ -108,7 +107,8 @@ static class MathEx
 
         return (int)BitOperations.RoundUpToPowerOf2((uint)x);
 #else
-        if (x <= 0) return 0;
+        if (x <= 0)
+            return 0;
         x -= 1;
         x |= x >> 1;
         x |= x >> 2;

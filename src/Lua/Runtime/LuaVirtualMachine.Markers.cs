@@ -1,5 +1,5 @@
-﻿using System.Runtime.CompilerServices;
-using System.Diagnostics;
+﻿using System.Diagnostics;
+using System.Runtime.CompilerServices;
 
 // ReSharper disable InconsistentNaming
 
@@ -66,243 +66,162 @@ static partial class LuaVirtualMachine
 
         [MethodImpl(MethodImplOptions.NoInlining)]
         [Conditional("CASE_MARKER")]
-        public static void Move()
-        {
-        }
-
+        public static void Move() { }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
         [Conditional("CASE_MARKER")]
-        public static void LoadK()
-        {
-        }
+        public static void LoadK() { }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
         [Conditional("CASE_MARKER")]
-        public static void LoadKX()
-        {
-        }
+        public static void LoadKX() { }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
         [Conditional("CASE_MARKER")]
-        public static void LoadBool()
-        {
-        }
+        public static void LoadBool() { }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
         [Conditional("CASE_MARKER")]
-        public static void LoadNil()
-        {
-        }
+        public static void LoadNil() { }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
         [Conditional("CASE_MARKER")]
-        public static void GetUpVal()
-        {
-        }
+        public static void GetUpVal() { }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
         [Conditional("CASE_MARKER")]
-        public static void GetTabUp()
-        {
-        }
+        public static void GetTabUp() { }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
         [Conditional("CASE_MARKER")]
-        public static void GetTable()
-        {
-        }
+        public static void GetTable() { }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
         [Conditional("CASE_MARKER")]
-        public static void SetTabUp()
-        {
-        }
+        public static void SetTabUp() { }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
         [Conditional("CASE_MARKER")]
-        public static void SetUpVal()
-        {
-        }
+        public static void SetUpVal() { }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
         [Conditional("CASE_MARKER")]
-        public static void SetTable()
-        {
-        }
+        public static void SetTable() { }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
         [Conditional("CASE_MARKER")]
-        public static void NewTable()
-        {
-        }
+        public static void NewTable() { }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
         [Conditional("CASE_MARKER")]
-        public static void Self()
-        {
-        }
+        public static void Self() { }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
         [Conditional("CASE_MARKER")]
-        public static void Add()
-        {
-        }
+        public static void Add() { }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
         [Conditional("CASE_MARKER")]
-        public static void Sub()
-        {
-        }
+        public static void Sub() { }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
         [Conditional("CASE_MARKER")]
-        public static void Mul()
-        {
-        }
+        public static void Mul() { }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
         [Conditional("CASE_MARKER")]
-        public static void Div()
-        {
-        }
+        public static void Div() { }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
         [Conditional("CASE_MARKER")]
-        public static void Mod()
-        {
-        }
+        public static void Mod() { }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
         [Conditional("CASE_MARKER")]
-        public static void Pow()
-        {
-        }
+        public static void Pow() { }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
         [Conditional("CASE_MARKER")]
-        public static void Unm()
-        {
-        }
+        public static void Unm() { }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
         [Conditional("CASE_MARKER")]
-        public static void Not()
-        {
-        }
+        public static void Not() { }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
         [Conditional("CASE_MARKER")]
-        public static void Len()
-        {
-        }
+        public static void Len() { }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
         [Conditional("CASE_MARKER")]
-        public static void Concat()
-        {
-        }
+        public static void Concat() { }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
         [Conditional("CASE_MARKER")]
-        public static void Jmp()
-        {
-        }
+        public static void Jmp() { }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
         [Conditional("CASE_MARKER")]
-        public static void Eq()
-        {
-        }
+        public static void Eq() { }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
         [Conditional("CASE_MARKER")]
-        public static void Lt()
-        {
-        }
+        public static void Lt() { }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
         [Conditional("CASE_MARKER")]
-        public static void Le()
-        {
-        }
+        public static void Le() { }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
         [Conditional("CASE_MARKER")]
-        public static void Test()
-        {
-        }
+        public static void Test() { }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
         [Conditional("CASE_MARKER")]
-        public static void TestSet()
-        {
-        }
+        public static void TestSet() { }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
         [Conditional("CASE_MARKER")]
-        public static void Call()
-        {
-        }
+        public static void Call() { }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
         [Conditional("CASE_MARKER")]
-        public static void TailCall()
-        {
-        }
+        public static void TailCall() { }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
         [Conditional("CASE_MARKER")]
-        public static void Return()
-        {
-        }
+        public static void Return() { }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
         [Conditional("CASE_MARKER")]
-        public static void ForLoop()
-        {
-        }
+        public static void ForLoop() { }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
         [Conditional("CASE_MARKER")]
-        public static void ForPrep()
-        {
-        }
+        public static void ForPrep() { }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
         [Conditional("CASE_MARKER")]
-        public static void TForCall()
-        {
-        }
+        public static void TForCall() { }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
         [Conditional("CASE_MARKER")]
-        public static void TForLoop()
-        {
-        }
+        public static void TForLoop() { }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
         [Conditional("CASE_MARKER")]
-        public static void SetList()
-        {
-        }
+        public static void SetList() { }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
         [Conditional("CASE_MARKER")]
-        public static void Closure()
-        {
-        }
+        public static void Closure() { }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
         [Conditional("CASE_MARKER")]
-        public static void VarArg()
-        {
-        }
+        public static void VarArg() { }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
         [Conditional("CASE_MARKER")]
-        public static void ExtraArg()
-        {
-        }
+        public static void ExtraArg() { }
     }
 }

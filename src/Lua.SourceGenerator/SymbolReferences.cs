@@ -16,8 +16,12 @@ public sealed class SymbolReferences
         {
             LuaObjectAttribute = luaObjectAttribute,
             LuaMemberAttribute = compilation.GetTypeByMetadataName("Lua.LuaMemberAttribute")!,
-            LuaIgnoreMemberAttribute = compilation.GetTypeByMetadataName("Lua.LuaIgnoreMemberAttribute")!,
-            LuaMetamethodAttribute = compilation.GetTypeByMetadataName("Lua.LuaMetamethodAttribute")!,
+            LuaIgnoreMemberAttribute = compilation.GetTypeByMetadataName(
+                "Lua.LuaIgnoreMemberAttribute"
+            )!,
+            LuaMetamethodAttribute = compilation.GetTypeByMetadataName(
+                "Lua.LuaMetamethodAttribute"
+            )!,
             LuaValue = compilation.GetTypeByMetadataName("Lua.LuaValue")!,
             Object = compilation.GetTypeByMetadataName("System.Object")!,
             Boolean = compilation.GetTypeByMetadataName("System.Boolean")!,
@@ -27,7 +31,9 @@ public sealed class SymbolReferences
             LuaThread = compilation.GetTypeByMetadataName("Lua.LuaThread")!,
             LuaTable = compilation.GetTypeByMetadataName("Lua.LuaTable")!,
             LuaUserData = compilation.GetTypeByMetadataName("Lua.ILuaUserData")!,
-            CancellationToken = compilation.GetTypeByMetadataName("System.Threading.CancellationToken")!
+            CancellationToken = compilation.GetTypeByMetadataName(
+                "System.Threading.CancellationToken"
+            )!,
         };
     }
 

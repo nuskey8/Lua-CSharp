@@ -28,7 +28,8 @@ public class PropertyMetadata
         {
             Type = property.Type;
             TypeFullName = property.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
-            IsReadOnly = property.IsReadOnly || property.SetMethod == null || property.SetMethod.IsInitOnly;
+            IsReadOnly =
+                property.IsReadOnly || property.SetMethod == null || property.SetMethod.IsInitOnly;
             IsWriteOnly = property.IsWriteOnly;
         }
         else

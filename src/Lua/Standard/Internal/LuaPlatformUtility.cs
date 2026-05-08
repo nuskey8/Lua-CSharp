@@ -10,9 +10,10 @@ static class LuaPlatformUtility
         try
         {
 #if NET6_0_OR_GREATER
-            var isDesktop = OperatingSystem.IsWindows() ||
-                            OperatingSystem.IsLinux() ||
-                            OperatingSystem.IsMacOS();
+            var isDesktop =
+                OperatingSystem.IsWindows()
+                || OperatingSystem.IsLinux()
+                || OperatingSystem.IsMacOS();
             if (!isDesktop)
             {
                 return false;

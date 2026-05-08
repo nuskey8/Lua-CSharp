@@ -1,8 +1,8 @@
-﻿using Lua.CodeAnalysis.Compilation;
-using Lua.Runtime;
-using System;
+﻿using System;
 using System.Text;
 using System.Text.RegularExpressions;
+using Lua.CodeAnalysis.Compilation;
+using Lua.Runtime;
 using UnityEditor;
 
 namespace Lua.Unity.Editor
@@ -17,7 +17,8 @@ namespace Lua.Unity.Editor
 
         public override void OnInspectorGUI()
         {
-            if (asset == null) asset = (LuacAsset)serializedObject.targetObject;
+            if (asset == null)
+                asset = (LuacAsset)serializedObject.targetObject;
             if (bytes == null || !asset.bytes.AsSpan().SequenceEqual(bytes))
             {
                 var prototype = Prototype.FromBytecode(asset.bytes.AsSpan(), asset.name);
@@ -49,7 +50,8 @@ namespace Lua.Unity.Editor
 
             if (nestCount == 0)
                 AppendLine($"Chunk :{chunk.ChunkName}");
-            else AppendLine("[" + nestCount + "," + id + "]");
+            else
+                AppendLine("[" + nestCount + "," + id + "]");
             AppendLine($"Parameters:{chunk.ParameterCount}");
 
             AppendLine("Code -------------------------------------");
@@ -80,7 +82,9 @@ namespace Lua.Unity.Editor
             index = 0;
             foreach (var upValue in chunk.UpValues.ToArray())
             {
-                AppendLine($"[{index}]\t{upValue.Name}\t{(upValue.IsLocal ? 1 : 0)}\t{upValue.Index}");
+                AppendLine(
+                    $"[{index}]\t{upValue.Name}\t{(upValue.IsLocal ? 1 : 0)}\t{upValue.Index}"
+                );
                 index++;
             }
 

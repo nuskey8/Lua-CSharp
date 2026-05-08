@@ -61,15 +61,23 @@ public partial class LuaTestObj
 [LuaObject]
 public partial class TestUserData
 {
-    [LuaMember] public int Property { get; init; }
+    [LuaMember]
+    public int Property { get; init; }
 
-    [LuaMember] public int ReadOnlyProperty { get; }
+    [LuaMember]
+    public int ReadOnlyProperty { get; }
 
-    [LuaMember] public int SetOnlyProperty { set { } }
+    [LuaMember]
+    public int SetOnlyProperty
+    {
+        set { }
+    }
 
-    [LuaMember] public LuaValue LuaValueProperty { get; set; }
+    [LuaMember]
+    public LuaValue LuaValueProperty { get; set; }
 
-    [LuaMember("p2")] public string PropertyWithName { get; set; } = "";
+    [LuaMember("p2")]
+    public string PropertyWithName { get; set; } = "";
 
     [LuaMember]
     public static void MethodVoid()
@@ -97,7 +105,10 @@ public partial class TestUserData
     }
 
     [LuaMember]
-    public async ValueTask<LuaValue> InstanceMethodWithReturnValueAsync(LuaValue value, CancellationToken ct)
+    public async ValueTask<LuaValue> InstanceMethodWithReturnValueAsync(
+        LuaValue value,
+        CancellationToken ct
+    )
     {
         await Task.Delay(1, ct);
         return value;
@@ -144,9 +155,7 @@ public partial class IntArrayUserData
     public int Length => Array.Length;
 
     [LuaMetamethod(LuaObjectMetamethod.Len)]
-
     public int GetLength() => Array.Length;
-
 
     [LuaMetamethod(LuaObjectMetamethod.Index)]
     public int GetAt(int index)
@@ -287,7 +296,9 @@ public class LuaObjectTests
 
         var state = LuaState.Create();
         state.Environment["test"] = userData;
-        var results = await state.DoStringAsync("return test:InstanceMethodWithReturnValueAsync(2)");
+        var results = await state.DoStringAsync(
+            "return test:InstanceMethodWithReturnValueAsync(2)"
+        );
 
         Assert.That(results, Has.Length.EqualTo(1));
         Assert.That(results[0], Is.EqualTo(new LuaValue(2)));
@@ -300,10 +311,12 @@ public class LuaObjectTests
 
         var state = LuaState.Create();
         state.Environment["test"] = userData;
-        var results = await state.DoStringAsync("""
-                                                local ret, a, b, c = test.RefOutTestMethod(4, 1.5)
-                                                return ret, a, b, c
-                                                """);
+        var results = await state.DoStringAsync(
+            """
+            local ret, a, b, c = test.RefOutTestMethod(4, 1.5)
+            return ret, a, b, c
+            """
+        );
 
         Assert.That(results, Has.Length.EqualTo(4));
         Assert.That(results[0], Is.EqualTo(new LuaValue(2.75)));
@@ -319,10 +332,12 @@ public class LuaObjectTests
 
         var state = LuaState.Create();
         state.Environment["test"] = userData;
-        var results = await state.DoStringAsync("""
-                                                local b, c = test.OutOnlyTestMethod(4)
-                                                return b, c
-                                                """);
+        var results = await state.DoStringAsync(
+            """
+            local b, c = test.OutOnlyTestMethod(4)
+            return b, c
+            """
+        );
 
         Assert.That(results, Has.Length.EqualTo(2));
         Assert.That(results[0], Is.EqualTo(new LuaValue("value:4")));
@@ -337,10 +352,12 @@ public class LuaObjectTests
         var state = LuaState.Create();
         state.OpenBasicLibrary();
         state.Environment["test"] = userData;
-        var results = await state.DoStringAsync("""
-                                                assert(test() == 'Called!')
-                                                return test()
-                                                """);
+        var results = await state.DoStringAsync(
+            """
+            assert(test() == 'Called!')
+            return test()
+            """
+        );
 
         Assert.That(results, Has.Length.EqualTo(1));
         Assert.That(results[0], Is.EqualTo(new LuaValue("Called!")));
@@ -353,11 +370,13 @@ public class LuaObjectTests
 
         var state = LuaState.Create();
         state.Environment["child"] = userData;
-        var results = await state.DoStringAsync("""
-                                                child.value = child.value .. '-updated'
-                                                child.number = child.number + 1
-                                                return child.value, child.number, child:getValue()
-                                                """);
+        var results = await state.DoStringAsync(
+            """
+            child.value = child.value .. '-updated'
+            child.number = child.number + 1
+            return child.value, child.number, child:getValue()
+            """
+        );
 
         Assert.That(results, Has.Length.EqualTo(3));
         Assert.That(results[0], Is.EqualTo(new LuaValue("initial-updated")));
@@ -375,11 +394,13 @@ public class LuaObjectTests
         var state = LuaState.Create();
         state.OpenBasicLibrary();
         state.Environment["TestObj"] = userData;
-        var results = await state.DoStringAsync("""
-                                                local a = TestObj.create(1, 2)
-                                                local b = TestObj.create(3, 4)
-                                                return a + b, a - b
-                                                """);
+        var results = await state.DoStringAsync(
+            """
+            local a = TestObj.create(1, 2)
+            local b = TestObj.create(3, 4)
+            return a + b, a - b
+            """
+        );
         Assert.That(results, Has.Length.EqualTo(2));
         Assert.That(results[0].Read<object>(), Is.TypeOf<LuaTestObj>());
         var objAdd = results[0].Read<LuaTestObj>();
@@ -390,6 +411,7 @@ public class LuaObjectTests
         Assert.That(objSub.X, Is.EqualTo(-2));
         Assert.That(objSub.Y, Is.EqualTo(-2));
     }
+
     [Test]
     public async Task Test_IndexMetamethod()
     {
@@ -404,9 +426,11 @@ public class LuaObjectTests
         var state = LuaState.Create();
         state.OpenBasicLibrary();
         state.Environment["TestObj"] = userData;
-        var results = await state.DoStringAsync("""
-                                                return TestObj[0], TestObj[1], TestObj[2], TestObj[3], TestObj[4] ,TestObj.name, #TestObj
-                                                """);
+        var results = await state.DoStringAsync(
+            """
+            return TestObj[0], TestObj[1], TestObj[2], TestObj[3], TestObj[4] ,TestObj.name, #TestObj
+            """
+        );
         Assert.That(results, Has.Length.EqualTo(7));
         Assert.That(results[0].TryRead<int>(out var result), Is.True);
         Assert.That(result, Is.EqualTo(1));
@@ -432,10 +456,12 @@ public class LuaObjectTests
         var state = LuaState.Create();
         state.OpenBasicLibrary();
         state.Environment["TestObj"] = userData;
-        var results = await state.DoStringAsync("""
-                                                TestObj[2] = 8
-                                                return TestObj[2], TestObj.name, #TestObj
-                                                """);
+        var results = await state.DoStringAsync(
+            """
+            TestObj[2] = 8
+            return TestObj[2], TestObj.name, #TestObj
+            """
+        );
         Assert.That(results, Has.Length.EqualTo(3));
         Assert.That(results[0].TryRead<int>(out var result), Is.True);
         Assert.That(result, Is.EqualTo(8));
@@ -453,10 +479,12 @@ public class LuaObjectTests
         var state = LuaState.Create();
         state.OpenBasicLibrary();
         state.Environment["TestObj"] = userData;
-        var results = await state.DoStringAsync("""
-                                                TestObj.answer = 42
-                                                return TestObj.answer, TestObj.name, TestObj.length
-                                                """);
+        var results = await state.DoStringAsync(
+            """
+            TestObj.answer = 42
+            return TestObj.answer, TestObj.name, TestObj.length
+            """
+        );
         Assert.That(results, Has.Length.EqualTo(3));
         Assert.That(results[0].TryRead<int>(out var result), Is.True);
         Assert.That(result, Is.EqualTo(42));
@@ -474,11 +502,13 @@ public class LuaObjectTests
         var state = LuaState.Create();
         state.OpenBasicLibrary();
         state.Environment["TestObj"] = userData;
-        var results = await state.DoStringAsync("""
-                                                TestObj.value = 8
-                                                TestObj.other = 13
-                                                return TestObj.value, TestObj.other, TestObj.name, TestObj.length
-                                                """);
+        var results = await state.DoStringAsync(
+            """
+            TestObj.value = 8
+            TestObj.other = 13
+            return TestObj.value, TestObj.other, TestObj.name, TestObj.length
+            """
+        );
         Assert.That(results, Has.Length.EqualTo(4));
         Assert.That(results[0].TryRead<int>(out var result), Is.True);
         Assert.That(result, Is.EqualTo(8));
@@ -498,13 +528,15 @@ public class LuaObjectTests
         var state = LuaState.Create();
         state.OpenBasicLibrary();
         state.Environment["TestObj"] = userData;
-        var results = await state.DoStringAsync("""
-                                                function testLen(obj)
-                                                    return #obj
-                                                end
-                                                local obj = TestObj.create(1, 2)
-                                                return testLen(TestObj.create(1, 2)),-obj
-                                                """);
+        var results = await state.DoStringAsync(
+            """
+            function testLen(obj)
+                return #obj
+            end
+            local obj = TestObj.create(1, 2)
+            return testLen(TestObj.create(1, 2)),-obj
+            """
+        );
         Assert.That(results, Has.Length.EqualTo(2));
         Assert.That(results[0].Read<double>(), Is.EqualTo(3));
         Assert.That(results[1].Read<object>(), Is.TypeOf<LuaTestObj>());

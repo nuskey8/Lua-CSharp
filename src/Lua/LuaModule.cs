@@ -3,7 +3,7 @@ namespace Lua;
 public enum LuaModuleType
 {
     Text,
-    Bytes
+    Bytes,
 }
 
 public readonly struct LuaModule
@@ -31,12 +31,11 @@ public readonly struct LuaModule
         this.bytes = bytes;
     }
 
-    public LuaModule(string name, string text) : this(name, text.AsMemory()) { }
+    public LuaModule(string name, string text)
+        : this(name, text.AsMemory()) { }
 
     public LuaModule(string name, byte[] bytes)
-        : this(name, new ReadOnlyMemory<byte>(bytes))
-    {
-    }
+        : this(name, new ReadOnlyMemory<byte>(bytes)) { }
 
     public ReadOnlySpan<char> ReadText()
     {

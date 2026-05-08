@@ -4,7 +4,10 @@ namespace Lua.Internal;
 
 sealed class ArrayPoolBufferWriter<T>(int initialCapacity = 256) : IBufferWriter<T>, IDisposable
 {
-    T[] buffer = initialCapacity > 0 ? ArrayPool<T>.Shared.Rent(initialCapacity) : throw new ArgumentOutOfRangeException(nameof(initialCapacity));
+    T[] buffer =
+        initialCapacity > 0
+            ? ArrayPool<T>.Shared.Rent(initialCapacity)
+            : throw new ArgumentOutOfRangeException(nameof(initialCapacity));
     int index;
 
     public ReadOnlySpan<T> WrittenSpan => buffer.AsSpan(0, index);
