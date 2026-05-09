@@ -3,14 +3,15 @@
     <TargetFramework>netstandard2.0</TargetFramework>
     <LangVersion>13</LangVersion>
     <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-    <IsRoslynComponent>true</IsRoslynComponent>
-    <AnalyzerLanguage>cs</AnalyzerLanguage>
     <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+    <AnalyzerLanguage>cs</AnalyzerLanguage>
+    <Nullable>enable</Nullable>
+    <TargetsForTfmSpecificContentInPackage>$(TargetsForTfmSpecificContentInPackage);PackBuildOutputs</TargetsForTfmSpecificContentInPackage>
     <IncludeBuildOutput>false</IncludeBuildOutput>
     <DevelopmentDependency>true</DevelopmentDependency>
     <IncludeSymbols>false</IncludeSymbols>
     <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
+    <IsRoslynComponent>true</IsRoslynComponent>
 
     <!-- NuGet -->
     <PackageId>LuaCSharp.SourceGenerator</PackageId>
@@ -19,13 +20,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.3.0" />
-    <None
-      Include="$(OutputPath)\$(AssemblyName).dll"
-      Pack="true"
-      PackagePath="analyzers/dotnet/cs"
-      Visible="false"
-    />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.3.0" PrivateAssets="all" />
   </ItemGroup>
 
   <ItemGroup>
@@ -33,4 +28,18 @@
     <None Include="..\..\README.md" Pack="true" PackagePath="README.md" />
     <EmbeddedResource Include="..\..\LICENSE" />
   </ItemGroup>
+
+  <!-- for NuGet publish -->
+  <Target
+    Name="PackBuildOutputs"
+    DependsOnTargets="SatelliteDllsProjectOutputGroup;DebugSymbolsProjectOutputGroup"
+  >
+    <ItemGroup>
+      <TfmSpecificPackageFile Include="$(TargetDir)\*.dll" PackagePath="analyzers\dotnet\cs" />
+      <TfmSpecificPackageFile
+        Include="@(SatelliteDllsProjectOutputGroupOutput->'%(FinalOutputPath)')"
+        PackagePath="analyzers\dotnet\cs\%(SatelliteDllsProjectOutputGroupOutput.Culture)\"
+      />
+    </ItemGroup>
+  </Target>
 </Project>
