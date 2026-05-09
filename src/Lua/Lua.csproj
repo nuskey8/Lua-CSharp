@@ -32,11 +32,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference
-      Include="..\Lua.SourceGenerator\Lua.SourceGenerator.csproj"
-      OutputItemType="Analyzer"
-      ReferenceOutputAssembly="false"
-    />
+    <ProjectReference Include="..\Lua.SourceGenerator\Lua.SourceGenerator.csproj" />
     <ProjectReference Include="..\Lua.Annotations\Lua.Annotations.csproj" />
   </ItemGroup>
 </Project>
