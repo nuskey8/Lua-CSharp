@@ -19,13 +19,22 @@ class MethodMetadata
         IsStatic = symbol.IsStatic;
 
         var returnType = symbol.ReturnType;
-        var fullName = (returnType.ContainingNamespace.IsGlobalNamespace ? "" : returnType.ContainingNamespace + ".") + returnType.Name;
-        IsAsync = fullName is "System.Threading.Tasks.Task"
-            or "System.Threading.Tasks.ValueTask"
-            or "Cysharp.Threading.Tasks.UniTask"
-            or "UnityEngine.Awaitable";
+        var fullName =
+            (
+                returnType.ContainingNamespace.IsGlobalNamespace
+                    ? ""
+                    : returnType.ContainingNamespace + "."
+            ) + returnType.Name;
+        IsAsync =
+            fullName
+                is "System.Threading.Tasks.Task"
+                    or "System.Threading.Tasks.ValueTask"
+                    or "Cysharp.Threading.Tasks.UniTask"
+                    or "UnityEngine.Awaitable";
 
-        HasReturnValue = !symbol.ReturnsVoid && !(IsAsync && returnType is INamedTypeSymbol n && !n.IsGenericType);
+        HasReturnValue =
+            !symbol.ReturnsVoid
+            && !(IsAsync && returnType is INamedTypeSymbol n && !n.IsGenericType);
 
         LuaMemberName = symbol.Name;
 
@@ -49,7 +58,11 @@ class MethodMetadata
 
         if (metamethodAttribute != null)
         {
-            Metamethod = (LuaObjectMetamethod)Enum.Parse(typeof(LuaObjectMetamethod), metamethodAttribute.ConstructorArguments[0].Value!.ToString());
+            Metamethod = (LuaObjectMetamethod)
+                Enum.Parse(
+                    typeof(LuaObjectMetamethod),
+                    metamethodAttribute.ConstructorArguments[0].Value!.ToString()
+                );
         }
     }
 }

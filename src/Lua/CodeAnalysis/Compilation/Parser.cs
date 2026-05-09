@@ -1,14 +1,14 @@
-﻿using Lua.Internal;
-using Lua.Runtime;
-using System.Buffers;
+﻿using System.Buffers;
 using System.Runtime.CompilerServices;
+using Lua.Internal;
+using Lua.Runtime;
 using static System.Diagnostics.Debug;
 
 namespace Lua.CodeAnalysis.Compilation;
 
+using static Constants;
 using static Function;
 using static Scanner;
-using static Constants;
 
 class Parser : IPoolNode<Parser>, IDisposable
 {
@@ -32,9 +32,7 @@ class Parser : IPoolNode<Parser>, IDisposable
     internal FastListCore<Label> PendingGotos;
     internal FastListCore<Label> ActiveLabels;
 
-    Parser()
-    {
-    }
+    Parser() { }
 
     Parser? nextNode;
 
@@ -110,18 +108,15 @@ class Parser : IPoolNode<Parser>, IDisposable
         return Function.EncodeString(CheckName());
     }
 
-
     public ExprDesc SingleVariable()
     {
         return Function.SingleVariable(CheckName());
     }
 
-
     public void LeaveLevel()
     {
         Scanner.L.CallCount--;
     }
-
 
     public TempBlock EnterLevel()
     {
@@ -246,7 +241,10 @@ class Parser : IPoolNode<Parser>, IDisposable
             parameterCount = Function.FreeRegisterCount - (@base + 1);
         }
 
-        var e = MakeExpression(Kind.Call, Function.EncodeABC(OpCode.Call, @base, parameterCount + 1, 2));
+        var e = MakeExpression(
+            Kind.Call,
+            Function.EncodeABC(OpCode.Call, @base, parameterCount + 1, 2)
+        );
         Function.FixLine(line);
         Function.FreeRegisterCount = @base + 1; // call removed function and args & leaves (unless changed) one result
         return e;
@@ -322,7 +320,10 @@ class Parser : IPoolNode<Parser>, IDisposable
                 e = MakeExpression(Kind.False, 0);
                 break;
             case TkDots:
-                CheckCondition(Function.Proto.IsVarArg, "cannot use '...' outside a vararg function");
+                CheckCondition(
+                    Function.Proto.IsVarArg,
+                    "cannot use '...' outside a vararg function"
+                );
                 e = MakeExpression(Kind.VarArg, Function.EncodeABC(OpCode.VarArg, 0, 1, 0));
                 break;
             case '{':
@@ -348,7 +349,7 @@ class Parser : IPoolNode<Parser>, IDisposable
             TkNot => OprNot,
             '-' => OprMinus,
             '#' => OprLength,
-            _ => OprNoUnary
+            _ => OprNoUnary,
         };
     }
 
@@ -371,18 +372,27 @@ class Parser : IPoolNode<Parser>, IDisposable
             TkGe => OprGE,
             TkAnd => OprAnd,
             TkOr => OprOr,
-            _ => OprNoBinary
+            _ => OprNoBinary,
         };
     }
 
-
     static readonly (int Left, int Right)[] priority =
     [
-        (6, 6), (6, 6), (7, 7), (7, 7), (7, 7),
-        (10, 9), (5, 4),
-        (3, 3), (3, 3), (3, 3),
-        (3, 3), (3, 3), (3, 3),
-        (2, 2), (1, 1)
+        (6, 6),
+        (6, 6),
+        (7, 7),
+        (7, 7),
+        (7, 7),
+        (10, 9),
+        (5, 4),
+        (3, 3),
+        (3, 3),
+        (3, 3),
+        (3, 3),
+        (3, 3),
+        (3, 3),
+        (2, 2),
+        (1, 1),
     ];
 
     public static int UnaryPriority => 8;
@@ -502,7 +512,10 @@ class Parser : IPoolNode<Parser>, IDisposable
             }
         }
 
-        Function.StoreVariable(t.Description, MakeExpression(Kind.NonRelocatable, Function.FreeRegisterCount - 1));
+        Function.StoreVariable(
+            t.Description,
+            MakeExpression(Kind.NonRelocatable, Function.FreeRegisterCount - 1)
+        );
     }
 
     public void ForBody(int @base, int line, int n, bool isNumeric)
@@ -811,7 +824,10 @@ class Parser : IPoolNode<Parser>, IDisposable
     {
         Function.MakeLocalVariable(CheckName());
         Function.AdjustLocalVariables(1);
-        Function.LocalVariable(Body(false, Scanner.LineNumber).Info).StartPc = Function.Proto.CodeList.Length;
+        Function.LocalVariable(Body(false, Scanner.LineNumber).Info).StartPc = Function
+            .Proto
+            .CodeList
+            .Length;
     }
 
     public void LocalStatement()
@@ -925,10 +941,12 @@ class Parser : IPoolNode<Parser>, IDisposable
                 break;
         }
 
-        Assert(Function.Proto.MaxStackSize >= Function.FreeRegisterCount && Function.FreeRegisterCount >= Function.ActiveVariableCount);
+        Assert(
+            Function.Proto.MaxStackSize >= Function.FreeRegisterCount
+                && Function.FreeRegisterCount >= Function.ActiveVariableCount
+        );
         Function.FreeRegisterCount = Function.ActiveVariableCount;
     }
-
 
     internal void MainFunction()
     {
@@ -942,18 +960,20 @@ class Parser : IPoolNode<Parser>, IDisposable
     public static Prototype Parse(LuaState l, TextReader r, string name)
     {
         using var internPool = new StringInternPool(4);
-        using var p = Get(new()
-        {
-            R = r,
-            Current = InitialState,
-            LineNumber = 1,
-            LastLine = 1,
-            LookAheadToken = new(0, TkEos),
-            L = l,
-            Source = name,
-            Buffer = new(r.Length),
-            StringPool = internPool
-        });
+        using var p = Get(
+            new()
+            {
+                R = r,
+                Current = InitialState,
+                LineNumber = 1,
+                LastLine = 1,
+                LookAheadToken = new(0, TkEos),
+                L = l,
+                Source = name,
+                Buffer = new(r.Length),
+                StringPool = internPool,
+            }
+        );
         var f = Function.Get(p, PrototypeBuilder.Get(name));
         p.Function = f;
         f.Proto.IsVarArg = true;
@@ -962,7 +982,11 @@ class Parser : IPoolNode<Parser>, IDisposable
         return f.Proto.CreatePrototypeAndRelease();
     }
 
-    public static void Dump(Prototype prototype, IBufferWriter<byte> writer, bool useLittleEndian = true)
+    public static void Dump(
+        Prototype prototype,
+        IBufferWriter<byte> writer,
+        bool useLittleEndian = true
+    )
     {
         DumpState state = new(writer, useLittleEndian ^ BitConverter.IsLittleEndian);
         state.Dump(prototype);
@@ -983,7 +1007,7 @@ class Parser : IPoolNode<Parser>, IDisposable
             {
                 '@' or '=' => name[1..],
                 '\e' => "binary string",
-                _ => name
+                _ => name,
             };
         }
 

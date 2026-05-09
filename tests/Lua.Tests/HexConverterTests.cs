@@ -13,7 +13,10 @@ public class HexConverterTests
     [TestCase("0X1.bcde19p+1", 3.475527882576)]
     public void Test_ToDouble(string text, double expected)
     {
-        Assert.That(Math.Abs(HexConverter.ToDouble(text) - expected), Is.LessThanOrEqualTo(0.00001d));
+        Assert.That(
+            Math.Abs(HexConverter.ToDouble(text) - expected),
+            Is.LessThanOrEqualTo(0.00001d)
+        );
     }
 
     [TestCase(1.1, "0x1.199999999999ap+0")]

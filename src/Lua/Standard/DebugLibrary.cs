@@ -1,6 +1,6 @@
 ﻿using System.Runtime.CompilerServices;
-using Lua.Runtime;
 using Lua.Internal;
+using Lua.Runtime;
 
 namespace Lua.Standard;
 
@@ -27,12 +27,11 @@ public sealed class DebugLibrary
             new(libraryName, "upvaluejoin", UpValueJoin),
             new(libraryName, "gethook", GetHook),
             new(libraryName, "sethook", SetHook),
-            new(libraryName, "getinfo", GetInfo)
+            new(libraryName, "getinfo", GetInfo),
         ];
     }
 
     public readonly LibraryFunction[] Functions;
-
 
     static LuaState GetLuaThread(in LuaFunctionExecutionContext context, out int argOffset)
     {
@@ -51,7 +50,6 @@ public sealed class DebugLibrary
         argOffset = 0;
         return context.State;
     }
-
 
     static ref LuaValue FindLocal(LuaState state, int level, int index, out string? name)
     {
@@ -79,9 +77,7 @@ public sealed class DebugLibrary
 
         index -= 1;
 
-
         var frameBase = frame.Base;
-
 
         if (frame.Function is LuaClosure closure)
         {
@@ -89,7 +85,11 @@ public sealed class DebugLibrary
             var nextFrame = callStack[^level];
             var currentPc = nextFrame.CallerInstructionIndex;
             {
-                var nextFrameBase = closure.Proto.Code[currentPc].OpCode is OpCode.Call or OpCode.TailCall ? nextFrame.Base - 1 : nextFrame.Base;
+                var nextFrameBase = closure.Proto.Code[currentPc].OpCode
+                    is OpCode.Call
+                        or OpCode.TailCall
+                    ? nextFrame.Base - 1
+                    : nextFrame.Base;
                 if (nextFrameBase - 1 < frameBase + index)
                 {
                     name = null;
@@ -133,7 +133,10 @@ public sealed class DebugLibrary
         return ref state.Stack.Get(frameBase + index);
     }
 
-    public ValueTask<int> GetLocal(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    public ValueTask<int> GetLocal(
+        LuaFunctionExecutionContext context,
+        CancellationToken cancellationToken
+    )
     {
         static LuaValue GetParam(LuaFunction function, int index)
         {
@@ -159,7 +162,6 @@ public sealed class DebugLibrary
 
         var level = context.GetArgument<int>(argOffset);
 
-
         if (level < 0 || level >= state.GetCallStackFrames().Length)
         {
             context.ThrowBadArgument(1, "level out of range");
@@ -174,14 +176,16 @@ public sealed class DebugLibrary
         return new(context.Return(name, local));
     }
 
-    public ValueTask<int> SetLocal(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    public ValueTask<int> SetLocal(
+        LuaFunctionExecutionContext context,
+        CancellationToken cancellationToken
+    )
     {
         var state = GetLuaThread(context, out var argOffset);
 
         var value = context.GetArgument(argOffset + 2);
         var index = context.GetArgument<int>(argOffset + 1);
         var level = context.GetArgument<int>(argOffset);
-
 
         if (level < 0 || level >= state.GetCallStackFrames().Length)
         {
@@ -198,7 +202,10 @@ public sealed class DebugLibrary
         return new(context.Return(name));
     }
 
-    public ValueTask<int> GetUpValue(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    public ValueTask<int> GetUpValue(
+        LuaFunctionExecutionContext context,
+        CancellationToken cancellationToken
+    )
     {
         var func = context.GetArgument<LuaFunction>(0);
         var index = context.GetArgument<int>(1) - 1;
@@ -231,7 +238,10 @@ public sealed class DebugLibrary
         }
     }
 
-    public ValueTask<int> SetUpValue(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    public ValueTask<int> SetUpValue(
+        LuaFunctionExecutionContext context,
+        CancellationToken cancellationToken
+    )
     {
         var func = context.GetArgument<LuaFunction>(0);
         var index = context.GetArgument<int>(1) - 1;
@@ -265,7 +275,10 @@ public sealed class DebugLibrary
         }
     }
 
-    public ValueTask<int> GetMetatable(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    public ValueTask<int> GetMetatable(
+        LuaFunctionExecutionContext context,
+        CancellationToken cancellationToken
+    )
     {
         var arg0 = context.GetArgument(0);
 
@@ -279,14 +292,22 @@ public sealed class DebugLibrary
         }
     }
 
-    public ValueTask<int> SetMetatable(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    public ValueTask<int> SetMetatable(
+        LuaFunctionExecutionContext context,
+        CancellationToken cancellationToken
+    )
     {
         var arg0 = context.GetArgument(0);
         var arg1 = context.GetArgument(1);
 
         if (arg1.Type is not (LuaValueType.Nil or LuaValueType.Table))
         {
-            LuaRuntimeException.BadArgument(context.State, 2, [LuaValueType.Nil, LuaValueType.Table], arg1.Type);
+            LuaRuntimeException.BadArgument(
+                context.State,
+                2,
+                [LuaValueType.Nil, LuaValueType.Table],
+                arg1.Type
+            );
         }
 
         context.GlobalState.SetMetatable(arg0, arg1.UnsafeRead<LuaTable>());
@@ -294,7 +315,10 @@ public sealed class DebugLibrary
         return new(context.Return(arg0));
     }
 
-    public ValueTask<int> GetUserValue(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    public ValueTask<int> GetUserValue(
+        LuaFunctionExecutionContext context,
+        CancellationToken cancellationToken
+    )
     {
         if (!context.GetArgumentOrDefault(0).TryRead<ILuaUserData>(out var iUserData))
         {
@@ -303,7 +327,9 @@ public sealed class DebugLibrary
 
         var index = 1; // context.GetArgument<int>(1); //for lua 5.4
         var userValues = iUserData.UserValues;
-        if (index > userValues.Length /* index < 1 ||  // for lua 5.4 */)
+        if (
+            index > userValues.Length /* index < 1 ||  // for lua 5.4 */
+        )
         {
             return new(context.Return(LuaValue.Nil));
         }
@@ -311,13 +337,18 @@ public sealed class DebugLibrary
         return new(context.Return(userValues[index - 1]));
     }
 
-    public ValueTask<int> SetUserValue(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    public ValueTask<int> SetUserValue(
+        LuaFunctionExecutionContext context,
+        CancellationToken cancellationToken
+    )
     {
         var iUserData = context.GetArgument<ILuaUserData>(0);
         var value = context.GetArgument(1);
         var index = 1; // context.GetArgument<int>(2); // for lua 5.4
         var userValues = iUserData.UserValues;
-        if (index > userValues.Length /* || index < 1 // for lua 5.4 */)
+        if (
+            index > userValues.Length /* || index < 1 // for lua 5.4 */
+        )
         {
             return new(context.Return(LuaValue.Nil));
         }
@@ -326,7 +357,10 @@ public sealed class DebugLibrary
         return new(context.Return(new LuaValue(iUserData)));
     }
 
-    public ValueTask<int> Traceback(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    public ValueTask<int> Traceback(
+        LuaFunctionExecutionContext context,
+        CancellationToken cancellationToken
+    )
     {
         var state = GetLuaThread(context, out var argOffset);
 
@@ -356,15 +390,30 @@ public sealed class DebugLibrary
 
         var skipCount = Math.Min(Math.Max(level - 1, 0), callStack.Length - 1);
         var frames = callStack[..^skipCount];
-        return new(context.Return(Runtime.Traceback.CreateTracebackMessage(context.GlobalState, frames, message, level == 1 ? 1 : 0)));
+        return new(
+            context.Return(
+                Runtime.Traceback.CreateTracebackMessage(
+                    context.GlobalState,
+                    frames,
+                    message,
+                    level == 1 ? 1 : 0
+                )
+            )
+        );
     }
 
-    public ValueTask<int> GetRegistry(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    public ValueTask<int> GetRegistry(
+        LuaFunctionExecutionContext context,
+        CancellationToken cancellationToken
+    )
     {
         return new(context.Return(context.GlobalState.Registry));
     }
 
-    public ValueTask<int> UpValueId(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    public ValueTask<int> UpValueId(
+        LuaFunctionExecutionContext context,
+        CancellationToken cancellationToken
+    )
     {
         var n1 = context.GetArgument<int>(1);
         var f1 = context.GetArgument<LuaFunction>(0);
@@ -383,7 +432,10 @@ public sealed class DebugLibrary
         return new(context.Return(LuaValue.FromObject(upValues[n1 - 1])));
     }
 
-    public ValueTask<int> UpValueJoin(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    public ValueTask<int> UpValueJoin(
+        LuaFunctionExecutionContext context,
+        CancellationToken cancellationToken
+    )
     {
         var n2 = context.GetArgument<int>(3);
         var f2 = context.GetArgument<LuaFunction>(2);
@@ -411,7 +463,10 @@ public sealed class DebugLibrary
         return new(0);
     }
 
-    public async ValueTask<int> SetHook(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    public async ValueTask<int> SetHook(
+        LuaFunctionExecutionContext context,
+        CancellationToken cancellationToken
+    )
     {
         var state = GetLuaThread(context, out var argOffset);
         var hook = context.GetArgumentOrDefault<LuaFunction?>(argOffset);
@@ -432,7 +487,12 @@ public sealed class DebugLibrary
             context.State.IsInHook = true;
             var frame = context.State.CreateCallStackFrame(hook, 2, top, 0);
             context.State.PushCallStackFrame(frame);
-            LuaFunctionExecutionContext funcContext = new() { State = context.State, ArgumentCount = stack.Count - frame.Base, ReturnFrameBase = frame.ReturnBase };
+            LuaFunctionExecutionContext funcContext = new()
+            {
+                State = context.State,
+                ArgumentCount = stack.Count - frame.Base,
+                ReturnFrameBase = frame.ReturnBase,
+            };
             try
             {
                 await hook.Func(funcContext, cancellationToken);
@@ -447,7 +507,10 @@ public sealed class DebugLibrary
         return 0;
     }
 
-    public ValueTask<int> GetHook(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    public ValueTask<int> GetHook(
+        LuaFunctionExecutionContext context,
+        CancellationToken cancellationToken
+    )
     {
         var state = GetLuaThread(context, out _);
         if (state.Hook is null)
@@ -455,14 +518,21 @@ public sealed class DebugLibrary
             return new(context.Return(LuaValue.Nil, LuaValue.Nil, LuaValue.Nil));
         }
 
-        return new(context.Return(state.Hook,
-            (state.IsCallHookEnabled ? "c" : "") +
-            (state.IsReturnHookEnabled ? "r" : "") +
-            (state.IsLineHookEnabled ? "l" : "")
-            , state.BaseHookCount));
+        return new(
+            context.Return(
+                state.Hook,
+                (state.IsCallHookEnabled ? "c" : "")
+                    + (state.IsReturnHookEnabled ? "r" : "")
+                    + (state.IsLineHookEnabled ? "l" : ""),
+                state.BaseHookCount
+            )
+        );
     }
 
-    public ValueTask<int> GetInfo(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    public ValueTask<int> GetInfo(
+        LuaFunctionExecutionContext context,
+        CancellationToken cancellationToken
+    )
     {
         // return new(0);
         var state = GetLuaThread(context, out var argOffset);
@@ -487,7 +557,6 @@ public sealed class DebugLibrary
                 return new(context.Return(LuaValue.Nil));
             }
 
-
             currentFrame = state.GetCallStackFrames()[^level];
             previousFrame = level + 1 <= callStack.Length ? callStack[^(level + 1)] : null;
             if (level != 1)
@@ -502,7 +571,15 @@ public sealed class DebugLibrary
             context.ThrowBadArgument(argOffset, "function or level expected");
         }
 
-        using var debug = LuaDebug.Create(context.GlobalState, previousFrame, currentFrame, functionToInspect, pc, what, out var isValid);
+        using var debug = LuaDebug.Create(
+            context.GlobalState,
+            previousFrame,
+            currentFrame,
+            functionToInspect,
+            pc,
+            what,
+            out var isValid
+        );
         if (!isValid)
         {
             context.ThrowBadArgument(argOffset + 1, "invalid option");

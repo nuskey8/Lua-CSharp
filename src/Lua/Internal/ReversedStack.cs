@@ -93,7 +93,6 @@ sealed class ReversedStack<T>(int capacity = 16)
         return buffer[tail];
     }
 
-
     void EnsureAdditionalCapacity(int required)
     {
         if (tail >= required)

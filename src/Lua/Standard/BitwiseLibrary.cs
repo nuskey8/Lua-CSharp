@@ -22,13 +22,16 @@ public sealed class BitwiseLibrary
             new(libraryName, "lshift", LShift),
             new(libraryName, "replace", Replace),
             new(libraryName, "rrotate", RRotate),
-            new(libraryName, "rshift", RShift)
+            new(libraryName, "rshift", RShift),
         ];
     }
 
     public readonly LibraryFunction[] Functions;
 
-    public ValueTask<int> ArShift(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    public ValueTask<int> ArShift(
+        LuaFunctionExecutionContext context,
+        CancellationToken cancellationToken
+    )
     {
         var x = context.GetArgument<double>(0);
         var disp = context.GetArgument<double>(1);
@@ -51,7 +54,10 @@ public sealed class BitwiseLibrary
         return new(context.Return((uint)v));
     }
 
-    public ValueTask<int> BAnd(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    public ValueTask<int> BAnd(
+        LuaFunctionExecutionContext context,
+        CancellationToken cancellationToken
+    )
     {
         if (context.ArgumentCount == 0)
         {
@@ -76,7 +82,10 @@ public sealed class BitwiseLibrary
         return new(context.Return(value));
     }
 
-    public ValueTask<int> BNot(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    public ValueTask<int> BNot(
+        LuaFunctionExecutionContext context,
+        CancellationToken cancellationToken
+    )
     {
         var arg0 = context.GetArgument<double>(0);
         LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.State, 1, arg0);
@@ -85,7 +94,10 @@ public sealed class BitwiseLibrary
         return new(context.Return(~value));
     }
 
-    public ValueTask<int> BOr(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    public ValueTask<int> BOr(
+        LuaFunctionExecutionContext context,
+        CancellationToken cancellationToken
+    )
     {
         if (context.ArgumentCount == 0)
         {
@@ -109,7 +121,10 @@ public sealed class BitwiseLibrary
         return new(context.Return(value));
     }
 
-    public ValueTask<int> BTest(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    public ValueTask<int> BTest(
+        LuaFunctionExecutionContext context,
+        CancellationToken cancellationToken
+    )
     {
         if (context.ArgumentCount == 0)
         {
@@ -134,7 +149,10 @@ public sealed class BitwiseLibrary
         return new(context.Return(value != 0));
     }
 
-    public ValueTask<int> BXor(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    public ValueTask<int> BXor(
+        LuaFunctionExecutionContext context,
+        CancellationToken cancellationToken
+    )
     {
         if (context.ArgumentCount == 0)
         {
@@ -158,13 +176,14 @@ public sealed class BitwiseLibrary
         return new(context.Return(value));
     }
 
-    public ValueTask<int> Extract(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    public ValueTask<int> Extract(
+        LuaFunctionExecutionContext context,
+        CancellationToken cancellationToken
+    )
     {
         var arg0 = context.GetArgument<double>(0);
         var arg1 = context.GetArgument<double>(1);
-        var arg2 = context.HasArgument(2)
-            ? context.GetArgument<double>(2)
-            : 1;
+        var arg2 = context.HasArgument(2) ? context.GetArgument<double>(2) : 1;
 
         LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.State, 1, arg0);
         LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.State, 2, arg1);
@@ -187,7 +206,10 @@ public sealed class BitwiseLibrary
         }
     }
 
-    public ValueTask<int> LRotate(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    public ValueTask<int> LRotate(
+        LuaFunctionExecutionContext context,
+        CancellationToken cancellationToken
+    )
     {
         var x = context.GetArgument<double>(0);
         var disp = context.GetArgument<double>(1);
@@ -206,12 +228,14 @@ public sealed class BitwiseLibrary
         {
             v = (v << a) | (v >> (32 - a));
         }
-
         ;
         return new(context.Return(v));
     }
 
-    public ValueTask<int> LShift(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    public ValueTask<int> LShift(
+        LuaFunctionExecutionContext context,
+        CancellationToken cancellationToken
+    )
     {
         var x = context.GetArgument<double>(0);
         var disp = context.GetArgument<double>(1);
@@ -238,14 +262,15 @@ public sealed class BitwiseLibrary
         return new(context.Return(v));
     }
 
-    public ValueTask<int> Replace(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    public ValueTask<int> Replace(
+        LuaFunctionExecutionContext context,
+        CancellationToken cancellationToken
+    )
     {
         var arg0 = context.GetArgument<double>(0);
         var arg1 = context.GetArgument<double>(1);
         var arg2 = context.GetArgument<double>(2);
-        var arg3 = context.HasArgument(3)
-            ? context.GetArgument<double>(3)
-            : 1;
+        var arg3 = context.HasArgument(3) ? context.GetArgument<double>(3) : 1;
 
         LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.State, 1, arg0);
         LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.State, 2, arg1);
@@ -273,7 +298,10 @@ public sealed class BitwiseLibrary
         return new(context.Return(n));
     }
 
-    public ValueTask<int> RRotate(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    public ValueTask<int> RRotate(
+        LuaFunctionExecutionContext context,
+        CancellationToken cancellationToken
+    )
     {
         var x = context.GetArgument<double>(0);
         var disp = context.GetArgument<double>(1);
@@ -296,7 +324,10 @@ public sealed class BitwiseLibrary
         return new(context.Return(v));
     }
 
-    public ValueTask<int> RShift(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    public ValueTask<int> RShift(
+        LuaFunctionExecutionContext context,
+        CancellationToken cancellationToken
+    )
     {
         var x = context.GetArgument<double>(0);
         var disp = context.GetArgument<double>(1);

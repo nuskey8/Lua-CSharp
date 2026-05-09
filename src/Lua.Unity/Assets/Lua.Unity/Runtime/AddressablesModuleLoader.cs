@@ -16,18 +16,21 @@ namespace Lua.Unity
 
         public bool Exists(string moduleName)
         {
-            if (cache.TryGetValue(moduleName, out _)) return true;
+            if (cache.TryGetValue(moduleName, out _))
+                return true;
 
             var location = Addressables.LoadResourceLocationsAsync(moduleName).WaitForCompletion();
             return location.Any();
         }
 
-        public async ValueTask<LuaModule> LoadAsync(string moduleName, CancellationToken cancellationToken = default)
+        public async ValueTask<LuaModule> LoadAsync(
+            string moduleName,
+            CancellationToken cancellationToken = default
+        )
         {
             if (cache.TryGetValue(moduleName, out var asset))
             {
-                
-                return asset .GetModule( moduleName);
+                return asset.GetModule(moduleName);
             }
 
             var asyncOperation = Addressables.LoadAssetAsync<LuaAsset>(moduleName);
@@ -39,12 +42,15 @@ namespace Lua.Unity
             }
 
             cache.Add(moduleName, asset);
-            return asset .GetModule( moduleName);
+            return asset.GetModule(moduleName);
         }
     }
+
     internal static class AsyncOperationHandleExtensions
     {
-        public static AsyncOperationHandleAwaiter<T> GetAwaiter<T>(this AsyncOperationHandle<T> asyncOperationHandle)
+        public static AsyncOperationHandleAwaiter<T> GetAwaiter<T>(
+            this AsyncOperationHandle<T> asyncOperationHandle
+        )
         {
             return new AsyncOperationHandleAwaiter<T>(asyncOperationHandle);
         }

@@ -14,7 +14,11 @@ public sealed class FileSystem(string? baseDirectory = null) : ILuaFileSystem
             LuaFileOpenMode.ReadUpdate => (FileMode.Open, FileAccess.ReadWrite),
             LuaFileOpenMode.WriteUpdate => (FileMode.Truncate, FileAccess.ReadWrite),
             LuaFileOpenMode.AppendUpdate => (FileMode.Append, FileAccess.ReadWrite),
-            _ => throw new ArgumentOutOfRangeException(nameof(luaFileOpenMode), luaFileOpenMode, null)
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(luaFileOpenMode),
+                luaFileOpenMode,
+                null
+            ),
         };
     }
 
@@ -33,23 +37,30 @@ public sealed class FileSystem(string? baseDirectory = null) : ILuaFileSystem
         return File.Exists(GetFullPath(path));
     }
 
-
-    public ValueTask<ILuaStream> Open(string path, LuaFileOpenMode openMode, CancellationToken cancellationToken)
+    public ValueTask<ILuaStream> Open(
+        string path,
+        LuaFileOpenMode openMode,
+        CancellationToken cancellationToken
+    )
     {
         var (mode, access) = GetFileMode(openMode);
         Stream stream;
         path = GetFullPath(path);
         if (openMode == LuaFileOpenMode.AppendUpdate)
         {
-            stream = File.Open(path, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.ReadWrite | FileShare.Delete);
+            stream = File.Open(
+                path,
+                FileMode.OpenOrCreate,
+                FileAccess.ReadWrite,
+                FileShare.ReadWrite | FileShare.Delete
+            );
         }
         else
         {
             stream = File.Open(path, mode, access, FileShare.ReadWrite | FileShare.Delete);
         }
 
-        ILuaStream wrapper =
-            new LuaStream(openMode, stream);
+        ILuaStream wrapper = new LuaStream(openMode, stream);
 
         if (openMode == LuaFileOpenMode.AppendUpdate)
         {
@@ -101,6 +112,11 @@ public sealed class FileSystem(string? baseDirectory = null) : ILuaFileSystem
 
     public ValueTask<ILuaStream> OpenTempFileStream(CancellationToken cancellationToken)
     {
-        return new(new LuaStream(LuaFileOpenMode.WriteUpdate, File.Open(Path.GetTempFileName(), FileMode.Open, FileAccess.ReadWrite)));
+        return new(
+            new LuaStream(
+                LuaFileOpenMode.WriteUpdate,
+                File.Open(Path.GetTempFileName(), FileMode.Open, FileAccess.ReadWrite)
+            )
+        );
     }
 }

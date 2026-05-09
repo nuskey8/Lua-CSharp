@@ -10,8 +10,8 @@ public class DateTimeTests
     public async Task Test_LocalFunction_Nil_1()
     {
         var source = """
-                     return os.date("%d-%m-%Y %H:%M:%S");
-                     """;
+            return os.date("%d-%m-%Y %H:%M:%S");
+            """;
         var timeProvider = new FakeTimeProvider();
         timeProvider.SetUtcNow(new DateTime(2000, 1, 2, 3, 4, 5, DateTimeKind.Utc));
         var state = LuaState.Create(LuaPlatform.Default with { TimeProvider = timeProvider });
@@ -34,7 +34,9 @@ public class DateTimeTests
         var state = LuaState.Create(LuaPlatform.Default with { TimeProvider = timeProvider });
         state.OpenOperatingSystemLibrary();
 
-        var exception = Assert.ThrowsAsync<LuaRuntimeException>(async () => await state.DoStringAsync($"return os.date(\"{format}\")"));
+        var exception = Assert.ThrowsAsync<LuaRuntimeException>(async () =>
+            await state.DoStringAsync($"return os.date(\"{format}\")")
+        );
 
         Assert.That(exception, Is.Not.Null);
         Assert.That(exception!.Message, Does.Contain("invalid conversion specifier"));
@@ -62,11 +64,13 @@ public class DateTimeTests
         var state = LuaState.Create();
         state.OpenOperatingSystemLibrary();
 
-        var result = await state.DoStringAsync($"""
+        var result = await state.DoStringAsync(
+            $"""
             local t = {unixTime}
             local D = os.date("*t", t)
             return os.time(D)
-            """);
+            """
+        );
 
         Assert.That(result, Has.Length.EqualTo(1));
         Assert.That(result[0].Read<double>(), Is.EqualTo(unixTime));
@@ -80,11 +84,13 @@ public class DateTimeTests
         var state = LuaState.Create(LuaPlatform.Default with { TimeProvider = timeProvider });
         state.OpenOperatingSystemLibrary();
 
-        var result = await state.DoStringAsync("""
+        var result = await state.DoStringAsync(
+            """
             local t = os.time()
             local D = os.date("*t", t)
             return t, os.time(D)
-            """);
+            """
+        );
 
         Assert.That(result, Has.Length.EqualTo(2));
         Assert.That(result[0].Read<double>(), Is.EqualTo(946782245));

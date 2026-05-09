@@ -5,7 +5,8 @@ public class LocalTests
     [Test]
     public async Task Test_LocalFunction_Nil_1()
     {
-        var source = @"
+        var source =
+            @"
 local function f(x) x = nil; return x end
 return f(10)";
         var result = await LuaState.Create().DoStringAsync(source);
@@ -17,7 +18,8 @@ return f(10)";
     [Test]
     public async Task Test_LocalFunction_Nil_2()
     {
-        var source = @"
+        var source =
+            @"
 local function f() local x; return x end
 return f(10)";
         var result = await LuaState.Create().DoStringAsync(source);
@@ -29,7 +31,8 @@ return f(10)";
     [Test]
     public async Task Test_LocalFunction_Nil_3()
     {
-        var source = @"
+        var source =
+            @"
 local function f(x) x = nil; local y; return x, y end
 return f(10)";
         var result = await LuaState.Create().DoStringAsync(source);
@@ -55,7 +58,8 @@ return f(10)";
     [Test]
     public async Task Test_LocalVariable_2()
     {
-        var source = @"
+        var source =
+            @"
 local i = 10
 do local i = 100 end
 return i";

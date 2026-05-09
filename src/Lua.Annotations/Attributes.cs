@@ -3,9 +3,7 @@
 [AttributeUsage(AttributeTargets.Class)]
 public sealed class LuaObjectAttribute : Attribute
 {
-    public LuaObjectAttribute()
-    {
-    }
+    public LuaObjectAttribute() { }
 
     public LuaObjectAttribute(string name)
     {
@@ -18,9 +16,7 @@ public sealed class LuaObjectAttribute : Attribute
 [AttributeUsage(AttributeTargets.Method | AttributeTargets.Field | AttributeTargets.Property)]
 public sealed class LuaMemberAttribute : Attribute
 {
-    public LuaMemberAttribute()
-    {
-    }
+    public LuaMemberAttribute() { }
 
     public LuaMemberAttribute(string name)
     {
@@ -37,6 +33,4 @@ public sealed class LuaMetamethodAttribute(LuaObjectMetamethod metamethod) : Att
 }
 
 [AttributeUsage(AttributeTargets.Method | AttributeTargets.Field | AttributeTargets.Property)]
-public sealed class LuaIgnoreMemberAttribute : Attribute
-{
-}
+public sealed class LuaIgnoreMemberAttribute : Attribute { }

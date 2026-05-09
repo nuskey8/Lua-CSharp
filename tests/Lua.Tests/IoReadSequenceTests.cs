@@ -5,7 +5,10 @@ namespace Lua.Tests;
 
 public sealed class IoReadSequenceTests : IDisposable
 {
-    readonly string testDirectory = Path.Combine(Path.GetTempPath(), $"LuaIoReadSequenceTests_{Guid.NewGuid()}");
+    readonly string testDirectory = Path.Combine(
+        Path.GetTempPath(),
+        $"LuaIoReadSequenceTests_{Guid.NewGuid()}"
+    );
 
     public IoReadSequenceTests()
     {
@@ -31,7 +34,8 @@ public sealed class IoReadSequenceTests : IDisposable
             third line
 
             and the rest of the file
-            """);
+            """
+        );
 
         using var state = LuaState.Create();
         state.Platform = state.Platform with { FileSystem = new FileSystem(testDirectory) };
@@ -43,7 +47,8 @@ public sealed class IoReadSequenceTests : IDisposable
             local _,a,b,c,d,e,h,__ = io.read(1, '*n', '*n', '*l', '*l', '*l', '*a', 10)
             assert(io.close(io.input()))
             return _, a, b, c, d, e, h, __
-            """);
+            """
+        );
 
         Assert.That(result, Has.Length.EqualTo(8));
         Assert.Multiple(() =>

@@ -115,7 +115,6 @@ public struct FastStackCore<T>
         return ref array[tail - 1]!;
     }
 
-
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void EnsureCapacity(int capacity)
     {

@@ -1,6 +1,6 @@
 using System.Buffers;
-using Lua.Internal;
 using System.Text;
+using Lua.Internal;
 
 namespace Lua.IO;
 
@@ -104,7 +104,8 @@ public sealed class LuaStream(LuaFileOpenMode mode, Stream innerStream) : ILuaSt
                 flush: true,
                 out var charsUsed,
                 out var bytesUsed,
-                out _);
+                out _
+            );
 
             if (bytesUsed > 0)
             {

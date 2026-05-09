@@ -11,7 +11,8 @@ public class ShebangTests
             #!/usr/bin/env lua
             return 42
             """,
-            "@shebang.lua");
+            "@shebang.lua"
+        );
 
         var result = await state.ExecuteAsync(closure);
 
@@ -35,12 +36,15 @@ public class ShebangTests
     {
         using var state = LuaState.Create();
 
-        var exception = Assert.Throws<LuaCompileException>(() => state.Load(
-            """
-            #!/usr/bin/env lua
-            return )
-            """,
-            "@shebang.lua"));
+        var exception = Assert.Throws<LuaCompileException>(() =>
+            state.Load(
+                """
+                #!/usr/bin/env lua
+                return )
+                """,
+                "@shebang.lua"
+            )
+        );
 
         Assert.That(exception, Is.Not.Null);
         Assert.That(exception!.Position.Line, Is.EqualTo(2));

@@ -12,7 +12,8 @@ public static class DiagnosticDescriptors
         category: Category,
         messageFormat: "LuaObject type '{0}' must be partial",
         defaultSeverity: DiagnosticSeverity.Error,
-        isEnabledByDefault: true);
+        isEnabledByDefault: true
+    );
 
     public static readonly DiagnosticDescriptor NestedNotAllowed = new(
         id: "LUACS002",
@@ -20,7 +21,8 @@ public static class DiagnosticDescriptors
         messageFormat: "LuaObject type '{0}' must be not nested",
         category: Category,
         defaultSeverity: DiagnosticSeverity.Error,
-        isEnabledByDefault: true);
+        isEnabledByDefault: true
+    );
 
     public static readonly DiagnosticDescriptor AbstractNotAllowed = new(
         id: "LUACS003",
@@ -28,7 +30,8 @@ public static class DiagnosticDescriptors
         messageFormat: "LuaObject object '{0}' must be not abstract",
         category: Category,
         defaultSeverity: DiagnosticSeverity.Error,
-        isEnabledByDefault: true);
+        isEnabledByDefault: true
+    );
 
     public static readonly DiagnosticDescriptor InvalidPropertyType = new(
         id: "LUACS004",
@@ -36,7 +39,8 @@ public static class DiagnosticDescriptors
         messageFormat: "The type of '{0}' must be LuaValue or a type that can be converted to LuaValue.",
         category: Category,
         defaultSeverity: DiagnosticSeverity.Error,
-        isEnabledByDefault: true);
+        isEnabledByDefault: true
+    );
 
     public static readonly DiagnosticDescriptor InvalidReturnType = new(
         id: "LUACS005",
@@ -44,7 +48,8 @@ public static class DiagnosticDescriptors
         messageFormat: "The return type '{0}' must be LuaValue or types that can be converted to LuaValue.",
         category: Category,
         defaultSeverity: DiagnosticSeverity.Error,
-        isEnabledByDefault: true);
+        isEnabledByDefault: true
+    );
 
     public static readonly DiagnosticDescriptor InvalidParameterType = new(
         id: "LUACS006",
@@ -52,7 +57,8 @@ public static class DiagnosticDescriptors
         messageFormat: "The parameter '{0}' must be LuaValue or types that can be converted to LuaValue.",
         category: Category,
         defaultSeverity: DiagnosticSeverity.Error,
-        isEnabledByDefault: true);
+        isEnabledByDefault: true
+    );
 
     public static readonly DiagnosticDescriptor DuplicateMetamethod = new(
         id: "LUACS007",
@@ -60,5 +66,6 @@ public static class DiagnosticDescriptors
         messageFormat: "Type '{0}' already contains a '{1}' metamethod.,",
         category: Category,
         defaultSeverity: DiagnosticSeverity.Error,
-        isEnabledByDefault: true);
+        isEnabledByDefault: true
+    );
 }

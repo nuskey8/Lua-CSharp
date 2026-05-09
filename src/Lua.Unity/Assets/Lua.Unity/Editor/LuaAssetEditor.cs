@@ -9,7 +9,8 @@ namespace Lua.Unity.Editor
 
         public override void OnInspectorGUI()
         {
-            if (textProperty == null) textProperty = serializedObject.FindProperty("text");
+            if (textProperty == null)
+                textProperty = serializedObject.FindProperty("text");
 
             using (new EditorGUI.IndentLevelScope(-1))
             {

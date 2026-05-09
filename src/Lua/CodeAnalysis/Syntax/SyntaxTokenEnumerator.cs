@@ -10,26 +10,17 @@ public ref struct SyntaxTokenEnumerator(ReadOnlySpan<SyntaxToken> source)
 
     public SyntaxToken Current
     {
-        get
-        {
-            return current;
-        }
+        get { return current; }
     }
 
     public int Position
     {
-        get
-        {
-            return offset;
-        }
+        get { return offset; }
     }
 
     public bool IsCompleted
     {
-        get
-        {
-            return source.Length == offset;
-        }
+        get { return source.Length == offset; }
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

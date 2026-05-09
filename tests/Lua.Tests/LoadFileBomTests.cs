@@ -5,7 +5,10 @@ namespace Lua.Tests;
 
 public sealed class LoadFileBomTests : IDisposable
 {
-    readonly string testDirectory = Path.Combine(Path.GetTempPath(), $"LuaLoadFileBomTests_{Guid.NewGuid()}");
+    readonly string testDirectory = Path.Combine(
+        Path.GetTempPath(),
+        $"LuaLoadFileBomTests_{Guid.NewGuid()}"
+    );
 
     public LoadFileBomTests()
     {

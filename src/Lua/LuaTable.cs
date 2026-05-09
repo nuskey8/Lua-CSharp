@@ -1,14 +1,13 @@
-using System.Runtime.CompilerServices;
 using System.Collections;
+using System.Runtime.CompilerServices;
 using Lua.Internal;
 
 namespace Lua;
 
 public sealed class LuaTable : IEnumerable<KeyValuePair<LuaValue, LuaValue>>
 {
-    public LuaTable() : this(8, 8)
-    {
-    }
+    public LuaTable()
+        : this(8, 8) { }
 
     public LuaTable(int arrayCapacity, int dictionaryCapacity)
     {
@@ -24,7 +23,6 @@ public sealed class LuaTable : IEnumerable<KeyValuePair<LuaValue, LuaValue>>
 
     const int MaxArraySize = 1 << 24;
     const int MaxDistance = 1 << 12;
-
 
     public LuaValue this[LuaValue key]
     {
@@ -143,7 +141,6 @@ public sealed class LuaTable : IEnumerable<KeyValuePair<LuaValue, LuaValue>>
             ThrowIndexIsNil();
         }
 
-
         if (TryGetInteger(key, out var index))
         {
             if (index > 0 && index <= array.Length)
@@ -164,8 +161,7 @@ public sealed class LuaTable : IEnumerable<KeyValuePair<LuaValue, LuaValue>>
 
         if (TryGetInteger(key, out var index))
         {
-            return index > 0 && index <= array.Length &&
-                   array[index - 1].Type != LuaValueType.Nil;
+            return index > 0 && index <= array.Length && array[index - 1].Type != LuaValueType.Nil;
         }
 
         return dictionary.TryGetValue(key, out var value) && value.Type is not LuaValueType.Nil;
@@ -208,7 +204,9 @@ public sealed class LuaTable : IEnumerable<KeyValuePair<LuaValue, LuaValue>>
 
         if (arrayIndex != array.Length - 1)
         {
-            array.AsSpan(arrayIndex, array.Length - arrayIndex - 1).CopyTo(array.AsSpan(arrayIndex + 1));
+            array
+                .AsSpan(arrayIndex, array.Length - arrayIndex - 1)
+                .CopyTo(array.AsSpan(arrayIndex + 1));
         }
 
         array[arrayIndex] = value;
@@ -336,7 +334,9 @@ public sealed class LuaTable : IEnumerable<KeyValuePair<LuaValue, LuaValue>>
         return new(this);
     }
 
-    IEnumerator<KeyValuePair<LuaValue, LuaValue>> IEnumerable<KeyValuePair<LuaValue, LuaValue>>.GetEnumerator()
+    IEnumerator<KeyValuePair<LuaValue, LuaValue>> IEnumerable<
+        KeyValuePair<LuaValue, LuaValue>
+    >.GetEnumerator()
     {
         return new LuaTableEnumerator(this);
     }
@@ -373,21 +373,18 @@ public sealed class LuaTable : IEnumerable<KeyValuePair<LuaValue, LuaValue>>
                 index = 0;
             }
 
-            while (LuaValueDictionary.MoveNext(table.Dictionary, version, ref index, out current) && current.Value.Type is LuaValueType.Nil)
-            {
-            }
+            while (
+                LuaValueDictionary.MoveNext(table.Dictionary, version, ref index, out current)
+                && current.Value.Type is LuaValueType.Nil
+            ) { }
 
             return current.Value.Type is not LuaValueType.Nil;
         }
 
-        public void Reset()
-        {
-        }
+        public void Reset() { }
 
         object IEnumerator.Current => Current;
 
-        public void Dispose()
-        {
-        }
+        public void Dispose() { }
     }
 }

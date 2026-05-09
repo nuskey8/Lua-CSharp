@@ -58,5 +58,5 @@ public enum OpCode : byte
 
     VarArg, // A B     R(A), R(A+1), ..., R(A+B-2) = vararg
 
-    ExtraArg // Ax      extra (larger) argument for previous opcode
+    ExtraArg, // Ax      extra (larger) argument for previous opcode
 }

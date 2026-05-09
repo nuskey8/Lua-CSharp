@@ -1,16 +1,14 @@
 <Project>
-
-    <PropertyGroup>
-        <!-- NuGet Packaging -->
-        <PackageVersion>0.5.3</PackageVersion>
-        <Authors>nuskey;Akeit0</Authors>
-        <Copyright>© Yusuke Nakada</Copyright>
-        <PackageProjectUrl>https://github.com/nuskey8/Lua-CSharp</PackageProjectUrl>
-        <RepositoryUrl>$(PackageProjectUrl)</RepositoryUrl>
-        <RepositoryType>git</RepositoryType>
-        <PackageLicenseExpression>MIT</PackageLicenseExpression>
-        <PackageReadmeFile>README.md</PackageReadmeFile>
-        <PackageIcon>Icon.png</PackageIcon>
-    </PropertyGroup>
-
+  <PropertyGroup>
+    <!-- NuGet Packaging -->
+    <PackageVersion>0.5.3</PackageVersion>
+    <Authors>nuskey;Akeit0</Authors>
+    <Copyright>© Yusuke Nakada</Copyright>
+    <PackageProjectUrl>https://github.com/nuskey8/Lua-CSharp</PackageProjectUrl>
+    <RepositoryUrl>$(PackageProjectUrl)</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageIcon>Icon.png</PackageIcon>
+  </PropertyGroup>
 </Project>

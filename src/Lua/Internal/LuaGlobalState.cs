@@ -28,7 +28,8 @@ sealed class LuaGlobalState
     public LuaTable Environment => environment;
     public LuaTable Registry => registry;
     public LuaTable LoadedModules => registry[ModuleLibrary.LoadedKeyForRegistry].Read<LuaTable>();
-    public LuaTable PreloadModules => registry[ModuleLibrary.PreloadKeyForRegistry].Read<LuaTable>();
+    public LuaTable PreloadModules =>
+        registry[ModuleLibrary.PreloadKeyForRegistry].Read<LuaTable>();
     public LuaState MainThread => mainState;
 
     // metatables
@@ -55,7 +56,6 @@ sealed class LuaGlobalState
         Platform = platform;
     }
 
-
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal bool TryGetMetatable(LuaValue value, [NotNullWhen(true)] out LuaTable? result)
     {
@@ -69,7 +69,7 @@ sealed class LuaGlobalState
             LuaValueType.Thread => stateMetatable,
             LuaValueType.UserData => value.UnsafeRead<ILuaUserData>().Metatable,
             LuaValueType.Table => value.UnsafeRead<LuaTable>().Metatable,
-            _ => null
+            _ => null,
         };
 
         return result != null;

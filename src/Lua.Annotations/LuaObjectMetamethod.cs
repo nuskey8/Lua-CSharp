@@ -19,5 +19,5 @@ public enum LuaObjectMetamethod
     IPairs,
     ToString,
     Index,
-    NewIndex
+    NewIndex,
 }

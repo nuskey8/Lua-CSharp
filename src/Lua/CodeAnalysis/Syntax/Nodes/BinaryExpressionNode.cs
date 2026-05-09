@@ -16,7 +16,7 @@ public enum BinaryOperator
     LessThanOrEqual,
     And,
     Or,
-    Concat
+    Concat,
 }
 
 static class BinaryOperatorEx
@@ -40,14 +40,22 @@ static class BinaryOperatorEx
             BinaryOperator.And => Keywords.And,
             BinaryOperator.Or => Keywords.Or,
             BinaryOperator.Concat => Keywords.Concat,
-            _ => ""
+            _ => "",
         };
     }
 }
 
-public record BinaryExpressionNode(BinaryOperator OperatorType, ExpressionNode LeftNode, ExpressionNode RightNode, SourcePosition Position) : ExpressionNode(Position)
+public record BinaryExpressionNode(
+    BinaryOperator OperatorType,
+    ExpressionNode LeftNode,
+    ExpressionNode RightNode,
+    SourcePosition Position
+) : ExpressionNode(Position)
 {
-    public override TResult Accept<TContext, TResult>(ISyntaxNodeVisitor<TContext, TResult> visitor, TContext context)
+    public override TResult Accept<TContext, TResult>(
+        ISyntaxNodeVisitor<TContext, TResult> visitor,
+        TContext context
+    )
     {
         return visitor.VisitBinaryExpressionNode(this, context);
     }

@@ -30,7 +30,6 @@ class StringInternPool : IDisposable
 
     public int Count => _count;
 
-
     public void Clear()
     {
         var count = _count;
@@ -86,7 +85,6 @@ class StringInternPool : IDisposable
 
         int index;
 
-
         int count = _count;
         if (count == entries.Length)
         {
@@ -97,7 +95,6 @@ class StringInternPool : IDisposable
         index = count;
         _count = count + 1;
         entries = _entries;
-
 
         var stringValue = value.ToString();
         stringValue = string.IsInterned(stringValue) ?? stringValue;
@@ -111,7 +108,6 @@ class StringInternPool : IDisposable
 
         return stringValue;
     }
-
 
     void Resize()
     {
@@ -147,7 +143,6 @@ class StringInternPool : IDisposable
         _entries = entries;
     }
 
-
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     ref int GetBucketRef(int hashCode)
     {
@@ -159,7 +154,6 @@ class StringInternPool : IDisposable
     {
         ArrayPool<int>.Shared.Return(_buckets);
         _buckets = null!;
-
 
         ArrayPool<Entry>.Shared.Return(_entries, true);
         _entries = null!;

@@ -4,12 +4,19 @@ public enum UnaryOperator
 {
     Negate,
     Not,
-    Length
+    Length,
 }
 
-public record UnaryExpressionNode(UnaryOperator Operator, ExpressionNode Node, SourcePosition Position) : ExpressionNode(Position)
+public record UnaryExpressionNode(
+    UnaryOperator Operator,
+    ExpressionNode Node,
+    SourcePosition Position
+) : ExpressionNode(Position)
 {
-    public override TResult Accept<TContext, TResult>(ISyntaxNodeVisitor<TContext, TResult> visitor, TContext context)
+    public override TResult Accept<TContext, TResult>(
+        ISyntaxNodeVisitor<TContext, TResult> visitor,
+        TContext context
+    )
     {
         return visitor.VisitUnaryExpressionNode(this, context);
     }
@@ -24,7 +31,7 @@ static class UnaryOperatorEx
             UnaryOperator.Negate => Keywords.Subtraction,
             UnaryOperator.Not => Keywords.Not,
             UnaryOperator.Length => Keywords.Length,
-            _ => ""
+            _ => "",
         };
     }
 }

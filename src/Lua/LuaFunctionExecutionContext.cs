@@ -12,6 +12,7 @@ public readonly record struct LuaFunctionExecutionContext
     public LuaState State { get; init; }
     public required int ArgumentCount { get; init; }
     public required int ReturnFrameBase { get; init; }
+
     // public object? AdditionalContext { get; init; }
 
     public int FrameBase => State.Stack.Count - ArgumentCount;
@@ -78,7 +79,12 @@ public readonly record struct LuaFunctionExecutionContext
             }
             else if (arg.Type is LuaValueType.UserData or LuaValueType.LightUserData)
             {
-                LuaRuntimeException.BadArgument(State, index + 1, t.Name, arg.UnsafeRead<object>()?.GetType().ToString() ?? "userdata: 0");
+                LuaRuntimeException.BadArgument(
+                    State,
+                    index + 1,
+                    t.Name,
+                    arg.UnsafeRead<object>()?.GetType().ToString() ?? "userdata: 0"
+                );
             }
             else
             {
@@ -117,7 +123,12 @@ public readonly record struct LuaFunctionExecutionContext
             }
             else if (arg.Type is LuaValueType.UserData or LuaValueType.LightUserData)
             {
-                LuaRuntimeException.BadArgument(State, index + 1, t.Name, arg.UnsafeRead<object>()?.GetType().ToString() ?? "userdata: 0");
+                LuaRuntimeException.BadArgument(
+                    State,
+                    index + 1,
+                    t.Name,
+                    arg.UnsafeRead<object>()?.GetType().ToString() ?? "userdata: 0"
+                );
             }
             else
             {
@@ -196,7 +207,12 @@ public readonly record struct LuaFunctionExecutionContext
 
     internal void ThrowBadArgument(int index, string message)
     {
-        LuaRuntimeException.BadArgument(State, index, State.GetCurrentFrame().Function.Name, message);
+        LuaRuntimeException.BadArgument(
+            State,
+            index,
+            State.GetCurrentFrame().Function.Name,
+            message
+        );
     }
 
     void ThrowIfArgumentNotExists(int index)

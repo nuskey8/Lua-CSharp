@@ -95,7 +95,10 @@ struct LightAsyncValueTaskMethodBuilder
     // 5. AwaitOnCompleted
     [DebuggerHidden]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void AwaitOnCompleted<TAwaiter, TStateMachine>(ref TAwaiter awaiter, ref TStateMachine stateMachine)
+    public void AwaitOnCompleted<TAwaiter, TStateMachine>(
+        ref TAwaiter awaiter,
+        ref TStateMachine stateMachine
+    )
         where TAwaiter : INotifyCompletion
         where TStateMachine : IAsyncStateMachine
     {
@@ -111,7 +114,10 @@ struct LightAsyncValueTaskMethodBuilder
     [DebuggerHidden]
     [SecuritySafeCritical]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void AwaitUnsafeOnCompleted<TAwaiter, TStateMachine>(ref TAwaiter awaiter, ref TStateMachine stateMachine)
+    public void AwaitUnsafeOnCompleted<TAwaiter, TStateMachine>(
+        ref TAwaiter awaiter,
+        ref TStateMachine stateMachine
+    )
         where TAwaiter : ICriticalNotifyCompletion
         where TStateMachine : IAsyncStateMachine
     {
@@ -211,13 +217,19 @@ struct LightAsyncValueTaskMethodBuilder<T>
     // 5. AwaitOnCompleted
     [DebuggerHidden]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void AwaitOnCompleted<TAwaiter, TStateMachine>(ref TAwaiter awaiter, ref TStateMachine stateMachine)
+    public void AwaitOnCompleted<TAwaiter, TStateMachine>(
+        ref TAwaiter awaiter,
+        ref TStateMachine stateMachine
+    )
         where TAwaiter : INotifyCompletion
         where TStateMachine : IAsyncStateMachine
     {
         if (runnerPromise == null)
         {
-            LightAsyncValueTask<TStateMachine, T>.SetStateMachine(ref stateMachine, ref runnerPromise);
+            LightAsyncValueTask<TStateMachine, T>.SetStateMachine(
+                ref stateMachine,
+                ref runnerPromise
+            );
         }
 
         awaiter.OnCompleted(runnerPromise!.MoveNext);
@@ -227,13 +239,19 @@ struct LightAsyncValueTaskMethodBuilder<T>
     [DebuggerHidden]
     [SecuritySafeCritical]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void AwaitUnsafeOnCompleted<TAwaiter, TStateMachine>(ref TAwaiter awaiter, ref TStateMachine stateMachine)
+    public void AwaitUnsafeOnCompleted<TAwaiter, TStateMachine>(
+        ref TAwaiter awaiter,
+        ref TStateMachine stateMachine
+    )
         where TAwaiter : ICriticalNotifyCompletion
         where TStateMachine : IAsyncStateMachine
     {
         if (runnerPromise == null)
         {
-            LightAsyncValueTask<TStateMachine, T>.SetStateMachine(ref stateMachine, ref runnerPromise);
+            LightAsyncValueTask<TStateMachine, T>.SetStateMachine(
+                ref stateMachine,
+                ref runnerPromise
+            );
         }
 
         awaiter.UnsafeOnCompleted(runnerPromise!.MoveNext);

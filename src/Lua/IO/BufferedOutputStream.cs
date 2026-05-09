@@ -15,7 +15,10 @@ public class BufferedOutputStream(Action<ReadOnlyMemory<char>> onFlush) : ILuaSt
 
     FastListCore<char> buffer;
 
-    public ValueTask WriteAsync(ReadOnlyMemory<char> text, CancellationToken cancellationToken = default)
+    public ValueTask WriteAsync(
+        ReadOnlyMemory<char> text,
+        CancellationToken cancellationToken = default
+    )
     {
         foreach (var c in text.Span)
         {

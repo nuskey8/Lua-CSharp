@@ -6,7 +6,10 @@ sealed class Comparer : IEqualityComparer<(GeneratorAttributeSyntaxContext, Comp
 {
     public static readonly Comparer Instance = new();
 
-    public bool Equals((GeneratorAttributeSyntaxContext, Compilation) x, (GeneratorAttributeSyntaxContext, Compilation) y)
+    public bool Equals(
+        (GeneratorAttributeSyntaxContext, Compilation) x,
+        (GeneratorAttributeSyntaxContext, Compilation) y
+    )
     {
         return x.Item1.TargetNode.Equals(y.Item1.TargetNode);
     }

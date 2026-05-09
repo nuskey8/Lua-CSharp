@@ -41,13 +41,21 @@ static class ContinuationSentinel
 
 static class ValueTaskEx
 {
-    public static ValueTask<(int winArgumentIndex, T0 result0, T1 result1, IDisposable promis)> WhenAnyPooled<T0, T1>(ValueTask<T0> task0, ValueTask<T1> task1)
+    public static ValueTask<(
+        int winArgumentIndex,
+        T0 result0,
+        T1 result1,
+        IDisposable promis
+    )> WhenAnyPooled<T0, T1>(ValueTask<T0> task0, ValueTask<T1> task1)
     {
         var promise = WhenAnyPromise<T0, T1>.Get(task0, task1);
         return new(promise, 0);
     }
 
-    class WhenAnyPromise<T0, T1> : IValueTaskSource<(int winArgumentIndex, T0 result0, T1 result1, IDisposable)>, IPoolNode<WhenAnyPromise<T0, T1>>, IDisposable
+    class WhenAnyPromise<T0, T1>
+        : IValueTaskSource<(int winArgumentIndex, T0 result0, T1 result1, IDisposable)>,
+            IPoolNode<WhenAnyPromise<T0, T1>>,
+            IDisposable
     {
         static readonly ContextCallback execContextCallback = ExecutionContextCallback!;
         static readonly SendOrPostCallback syncContextCallback = SynchronizationContextCallback!;
@@ -231,7 +239,6 @@ static class ValueTaskEx
             TryInvokeContinuationWithIncrement(1);
         }
 
-
         void TryInvokeContinuationWithIncrement(int index)
         {
             if (Interlocked.Increment(ref completedCount) == 1)
@@ -243,8 +250,14 @@ static class ValueTaskEx
 
         void TryInvokeContinuation()
         {
-            var c = Interlocked.Exchange(ref continuation, ContinuationSentinel.CompletedContinuation);
-            if (c != ContinuationSentinel.AvailableContinuation && c != ContinuationSentinel.CompletedContinuation)
+            var c = Interlocked.Exchange(
+                ref continuation,
+                ContinuationSentinel.CompletedContinuation
+            );
+            if (
+                c != ContinuationSentinel.AvailableContinuation
+                && c != ContinuationSentinel.CompletedContinuation
+            )
             {
                 SpinWait spinWait = new();
                 while (state == null) // worst case, state is not set yet so wait.
@@ -283,13 +296,25 @@ static class ValueTaskEx
         public ValueTaskSourceStatus GetStatus(short token)
         {
             return Volatile.Read(ref winArgumentIndex) != -1 ? ValueTaskSourceStatus.Succeeded
-                : exception != null ? exception.SourceException is OperationCanceledException ? ValueTaskSourceStatus.Canceled : ValueTaskSourceStatus.Faulted
+                : exception != null
+                    ? exception.SourceException is OperationCanceledException
+                            ? ValueTaskSourceStatus.Canceled
+                        : ValueTaskSourceStatus.Faulted
                 : ValueTaskSourceStatus.Pending;
         }
 
-        public void OnCompleted(Action<object?> continuation, object? state, short token, ValueTaskSourceOnCompletedFlags flags)
+        public void OnCompleted(
+            Action<object?> continuation,
+            object? state,
+            short token,
+            ValueTaskSourceOnCompletedFlags flags
+        )
         {
-            var c = Interlocked.CompareExchange(ref this.continuation, continuation, ContinuationSentinel.AvailableContinuation);
+            var c = Interlocked.CompareExchange(
+                ref this.continuation,
+                continuation,
+                ContinuationSentinel.AvailableContinuation
+            );
             if (c == ContinuationSentinel.CompletedContinuation)
             {
                 continuation(state);
@@ -306,12 +331,18 @@ static class ValueTaskEx
                 throw new InvalidOperationException("invalid state.");
             }
 
-            if ((flags & ValueTaskSourceOnCompletedFlags.FlowExecutionContext) == ValueTaskSourceOnCompletedFlags.FlowExecutionContext)
+            if (
+                (flags & ValueTaskSourceOnCompletedFlags.FlowExecutionContext)
+                == ValueTaskSourceOnCompletedFlags.FlowExecutionContext
+            )
             {
                 execContext = ExecutionContext.Capture();
             }
 
-            if ((flags & ValueTaskSourceOnCompletedFlags.UseSchedulingContext) == ValueTaskSourceOnCompletedFlags.UseSchedulingContext)
+            if (
+                (flags & ValueTaskSourceOnCompletedFlags.UseSchedulingContext)
+                == ValueTaskSourceOnCompletedFlags.UseSchedulingContext
+            )
             {
                 syncContext = SynchronizationContext.Current;
             }

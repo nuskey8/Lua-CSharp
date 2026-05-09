@@ -36,7 +36,6 @@ public class InterpreterSteps
         LuaState.Create();
     }
 
-
     [Benchmark]
     public LuaClosure Compile()
     {

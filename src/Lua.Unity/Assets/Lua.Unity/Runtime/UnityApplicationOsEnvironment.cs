@@ -1,20 +1,22 @@
-﻿using Lua.Platforms;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using Lua.Platforms;
 using UnityEngine;
 
 namespace Lua.Unity
 {
     public class UnityApplicationOsEnvironment : ILuaOsEnvironment
     {
-        public UnityApplicationOsEnvironment(Dictionary<string, string> environmentVariables = null,bool allowToQuitOnExitCall = false)
+        public UnityApplicationOsEnvironment(
+            Dictionary<string, string> environmentVariables = null,
+            bool allowToQuitOnExitCall = false
+        )
         {
             EnvironmentVariables = environmentVariables ?? new Dictionary<string, string>();
             AllowToQuitOnExitCall = allowToQuitOnExitCall;
         }
-
 
         public bool AllowToQuitOnExitCall { get; }
         public Dictionary<string, string> EnvironmentVariables { get; }
@@ -39,7 +41,9 @@ namespace Lua.Unity
             else
             {
                 // If quitting is not allowed, we can just throw an exception or log a message.
-                throw new InvalidOperationException("Application exit is not allowed in this environment.");
+                throw new InvalidOperationException(
+                    "Application exit is not allowed in this environment."
+                );
             }
         }
 
