@@ -27,4 +27,10 @@
       Visible="false"
     />
   </ItemGroup>
+
+  <ItemGroup>
+    <None Include="../../Icon.png" Pack="true" PackagePath="/" />
+    <None Include="..\..\README.md" Pack="true" PackagePath="README.md" />
+    <EmbeddedResource Include="..\..\LICENSE" />
+  </ItemGroup>
 </Project>
