@@ -460,7 +460,8 @@ sealed class MatchState(LuaState state, string source, string pattern)
                 res = char.IsLower(c);
                 break;
             case 'p':
-                res = char.IsPunctuation(c);
+                // Emulate C ispunct; .NET's char.IsPunctuation does not include symbols like '='.
+                res = !char.IsLetterOrDigit(c) && !char.IsControl(c) && !char.IsWhiteSpace(c);
                 break;
             case 's':
                 res = char.IsWhiteSpace(c);
