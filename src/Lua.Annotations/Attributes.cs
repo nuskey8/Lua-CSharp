@@ -24,6 +24,8 @@ public sealed class LuaMemberAttribute : Attribute
     }
 
     public string? Name { get; }
+
+    public bool AllowNil { get; set; }
 }
 
 [AttributeUsage(AttributeTargets.Method)]

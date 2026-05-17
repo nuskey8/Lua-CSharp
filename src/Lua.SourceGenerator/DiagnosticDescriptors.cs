@@ -68,4 +68,13 @@ public static class DiagnosticDescriptors
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true
     );
+
+    public static readonly DiagnosticDescriptor InvalidAllowNilMemberType = new(
+        id: "LUACS008",
+        title: "AllowNil can only be used on LuaObject reference type members.",
+        messageFormat: "AllowNil can only be used on LuaObject reference type members.",
+        category: Category,
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true
+    );
 }
