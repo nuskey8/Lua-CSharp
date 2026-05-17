@@ -43,8 +43,11 @@ partial class LuaObjectGenerator
         bool allowNil
     )
     {
-        var methodName = allowNil ? "GetArgumentOrDefault" : "GetArgument";
-        return $"context.{methodName}<{typeSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}>({argumentIndex})";
+        var typeName = typeSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+        var argumentExpression = $"context.GetArgument<{typeName}>({argumentIndex})";
+        return allowNil
+            ? $"context.HasArgument({argumentIndex}) ? {argumentExpression} : default({typeName})"
+            : argumentExpression;
     }
 
     static bool TryEmit(
