@@ -2,7 +2,7 @@
 
 ## Dependencies
 
-The following are used in the development of Lua-CSharp:
+The following tools are used for Lua-CSharp development:
 
 - [Visual Studio Code](https://code.visualstudio.com/) / [Rider](https://www.jetbrains.com/rider/)
 - [Unity Editor](https://unity3d.com/unity/editor) (optional)
