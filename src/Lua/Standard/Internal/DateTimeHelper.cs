@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Text;
 
@@ -165,14 +166,14 @@ static class DateTimeHelper
             var pattern = STANDARD_PATTERNS(c);
             if (pattern != null)
             {
-                builder.Append(d.ToString(pattern));
+                builder.Append(d.ToString(pattern, CultureInfo.InvariantCulture));
             }
             else
                 switch (c)
                 {
                     case 'e':
                     {
-                        var s = d.ToString("%d");
+                        var s = d.ToString("%d", CultureInfo.InvariantCulture);
                         builder.Append(s.Length < 2 ? $" {s}" : s);
                         break;
                     }
@@ -184,10 +185,10 @@ static class DateTimeHelper
                         break;
                     case 'C':
                         // TODO: reduce allocation
-                        builder.Append((d.Year / 100).ToString());
+                        builder.Append((d.Year / 100).ToString(CultureInfo.InvariantCulture));
                         break;
                     case 'j':
-                        builder.Append(d.DayOfYear.ToString("000"));
+                        builder.Append(d.DayOfYear.ToString("000", CultureInfo.InvariantCulture));
                         break;
                     case 'u':
                     {
@@ -197,13 +198,13 @@ static class DateTimeHelper
                             weekDay = 7;
                         }
 
-                        builder.Append(weekDay.ToString());
+                        builder.Append(weekDay.ToString(CultureInfo.InvariantCulture));
                         break;
                     }
                     case 'w':
                     {
                         var weekDay = (int)d.DayOfWeek;
-                        builder.Append(weekDay.ToString());
+                        builder.Append(weekDay.ToString(CultureInfo.InvariantCulture));
                         break;
                     }
                     case 'U':

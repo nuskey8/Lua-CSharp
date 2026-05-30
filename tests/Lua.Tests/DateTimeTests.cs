@@ -1,6 +1,7 @@
 ﻿using Lua.Platforms;
 using Lua.Standard;
 using Microsoft.Extensions.Time.Testing;
+using System.Globalization;
 
 namespace Lua.Tests;
 
@@ -55,6 +56,38 @@ public class DateTimeTests
 
         Assert.That(result, Has.Length.EqualTo(1));
         Assert.That(result[0], Is.EqualTo(new LuaValue("2000")));
+    }
+
+    [Test]
+    [NonParallelizable]
+    public async Task OsDate_UsesCLocaleForNames()
+    {
+        var originalCulture = CultureInfo.CurrentCulture;
+        try
+        {
+            try
+            {
+                CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("de-DE");
+            }
+            catch (CultureNotFoundException)
+            {
+                Assert.Ignore("Required culture 'de-DE' is not available in this runtime.");
+                return;
+            }
+
+            var state = LuaState.Create();
+            state.OpenOperatingSystemLibrary();
+
+            // 946771200 is the unix time for 2000-01-02 00:00:00 UTC
+            var result = await state.DoStringAsync("""return os.date("!%A %B", 946771200)""");
+
+            Assert.That(result, Has.Length.EqualTo(1));
+            Assert.That(result[0], Is.EqualTo(new LuaValue("Sunday January")));
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = originalCulture;
+        }
     }
 
     [Test]
