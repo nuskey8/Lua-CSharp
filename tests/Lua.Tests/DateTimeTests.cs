@@ -59,12 +59,22 @@ public class DateTimeTests
     }
 
     [Test]
+    [NonParallelizable]
     public async Task OsDate_UsesCLocaleForNames()
     {
-        var culture = CultureInfo.CurrentCulture;
-        CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("de-DE");
+        var originalCulture = CultureInfo.CurrentCulture;
         try
         {
+            try
+            {
+                CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("de-DE");
+            }
+            catch (CultureNotFoundException)
+            {
+                Assert.Ignore("Required culture 'de-DE' is not available in this runtime.");
+                return;
+            }
+
             var state = LuaState.Create();
             state.OpenOperatingSystemLibrary();
 
@@ -76,7 +86,7 @@ public class DateTimeTests
         }
         finally
         {
-            CultureInfo.CurrentCulture = culture;
+            CultureInfo.CurrentCulture = originalCulture;
         }
     }
 
