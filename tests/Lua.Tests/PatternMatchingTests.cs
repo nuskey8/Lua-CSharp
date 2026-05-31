@@ -598,7 +598,7 @@ public class PatternMatchingTests
     }
 
     [Test]
-    public async Task Test_StringGSub_PunctuationClassCapturesSymbolCharacters()
+    public async Task Test_StringGSub_PunctuationClassCapturesAsciiSymbolCharacters()
     {
         var state = LuaState.Create();
         state.OpenStringLibrary();
@@ -621,6 +621,17 @@ public class PatternMatchingTests
 
         Assert.That(result[0].Read<string>(), Is.EqualTo("!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~"));
         Assert.That(result[1].Read<double>(), Is.EqualTo(32));
+
+        // Lua %p does not capture non-ASCII punctuation characters
+        result = await state.DoStringAsync(
+            """
+            local text = '’،。、！？'
+            return string.gsub(text, '%p', 'X')
+            """
+        );
+
+        Assert.That(result[0].Read<string>(), Is.EqualTo("’،。、！？"));
+        Assert.That(result[1].Read<double>(), Is.EqualTo(0));
 
         result = await state.DoStringAsync(
             "return string.gsub('abc=xyz', '(%w*)(%p)(%w+)', '%3%2%1-%0')"
