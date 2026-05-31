@@ -461,10 +461,12 @@ sealed class MatchState(LuaState state, string source, string pattern)
                 break;
             case 'p':
                 // Emulate C ispunct; .NET's char.IsPunctuation does not include symbols like '='.
-                res = (c >= '!' && c <= '/') ||
-                      (c >= ':' && c <= '@') ||
-                      (c >= '[' && c <= '`') ||
-                      (c >= '{' && c <= '~');
+                res =
+                    c
+                        is (>= '!' and <= '/')
+                            or (>= ':' and <= '@')
+                            or (>= '[' and <= '`')
+                            or (>= '{' and <= '~');
                 break;
             case 's':
                 res = char.IsWhiteSpace(c);
