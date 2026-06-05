@@ -367,6 +367,8 @@ public sealed class BasicLibrary
                     throw;
                 case OperationCanceledException:
                     throw new LuaCanceledException(context.State, cancellationToken, ex);
+                case LuaStackOverflowException:
+                    return context.Return(false, ex.Message);
                 case LuaRuntimeException luaEx:
                 {
                     if (
