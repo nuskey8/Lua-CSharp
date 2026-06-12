@@ -2165,7 +2165,24 @@ public static partial class LuaVirtualMachine
             {
                 if (i == 0)
                 {
-                    ThrowInvalidOperationWithName();
+                    var op = context.Instruction.OpCode;
+                    if (op != OpCode.SetTabUp)
+                    {
+                        LuaRuntimeException.AttemptInvalidOperationOnLuaStack(
+                            GetstateWithCurrentPc(context),
+                            "index",
+                            context.Pc,
+                            context.Instruction.A
+                        );
+                    }
+                    else
+                    {
+                        LuaRuntimeException.AttemptInvalidOperationOnUpValues(
+                            GetstateWithCurrentPc(context),
+                            "index",
+                            context.Instruction.A
+                        );
+                    }
                 }
                 else
                 {
@@ -2188,29 +2205,6 @@ public static partial class LuaVirtualMachine
         }
 
         throw new LuaRuntimeException(GetstateWithCurrentPc(context), "loop in settable");
-
-        [MethodImpl(MethodImplOptions.NoInlining)]
-        void ThrowInvalidOperationWithName()
-        {
-            var op = context.Instruction.OpCode;
-            if (op != OpCode.SetTabUp)
-            {
-                LuaRuntimeException.AttemptInvalidOperationOnLuaStack(
-                    GetstateWithCurrentPc(context),
-                    "index",
-                    context.Pc,
-                    context.Instruction.A
-                );
-            }
-            else
-            {
-                LuaRuntimeException.AttemptInvalidOperationOnUpValues(
-                    GetstateWithCurrentPc(context),
-                    "index",
-                    context.Instruction.A
-                );
-            }
-        }
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
