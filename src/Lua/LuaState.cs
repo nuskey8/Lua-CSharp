@@ -197,6 +197,8 @@ public class LuaState : IDisposable
     public LuaTable PreloadModules => GlobalState.PreloadModules;
     public LuaState MainThread => GlobalState.MainThread;
 
+    public int MaxCallDepth { get; set; } = 100_000;
+
     public ILuaModuleLoader? ModuleLoader
     {
         get => GlobalState.ModuleLoader;
@@ -285,6 +287,11 @@ public class LuaState : IDisposable
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal void PushCallStackFrame(in CallStackFrame frame)
     {
+        if (CallStackFrameCount >= MaxCallDepth)
+        {
+            throw new LuaStackOverflowException();
+        }
+
         CurrentException?.BuildOrGet();
         CurrentException = null;
         ref var callStack = ref CoreData!.CallStack;
