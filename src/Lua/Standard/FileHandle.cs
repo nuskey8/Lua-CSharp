@@ -49,6 +49,24 @@ public sealed class FileHandle : ILuaUserData
         set => fileHandleMetatable = value;
     }
 
+    bool ILuaUserData.TryIndex(LuaValue key, ref LuaValue value, bool isGet)
+    {
+        if (!isGet) return false;
+        if (!key.TryRead<string>(out var name)) return false;
+        value = name switch
+        {
+            "close" => new LuaValue(CloseFunction),
+            "flush" => new LuaValue(FlushFunction),
+            "lines" => new LuaValue(LinesFunction),
+            "read" => new LuaValue(ReadFunction),
+            "seek" => new LuaValue(SeekFunction),
+            "setvbuf" => new LuaValue(SetVBufFunction),
+            "write" => new LuaValue(WriteFunction),
+            _ => default,
+        };
+        return value.Type != LuaValueType.Nil;
+    }
+
     static LuaTable? fileHandleMetatable;
 
     static FileHandle()
