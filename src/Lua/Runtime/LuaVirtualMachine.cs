@@ -1895,18 +1895,7 @@ public static partial class LuaVirtualMachine
                 )
             )
             {
-                if (i == 0)
-                {
-                    ThrowInvalidOperationWithName();
-                }
-                else
-                {
-                    LuaRuntimeException.AttemptInvalidOperation(
-                        GetstateWithCurrentPc(context),
-                        "index",
-                        table
-                    );
-                }
+                ThrowInvalidOperationForNoIndex(context, i, table);
             }
 
             table = metatableValue;
@@ -1927,10 +1916,21 @@ public static partial class LuaVirtualMachine
         throw new LuaRuntimeException(GetstateWithCurrentPc(context), "loop in gettable");
 
         [MethodImpl(MethodImplOptions.NoInlining)]
-        void ThrowInvalidOperationWithName()
+        static void ThrowInvalidOperationForNoIndex(
+            VirtualMachineExecutionContext context,
+            int loopCount,
+            in LuaValue table
+        )
         {
-            var op = context.Instruction.OpCode;
-            if (op != OpCode.GetTabUp)
+            if (loopCount != 0)
+            {
+                LuaRuntimeException.AttemptInvalidOperation(
+                    GetstateWithCurrentPc(context),
+                    "index",
+                    table
+                );
+            }
+            else if (context.Instruction.OpCode != OpCode.GetTabUp)
             {
                 LuaRuntimeException.AttemptInvalidOperationOnLuaStack(
                     GetstateWithCurrentPc(context),
@@ -2163,18 +2163,7 @@ public static partial class LuaVirtualMachine
                 )
             )
             {
-                if (i == 0)
-                {
-                    ThrowInvalidOperationWithName();
-                }
-                else
-                {
-                    LuaRuntimeException.AttemptInvalidOperation(
-                        GetstateWithCurrentPc(context),
-                        "index",
-                        table
-                    );
-                }
+                ThrowInvalidOperationForNoNewIndex(context, i, table);
             }
 
             table = metatableValue;
@@ -2190,10 +2179,21 @@ public static partial class LuaVirtualMachine
         throw new LuaRuntimeException(GetstateWithCurrentPc(context), "loop in settable");
 
         [MethodImpl(MethodImplOptions.NoInlining)]
-        void ThrowInvalidOperationWithName()
+        static void ThrowInvalidOperationForNoNewIndex(
+            VirtualMachineExecutionContext context,
+            int loopCount,
+            in LuaValue table
+        )
         {
-            var op = context.Instruction.OpCode;
-            if (op != OpCode.SetTabUp)
+            if (loopCount != 0)
+            {
+                LuaRuntimeException.AttemptInvalidOperation(
+                    GetstateWithCurrentPc(context),
+                    "index",
+                    table
+                );
+            }
+            else if (context.Instruction.OpCode != OpCode.SetTabUp)
             {
                 LuaRuntimeException.AttemptInvalidOperationOnLuaStack(
                     GetstateWithCurrentPc(context),
