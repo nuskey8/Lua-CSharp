@@ -774,6 +774,12 @@ public sealed class StringLibrary
                 {
                     sIdx = res;
                 }
+
+                // Anchored patterns only match once at the start of the string
+                if (anchor)
+                {
+                    break;
+                }
             }
             else
             {

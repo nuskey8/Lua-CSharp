@@ -1052,4 +1052,39 @@ public class PatternMatchingTests
         Assert.That(result[0].Read<string>(), Is.EqualTo("a"));
         Assert.That(result[1].Read<string>(), Is.EqualTo("b"));
     }
+
+    [Test]
+    public async Task Test_StringGSub_AnchoredPattern()
+    {
+        var state = LuaState.Create();
+        state.OpenStringLibrary();
+
+        // Anchored pattern should only match once at the start of the string
+        var result = await state.DoStringAsync(
+            "return string.gsub('firstTime', '^%l', string.upper)"
+        );
+        Assert.That(result.Length, Is.EqualTo(2));
+        Assert.That(result[0].Read<string>(), Is.EqualTo("FirstTime"));
+        Assert.That(result[1].Read<double>(), Is.EqualTo(1));
+
+        // Anchored pattern with a function replacement
+        result = await state.DoStringAsync(
+            "return string.gsub('hello world', '^%w+', function(w) return w:upper() end)"
+        );
+        Assert.That(result.Length, Is.EqualTo(2));
+        Assert.That(result[0].Read<string>(), Is.EqualTo("HELLO world"));
+        Assert.That(result[1].Read<double>(), Is.EqualTo(1));
+
+        // Anchored pattern that does not match at the start should make no replacements
+        result = await state.DoStringAsync("return string.gsub('hello world', '^world', 'WORLD')");
+        Assert.That(result.Length, Is.EqualTo(2));
+        Assert.That(result[0].Read<string>(), Is.EqualTo("hello world"));
+        Assert.That(result[1].Read<double>(), Is.EqualTo(0));
+
+        // Anchored pattern with string replacement
+        result = await state.DoStringAsync("return string.gsub('abcabc', '^abc', 'X')");
+        Assert.That(result.Length, Is.EqualTo(2));
+        Assert.That(result[0].Read<string>(), Is.EqualTo("Xabc"));
+        Assert.That(result[1].Read<double>(), Is.EqualTo(1));
+    }
 }
