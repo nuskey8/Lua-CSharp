@@ -170,7 +170,12 @@ public static partial class LuaVirtualMachine
                 // Other opcodes has one result
                 default:
                     Stack.Get(target) = result.Length == 0 ? LuaValue.Nil : result[0];
-                    State.PopCallStackFrameWithStackPop(target + 1);
+                    // Restore the caller's stack top rather than truncating to the
+                    // result register: the result register may live BELOW other live
+                    // registers (e.g. a numeric for-loop's hidden index/limit/step
+                    // slots, or locals declared before the current expression). The
+                    // metamethod frame's ReturnBase is the caller's top at call time.
+                    State.PopCallStackFrameWithStackPop(Math.Max(target + 1, CurrentReturnFrameBase));
                     return true;
             }
 
