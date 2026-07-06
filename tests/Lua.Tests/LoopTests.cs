@@ -52,12 +52,6 @@ return n";
         Assert.That(result[0], Is.EqualTo(new LuaValue(100)));
     }
 
-    // Regression: returning from a metamethod truncated the stack to the result
-    // register. When that register sat below a numeric for-loop's hidden control
-    // slots (index/limit/step) — which happens when the assignment target is a
-    // local declared before the loop — the control slots were clobbered, the step
-    // decayed to 0, and the loop spun forever. A CancellationToken guards the run so
-    // a re-regression fails fast instead of hanging the whole test suite.
     [Test]
     public async Task Test_NumericFor_MetamethodResultDoesNotCorruptLoopState()
     {
@@ -80,8 +74,6 @@ return acc.v";
         Assert.That(result[0], Is.EqualTo(new LuaValue(15)));
     }
 
-    // Same regression, exercised through an __index metamethod (single-result return
-    // path) with the target local living below the loop's control slots.
     [Test]
     public async Task Test_NumericFor_IndexMetamethodResultDoesNotCorruptLoopState()
     {
