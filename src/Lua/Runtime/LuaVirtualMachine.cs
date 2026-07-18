@@ -1107,6 +1107,7 @@ public static partial class LuaVirtualMachine
         return false;
     }
 
+    [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder<>))]
     static async ValueTask<int> Concat(
         VirtualMachineExecutionContext context,
         int target,
@@ -1195,6 +1196,7 @@ public static partial class LuaVirtualMachine
         return 1;
     }
 
+    [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder<>))]
     internal static async ValueTask<LuaValue> Concat(
         LuaState state,
         int total,
@@ -1288,6 +1290,7 @@ public static partial class LuaVirtualMachine
         return stack.AsSpan()[^1];
     }
 
+    [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder))]
     static async ValueTask ExecuteBinaryOperationMetaMethod(
         int target,
         LuaValue vb,
@@ -1487,6 +1490,7 @@ public static partial class LuaVirtualMachine
         }
     }
 
+    [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder<>))]
     internal static async ValueTask<int> Call(
         LuaState state,
         int funcIndex,
@@ -2072,6 +2076,7 @@ public static partial class LuaVirtualMachine
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
+    [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder<>))]
     static async ValueTask<LuaValue> CallGetTableFunc(
         LuaState state,
         LuaFunction indexTable,
@@ -2336,6 +2341,7 @@ public static partial class LuaVirtualMachine
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
+    [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder))]
     static async ValueTask CallSetTableFunc(
         LuaState state,
         LuaFunction newIndexFunction,
@@ -2485,6 +2491,7 @@ public static partial class LuaVirtualMachine
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
+    [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder<>))]
     internal static async ValueTask<LuaValue> ExecuteBinaryOperationMetaMethod(
         LuaState state,
         LuaValue vb,
@@ -2672,6 +2679,7 @@ public static partial class LuaVirtualMachine
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
+    [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder<>))]
     internal static async ValueTask<LuaValue> ExecuteUnaryOperationMetaMethod(
         LuaState state,
         LuaValue vb,
@@ -2883,6 +2891,7 @@ public static partial class LuaVirtualMachine
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
+    [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder<>))]
     internal static async ValueTask<bool> ExecuteCompareOperationMetaMethod(
         LuaState state,
         LuaValue vb,

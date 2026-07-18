@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using Lua.Internal;
+using Lua.Internal.CompilerServices;
 using Lua.Runtime;
 
 namespace Lua.Standard;
@@ -172,6 +173,7 @@ public sealed class TableLibrary
         return AwaitSortAsync(context, sortTask);
     }
 
+    [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder<>))]
     static async ValueTask<int> AwaitSortAsync(
         LuaFunctionExecutionContext context,
         ValueTask sortTask
@@ -181,6 +183,7 @@ public sealed class TableLibrary
         return context.Return();
     }
 
+    [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder))]
     async ValueTask AuxSortAsync(
         LuaState state,
         Memory<LuaValue> memory,
@@ -281,6 +284,7 @@ public sealed class TableLibrary
         }
     }
 
+    [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder<>))]
     async ValueTask<int> PartitionAsync(
         LuaState state,
         Memory<LuaValue> memory,
@@ -352,6 +356,7 @@ public sealed class TableLibrary
         return AwaitCompareAsync(state, top, runTask);
     }
 
+    [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder<>))]
     static async ValueTask<bool> AwaitCompareAsync(LuaState state, int top, ValueTask<int> runTask)
     {
         try

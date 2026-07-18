@@ -107,6 +107,7 @@ public static class LuaStateExtensions
         return ExecuteAsync(state, closure, cancellationToken);
     }
 
+    [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder<>))]
     public static async ValueTask<int> DoFileAsync(
         this LuaState state,
         string path,
@@ -121,6 +122,7 @@ public static class LuaStateExtensions
         return results.Count;
     }
 
+    [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder<>))]
     public static async ValueTask<LuaValue[]> DoFileAsync(
         this LuaState state,
         string path,
@@ -429,6 +431,7 @@ public static class LuaStateExtensions
         );
     }
 
+    [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder<>))]
     public static async ValueTask<LuaValue> GetTableAsync(
         this LuaState state,
         LuaValue table,
@@ -537,6 +540,7 @@ public static class LuaStateExtensions
         state.Stack.PushRange(arguments);
         return Impl(state, funcIndex, cancellationToken);
 
+        [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder<>))]
         static async ValueTask<LuaValue[]> Impl(
             LuaState state,
             int funcIndex,

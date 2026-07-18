@@ -1,5 +1,6 @@
 ﻿using System.Runtime.CompilerServices;
 using Lua.Internal;
+using Lua.Internal.CompilerServices;
 using Lua.Runtime;
 
 namespace Lua.Standard;
@@ -463,6 +464,7 @@ public sealed class DebugLibrary
         return new(0);
     }
 
+    [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder<>))]
     public async ValueTask<int> SetHook(
         LuaFunctionExecutionContext context,
         CancellationToken cancellationToken
