@@ -50,6 +50,8 @@ class CoroutineCore(LuaState state, LuaFunction function, bool isProtectedMode)
         ValueTaskSourceOnCompletedFlags flags
     )
     {
+        // Avoid SynchronizationContext capture (deadlocks Unity WebGL sync-over-async).
+        flags &= ~ValueTaskSourceOnCompletedFlags.UseSchedulingContext;
         yield.OnCompleted(continuation, state, token, flags);
     }
 
@@ -70,6 +72,7 @@ class CoroutineCore(LuaState state, LuaFunction function, bool isProtectedMode)
         ValueTaskSourceOnCompletedFlags flags
     )
     {
+        flags &= ~ValueTaskSourceOnCompletedFlags.UseSchedulingContext;
         resume.OnCompleted(continuation, state, token, flags);
     }
 
@@ -157,7 +160,10 @@ class CoroutineCore(LuaState state, LuaFunction function, bool isProtectedMode)
                     Volatile.Write(ref isFirstCall, false);
                     if (!functionTask.IsCompleted)
                     {
-                        functionTask.GetAwaiter().OnCompleted(() => resume.SetResult(default));
+                        // UnsafeOnCompleted: OnCompleted would capture SyncContext and deadlock on WebGL.
+                        functionTask
+                            .GetAwaiter()
+                            .UnsafeOnCompleted(() => resume.SetResult(default));
                     }
                 }
 

@@ -1,6 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Lua.Internal;
+using Lua.Internal.CompilerServices;
 
 // ReSharper disable MethodHasAsyncOverload
 
@@ -256,6 +257,7 @@ public static partial class LuaVirtualMachine
             return true;
         }
 
+        [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder<>))]
         public async ValueTask<int> ExecuteClosureAsyncImpl()
         {
             var returnFrameBase = CurrentReturnFrameBase;

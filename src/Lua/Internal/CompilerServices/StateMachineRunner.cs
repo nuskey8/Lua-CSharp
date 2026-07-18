@@ -148,6 +148,8 @@ sealed class LightAsyncValueTask<TStateMachine>
         ValueTaskSourceOnCompletedFlags flags
     )
     {
+        // Never marshal to SynchronizationContext (required for Unity WebGL coroutines).
+        flags &= ~ValueTaskSourceOnCompletedFlags.UseSchedulingContext;
         core.OnCompleted(continuation, state, token, flags);
     }
 }
@@ -255,6 +257,8 @@ sealed class LightAsyncValueTask<TStateMachine, T>
         ValueTaskSourceOnCompletedFlags flags
     )
     {
+        // Never marshal to SynchronizationContext (required for Unity WebGL coroutines).
+        flags &= ~ValueTaskSourceOnCompletedFlags.UseSchedulingContext;
         core.OnCompleted(continuation, state, token, flags);
     }
 }

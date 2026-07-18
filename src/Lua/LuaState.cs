@@ -2,6 +2,7 @@ using System.Buffers;
 using System.Runtime.CompilerServices;
 using Lua.CodeAnalysis.Compilation;
 using Lua.Internal;
+using Lua.Internal.CompilerServices;
 using Lua.Platforms;
 using Lua.Runtime;
 
@@ -428,6 +429,7 @@ public class LuaState : IDisposable
         return RunAsync(function, argumentCount, Stack.Count - argumentCount, cancellationToken);
     }
 
+    [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder<>))]
     public async ValueTask<int> RunAsync(
         LuaFunction function,
         int argumentCount,

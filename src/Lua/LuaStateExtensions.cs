@@ -1,6 +1,7 @@
 using System.Buffers;
 using System.Runtime.CompilerServices;
 using Lua.Internal;
+using Lua.Internal.CompilerServices;
 using Lua.IO;
 using Lua.Runtime;
 
@@ -132,6 +133,7 @@ public static class LuaStateExtensions
         return results.AsSpan().ToArray();
     }
 
+    [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder<>))]
     public static async ValueTask<int> ExecuteAsync(
         this LuaState state,
         LuaClosure closure,
@@ -145,6 +147,7 @@ public static class LuaStateExtensions
         return results.Count;
     }
 
+    [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder<>))]
     public static async ValueTask<LuaValue[]> ExecuteAsync(
         this LuaState state,
         LuaClosure closure,
