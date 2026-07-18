@@ -171,7 +171,7 @@ public static partial class LuaVirtualMachine
                 // Other opcodes has one result
                 default:
                     Stack.Get(target) = result.Length == 0 ? LuaValue.Nil : result[0];
-                    State.PopCallStackFrameWithStackPop(target + 1);
+                    State.PopCallStackFrameWithStackPop(Math.Max(target + 1, CurrentReturnFrameBase));
                     return true;
             }
 
