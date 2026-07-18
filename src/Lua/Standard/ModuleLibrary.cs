@@ -1,3 +1,6 @@
+using System.Runtime.CompilerServices;
+using Lua.Internal.CompilerServices;
+
 namespace Lua.Standard;
 
 public sealed class ModuleLibrary
@@ -15,6 +18,7 @@ public sealed class ModuleLibrary
     public readonly LuaFunction RequireFunction;
     public readonly LuaFunction SearchPathFunction;
 
+    [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder<>))]
     public async ValueTask<int> Require(
         LuaFunctionExecutionContext context,
         CancellationToken cancellationToken
@@ -48,6 +52,7 @@ public sealed class ModuleLibrary
         return context.Return(loadedTable);
     }
 
+    [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder<>))]
     internal static async ValueTask<string?> FindFile(
         LuaState state,
         string name,
@@ -124,6 +129,7 @@ public sealed class ModuleLibrary
         return null;
     }
 
+    [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder<>))]
     internal static async ValueTask<LuaFunction> FindLoader(
         LuaState state,
         string name,

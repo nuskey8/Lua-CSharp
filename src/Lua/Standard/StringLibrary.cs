@@ -1,7 +1,9 @@
 using System.Diagnostics;
 using System.Globalization;
+using System.Runtime.CompilerServices;
 using System.Text;
 using Lua.Internal;
+using Lua.Internal.CompilerServices;
 using Lua.Runtime;
 using Lua.Standard.Internal;
 
@@ -94,6 +96,7 @@ public sealed class StringLibrary
         return FindAux(context, true);
     }
 
+    [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder<>))]
     public async ValueTask<int> Format(
         LuaFunctionExecutionContext context,
         CancellationToken cancellationToken
@@ -570,6 +573,7 @@ public sealed class StringLibrary
         );
     }
 
+    [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder<>))]
     public async ValueTask<int> GSub(
         LuaFunctionExecutionContext context,
         CancellationToken cancellationToken
