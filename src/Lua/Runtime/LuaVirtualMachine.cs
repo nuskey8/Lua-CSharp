@@ -2666,6 +2666,7 @@ public static partial class LuaVirtualMachine
         {
             var RA = context.Instruction.A + context.FrameBase;
             stack.Get(RA) = table.ArrayLength;
+            stack.NotifyTop(RA + 1);
             return true;
         }
 
