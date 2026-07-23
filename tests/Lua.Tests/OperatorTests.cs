@@ -184,4 +184,24 @@ public class OperatorTests
         Assert.That(result, Has.Length.EqualTo(1));
         Assert.That(result[0], Is.EqualTo(new LuaValue(a >= b)));
     }
+
+    [Test]
+    public async Task Test_TableLength()
+    {
+        using var state = LuaState.Create();
+        state.OpenBasicLibrary();
+        var source =
+            @"
+function f1()
+    local c = {}
+    return #c
+end
+function f2(a, b)
+    assert(b == nil)
+end
+f1()
+f2()
+";
+        await state.DoStringAsync(source);
+    }
 }
