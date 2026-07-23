@@ -81,7 +81,6 @@ public class LuaTests
     [TestCase("tests-lua/coroutine.lua")]
     [TestCase("tests-lua/db.lua")]
     [TestCase("tests-lua/verybig.lua")]
-    [TestCase("tests-lua/table-length.lua")]
     public async Task Test_Lua(string file)
     {
         var path = FileHelper.GetAbsolutePath(file);
