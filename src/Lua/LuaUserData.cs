@@ -20,4 +20,5 @@ public interface ILuaUserData
 
     // We use span for compatibility with lua5.4.
     Span<LuaValue> UserValues => default;
+    bool TryIndex(LuaValue key, ref LuaValue value, bool isGet) => false;
 }
