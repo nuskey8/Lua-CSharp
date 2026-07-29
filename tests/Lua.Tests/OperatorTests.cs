@@ -1,3 +1,5 @@
+using Lua.Standard;
+
 namespace Lua.Tests;
 
 public class OperatorTests
