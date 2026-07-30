@@ -138,6 +138,23 @@ public partial class TestUserData
 }
 
 [LuaObject]
+public partial class AllowNilReferencedObject
+{
+    [LuaMember("label")]
+    public string Label { get; set; } = "";
+}
+
+[LuaObject]
+public partial class AllowNilMemberContainer
+{
+    [LuaMember("optionalObject", AllowNil = true)]
+    public AllowNilReferencedObject OptionalObject { get; set; } = null!;
+
+    [LuaMember("requiredObject")]
+    public AllowNilReferencedObject RequiredObject { get; set; } = null!;
+}
+
+[LuaObject]
 public partial class IntArrayUserData
 {
     public int[] Array { get; } = new int[10];
@@ -194,7 +211,6 @@ public partial class StringKeyUserData
     }
 }
 
-[LuaObject]
 public abstract partial class ParentClass
 {
     [LuaMember("value")]
@@ -237,6 +253,47 @@ public class LuaObjectTests
 
         Assert.That(results, Has.Length.EqualTo(1));
         Assert.That(results[0], Is.EqualTo(new LuaValue("foo")));
+    }
+
+    [Test]
+    public async Task Test_LuaMemberAllowNilLuaObjectPropertyCanBeSetToNil()
+    {
+        var referencedObject = new AllowNilReferencedObject { Label = "reference" };
+        var userData = new AllowNilMemberContainer { OptionalObject = referencedObject };
+
+        var state = LuaState.Create();
+        state.Environment["referencedObject"] = referencedObject;
+        state.Environment["target"] = userData;
+        var results = await state.DoStringAsync("""
+                                                local oldObject = target.optionalObject
+                                                target.optionalObject = nil
+                                                local nilObject = target.optionalObject
+                                                target.optionalObject = referencedObject
+                                                return oldObject.label, nilObject, target.optionalObject.label
+                                                """);
+
+        Assert.That(results, Has.Length.EqualTo(3));
+        Assert.That(results[0], Is.EqualTo(new LuaValue("reference")));
+        Assert.That(results[1], Is.EqualTo(LuaValue.Nil));
+        Assert.That(results[2], Is.EqualTo(new LuaValue("reference")));
+        Assert.That(userData.OptionalObject, Is.SameAs(referencedObject));
+    }
+
+    [Test]
+    public async Task Test_LuaObjectPropertyRejectsNilWithoutAllowNil()
+    {
+        var referencedObject = new AllowNilReferencedObject { Label = "reference" };
+        var userData = new AllowNilMemberContainer { RequiredObject = referencedObject };
+
+        var state = LuaState.Create();
+        state.Environment["target"] = userData;
+        var exception = Assert.ThrowsAsync<LuaRuntimeException>(async () =>
+        {
+            await state.DoStringAsync("target.requiredObject = nil");
+        });
+
+        Assert.That(exception!.Message, Does.Contain("bad argument #3"));
+        Assert.That(userData.RequiredObject, Is.SameAs(referencedObject));
     }
 
     [Test]
