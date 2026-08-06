@@ -1872,6 +1872,18 @@ public static partial class LuaVirtualMachine
         const int MAX_LOOP = 100;
         doRestart = false;
         var skip = targetTable.Type == LuaValueType.Table;
+
+        if (targetTable.Type == LuaValueType.UserData)
+        {
+            var userData = targetTable.UnsafeRead<ILuaUserData>();
+            var result = default(LuaValue);
+            if (userData.TryIndex(key, ref result, true))
+            {
+                value = result;
+                return true;
+            }
+        }
+
         for (var i = 0; i < MAX_LOOP; i++)
         {
             if (table.TryReadTable(out var luaTable))
@@ -2033,6 +2045,17 @@ public static partial class LuaVirtualMachine
         var targetTable = table;
         const int MAX_LOOP = 100;
         var skip = targetTable.Type == LuaValueType.Table;
+
+        if (targetTable.Type == LuaValueType.UserData)
+        {
+            var userData = targetTable.UnsafeRead<ILuaUserData>();
+            var result = default(LuaValue);
+            if (userData.TryIndex(key, ref result, true))
+            {
+                return new(result);
+            }
+        }
+
         for (var i = 0; i < MAX_LOOP; i++)
         {
             if (table.TryReadTable(out var luaTable))
@@ -2131,6 +2154,16 @@ public static partial class LuaVirtualMachine
         const int MAX_LOOP = 100;
         doRestart = false;
         var skip = targetTable.Type == LuaValueType.Table;
+
+        if (targetTable.Type == LuaValueType.UserData)
+        {
+            var userData = targetTable.UnsafeRead<ILuaUserData>();
+            if (userData.TryIndex(key, ref value, false))
+            {
+                return true;
+            }
+        }
+
         for (var i = 0; i < MAX_LOOP; i++)
         {
             if (table.TryReadTable(out var luaTable))
@@ -2286,6 +2319,16 @@ public static partial class LuaVirtualMachine
         var targetTable = table;
         const int MAX_LOOP = 100;
         var skip = targetTable.Type == LuaValueType.Table;
+
+        if (targetTable.Type == LuaValueType.UserData)
+        {
+            var userData = targetTable.UnsafeRead<ILuaUserData>();
+            if (userData.TryIndex(key, ref value, false))
+            {
+                return default;
+            }
+        }
+
         for (var i = 0; i < MAX_LOOP; i++)
         {
             if (table.TryReadTable(out var luaTable))

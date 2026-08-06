@@ -178,6 +178,11 @@ partial class LuaObjectGenerator
                 return false;
             }
 
+            if (!TryEmitTryIndex(typeMetadata, builder, references, compilation))
+            {
+                return false;
+            }
+
             // implicit operator
             builder.AppendLine(
                 $"public static implicit operator global::Lua.LuaValue({typeMetadata.FullTypeName} value)"
@@ -1211,5 +1216,123 @@ partial class LuaObjectGenerator
         builder.AppendLine();
 
         return true;
+    }
+
+    static bool TryEmitTryIndex(
+        TypeMetadata typeMetadata,
+        CodeBuilder builder,
+        SymbolReferences references,
+        Compilation compilation
+    )
+    {
+        builder.AppendLine("bool global::Lua.ILuaUserData.TryIndex(global::Lua.LuaValue key, ref global::Lua.LuaValue value, bool isGet)");
+        using (builder.BeginBlockScope())
+        {
+            builder.AppendLine("if (!key.TryRead<string>(out var stringKey)) return false;");
+            builder.AppendLine($"var userData = ({typeMetadata.FullTypeName})this;");
+            builder.AppendLine();
+
+            builder.AppendLine("if (isGet)");
+            using (builder.BeginBlockScope())
+            {
+                foreach (var propertyMetadata in typeMetadata.Properties)
+                {
+                    if (propertyMetadata.IsWriteOnly)
+                    {
+                        continue;
+                    }
+
+                    if (SymbolEqualityComparer.Default.Equals(propertyMetadata.Type, references.LuaValue))
+                    {
+                        if (propertyMetadata.IsStatic)
+                        {
+                            builder.AppendLine(
+                                @$"if (stringKey == ""{propertyMetadata.LuaMemberName}"") {{ value = {typeMetadata.FullTypeName}.{propertyMetadata.Symbol.Name}; return true; }}"
+                            );
+                        }
+                        else
+                        {
+                            builder.AppendLine(
+                                @$"if (stringKey == ""{propertyMetadata.LuaMemberName}"") {{ value = userData.{propertyMetadata.Symbol.Name}; return true; }}"
+                            );
+                        }
+                    }
+                    else
+                    {
+                        var luaValuePrefix = GetLuaValuePrefix(propertyMetadata.Type, references, compilation);
+                        if (propertyMetadata.IsStatic)
+                        {
+                            builder.AppendLine(
+                                @$"if (stringKey == ""{propertyMetadata.LuaMemberName}"") {{ value = {luaValuePrefix}{typeMetadata.FullTypeName}.{propertyMetadata.Symbol.Name}); return true; }}"
+                            );
+                        }
+                        else
+                        {
+                            builder.AppendLine(
+                                @$"if (stringKey == ""{propertyMetadata.LuaMemberName}"") {{ value = {luaValuePrefix}userData.{propertyMetadata.Symbol.Name}); return true; }}"
+                            );
+                        }
+                    }
+                }
+
+                foreach (
+                    var methodMetadata in typeMetadata.Methods.Where(x => x.HasMemberAttribute)
+                )
+                {
+                    builder.AppendLine(
+                        @$"if (stringKey == ""{methodMetadata.LuaMemberName}"") {{ value = new global::Lua.LuaValue(__function_{methodMetadata.LuaMemberName}); return true; }}"
+                    );
+                }
+            }
+
+            builder.AppendLine("else");
+            using (builder.BeginBlockScope())
+            {
+                foreach (var propertyMetadata in typeMetadata.Properties)
+                {
+                    if (propertyMetadata.IsReadOnly)
+                    {
+                        continue;
+                    }
+
+                    var readExpr = GetLuaValueReadExpression(
+                        propertyMetadata.Type,
+                        references,
+                        compilation
+                    );
+                    if (propertyMetadata.IsStatic)
+                    {
+                        builder.AppendLine(
+                            @$"if (stringKey == ""{propertyMetadata.LuaMemberName}"") {{ {typeMetadata.FullTypeName}.{propertyMetadata.Symbol.Name} = {readExpr}; return true; }}"
+                        );
+                    }
+                    else
+                    {
+                        builder.AppendLine(
+                            @$"if (stringKey == ""{propertyMetadata.LuaMemberName}"") {{ userData.{propertyMetadata.Symbol.Name} = {readExpr}; return true; }}"
+                        );
+                    }
+                }
+            }
+
+            builder.AppendLine("return false;");
+        }
+        builder.AppendLine();
+
+        return true;
+    }
+
+    static string GetLuaValueReadExpression(ITypeSymbol type, SymbolReferences references, Compilation compilation)
+    {
+        if (SymbolEqualityComparer.Default.Equals(type, references.LuaValue))
+            return "value";
+        var typeName = type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+        if (SymbolEqualityComparer.Default.Equals(type, references.String))
+            return $"value.Read<{typeName}>()";
+        if (SymbolEqualityComparer.Default.Equals(type, references.Double))
+            return $"value.Read<{typeName}>()";
+        if (SymbolEqualityComparer.Default.Equals(type, references.Boolean))
+            return $"value.Read<{typeName}>()";
+        return $"value.TryRead<{typeName}>(out var __readResult) ? __readResult : throw new global::System.InvalidOperationException($\"Cannot convert LuaValue type '{{value.Type}}' to '{typeName}'\")";
     }
 }
