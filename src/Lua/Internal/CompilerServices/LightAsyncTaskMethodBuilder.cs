@@ -179,7 +179,7 @@ struct LightAsyncValueTaskMethodBuilder<T>
             }
 
             {
-                return new(System.Threading.Tasks.Task.FromResult(result));
+                return new(result);
             }
         }
     }
