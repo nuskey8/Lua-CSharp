@@ -22,6 +22,9 @@ public sealed class SymbolReferences
             LuaMetamethodAttribute = compilation.GetTypeByMetadataName(
                 "Lua.LuaMetamethodAttribute"
             )!,
+            AllowNullAttribute = compilation.GetTypeByMetadataName(
+                "System.Diagnostics.CodeAnalysis.AllowNullAttribute"
+            )!,
             LuaValue = compilation.GetTypeByMetadataName("Lua.LuaValue")!,
             Object = compilation.GetTypeByMetadataName("System.Object")!,
             Boolean = compilation.GetTypeByMetadataName("System.Boolean")!,
@@ -41,6 +44,7 @@ public sealed class SymbolReferences
     public INamedTypeSymbol LuaMemberAttribute { get; private set; } = null!;
     public INamedTypeSymbol LuaIgnoreMemberAttribute { get; private set; } = null!;
     public INamedTypeSymbol LuaMetamethodAttribute { get; private set; } = null!;
+    public INamedTypeSymbol AllowNullAttribute { get; private set; } = null!;
     public INamedTypeSymbol LuaValue { get; private set; } = null!;
     public INamedTypeSymbol Object { get; private set; } = null!;
     public INamedTypeSymbol Boolean { get; private set; } = null!;

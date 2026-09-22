@@ -69,10 +69,10 @@ public static class DiagnosticDescriptors
         isEnabledByDefault: true
     );
 
-    public static readonly DiagnosticDescriptor InvalidAllowNilMemberType = new(
+    public static readonly DiagnosticDescriptor InvalidAllowNullType = new(
         id: "LUACS008",
-        title: "AllowNil can only be used on LuaObject reference type members.",
-        messageFormat: "AllowNil can only be used on LuaObject reference type members.",
+        title: "AllowNull cannot be used on non-nullable value types.",
+        messageFormat: "AllowNull cannot be used on non-nullable value type member or parameter '{0}'.",
         category: Category,
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true

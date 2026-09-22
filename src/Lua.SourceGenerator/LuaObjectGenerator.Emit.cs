@@ -6,6 +6,30 @@ namespace Lua.SourceGenerator;
 
 partial class LuaObjectGenerator
 {
+    static bool IsNullableValueType(ITypeSymbol typeSymbol, out ITypeSymbol underlyingType)
+    {
+        if (
+            typeSymbol is INamedTypeSymbol
+            {
+                OriginalDefinition.SpecialType: SpecialType.System_Nullable_T,
+                TypeArguments.Length: 1,
+            } namedType
+        )
+        {
+            underlyingType = namedType.TypeArguments[0];
+            return true;
+        }
+
+        underlyingType = typeSymbol;
+        return false;
+    }
+
+    static bool IsNullable(ITypeSymbol typeSymbol)
+    {
+        return IsNullableValueType(typeSymbol, out _)
+            || typeSymbol is { IsReferenceType: true, NullableAnnotation: NullableAnnotation.Annotated };
+    }
+
     static string GetLuaValuePrefix(
         ITypeSymbol typeSymbol,
         SymbolReferences references,
@@ -26,26 +50,44 @@ partial class LuaObjectGenerator
         string expression,
         ITypeSymbol typeSymbol,
         SymbolReferences references,
-        Compilation compilation
+        Compilation compilation,
+        bool allowNull = false
     )
     {
+        if (allowNull || IsNullable(typeSymbol))
+        {
+            var valueType = IsNullableValueType(typeSymbol, out var underlyingType)
+                ? underlyingType
+                : typeSymbol;
+            var valueExpression =
+                $"{GetLuaValuePrefix(valueType, references, compilation)}__value)";
+            return $"{expression} is {{ }} __value ? {valueExpression} : global::Lua.LuaValue.Nil";
+        }
+
         return $"{GetLuaValuePrefix(typeSymbol, references, compilation)}{expression})";
     }
 
-    static bool CanAllowNil(ITypeSymbol typeSymbol, SymbolReferences references)
+    static bool CanAllowNull(ITypeSymbol typeSymbol)
     {
-        return typeSymbol.IsReferenceType && typeSymbol.ContainsAttribute(references.LuaObjectAttribute);
+        return typeSymbol.IsReferenceType || IsNullableValueType(typeSymbol, out _);
     }
 
     static string GetContextArgumentExpression(
         int argumentIndex,
         ITypeSymbol typeSymbol,
-        bool allowNil
+        bool allowNull
     )
     {
         var typeName = typeSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
-        var argumentExpression = $"context.GetArgument<{typeName}>({argumentIndex})";
-        return allowNil
+        var argumentType = IsNullableValueType(typeSymbol, out var underlyingType)
+            ? underlyingType
+            : typeSymbol;
+        var argumentTypeName = argumentType.ToDisplayString(
+            SymbolDisplayFormat.FullyQualifiedFormat
+        );
+        var argumentExpression =
+            $"context.GetArgument<{argumentTypeName}>({argumentIndex})";
+        return allowNull || IsNullable(typeSymbol)
             ? $"context.HasArgument({argumentIndex}) ? {argumentExpression} : default({typeName})"
             : argumentExpression;
     }
@@ -247,12 +289,13 @@ partial class LuaObjectGenerator
 
         foreach (var property in typeMetadata.Properties)
         {
-            if (property.AllowNil && !CanAllowNil(property.Type, references))
+            if (property.AllowNull && !CanAllowNull(property.Type))
             {
                 context.ReportDiagnostic(
                     Diagnostic.Create(
-                        DiagnosticDescriptors.InvalidAllowNilMemberType,
-                        property.Symbol.Locations.FirstOrDefault()
+                        DiagnosticDescriptors.InvalidAllowNullType,
+                        property.Symbol.Locations.FirstOrDefault(),
+                        property.Symbol.Name
                     )
                 );
 
@@ -260,31 +303,35 @@ partial class LuaObjectGenerator
                 continue;
             }
 
-            if (SymbolEqualityComparer.Default.Equals(property.Type, references.LuaValue))
+            var propertyType = IsNullableValueType(property.Type, out var underlyingPropertyType)
+                ? underlyingPropertyType
+                : property.Type;
+
+            if (SymbolEqualityComparer.Default.Equals(propertyType, references.LuaValue))
             {
                 continue;
             }
 
-            if (SymbolEqualityComparer.Default.Equals(property.Type, references.LuaUserData))
+            if (SymbolEqualityComparer.Default.Equals(propertyType, references.LuaUserData))
             {
                 continue;
             }
 
-            if (SymbolEqualityComparer.Default.Equals(property.Type, typeMetadata.Symbol))
+            if (SymbolEqualityComparer.Default.Equals(propertyType, typeMetadata.Symbol))
             {
                 continue;
             }
 
-            if (compilation.ClassifyConversion(property.Type, references.LuaUserData).Exists)
+            if (compilation.ClassifyConversion(propertyType, references.LuaUserData).Exists)
             {
                 continue;
             }
 
-            var conversion = compilation.ClassifyConversion(property.Type, references.LuaValue);
+            var conversion = compilation.ClassifyConversion(propertyType, references.LuaValue);
             if (
                 !conversion.Exists
                 && (
-                    property.Type is not INamedTypeSymbol namedTypeSymbol
+                    propertyType is not INamedTypeSymbol namedTypeSymbol
                     || !metaDict.ContainsKey(namedTypeSymbol)
                 )
             )
@@ -317,6 +364,10 @@ partial class LuaObjectGenerator
 
                     typeSymbol = namedType.TypeArguments[0];
                 }
+
+                typeSymbol = IsNullableValueType(typeSymbol, out var underlyingReturnType)
+                    ? underlyingReturnType
+                    : typeSymbol;
 
                 if (SymbolEqualityComparer.Default.Equals(typeSymbol, references.LuaValue))
                 {
@@ -365,6 +416,23 @@ partial class LuaObjectGenerator
                 var parameterSymbol = method.Symbol.Parameters[index];
                 var typeSymbol = parameterSymbol.Type;
                 if (
+                    parameterSymbol.ContainsAttribute(references.AllowNullAttribute)
+                    && !CanAllowNull(typeSymbol)
+                )
+                {
+                    context.ReportDiagnostic(
+                        Diagnostic.Create(
+                            DiagnosticDescriptors.InvalidAllowNullType,
+                            parameterSymbol.Locations.FirstOrDefault(),
+                            parameterSymbol.Name
+                        )
+                    );
+
+                    isValid = false;
+                    continue;
+                }
+
+                if (
                     index == method.Symbol.Parameters.Length - 1
                     && SymbolEqualityComparer.Default.Equals(
                         typeSymbol,
@@ -374,6 +442,10 @@ partial class LuaObjectGenerator
                 {
                     continue;
                 }
+
+                typeSymbol = IsNullableValueType(typeSymbol, out var underlyingParameterType)
+                    ? underlyingParameterType
+                    : typeSymbol;
 
                 if (SymbolEqualityComparer.Default.Equals(typeSymbol, references.LuaValue))
                 {
@@ -432,7 +504,7 @@ partial class LuaObjectGenerator
         );
     }
 
-    static ITypeSymbol? GetContextArgumentType(
+    static IParameterSymbol? GetContextArgumentParameter(
         MethodMetadata methodMetadata,
         int contextArgumentIndex
     )
@@ -445,12 +517,18 @@ partial class LuaObjectGenerator
             return null;
         }
 
-        return methodMetadata.Symbol.Parameters[parameterIndex].Type;
+        return methodMetadata.Symbol.Parameters[parameterIndex];
     }
 
-    static bool IsPreloadableArgumentType(ITypeSymbol? typeSymbol, SymbolReferences references)
+    static bool IsPreloadableArgumentType(
+        ITypeSymbol? typeSymbol,
+        bool allowNull,
+        SymbolReferences references
+    )
     {
         return typeSymbol != null
+            && !allowNull
+            && !IsNullable(typeSymbol)
             && !SymbolEqualityComparer.Default.Equals(typeSymbol, references.LuaValue);
     }
 
@@ -458,6 +536,7 @@ partial class LuaObjectGenerator
         CodeBuilder builder,
         string luaValueExpression,
         ITypeSymbol? typeSymbol,
+        bool allowNull,
         SymbolReferences references
     )
     {
@@ -468,6 +547,23 @@ partial class LuaObjectGenerator
         {
             builder.Append("true", false);
             return;
+        }
+
+        if (IsNullableValueType(typeSymbol, out var underlyingType))
+        {
+            builder.Append(
+                $"{luaValueExpression}.Type is global::Lua.LuaValueType.Nil || {luaValueExpression}.TryRead<{underlyingType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}>(out _)",
+                false
+            );
+            return;
+        }
+
+        if (allowNull || IsNullable(typeSymbol))
+        {
+            builder.Append(
+                $"{luaValueExpression}.Type is global::Lua.LuaValueType.Nil || ",
+                false
+            );
         }
 
         builder.Append(
@@ -486,10 +582,16 @@ partial class LuaObjectGenerator
     )
     {
         var customMetamethod = GetMetamethod(typeMetadata, LuaObjectMetamethod.Index);
-        var customKeyType =
-            customMetamethod == null ? null : GetContextArgumentType(customMetamethod, 1);
+        var customKeyParameter =
+            customMetamethod == null ? null : GetContextArgumentParameter(customMetamethod, 1);
+        var customKeyType = customKeyParameter?.Type;
+        var customKeyAllowsNull =
+            customKeyParameter?.ContainsAttribute(references.AllowNullAttribute) == true;
         var customHandlesStringKey =
             customMetamethod != null
+            && !customKeyAllowsNull
+            && customKeyType != null
+            && !IsNullable(customKeyType)
             && SymbolEqualityComparer.Default.Equals(customKeyType, references.String);
 
         builder.AppendLine(
@@ -513,23 +615,19 @@ partial class LuaObjectGenerator
                         continue;
                     }
 
-                    var conversionPrefix = GetLuaValuePrefix(
+                    var propertyExpression = propertyMetadata.IsStatic
+                        ? $"{typeMetadata.FullTypeName}.{propertyMetadata.Symbol.Name}"
+                        : $"userData.{propertyMetadata.Symbol.Name}";
+                    var conversionExpression = GetLuaValueExpression(
+                        propertyExpression,
                         propertyMetadata.Type,
                         references,
-                        compilation
+                        compilation,
+                        propertyMetadata.AllowNull
                     );
-                    if (propertyMetadata.IsStatic)
-                    {
-                        builder.AppendLine(
-                            @$"if (stringKey == ""{propertyMetadata.LuaMemberName}"") return new global::System.Threading.Tasks.ValueTask<int>(context.Return({conversionPrefix}{typeMetadata.FullTypeName}.{propertyMetadata.Symbol.Name})));"
-                        );
-                    }
-                    else
-                    {
-                        builder.AppendLine(
-                            @$"if (stringKey == ""{propertyMetadata.LuaMemberName}"") return new global::System.Threading.Tasks.ValueTask<int>(context.Return({conversionPrefix}userData.{propertyMetadata.Symbol.Name})));"
-                        );
-                    }
+                    builder.AppendLine(
+                        @$"if (stringKey == ""{propertyMetadata.LuaMemberName}"") return new global::System.Threading.Tasks.ValueTask<int>(context.Return({conversionExpression}));"
+                    );
                 }
 
                 foreach (
@@ -592,7 +690,13 @@ partial class LuaObjectGenerator
 
             if (customMetamethod != null && !customHandlesStringKey)
             {
-                if (IsPreloadableArgumentType(customKeyType, references))
+                if (
+                    IsPreloadableArgumentType(
+                        customKeyType,
+                        customKeyAllowsNull,
+                        references
+                    )
+                )
                 {
                     builder.Append(@"if (key.TryRead<");
                     builder.Append(
@@ -616,7 +720,13 @@ partial class LuaObjectGenerator
                 else
                 {
                     builder.Append("if (");
-                    EmitLuaValueCompatibilityCheck(builder, "key", customKeyType, references);
+                    EmitLuaValueCompatibilityCheck(
+                        builder,
+                        "key",
+                        customKeyType,
+                        customKeyAllowsNull,
+                        references
+                    );
                     builder.AppendLine(")", false);
                     using (builder.BeginBlockScope())
                     {
@@ -652,10 +762,16 @@ partial class LuaObjectGenerator
     )
     {
         var customMetamethod = GetMetamethod(typeMetadata, LuaObjectMetamethod.NewIndex);
-        var customKeyType =
-            customMetamethod == null ? null : GetContextArgumentType(customMetamethod, 1);
+        var customKeyParameter =
+            customMetamethod == null ? null : GetContextArgumentParameter(customMetamethod, 1);
+        var customKeyType = customKeyParameter?.Type;
+        var customKeyAllowsNull =
+            customKeyParameter?.ContainsAttribute(references.AllowNullAttribute) == true;
         var customHandlesStringKey =
             customMetamethod != null
+            && !customKeyAllowsNull
+            && customKeyType != null
+            && !IsNullable(customKeyType)
             && SymbolEqualityComparer.Default.Equals(customKeyType, references.String);
 
         builder.AppendLine(
@@ -698,7 +814,7 @@ partial class LuaObjectGenerator
                             else
                             {
                                 builder.AppendLine(
-                                    $"{typeMetadata.FullTypeName}.{propertyMetadata.Symbol.Name} = {GetContextArgumentExpression(2, propertyMetadata.Type, propertyMetadata.AllowNil)};"
+                                    $"{typeMetadata.FullTypeName}.{propertyMetadata.Symbol.Name} = {GetContextArgumentExpression(2, propertyMetadata.Type, propertyMetadata.AllowNull)};"
                                 );
                             }
 
@@ -722,7 +838,7 @@ partial class LuaObjectGenerator
                             else
                             {
                                 builder.AppendLine(
-                                    $"userData.{propertyMetadata.Symbol.Name} = {GetContextArgumentExpression(2, propertyMetadata.Type, propertyMetadata.AllowNil)};"
+                                    $"userData.{propertyMetadata.Symbol.Name} = {GetContextArgumentExpression(2, propertyMetadata.Type, propertyMetadata.AllowNull)};"
                                 );
                             }
 
@@ -791,7 +907,13 @@ partial class LuaObjectGenerator
 
             if (customMetamethod != null && !customHandlesStringKey)
             {
-                if (IsPreloadableArgumentType(customKeyType, references))
+                if (
+                    IsPreloadableArgumentType(
+                        customKeyType,
+                        customKeyAllowsNull,
+                        references
+                    )
+                )
                 {
                     builder.Append(@"if (key.TryRead<");
                     builder.Append(
@@ -815,7 +937,13 @@ partial class LuaObjectGenerator
                 else
                 {
                     builder.Append("if (");
-                    EmitLuaValueCompatibilityCheck(builder, "key", customKeyType, references);
+                    EmitLuaValueCompatibilityCheck(
+                        builder,
+                        "key",
+                        customKeyType,
+                        customKeyAllowsNull,
+                        references
+                    );
                     builder.AppendLine(")", false);
                     using (builder.BeginBlockScope())
                     {
@@ -1001,12 +1129,20 @@ partial class LuaObjectGenerator
                 break;
             }
 
+            var allowNull = parameter.ContainsAttribute(references.AllowNullAttribute);
+
             if (parameter.RefKind == RefKind.Out)
             {
                 builder.AppendLine($"{parameterTypeName} {variableName};");
                 callArguments.Add($"out {variableName}");
                 extraReturnValues.Add(
-                    GetLuaValueExpression(variableName, parameterType, references, compilation)
+                    GetLuaValueExpression(
+                        variableName,
+                        parameterType,
+                        references,
+                        compilation,
+                        allowNull
+                    )
                 );
                 index++;
                 continue;
@@ -1025,7 +1161,8 @@ partial class LuaObjectGenerator
                             preloadedArgumentName,
                             parameterType,
                             references,
-                            compilation
+                            compilation,
+                            allowNull
                         )
                     );
                 }
@@ -1049,6 +1186,12 @@ partial class LuaObjectGenerator
                         $"var {variableName} = context.HasArgument({luaArgumentIndex}) ? context.GetArgument({luaArgumentIndex}) : {syntax.Default!.Value.ToFullString()};"
                     );
                 }
+                else if (allowNull || IsNullable(parameterType))
+                {
+                    builder.AppendLine(
+                        $"var {variableName} = context.ArgumentCount > {luaArgumentIndex} ? {GetContextArgumentExpression(luaArgumentIndex, parameterType, allowNull)} : {syntax.Default!.Value.ToFullString()};"
+                    );
+                }
                 else
                 {
                     builder.AppendLine(
@@ -1067,7 +1210,7 @@ partial class LuaObjectGenerator
                 else
                 {
                     builder.AppendLine(
-                        $"var {variableName} = context.GetArgument<{parameterTypeName}>({luaArgumentIndex});"
+                        $"var {variableName} = {GetContextArgumentExpression(luaArgumentIndex, parameterType, allowNull)};"
                     );
                 }
             }
@@ -1076,7 +1219,13 @@ partial class LuaObjectGenerator
             {
                 callArguments.Add($"ref {variableName}");
                 extraReturnValues.Add(
-                    GetLuaValueExpression(variableName, parameterType, references, compilation)
+                    GetLuaValueExpression(
+                        variableName,
+                        parameterType,
+                        references,
+                        compilation,
+                        allowNull
+                    )
                 );
             }
             else
