@@ -10,6 +10,7 @@ public class PropertyMetadata
     public bool IsStatic { get; }
     public bool IsReadOnly { get; }
     public bool IsWriteOnly { get; }
+    public bool AllowNil { get; }
     public string LuaMemberName { get; }
 
     public PropertyMetadata(ISymbol symbol, SymbolReferences references)
@@ -49,6 +50,15 @@ public class PropertyMetadata
                 if (value is string str)
                 {
                     LuaMemberName = str;
+                }
+            }
+
+            foreach (var namedArgument in memberAttribute.NamedArguments)
+            {
+                if (namedArgument.Key == "AllowNil" &&
+                    namedArgument.Value.Value is bool allowNil)
+                {
+                    AllowNil = allowNil;
                 }
             }
         }

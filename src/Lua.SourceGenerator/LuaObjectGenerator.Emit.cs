@@ -32,6 +32,24 @@ partial class LuaObjectGenerator
         return $"{GetLuaValuePrefix(typeSymbol, references, compilation)}{expression})";
     }
 
+    static bool CanAllowNil(ITypeSymbol typeSymbol, SymbolReferences references)
+    {
+        return typeSymbol.IsReferenceType && typeSymbol.ContainsAttribute(references.LuaObjectAttribute);
+    }
+
+    static string GetContextArgumentExpression(
+        int argumentIndex,
+        ITypeSymbol typeSymbol,
+        bool allowNil
+    )
+    {
+        var typeName = typeSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+        var argumentExpression = $"context.GetArgument<{typeName}>({argumentIndex})";
+        return allowNil
+            ? $"context.HasArgument({argumentIndex}) ? {argumentExpression} : default({typeName})"
+            : argumentExpression;
+    }
+
     static bool TryEmit(
         TypeMetadata typeMetadata,
         CodeBuilder builder,
@@ -229,6 +247,19 @@ partial class LuaObjectGenerator
 
         foreach (var property in typeMetadata.Properties)
         {
+            if (property.AllowNil && !CanAllowNil(property.Type, references))
+            {
+                context.ReportDiagnostic(
+                    Diagnostic.Create(
+                        DiagnosticDescriptors.InvalidAllowNilMemberType,
+                        property.Symbol.Locations.FirstOrDefault()
+                    )
+                );
+
+                isValid = false;
+                continue;
+            }
+
             if (SymbolEqualityComparer.Default.Equals(property.Type, references.LuaValue))
             {
                 continue;
@@ -667,7 +698,7 @@ partial class LuaObjectGenerator
                             else
                             {
                                 builder.AppendLine(
-                                    $"{typeMetadata.FullTypeName}.{propertyMetadata.Symbol.Name} = context.GetArgument<{propertyMetadata.TypeFullName}>(2);"
+                                    $"{typeMetadata.FullTypeName}.{propertyMetadata.Symbol.Name} = {GetContextArgumentExpression(2, propertyMetadata.Type, propertyMetadata.AllowNil)};"
                                 );
                             }
 
@@ -691,7 +722,7 @@ partial class LuaObjectGenerator
                             else
                             {
                                 builder.AppendLine(
-                                    $"userData.{propertyMetadata.Symbol.Name} = context.GetArgument<{propertyMetadata.TypeFullName}>(2);"
+                                    $"userData.{propertyMetadata.Symbol.Name} = {GetContextArgumentExpression(2, propertyMetadata.Type, propertyMetadata.AllowNil)};"
                                 );
                             }
 
