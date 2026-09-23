@@ -79,12 +79,9 @@ partial class LuaObjectGenerator
     )
     {
         var typeName = typeSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
-        var argumentType = IsNullableValueType(typeSymbol, out var underlyingType)
-            ? underlyingType
-            : typeSymbol;
-        var argumentTypeName = argumentType.ToDisplayString(
-            SymbolDisplayFormat.FullyQualifiedFormat
-        );
+        var argumentTypeName = IsNullableValueType(typeSymbol, out var underlyingType)
+            ? underlyingType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)
+            : typeName;
         var argumentExpression =
             $"context.GetArgument<{argumentTypeName}>({argumentIndex})";
         return allowNull || IsNullable(typeSymbol)
