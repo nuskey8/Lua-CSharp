@@ -12,6 +12,7 @@
     <Project Path="src/Lua/Lua.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/Lua.SourceGenerator.Tests/Lua.SourceGenerator.Tests.csproj" />
     <Project Path="tests/Lua.Tests/Lua.Tests.csproj" />
   </Folder>
 </Solution>
