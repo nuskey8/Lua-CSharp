@@ -192,6 +192,7 @@ public partial class NullableDisabledContainer
     [LuaMember]
     public static bool IsNull([AllowNull] string value) => value is null;
 }
+
 #nullable restore
 
 [LuaObject]
@@ -304,13 +305,15 @@ public class LuaObjectTests
         var state = LuaState.Create();
         state.Environment["referencedObject"] = referencedObject;
         state.Environment["target"] = userData;
-        var results = await state.DoStringAsync("""
-                                                local oldObject = target.optionalObject
-                                                target.optionalObject = nil
-                                                local nilObject = target.optionalObject
-                                                target.optionalObject = referencedObject
-                                                return oldObject.label, nilObject, target.optionalObject.label
-                                                """);
+        var results = await state.DoStringAsync(
+            """
+            local oldObject = target.optionalObject
+            target.optionalObject = nil
+            local nilObject = target.optionalObject
+            target.optionalObject = referencedObject
+            return oldObject.label, nilObject, target.optionalObject.label
+            """
+        );
 
         Assert.That(results, Has.Length.EqualTo(3));
         Assert.That(results[0], Is.EqualTo(new LuaValue("reference")));
