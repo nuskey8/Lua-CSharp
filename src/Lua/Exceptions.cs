@@ -99,7 +99,7 @@ public class LuaCompileException(
 
 public class LuaUndumpException(string message) : Exception(message);
 
-class LuaStackOverflowException() : Exception("stack overflow")
+public class LuaStackOverflowException() : Exception("stack overflow")
 {
     public override string ToString()
     {
