@@ -27,7 +27,8 @@ partial class LuaObjectGenerator
     static bool IsNullable(ITypeSymbol typeSymbol)
     {
         return IsNullableValueType(typeSymbol, out _)
-            || typeSymbol is { IsReferenceType: true, NullableAnnotation: NullableAnnotation.Annotated };
+            || typeSymbol
+                is { IsReferenceType: true, NullableAnnotation: NullableAnnotation.Annotated };
     }
 
     static string GetLuaValuePrefix(
@@ -82,8 +83,7 @@ partial class LuaObjectGenerator
         var argumentTypeName = IsNullableValueType(typeSymbol, out var underlyingType)
             ? underlyingType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)
             : typeName;
-        var argumentExpression =
-            $"context.GetArgument<{argumentTypeName}>({argumentIndex})";
+        var argumentExpression = $"context.GetArgument<{argumentTypeName}>({argumentIndex})";
         return allowNull || IsNullable(typeSymbol)
             ? $"context.HasArgument({argumentIndex}) ? {argumentExpression} : default({typeName})"
             : argumentExpression;
@@ -557,10 +557,7 @@ partial class LuaObjectGenerator
 
         if (allowNull || IsNullable(typeSymbol))
         {
-            builder.Append(
-                $"{luaValueExpression}.Type is global::Lua.LuaValueType.Nil || ",
-                false
-            );
+            builder.Append($"{luaValueExpression}.Type is global::Lua.LuaValueType.Nil || ", false);
         }
 
         builder.Append(
@@ -687,13 +684,7 @@ partial class LuaObjectGenerator
 
             if (customMetamethod != null && !customHandlesStringKey)
             {
-                if (
-                    IsPreloadableArgumentType(
-                        customKeyType,
-                        customKeyAllowsNull,
-                        references
-                    )
-                )
+                if (IsPreloadableArgumentType(customKeyType, customKeyAllowsNull, references))
                 {
                     builder.Append(@"if (key.TryRead<");
                     builder.Append(
@@ -904,13 +895,7 @@ partial class LuaObjectGenerator
 
             if (customMetamethod != null && !customHandlesStringKey)
             {
-                if (
-                    IsPreloadableArgumentType(
-                        customKeyType,
-                        customKeyAllowsNull,
-                        references
-                    )
-                )
+                if (IsPreloadableArgumentType(customKeyType, customKeyAllowsNull, references))
                 {
                     builder.Append(@"if (key.TryRead<");
                     builder.Append(
