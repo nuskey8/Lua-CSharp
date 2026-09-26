@@ -14,12 +14,12 @@ public class Sandbox : MonoBehaviour
     async void Start()
     {
         var state = LuaState.Create(
-            new LuaPlatform(
-                FileSystem: new FileSystem(Application.streamingAssetsPath),
-                OsEnvironment: new UnityApplicationOsEnvironment(),
-                StandardIO: new UnityStandardIO(),
-                TimeProvider: TimeProvider.System
-            )
+            LuaPlatform.Default with
+            {
+                FileSystem = new FileSystem(Application.streamingAssetsPath),
+                OsEnvironment = new UnityApplicationOsEnvironment(),
+                StandardIO = new UnityStandardIO()
+            }
         );
         state.ModuleLoader = CompositeModuleLoader.Create(
             new AddressablesModuleLoader(),
