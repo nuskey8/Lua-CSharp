@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Lua.Standard;
 
 namespace Lua.Tests;
@@ -138,6 +139,63 @@ public partial class TestUserData
 }
 
 [LuaObject]
+public partial class NullableReferencedObject
+{
+    [LuaMember("label")]
+    public string Label { get; set; } = "";
+}
+
+[LuaObject]
+public partial class NullableMemberContainer
+{
+    [LuaMember("optionalObject"), AllowNull]
+    public NullableReferencedObject OptionalObject { get; set; } = null!;
+
+    [LuaMember("requiredObject")]
+    public NullableReferencedObject RequiredObject { get; set; } = null!;
+
+    [LuaMember("nullableObject")]
+    public NullableReferencedObject? NullableObject { get; set; }
+
+    [LuaMember("nullableNumber")]
+    public int? NullableNumber;
+
+    [LuaMember("allowNullNullableNumber"), AllowNull]
+    public int? AllowNullNullableNumber;
+
+    [LuaMember("nullableText")]
+    public string? NullableText { get; set; }
+
+    [LuaMember("allowNullText"), AllowNull]
+    public string AllowNullText { get; set; } = "initial";
+
+    [LuaMember("echoNullableNumber")]
+    public static int? EchoNullableNumber(int? value) => value;
+
+    [LuaMember("echoNullableText")]
+    public static string? EchoNullableText(string? value) => value;
+
+    [LuaMember("isNull")]
+    public static bool IsNull([AllowNull] string value) => value is null;
+
+    [LuaMember("nullableNumberWithDefault")]
+    public static int? NullableNumberWithDefault(int? value = 42) => value;
+}
+
+#nullable disable
+[LuaObject]
+public partial class NullableDisabledContainer
+{
+    [LuaMember, AllowNull]
+    public string Value;
+
+    [LuaMember]
+    public static bool IsNull([AllowNull] string value) => value is null;
+}
+
+#nullable restore
+
+[LuaObject]
 public partial class IntArrayUserData
 {
     public int[] Array { get; } = new int[10];
@@ -194,7 +252,6 @@ public partial class StringKeyUserData
     }
 }
 
-[LuaObject]
 public abstract partial class ParentClass
 {
     [LuaMember("value")]
@@ -237,6 +294,141 @@ public class LuaObjectTests
 
         Assert.That(results, Has.Length.EqualTo(1));
         Assert.That(results[0], Is.EqualTo(new LuaValue("foo")));
+    }
+
+    [Test]
+    public async Task Test_AllowNullLuaObjectPropertyCanBeSetToNil()
+    {
+        var referencedObject = new NullableReferencedObject { Label = "reference" };
+        var userData = new NullableMemberContainer { OptionalObject = referencedObject };
+
+        var state = LuaState.Create();
+        state.Environment["referencedObject"] = referencedObject;
+        state.Environment["target"] = userData;
+        var results = await state.DoStringAsync(
+            """
+            local oldObject = target.optionalObject
+            target.optionalObject = nil
+            local nilObject = target.optionalObject
+            target.optionalObject = referencedObject
+            return oldObject.label, nilObject, target.optionalObject.label
+            """
+        );
+
+        Assert.That(results, Has.Length.EqualTo(3));
+        Assert.That(results[0], Is.EqualTo(new LuaValue("reference")));
+        Assert.That(results[1], Is.EqualTo(LuaValue.Nil));
+        Assert.That(results[2], Is.EqualTo(new LuaValue("reference")));
+        Assert.That(userData.OptionalObject, Is.SameAs(referencedObject));
+    }
+
+    [Test]
+    public async Task Test_LuaObjectPropertyRejectsNilWithoutNullableContract()
+    {
+        var referencedObject = new NullableReferencedObject { Label = "reference" };
+        var userData = new NullableMemberContainer { RequiredObject = referencedObject };
+
+        var state = LuaState.Create();
+        state.Environment["target"] = userData;
+        var exception = Assert.ThrowsAsync<LuaRuntimeException>(async () =>
+        {
+            await state.DoStringAsync("target.requiredObject = nil");
+        });
+
+        Assert.That(exception!.Message, Does.Contain("bad argument #3"));
+        Assert.That(userData.RequiredObject, Is.SameAs(referencedObject));
+    }
+
+    [Test]
+    public async Task Test_NullableMembersMapToAndFromNil()
+    {
+        var referencedObject = new NullableReferencedObject { Label = "reference" };
+        var userData = new NullableMemberContainer
+        {
+            NullableObject = referencedObject,
+            NullableNumber = 10,
+            AllowNullNullableNumber = 20,
+            NullableText = "text",
+        };
+
+        var state = LuaState.Create();
+        state.Environment["target"] = userData;
+        var results = await state.DoStringAsync(
+            """
+            local objectLabel = target.nullableObject.label
+            local number = target.nullableNumber
+            local allowNullNumber = target.allowNullNullableNumber
+            local text = target.nullableText
+            target.nullableObject = nil
+            target.nullableNumber = nil
+            target.allowNullNullableNumber = nil
+            target.nullableText = nil
+            target.allowNullText = nil
+            return objectLabel, number, allowNullNumber, text,
+                target.nullableObject, target.nullableNumber,
+                target.allowNullNullableNumber, target.nullableText, target.allowNullText
+            """
+        );
+
+        Assert.That(results, Has.Length.EqualTo(9));
+        Assert.That(results[0], Is.EqualTo(new LuaValue("reference")));
+        Assert.That(results[1], Is.EqualTo(new LuaValue(10)));
+        Assert.That(results[2], Is.EqualTo(new LuaValue(20)));
+        Assert.That(results[3], Is.EqualTo(new LuaValue("text")));
+        Assert.That(results[4..], Is.All.EqualTo(LuaValue.Nil));
+        Assert.That(userData.NullableObject, Is.Null);
+        Assert.That(userData.NullableNumber, Is.Null);
+        Assert.That(userData.AllowNullNullableNumber, Is.Null);
+        Assert.That(userData.NullableText, Is.Null);
+        Assert.That(userData.AllowNullText, Is.Null);
+    }
+
+    [Test]
+    public async Task Test_NullableParametersMapToAndFromNil()
+    {
+        var state = LuaState.Create();
+        state.Environment["target"] = new NullableMemberContainer();
+        var results = await state.DoStringAsync(
+            """
+            return target.echoNullableNumber(nil),
+                target.echoNullableNumber(12),
+                target.echoNullableText(nil),
+                target.echoNullableText("text"),
+                target.isNull(nil),
+                target.nullableNumberWithDefault(),
+                target.nullableNumberWithDefault(nil)
+            """
+        );
+
+        Assert.That(results, Has.Length.EqualTo(7));
+        Assert.That(results[0], Is.EqualTo(LuaValue.Nil));
+        Assert.That(results[1], Is.EqualTo(new LuaValue(12)));
+        Assert.That(results[2], Is.EqualTo(LuaValue.Nil));
+        Assert.That(results[3], Is.EqualTo(new LuaValue("text")));
+        Assert.That(results[4], Is.EqualTo(new LuaValue(true)));
+        Assert.That(results[5], Is.EqualTo(new LuaValue(42)));
+        Assert.That(results[6], Is.EqualTo(LuaValue.Nil));
+    }
+
+    [Test]
+    public async Task Test_AllowNullWorksWithNullableContextDisabled()
+    {
+        var userData = new NullableDisabledContainer { Value = "value" };
+        var state = LuaState.Create();
+        state.Environment["target"] = userData;
+        var results = await state.DoStringAsync(
+            """
+            local oldValue = target.Value
+            target.Value = nil
+            return oldValue, target.Value, target.IsNull(nil)
+            """
+        );
+
+        Assert.That(results, Has.Length.EqualTo(3));
+        Assert.That(results[0], Is.EqualTo(new LuaValue("value")));
+        Assert.That(results[1], Is.EqualTo(LuaValue.Nil));
+        Assert.That(results[2], Is.EqualTo(new LuaValue(true)));
+        Assert.That(userData.Value, Is.Null);
     }
 
     [Test]

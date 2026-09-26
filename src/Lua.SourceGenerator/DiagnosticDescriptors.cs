@@ -68,4 +68,13 @@ public static class DiagnosticDescriptors
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true
     );
+
+    public static readonly DiagnosticDescriptor InvalidAllowNullType = new(
+        id: "LUACS008",
+        title: "AllowNull cannot be used on non-nullable value types.",
+        messageFormat: "AllowNull cannot be used on non-nullable value type member or parameter '{0}'.",
+        category: Category,
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true
+    );
 }
