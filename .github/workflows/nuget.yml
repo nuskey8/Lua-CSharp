@@ -10,6 +10,10 @@ jobs:
   build-pack:
     runs-on: ubuntu-latest
 
+    permissions:
+      contents: read
+      id-token: write
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -53,6 +57,13 @@ jobs:
           name: nuget-package
           path: artifacts/nuget/*.nupkg
 
+      - name: NuGet login
+        if: startsWith(github.ref, 'refs/tags/v')
+        id: nuget-login
+        uses: NuGet/login@v1
+        with:
+          user: nuskey
+
       - name: Publish to NuGet
         if: startsWith(github.ref, 'refs/tags/v')
-        run: dotnet nuget push artifacts/nuget/*.nupkg --api-key "${{ secrets.NUGET_API_KEY }}" --source "https://api.nuget.org/v3/index.json" --skip-duplicate
+        run: dotnet nuget push artifacts/nuget/*.nupkg --api-key "${{ steps.nuget-login.outputs.NUGET_API_KEY }}" --source "https://api.nuget.org/v3/index.json" --skip-duplicate
