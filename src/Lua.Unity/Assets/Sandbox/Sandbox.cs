@@ -18,7 +18,7 @@ public class Sandbox : MonoBehaviour
             {
                 FileSystem = new FileSystem(Application.streamingAssetsPath),
                 OsEnvironment = new UnityApplicationOsEnvironment(),
-                StandardIO = new UnityStandardIO()
+                StandardIO = new UnityStandardIO(),
             }
         );
         state.ModuleLoader = CompositeModuleLoader.Create(

@@ -1,7 +1,7 @@
-﻿using Lua.Platforms;
+﻿using System.Globalization;
+using Lua.Platforms;
 using Lua.Standard;
 using Microsoft.Extensions.Time.Testing;
-using System.Globalization;
 
 namespace Lua.Tests;
 
