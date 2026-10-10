@@ -34,6 +34,8 @@ public sealed class SymbolReferences
             LuaThread = compilation.GetTypeByMetadataName("Lua.LuaThread")!,
             LuaTable = compilation.GetTypeByMetadataName("Lua.LuaTable")!,
             LuaUserData = compilation.GetTypeByMetadataName("Lua.ILuaUserData")!,
+            ReadOnlyMemory = compilation.GetTypeByMetadataName("System.ReadOnlyMemory`1")!,
+            ReadOnlySpan = compilation.GetTypeByMetadataName("System.ReadOnlySpan`1")!,
             CancellationToken = compilation.GetTypeByMetadataName(
                 "System.Threading.CancellationToken"
             )!,
@@ -54,5 +56,7 @@ public sealed class SymbolReferences
     public INamedTypeSymbol LuaThread { get; private set; } = null!;
     public INamedTypeSymbol LuaTable { get; private set; } = null!;
     public INamedTypeSymbol LuaUserData { get; private set; } = null!;
+    public INamedTypeSymbol ReadOnlyMemory { get; private set; } = null!;
+    public INamedTypeSymbol ReadOnlySpan { get; private set; } = null!;
     public INamedTypeSymbol CancellationToken { get; private set; } = null!;
 }

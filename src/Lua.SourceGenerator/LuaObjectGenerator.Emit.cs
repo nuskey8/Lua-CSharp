@@ -441,13 +441,7 @@ partial class LuaObjectGenerator
                     continue;
                 }
 
-                if (
-                    index == method.Symbol.Parameters.Length - 1
-                    && SymbolEqualityComparer.Default.Equals(
-                        typeSymbol,
-                        references.CancellationToken
-                    )
-                )
+                if (index >= method.FixedParameterCount)
                 {
                     continue;
                 }
@@ -518,15 +512,27 @@ partial class LuaObjectGenerator
         int contextArgumentIndex
     )
     {
-        var parameterIndex = methodMetadata.IsStatic
-            ? contextArgumentIndex
-            : contextArgumentIndex - 1;
-        if (parameterIndex < 0 || parameterIndex >= methodMetadata.Symbol.Parameters.Length)
+        var luaArgumentIndex = methodMetadata.IsStatic ? 0 : 1;
+        for (
+            var parameterIndex = 0;
+            parameterIndex < methodMetadata.FixedParameterCount;
+            parameterIndex++
+        )
         {
-            return null;
+            var parameter = methodMetadata.Symbol.Parameters[parameterIndex];
+            if (parameter.RefKind == RefKind.Out)
+            {
+                continue;
+            }
+            if (luaArgumentIndex == contextArgumentIndex)
+            {
+                return parameter;
+            }
+            luaArgumentIndex++;
         }
 
-        return methodMetadata.Symbol.Parameters[parameterIndex];
+        // Variadic arguments are not a single typed key to preload for __index/__newindex.
+        return null;
     }
 
     static bool IsPreloadableArgumentType(
@@ -1096,9 +1102,7 @@ partial class LuaObjectGenerator
             luaArgumentIndex++;
         }
 
-        var hasCancellationToken = false;
-
-        for (var i = 0; i < methodMetadata.Symbol.Parameters.Length; i++)
+        for (var i = 0; i < methodMetadata.FixedParameterCount; i++)
         {
             var parameter = methodMetadata.Symbol.Parameters[i];
             var parameterType = parameter.Type;
@@ -1110,18 +1114,6 @@ partial class LuaObjectGenerator
                 parameterType,
                 references.LuaValue
             );
-
-            if (
-                i == methodMetadata.Symbol.Parameters.Length - 1
-                && SymbolEqualityComparer.Default.Equals(
-                    parameterType,
-                    references.CancellationToken
-                )
-            )
-            {
-                hasCancellationToken = true;
-                break;
-            }
 
             var allowNull = parameter.ContainsAttribute(references.AllowNullAttribute);
 
@@ -1231,6 +1223,25 @@ partial class LuaObjectGenerator
             luaArgumentIndex++;
         }
 
+        if (methodMetadata.HasParamsLikeParameter)
+        {
+            var arguments = methodMetadata.ParamsAsMemory
+                ? "context.ArgumentsMemory"
+                : "context.Arguments";
+            // Out parameters consume no Lua arguments; an instance receiver consumes one.
+            // Missing optional fixed arguments still leave a valid, empty variadic view.
+            callArguments.Add(
+                luaArgumentIndex == 0
+                    ? arguments
+                    : $"{arguments}.Slice(global::System.Math.Min(context.ArgumentCount, {luaArgumentIndex}))"
+            );
+        }
+
+        if (methodMetadata.HasCancellationTokenParameter)
+        {
+            callArguments.Add("ct");
+        }
+
         if (methodMetadata.HasReturnValue)
         {
             builder.Append("var result = ");
@@ -1249,11 +1260,6 @@ partial class LuaObjectGenerator
             );
             builder.Append(string.Join(",", callArguments), false);
 
-            if (hasCancellationToken)
-            {
-                builder.Append(callArguments.Count > 0 ? ",ct" : "ct", false);
-            }
-
             builder.AppendLine(");", false);
         }
         else
@@ -1263,11 +1269,6 @@ partial class LuaObjectGenerator
                 !(methodMetadata.HasReturnValue || methodMetadata.IsAsync)
             );
             builder.Append(string.Join(",", callArguments), false);
-
-            if (hasCancellationToken)
-            {
-                builder.Append(callArguments.Count > 0 ? ",ct" : "ct", false);
-            }
 
             builder.AppendLine(");", false);
         }

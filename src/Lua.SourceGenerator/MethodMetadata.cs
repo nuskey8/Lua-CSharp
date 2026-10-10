@@ -10,6 +10,10 @@ class MethodMetadata
     public bool HasReturnValue { get; }
     public bool HasMemberAttribute { get; set; }
     public bool HasMetamethodAttribute { get; set; }
+    public bool HasCancellationTokenParameter { get; }
+    public bool HasParamsLikeParameter { get; }
+    public bool ParamsAsMemory { get; }
+    public int FixedParameterCount { get; }
     public string LuaMemberName { get; }
     public LuaObjectMetamethod Metamethod { get; }
 
@@ -63,5 +67,51 @@ class MethodMetadata
                     metamethodAttribute.ConstructorArguments[0].Value!.ToString()
                 );
         }
+
+        var parameters = symbol.Parameters;
+        var parameterCount = parameters.Length;
+        if (
+            parameterCount > 0
+            && parameters[parameterCount - 1].RefKind == RefKind.None
+            && SymbolEqualityComparer.Default.Equals(
+                parameters[parameterCount - 1].Type,
+                references.CancellationToken
+            )
+        )
+        {
+            HasCancellationTokenParameter = true;
+            parameterCount--;
+        }
+
+        // A borrowed argument view must be last, except for the injected cancellation token.
+        // In particular, a token-only method has no preceding parameter to inspect.
+        if (
+            parameterCount > 0
+            && parameters[parameterCount - 1].RefKind == RefKind.None
+            && parameters[parameterCount - 1].Type
+                is INamedTypeSymbol { TypeArguments.Length: 1 } parameterType
+            && SymbolEqualityComparer.Default.Equals(
+                parameterType.TypeArguments[0],
+                references.LuaValue
+            )
+        )
+        {
+            ParamsAsMemory = SymbolEqualityComparer.Default.Equals(
+                parameterType.OriginalDefinition,
+                references.ReadOnlyMemory
+            );
+            HasParamsLikeParameter =
+                ParamsAsMemory
+                || SymbolEqualityComparer.Default.Equals(
+                    parameterType.OriginalDefinition,
+                    references.ReadOnlySpan
+                );
+            if (HasParamsLikeParameter)
+            {
+                parameterCount--;
+            }
+        }
+
+        FixedParameterCount = parameterCount;
     }
 }

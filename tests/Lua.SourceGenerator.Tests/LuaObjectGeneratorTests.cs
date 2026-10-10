@@ -7,6 +7,133 @@ namespace Lua.SourceGenerator.Tests;
 
 public class LuaObjectGeneratorTests
 {
+    [TestCase("public static int Read(System.ReadOnlySpan<LuaValue> values) => values.Length;")]
+    [TestCase("public int Read(System.ReadOnlySpan<LuaValue> values) => values.Length;")]
+    [TestCase(
+        "public static int Read(int first, System.ReadOnlySpan<LuaValue> values) => first + values.Length;"
+    )]
+    [TestCase(
+        "public int Read(int first, System.ReadOnlySpan<LuaValue> values) => first + values.Length;"
+    )]
+    [TestCase(
+        "public int Read(System.ReadOnlySpan<LuaValue> values, System.Threading.CancellationToken ct) => values.Length;"
+    )]
+    [TestCase("public static int Read(System.ReadOnlyMemory<LuaValue> values) => values.Length;")]
+    [TestCase("public int Read(System.ReadOnlyMemory<LuaValue> values) => values.Length;")]
+    [TestCase(
+        "public static int Read(int first, System.ReadOnlyMemory<LuaValue> values, System.Threading.CancellationToken ct) => first + values.Length;"
+    )]
+    [TestCase(
+        "public int Read(int first, System.ReadOnlyMemory<LuaValue> values, System.Threading.CancellationToken ct) => first + values.Length;"
+    )]
+    [TestCase(
+        "public int Read(int first = 1, System.ReadOnlySpan<LuaValue> values = default) => first + values.Length;"
+    )]
+    [TestCase(
+        "public int Read(out int extra, ref int first, System.ReadOnlyMemory<LuaValue> values) { extra = first++; return values.Length; }"
+    )]
+    [TestCase(
+        "public System.Threading.Tasks.Task<int> Read(System.ReadOnlyMemory<LuaValue> values) => System.Threading.Tasks.Task.FromResult(values.Length);"
+    )]
+    [TestCase(
+        "public System.Threading.Tasks.ValueTask<int> Read(System.ReadOnlyMemory<LuaValue> values) => new System.Threading.Tasks.ValueTask<int>(values.Length);"
+    )]
+    [TestCase(
+        "public System.Threading.Tasks.Task<int> Read(System.ReadOnlySpan<LuaValue> values) => System.Threading.Tasks.Task.FromResult(values.Length);"
+    )]
+    [TestCase("public void Read(System.Threading.CancellationToken ct) { }")]
+    public void VariadicParameters_GenerateWithoutDiagnostics(string method)
+    {
+        var result = CompileGeneratedSource(
+            $$"""
+            using Lua;
+            [LuaObject]
+            internal partial class VariadicObject
+            {
+                [LuaMember] {{method}}
+            }
+            internal static class Consumer
+            {
+                public static LuaValue Convert() => new VariadicObject();
+            }
+            """
+        );
+        Assert.That(result.Success, Is.True, string.Join("\n", result.Diagnostics));
+        Assert.That(result.Diagnostics, Is.Empty);
+    }
+
+    [TestCase(
+        "System.ReadOnlySpan<LuaValue> values, int last",
+        "System.ReadOnlySpan<Lua.LuaValue>"
+    )]
+    [TestCase(
+        "System.ReadOnlyMemory<LuaValue> values, int last",
+        "System.ReadOnlyMemory<Lua.LuaValue>"
+    )]
+    [TestCase("System.ReadOnlySpan<int> values", "System.ReadOnlySpan<int>")]
+    [TestCase("System.ReadOnlyMemory<int> values", "System.ReadOnlyMemory<int>")]
+    [TestCase("System.Span<LuaValue> values", "System.Span<Lua.LuaValue>")]
+    [TestCase("System.Memory<LuaValue> values", "System.Memory<Lua.LuaValue>")]
+    [TestCase("ref System.ReadOnlySpan<LuaValue> values", "System.ReadOnlySpan<Lua.LuaValue>")]
+    [TestCase("out System.ReadOnlyMemory<LuaValue> values", "System.ReadOnlyMemory<Lua.LuaValue>")]
+    [TestCase("in System.ReadOnlyMemory<LuaValue> values", "System.ReadOnlyMemory<Lua.LuaValue>")]
+    [TestCase("System.ReadOnlyMemory<LuaValue>? values", "System.ReadOnlyMemory<Lua.LuaValue>")]
+    [TestCase("params LuaValue[] values", "Lua.LuaValue[]")]
+    public void VariadicParameters_RejectUnsupportedShapes(string parameters, string typeName)
+    {
+        var result = CompileGeneratedSource(
+            $$"""
+            using Lua;
+            [LuaObject]
+            internal partial class UnsupportedObject
+            {
+                [LuaMember] public void Read({{parameters}}) => throw new System.NotSupportedException();
+            }
+            [LuaObject]
+            internal partial class HealthyObject
+            {
+                [LuaMember] public int Value => 1;
+            }
+            internal static class Consumer
+            {
+                public static LuaValue Convert() => new HealthyObject();
+            }
+            """
+        );
+        AssertUnsupportedMemberDiagnostic(
+            result.Diagnostics,
+            result.UserSource,
+            "LUACS006",
+            "values",
+            typeName
+        );
+    }
+
+    [TestCase("System.ReadOnlySpan<LuaValue>")]
+    [TestCase("System.ReadOnlyMemory<LuaValue>")]
+    public void VariadicParameters_StillValidateAllowNull(string type)
+    {
+        var result = CompileGeneratedSource(
+            $$"""
+            using Lua;
+            [LuaObject]
+            internal partial class UnsupportedObject
+            {
+                [LuaMember] public void Read([System.Diagnostics.CodeAnalysis.AllowNull] {{type}} values) { }
+            }
+            [LuaObject]
+            internal partial class HealthyObject { }
+            """
+        );
+        AssertUnsupportedMemberDiagnostic(
+            result.Diagnostics,
+            result.UserSource,
+            "LUACS008",
+            "values",
+            "values"
+        );
+    }
+
     [TestCase("LuaValue[]", "System.Array.Empty<LuaValue>()", "Lua.LuaValue[]")]
     [TestCase("LuaValue[,]", "new LuaValue[0, 0]", "Lua.LuaValue[*,*]")]
     [TestCase("int[]", "System.Array.Empty<int>()", "int[]")]

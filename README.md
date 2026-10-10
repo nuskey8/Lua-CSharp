@@ -439,6 +439,38 @@ Return types such as `void`, `Task/Task<T>`, `ValueTask/ValueTask<T>`, `UniTask/
 
 If the type is not supported, the Source Generator will output a compile-time error.
 
+### Variable-length arguments
+
+A final `ReadOnlySpan<LuaValue>` or `ReadOnlyMemory<LuaValue>` parameter receives the remaining Lua arguments. An injected `CancellationToken` may follow it. Fixed arguments are read first; an instance method's `self` is excluded, and `out` parameters consume no Lua arguments. No remaining arguments produces an empty view, and `nil` values are preserved.
+
+```cs
+[LuaObject]
+public partial class Calculator
+{
+    [LuaMember]
+    public double Sum(double first, ReadOnlySpan<LuaValue> rest)
+    {
+        foreach (var value in rest)
+            first += value.Read<double>();
+        return first;
+    }
+
+    [LuaMember]
+    public async Task<int> CountAsync(ReadOnlyMemory<LuaValue> values, CancellationToken ct)
+    {
+        await Task.Delay(1, ct);
+        return values.Length;
+    }
+}
+```
+
+```lua
+local total = calculator:Sum(1, 2, 3) -- 6
+local count = calculator:CountAsync(1, nil, 3) -- 3
+```
+
+These are borrowed, read-only views of the Lua argument stack. Use `ReadOnlyMemory<LuaValue>` when an async method needs the values after an `await`. Copy with `ToArray()` if the values must be retained after the method returns. Mutable views, `ref`/`out`/`in` views, other element types and C# `params LuaValue[]` are not supported. Pass the view by value, after any fixed parameters and before an optional injected token.
+
 ### LuaMetamethod
 
 By adding the `[LuaMetamethod]` attribute, you can designate a C# method to be used as a Lua metamethod.
