@@ -320,7 +320,8 @@ public ref struct Parser
                 LuaParseException.ExpectedToken(
                     ChunkName,
                     enumerator.Current.Position,
-                    SyntaxTokenType.End
+                    SyntaxTokenType.End,
+                    null
                 );
             }
 
@@ -1284,7 +1285,14 @@ public ref struct Parser
     {
         if (enumerator.Current.Type != expectedToken)
         {
-            LuaParseException.ExpectedToken(ChunkName, enumerator.Current.Position, expectedToken);
+            LuaParseException.ExpectedToken(
+                ChunkName,
+                enumerator.Current.Position,
+                expectedToken,
+                enumerator.Current.Type == SyntaxTokenType.EndOfLine && enumerator.IsCompleted
+                    ? null
+                    : enumerator.Current
+            );
         }
     }
 
@@ -1293,11 +1301,8 @@ public ref struct Parser
     {
         if (!enumerator.MoveNext())
         {
-            LuaParseException.SyntaxError(
-                ChunkName,
-                enumerator.Current.Position,
-                enumerator.Current
-            );
+            // A failed MoveNext retains the last token, which is not the token at EOF.
+            LuaParseException.SyntaxError(ChunkName, enumerator.Current.Position, null);
         }
     }
 

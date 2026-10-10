@@ -7,36 +7,42 @@ namespace Lua.Tests;
 
 public class ParserTests
 {
-    [TestCase("if true print() end", "then")]
-    [TestCase("while true print() end", "do")]
-    [TestCase("for k, v pairs(t) do end", "in")]
-    [TestCase("function f a) end", "(")]
-    [TestCase("function f(a end", ")")]
-    [TestCase("local t = {[1] 2}", "=")]
-    [TestCase("local t = {[1 = 2}", "]")]
-    [TestCase("local = 1", "identifier")]
-    public void MissingToken_UsesLuaSpelling(string source, string expectedToken)
+    [TestCase("if true print() end", "'then' expected near 'print'")]
+    [TestCase("while true print() end", "'do' expected near 'print'")]
+    [TestCase("for k, v pairs(t) do end", "'in' expected near 'pairs'")]
+    [TestCase("function f a) end", "'(' expected near 'a'")]
+    [TestCase("function f(a end", "')' expected near 'end'")]
+    [TestCase("local t = {[1] 2}", "'=' expected near '2'")]
+    [TestCase("local t = {[1 = 2}", "']' expected near '='")]
+    [TestCase("local = 1", "<name> expected near '='")]
+    [TestCase("local 123 = 1", "<name> expected near '123'")]
+    [TestCase("local \"text\" = 1", "<name> expected near '\"text\"'")]
+    [TestCase("local [[text]] = 1", "<name> expected near '[[text]]'")]
+    [TestCase("if true then", "'end' expected near <eof>")]
+    [TestCase("if true\n", "'then' expected near <eof>")]
+    public void MissingToken_UsesLuaSpelling(string source, string expectedMessage)
     {
         var exception = Assert.Throws<LuaParseException>(() =>
             LuaSyntaxTree.Parse(source, "diagnostic.lua")
         )!;
 
-        Assert.That(exception.Message, Does.EndWith($"'{expectedToken}' expected"));
+        Assert.That(exception.Message, Does.EndWith(expectedMessage));
         Assert.That(exception.ChunkName, Is.EqualTo("diagnostic.lua"));
         Assert.That(exception.Position.Line, Is.EqualTo(1));
     }
 
-    [TestCase(SyntaxTokenType.Then, "then")]
-    [TestCase(SyntaxTokenType.ElseIf, "elseif")]
-    [TestCase(SyntaxTokenType.GreaterThanOrEqual, ">=")]
-    [TestCase(SyntaxTokenType.Inequality, "~=")]
-    [TestCase(SyntaxTokenType.VarArg, "...")]
-    [TestCase(SyntaxTokenType.Dot, ".")]
-    [TestCase(SyntaxTokenType.Colon, ":")]
-    [TestCase(SyntaxTokenType.Identifier, "identifier")]
-    [TestCase(SyntaxTokenType.Number, "number")]
-    [TestCase(SyntaxTokenType.String, "string")]
-    [TestCase(SyntaxTokenType.RawString, "rawstring")]
+    [TestCase(SyntaxTokenType.Then, "'then'")]
+    [TestCase(SyntaxTokenType.ElseIf, "'elseif'")]
+    [TestCase(SyntaxTokenType.GreaterThanOrEqual, "'>='")]
+    [TestCase(SyntaxTokenType.Inequality, "'~='")]
+    [TestCase(SyntaxTokenType.VarArg, "'...'")]
+    [TestCase(SyntaxTokenType.Dot, "'.'")]
+    [TestCase(SyntaxTokenType.Colon, "':'")]
+    [TestCase(SyntaxTokenType.Identifier, "<name>")]
+    [TestCase(SyntaxTokenType.Number, "<number>")]
+    [TestCase(SyntaxTokenType.String, "<string>")]
+    [TestCase(SyntaxTokenType.RawString, "<string>")]
+    [TestCase(SyntaxTokenType.EndOfLine, "<eol>")]
     [SetCulture("tr-TR")]
     public void ExpectedToken_UsesSyntaxAndCultureIndependentCategoryNames(
         SyntaxTokenType token,
@@ -48,9 +54,20 @@ public class ParserTests
             LuaParseException.ExpectedToken("diagnostic.lua", position, token)
         )!;
 
-        Assert.That(exception.Message, Is.EqualTo($"diagnostic.lua:3: '{expectedText}' expected"));
+        Assert.That(exception.Message, Is.EqualTo($"diagnostic.lua:3: {expectedText} expected"));
         Assert.That(exception.Position, Is.EqualTo(position));
         Assert.That(exception.ChunkName, Is.EqualTo("diagnostic.lua"));
+    }
+
+    [TestCase("local", "syntax error near <eof>")]
+    [TestCase("return t:", "syntax error near <eof>")]
+    [TestCase("*a = 123", "unexpected symbol near '*'")]
+    public void SyntaxErrors_ShowActualTokenOrEndOfInput(string source, string expectedMessage)
+    {
+        var exception = Assert.Throws<LuaParseException>(() =>
+            LuaSyntaxTree.Parse(source, "diagnostic.lua")
+        )!;
+        Assert.That(exception.Message, Does.EndWith(expectedMessage));
     }
 
     [TestCase(SyntaxTokenType.Identifier, "myValue", "myValue")]
