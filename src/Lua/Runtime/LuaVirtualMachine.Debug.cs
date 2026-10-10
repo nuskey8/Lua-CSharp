@@ -87,16 +87,16 @@ public static partial class LuaVirtualMachine
                     stack.Push("line");
                     stack.Push(line);
                     context.State.IsInHook = true;
-                    var frame = context.State.CreateCallStackFrame(hook, 2, top, pc);
-                    context.State.PushCallStackFrame(frame);
-                    LuaFunctionExecutionContext funcContext = new()
-                    {
-                        State = context.State,
-                        ArgumentCount = stack.Count - frame.Base,
-                        ReturnFrameBase = frame.ReturnBase,
-                    };
                     try
                     {
+                        var frame = context.State.CreateCallStackFrame(hook, 2, top, pc);
+                        context.State.PushCallStackFrame(frame);
+                        LuaFunctionExecutionContext funcContext = new()
+                        {
+                            State = context.State,
+                            ArgumentCount = stack.Count - frame.Base,
+                            ReturnFrameBase = frame.ReturnBase,
+                        };
                         await hook.Func(funcContext, context.CancellationToken);
                     }
                     finally
@@ -157,22 +157,28 @@ public static partial class LuaVirtualMachine
 
             stack.Push(LuaValue.Nil);
             context.State.IsInHook = true;
-            var frame = context.State.CreateCallStackFrame(hook, 2, top, 0);
-            context.State.PushCallStackFrame(frame);
-            LuaFunctionExecutionContext funcContext = new()
-            {
-                State = context.State,
-                ArgumentCount = stack.Count - frame.Base,
-                ReturnFrameBase = frame.ReturnBase,
-            };
+            var framePushed = false;
             try
             {
+                var frame = context.State.CreateCallStackFrame(hook, 2, top, 0);
+                context.State.PushCallStackFrame(frame);
+                framePushed = true;
+                LuaFunctionExecutionContext funcContext = new()
+                {
+                    State = context.State,
+                    ArgumentCount = stack.Count - frame.Base,
+                    ReturnFrameBase = frame.ReturnBase,
+                };
                 await hook.Func(funcContext, cancellationToken);
             }
             finally
             {
                 context.State.IsInHook = false;
-                context.State.PopCallStackFrameWithStackPop();
+                // A failed push leaves the caller's frame on top; do not pop it.
+                if (framePushed)
+                {
+                    context.State.PopCallStackFrameWithStackPop();
+                }
             }
         }
 
@@ -200,23 +206,27 @@ public static partial class LuaVirtualMachine
             stack.Push("return");
             stack.Push(LuaValue.Nil);
             context.State.IsInHook = true;
-            frame = context.State.CreateCallStackFrame(hook, 2, top, 0);
-            context.State.PushCallStackFrame(frame);
-            LuaFunctionExecutionContext funcContext = new()
-            {
-                State = context.State,
-                ArgumentCount = stack.Count - frame.Base,
-                ReturnFrameBase = frame.ReturnBase,
-            };
+            var framePushed = false;
             try
             {
-                context.State.IsInHook = true;
+                frame = context.State.CreateCallStackFrame(hook, 2, top, 0);
+                context.State.PushCallStackFrame(frame);
+                framePushed = true;
+                LuaFunctionExecutionContext funcContext = new()
+                {
+                    State = context.State,
+                    ArgumentCount = stack.Count - frame.Base,
+                    ReturnFrameBase = frame.ReturnBase,
+                };
                 await hook.Func(funcContext, cancellationToken);
             }
             finally
             {
                 context.State.IsInHook = false;
-                context.State.PopCallStackFrameWithStackPop();
+                if (framePushed)
+                {
+                    context.State.PopCallStackFrameWithStackPop();
+                }
             }
 
             return r;
