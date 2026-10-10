@@ -30,7 +30,7 @@ public sealed class CoroutineLibrary
     )
     {
         var arg0 = context.GetArgument<LuaFunction>(0);
-        return new(context.Return(LuaState.CreateCoroutine(context.State.GlobalState, arg0, true)));
+        return new(context.Return(context.State.CreateCoroutine(arg0, true)));
     }
 
     public ValueTask<int> Resume(
@@ -82,7 +82,7 @@ public sealed class CoroutineLibrary
     )
     {
         var arg0 = context.GetArgument<LuaFunction>(0);
-        var state = LuaState.CreateCoroutine(context.State.GlobalState, arg0, false);
+        var state = context.State.CreateCoroutine(arg0, false);
         return new(context.Return(new CSharpClosure("wrap", [state], WrapResume)));
     }
 

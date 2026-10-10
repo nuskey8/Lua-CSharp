@@ -317,13 +317,15 @@ This code can resume the execution of the Lua script after waiting with await, a
 
 `state.SetHook(hook, mask, count)` installs a hook for that Lua thread. The mask combines `c` (call), `r` (return), and `l` (line); a positive `count` enables instruction events even with an empty mask. The callback receives the event name and a line number (`nil` for non-line events). Return values, including `false`, are ignored. `state.SetHook(null, "")` removes the hook.
 
-A hook can call `SetHook` to replace or remove itself or change its interval. Setting a hook resets the instruction counter, so subsequent count events use the new interval. Hooks are suppressed while the callback executes, including Lua code it invokes.
+A hook can call `SetHook` to replace or remove itself or change its interval. Setting a hook resets the instruction counter, so subsequent count events use the new interval. Hooks on that thread are suppressed while the callback executes, including Lua code it invokes on the same thread.
+
+Host hook settings are copied when `CreateThread`, `CreateCoroutine`, `coroutine.create`, or `coroutine.wrap` creates a child. The child starts a fresh instruction counter and uses the same callback with its own `context.State`; use that state to inspect or reconfigure the executing thread. Parent and child settings are independent: later changes do not update existing children, and a child created before hook installation remains unconfigured. Hook suppression is also independent, so a new child can fire hooks even when created inside a parent hook. Lua `debug.sethook` callbacks remain thread-local, as in [Lua 5.2](https://www.lua.org/source/5.2/ldblib.c.html#hookf); a child inherits their mask/count metadata without running the parent's Lua callback. Scripts given access to `debug.sethook` can still replace or remove a host hook.
 
 Count events measure Lua instructions, as in [Lua 5.2](https://www.lua.org/manual/5.2/manual.html#lua_sethook). They do not fire during a C# host function's own execution or while awaiting it. If that host function calls back into Lua, the nested Lua instructions can trigger hooks. A timeout checked by a hook therefore cannot interrupt a blocking C# function. Long-running host functions should check the supplied `CancellationToken` or pass it to cancellable operations. A host-caught exception or cancellation from a hook does not prevent hooks from running on later executions using the same state.
 
 Hook-based memory sampling is approximate: one Lua instruction or host operation can allocate substantially before the next event. `GC.GetTotalMemory(false)` reports the managed heap, not memory attributable to one Lua state, so it cannot enforce a strict per-state memory limit.
 
-A `LuaRuntimeException` thrown by a hook is a Lua error that `pcall` can catch; it is not an uncatchable execution limit.
+A `LuaRuntimeException` thrown by a hook is a Lua error that `pcall` or `coroutine.resume` can catch; it is not an uncatchable execution limit.
 
 ## Coroutines
 

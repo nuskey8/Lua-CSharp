@@ -474,7 +474,7 @@ public sealed class DebugLibrary
         var hook = context.GetArgumentOrDefault<LuaFunction?>(argOffset);
         var mask = context.GetArgumentOrDefault<string?>(argOffset + 1) ?? "";
         var count = context.GetArgumentOrDefault<int>(argOffset + 2);
-        state.SetHook(hook, mask, count);
+        state.SetHookFromLua(hook, mask, count);
         if (hook is null)
         {
             return 0;
@@ -521,17 +521,17 @@ public sealed class DebugLibrary
     )
     {
         var state = GetLuaThread(context, out _);
-        if (state.Hook is null)
+        if (state.Hook is null && !state.IsLuaDebugHook)
         {
             return new(context.Return(LuaValue.Nil, LuaValue.Nil, LuaValue.Nil));
         }
 
         return new(
             context.Return(
-                state.Hook,
-                (state.IsCallHookEnabled ? "c" : "")
-                    + (state.IsReturnHookEnabled ? "r" : "")
-                    + (state.IsLineHookEnabled ? "l" : ""),
+                state.Hook is null ? LuaValue.Nil : state.Hook,
+                ((state.HookMask & 1) != 0 ? "c" : "")
+                    + ((state.HookMask & 2) != 0 ? "r" : "")
+                    + ((state.HookMask & 4) != 0 ? "l" : ""),
                 state.BaseHookCount
             )
         );
