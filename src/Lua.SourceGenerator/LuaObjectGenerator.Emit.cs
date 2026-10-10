@@ -1347,25 +1347,38 @@ partial class LuaObjectGenerator
             builder.AppendLine("get");
             using (builder.BeginBlockScope())
             {
-                builder.AppendLine("if (__metatable != null) return __metatable;");
+                builder.AppendLine(
+                    "var metatable = global::System.Threading.Volatile.Read(ref __metatable);"
+                );
+                builder.AppendLine("if (metatable != null) return metatable;");
                 builder.AppendLine();
-                builder.AppendLine("__metatable = new();");
+                builder.AppendLine("metatable = new();");
                 foreach (var metamethod in metamethods)
                 {
                     var metaMethodName = metamethod.ToString();
                     var lowerName = metaMethodName.ToLower();
                     builder.AppendLine(
-                        $"__metatable[global::Lua.Runtime.Metamethods.{metaMethodName}] = __metamethod_{lowerName};"
+                        $"metatable[global::Lua.Runtime.Metamethods.{metaMethodName}] = __metamethod_{lowerName};"
                     );
                 }
 
-                builder.AppendLine("return __metatable;");
+                builder.AppendLine(
+                    "// Publish only a complete table. Concurrent readers share the winning instance,"
+                );
+                builder.AppendLine(
+                    "// including a custom metatable installed while initialization was in progress."
+                );
+                builder.AppendLine(
+                    "return global::System.Threading.Interlocked.CompareExchange(ref __metatable, metatable, null) ?? metatable;"
+                );
             }
 
             builder.AppendLine("set");
             using (builder.BeginBlockScope())
             {
-                builder.AppendLine("__metatable = value;");
+                builder.AppendLine(
+                    "global::System.Threading.Volatile.Write(ref __metatable, value);"
+                );
             }
         }
 
