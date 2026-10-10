@@ -7,6 +7,150 @@ namespace Lua.SourceGenerator.Tests;
 
 public class LuaObjectGeneratorTests
 {
+    [TestCase("LuaValue[]", "System.Array.Empty<LuaValue>()", "Lua.LuaValue[]")]
+    [TestCase("LuaValue[,]", "new LuaValue[0, 0]", "Lua.LuaValue[*,*]")]
+    [TestCase("int[]", "System.Array.Empty<int>()", "int[]")]
+    [TestCase("string[]?", "null", "string[]?")]
+    [TestCase(
+        "Task<LuaValue[]>",
+        "Task.FromResult(System.Array.Empty<LuaValue>())",
+        "Lua.LuaValue[]"
+    )]
+    [TestCase(
+        "ValueTask<LuaValue[]>",
+        "new ValueTask<LuaValue[]>(System.Array.Empty<LuaValue>())",
+        "Lua.LuaValue[]"
+    )]
+    [TestCase("int*", "null", "int*")]
+    [TestCase("delegate*<int>", "null", "delegate*<int>")]
+    public void UnsupportedReturnType_DoesNotStopOtherLuaObjects(
+        string returnType,
+        string returnExpression,
+        string diagnosticType
+    )
+    {
+        var usingTasks = returnType.Contains("Task") ? "using System.Threading.Tasks;" : "";
+        var result = CompileGeneratedSource(
+            $$"""
+            #nullable enable
+            using Lua;
+            {{usingTasks}}
+            [LuaObject]
+            internal unsafe partial class UnsupportedObject
+            {
+                [LuaMember] public {{returnType}} Read() => {{returnExpression}};
+            }
+            [LuaObject]
+            internal partial class HealthyObject
+            {
+                [LuaMember] public int Value => 1;
+            }
+            internal static class Consumer
+            {
+                public static LuaValue Convert() => new HealthyObject();
+            }
+            """
+        );
+
+        AssertUnsupportedMemberDiagnostic(
+            result.Diagnostics,
+            result.UserSource,
+            "LUACS005",
+            "Read",
+            diagnosticType
+        );
+        Assert.That(
+            result.GeneratedTrees.Select(x => Path.GetFileName(x.FilePath)),
+            Is.EquivalentTo(new[] { "HealthyObject.LuaObject.g.cs" })
+        );
+    }
+
+    [TestCase("LuaValue[] values", "Lua.LuaValue[]")]
+    [TestCase("ref LuaValue[] values", "Lua.LuaValue[]")]
+    [TestCase("out LuaValue[] values", "Lua.LuaValue[]")]
+    public void UnsupportedParameterType_HasALocatedDiagnostic(
+        string parameter,
+        string diagnosticType
+    )
+    {
+        var result = CompileGeneratedSource(
+            $$"""
+            using Lua;
+            [LuaObject]
+            internal partial class UnsupportedObject
+            {
+                [LuaMember] public void Read({{parameter}}) => throw new System.NotSupportedException();
+            }
+            [LuaObject]
+            internal partial class HealthyObject
+            {
+                [LuaMember] public int Value => 1;
+            }
+            internal static class Consumer
+            {
+                public static LuaValue Convert() => new HealthyObject();
+            }
+            """
+        );
+
+        AssertUnsupportedMemberDiagnostic(
+            result.Diagnostics,
+            result.UserSource,
+            "LUACS006",
+            "values",
+            diagnosticType
+        );
+    }
+
+    static void AssertUnsupportedMemberDiagnostic(
+        ImmutableArray<Diagnostic> diagnostics,
+        SyntaxTree userSource,
+        string diagnosticId,
+        string memberName,
+        string typeName
+    )
+    {
+        Assert.That(diagnostics, Has.Length.EqualTo(1), string.Join("\n", diagnostics));
+        var diagnostic = diagnostics[0];
+        Assert.That(diagnostic.Id, Is.EqualTo(diagnosticId));
+        Assert.That(diagnostic.Severity, Is.EqualTo(DiagnosticSeverity.Error));
+        Assert.That(diagnostic.GetMessage(), Does.Contain($"'{typeName}'"));
+        Assert.That(diagnostic.Location.SourceTree, Is.SameAs(userSource));
+        Assert.That(
+            userSource.GetText().ToString(diagnostic.Location.SourceSpan),
+            Is.EqualTo(memberName)
+        );
+    }
+
+    [TestCase("public int Read(ref int value, out int extra) { extra = ++value; return value; }")]
+    [TestCase("public static void Read(out int extra, ref int value) { extra = ++value; }")]
+    [TestCase("public Task<int> Read() => Task.FromResult(1);")]
+    [TestCase("public ValueTask<int> Read() => new ValueTask<int>(1);")]
+    [TestCase("public Task Read() => Task.CompletedTask;")]
+    [TestCase("public ValueTask Read() => default;")]
+    public void SupportedMethods_StillGenerateWithoutDiagnostics(string method)
+    {
+        var usingTasks = method.Contains("Task") ? "using System.Threading.Tasks;" : "";
+        var result = CompileGeneratedSource(
+            $$"""
+            using Lua;
+            {{usingTasks}}
+            [LuaObject]
+            internal partial class HealthyObject
+            {
+                [LuaMember] {{method}}
+            }
+            internal static class Consumer
+            {
+                public static LuaValue Convert() => new HealthyObject();
+            }
+            """
+        );
+
+        Assert.That(result.Success, Is.True, string.Join("\n", result.Diagnostics));
+        Assert.That(result.Diagnostics, Is.Empty);
+    }
+
     [TestCase(
         "[LuaMetamethod(LuaObjectMetamethod.Call)] public static BaseObject New() => new();",
         "[LuaMetamethod(LuaObjectMetamethod.Call)] public new static DerivedObject New() => new();"
@@ -252,7 +396,8 @@ public class LuaObjectGeneratorTests
     static (
         bool Success,
         ImmutableArray<Diagnostic> Diagnostics,
-        SyntaxTree UserSource
+        SyntaxTree UserSource,
+        ImmutableArray<SyntaxTree> GeneratedTrees
     ) CompileGeneratedSource(string source, bool warningsAsErrors = true)
     {
         var parseOptions = CSharpParseOptions
@@ -269,7 +414,8 @@ public class LuaObjectGeneratorTests
             [syntaxTree],
             references,
             new CSharpCompilationOptions(
-                OutputKind.DynamicallyLinkedLibrary
+                OutputKind.DynamicallyLinkedLibrary,
+                allowUnsafe: true
             ).WithGeneralDiagnosticOption(
                 warningsAsErrors ? ReportDiagnostic.Error : ReportDiagnostic.Default
             )
@@ -287,7 +433,12 @@ public class LuaObjectGeneratorTests
         using var assembly = new MemoryStream();
         using var documentation = new MemoryStream();
         var result = output.Emit(assembly, xmlDocumentationStream: documentation);
-        return (result.Success, diagnostics.AddRange(result.Diagnostics), syntaxTree);
+        return (
+            result.Success,
+            diagnostics.AddRange(result.Diagnostics),
+            syntaxTree,
+            driver.GetRunResult().GeneratedTrees
+        );
     }
 
     [Test]
