@@ -31,7 +31,8 @@ public class LuaParseException(string? chunkName, SourcePosition position, strin
         SyntaxTokenType token
     )
     {
-        throw new LuaParseException(chunkName, position, $"'{token}' expected");
+        var tokenText = SyntaxToken.GetFixedText(token) ?? token.ToString().ToLowerInvariant();
+        throw new LuaParseException(chunkName, position, $"'{tokenText}' expected");
     }
 
     public static void UnfinishedLongComment(string? chunkName, SourcePosition position)
