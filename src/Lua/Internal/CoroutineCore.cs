@@ -201,7 +201,13 @@ class CoroutineCore(LuaState state, LuaFunction function, bool isProtectedMode)
                     Thread.Dispose();
                     stack.PopUntil(returnBase);
                     stack.Push(false);
-                    stack.Push(ex is LuaRuntimeException luaEx ? luaEx.ErrorObject : ex.Message);
+                    // Wrapped C# exceptions carry a message rather than a Lua error object.
+                    // Keep error(nil) intact when the exception originated in Lua.
+                    stack.Push(
+                        ex is LuaRuntimeException { InnerException: null } luaEx
+                            ? luaEx.ErrorObject
+                            : ex.Message
+                    );
                     return 2;
                 }
                 else

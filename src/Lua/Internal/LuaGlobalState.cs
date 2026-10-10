@@ -21,6 +21,9 @@ sealed class LuaGlobalState
     public LuaPlatform Platform { get; set; }
     public ILuaModuleLoader? ModuleLoader { get; set; }
 
+    // Coroutines share this policy so Lua code cannot reset the limit by creating a new thread.
+    internal int MaxCallDepth = 100_000;
+
     internal UpValue EnvUpValue => envUpValue;
     internal ref FastStackCore<LuaState> ThreadStack => ref stateStack;
     internal ref FastStackCore<LuaDebug.LuaDebugBuffer> DebugBufferPool => ref debugBufferPool;
