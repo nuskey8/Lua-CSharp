@@ -480,29 +480,35 @@ public sealed class DebugLibrary
             return 0;
         }
 
-        if (state.IsReturnHookEnabled && context.State == state)
+        // Re-arming a hook must not dispatch another hook while its callback is running.
+        if (state.IsReturnHookEnabled && context.State == state && !state.IsInHook)
         {
             var stack = state.Stack;
             var top = stack.Count;
             stack.Push("return");
             stack.Push(LuaValue.Nil);
             context.State.IsInHook = true;
-            var frame = context.State.CreateCallStackFrame(hook, 2, top, 0);
-            context.State.PushCallStackFrame(frame);
-            LuaFunctionExecutionContext funcContext = new()
-            {
-                State = context.State,
-                ArgumentCount = stack.Count - frame.Base,
-                ReturnFrameBase = frame.ReturnBase,
-            };
+            var framePushed = false;
             try
             {
+                var frame = context.State.CreateCallStackFrame(hook, 2, top, 0);
+                context.State.PushCallStackFrame(frame);
+                framePushed = true;
+                LuaFunctionExecutionContext funcContext = new()
+                {
+                    State = context.State,
+                    ArgumentCount = stack.Count - frame.Base,
+                    ReturnFrameBase = frame.ReturnBase,
+                };
                 await hook.Func(funcContext, cancellationToken);
             }
             finally
             {
                 context.State.IsInHook = false;
-                context.State.PopCallStackFrameWithStackPop();
+                if (framePushed)
+                {
+                    context.State.PopCallStackFrameWithStackPop();
+                }
             }
         }
 
