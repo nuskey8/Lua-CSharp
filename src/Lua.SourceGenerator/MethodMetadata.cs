@@ -19,12 +19,11 @@ class MethodMetadata
         IsStatic = symbol.IsStatic;
 
         var returnType = symbol.ReturnType;
+        // Arrays/pointers have no containing namespace; type parameters are not awaitable types.
         var fullName =
-            (
-                returnType.ContainingNamespace.IsGlobalNamespace
-                    ? ""
-                    : returnType.ContainingNamespace + "."
-            ) + returnType.Name;
+            returnType is INamedTypeSymbol namedType && namedType.ContainingNamespace is { } ns
+                ? (ns.IsGlobalNamespace ? "" : ns + ".") + namedType.Name
+                : null;
         IsAsync =
             fullName
                 is "System.Threading.Tasks.Task"

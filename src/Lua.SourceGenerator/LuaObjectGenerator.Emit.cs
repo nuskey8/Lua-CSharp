@@ -410,8 +410,8 @@ partial class LuaObjectGenerator
                     context.ReportDiagnostic(
                         Diagnostic.Create(
                             DiagnosticDescriptors.InvalidReturnType,
-                            typeSymbol.Locations.FirstOrDefault(),
-                            typeSymbol.Name
+                            method.Symbol.Locations.FirstOrDefault(),
+                            typeSymbol.ToDisplayString(SymbolDisplayFormat.CSharpErrorMessageFormat)
                         )
                     );
 
@@ -493,8 +493,8 @@ partial class LuaObjectGenerator
                     context.ReportDiagnostic(
                         Diagnostic.Create(
                             DiagnosticDescriptors.InvalidParameterType,
-                            typeSymbol.Locations.FirstOrDefault(),
-                            typeSymbol.Name
+                            parameterSymbol.Locations.FirstOrDefault(),
+                            typeSymbol.ToDisplayString(SymbolDisplayFormat.CSharpErrorMessageFormat)
                         )
                     );
 
