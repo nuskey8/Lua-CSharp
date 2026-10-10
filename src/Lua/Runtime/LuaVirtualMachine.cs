@@ -564,6 +564,11 @@ public static partial class LuaVirtualMachine
                         vc = ref RKC(ref stackHead, ref constHead, instruction);
                         table = Unsafe.Add(ref stackHead, instruction.B);
 
+                        // SELF must save its receiver before __index can call, yield or reuse
+                        // stack slots. This also keeps self intact if lookup changes register B.
+                        Unsafe.Add(ref stackHead, iA + 1) = table;
+                        stack.NotifyTop(iA + frameBase + 2);
+
                         doRestart = false;
                         if (
                             (
@@ -584,9 +589,8 @@ public static partial class LuaVirtualMachine
                                 goto Restart;
                             }
 
-                            Unsafe.Add(ref stackHead, iA) = resultValue;
-                            Unsafe.Add(ref stackHead, iA + 1) = table;
-                            stack.NotifyTop(iA + frameBase + 2);
+                            // A synchronous C# metamethod may have grown the stack buffer.
+                            stack.FastGet(iA + frameBase) = resultValue;
                             continue;
                         }
 
@@ -1079,10 +1083,7 @@ public static partial class LuaVirtualMachine
         var stack = context.Stack;
         var instruction = context.Instruction;
         var RA = instruction.A + context.FrameBase;
-        var RB = instruction.B + context.FrameBase;
         ref var stackHead = ref stack.Get(0);
-        var table = Unsafe.Add(ref stackHead, RB);
-        Unsafe.Add(ref stackHead, RA + 1) = table;
         Unsafe.Add(ref stackHead, RA) = results.Length == 0 ? LuaValue.Nil : results[0];
         stack.PopUntil(Math.Max(RA + 2, lastTop));
         stack.NotifyTop(RA + 2);
