@@ -20,29 +20,14 @@ static class SymbolExtensions
             );
     }
 
-    public static IEnumerable<ISymbol> GetAllMembers(
-        this INamedTypeSymbol symbol,
-        bool withoutOverride = true
-    )
+    public static IEnumerable<ISymbol> GetAllMembers(this INamedTypeSymbol symbol)
     {
-        // Iterate Parent -> Derived
-        if (symbol.BaseType != null)
+        // Include overrides at every level, with the most derived declarations first.
+        for (var current = symbol; current != null; current = current.BaseType)
         {
-            foreach (var item in GetAllMembers(symbol.BaseType))
+            foreach (var member in current.GetMembers())
             {
-                // override item already iterated in parent type
-                if (!withoutOverride || !item.IsOverride)
-                {
-                    yield return item;
-                }
-            }
-        }
-
-        foreach (var item in symbol.GetMembers())
-        {
-            if (!withoutOverride || !item.IsOverride)
-            {
-                yield return item;
+                yield return member;
             }
         }
     }

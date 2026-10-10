@@ -7,6 +7,103 @@ namespace Lua.SourceGenerator.Tests;
 
 public class LuaObjectGeneratorTests
 {
+    [TestCase(
+        "[LuaMetamethod(LuaObjectMetamethod.Call)] public static BaseObject New() => new();",
+        "[LuaMetamethod(LuaObjectMetamethod.Call)] public new static DerivedObject New() => new();"
+    )]
+    [TestCase(
+        "[LuaMember] public virtual int Value { get; set; }",
+        "[LuaMember] public override int Value { get; set; }"
+    )]
+    [TestCase("[LuaMember] public int Value;", "[LuaMember] public new int Value;")]
+    [TestCase(
+        "[LuaMember] public virtual int Read() => 1;",
+        "[LuaMember] public override int Read() => 2;"
+    )]
+    [TestCase(
+        "[LuaMember(\"read\")] public int BaseRead() => 1;",
+        "[LuaMember(\"read\")] public int DerivedRead() => 2;"
+    )]
+    [TestCase(
+        "[LuaMember(\"value\")] public int BaseValue { get; set; }",
+        "[LuaMember(\"value\")] public int DerivedValue;"
+    )]
+    [TestCase(
+        "[LuaMember(\"value\")] public int BaseValue { get; set; }",
+        "[LuaMember(\"value\")] public int DerivedRead() => 2;"
+    )]
+    [TestCase(
+        "[LuaMember(\"value\")] public int BaseRead() => 1;",
+        "[LuaMember(\"value\")] public int DerivedValue { get; set; }"
+    )]
+    [TestCase(
+        "[LuaMetamethod(LuaObjectMetamethod.Len)] public int BaseLength() => 1;",
+        "[LuaMetamethod(LuaObjectMetamethod.Len)] public int DerivedLength() => 2;"
+    )]
+    [TestCase("[LuaMember] public virtual int Read() => 1;", "public override int Read() => 2;")]
+    public void DerivedBindings_ReplaceInheritedBindings(string baseMember, string derivedMember)
+    {
+        var result = CompileGeneratedSource(
+            $$"""
+            using Lua;
+            [LuaObject]
+            internal partial class BaseObject { {{baseMember}} }
+            [LuaObject]
+            internal partial class DerivedObject : BaseObject { {{derivedMember}} }
+            [LuaObject]
+            internal partial class LeafObject : DerivedObject { }
+            """
+        );
+
+        Assert.That(result.Success, Is.True, string.Join("\n", result.Diagnostics));
+        Assert.That(result.Diagnostics, Is.Empty);
+    }
+
+    [Test]
+    public void DuplicateMetamethods_InTheSameTypeRemainErrors()
+    {
+        var result = CompileGeneratedSource(
+            """
+            using Lua;
+            [LuaObject]
+            internal partial class BaseObject
+            {
+                [LuaMetamethod(LuaObjectMetamethod.Len)] public int Length() => 1;
+            }
+            [LuaObject]
+            internal partial class DerivedObject : BaseObject
+            {
+                [LuaMetamethod(LuaObjectMetamethod.Len)] public int FirstLength() => 2;
+                [LuaMetamethod(LuaObjectMetamethod.Len)] public int SecondLength() => 3;
+            }
+            """
+        );
+
+        Assert.That(
+            result.Diagnostics,
+            Has.Exactly(1).Matches<Diagnostic>(x => x.Id == "LUACS007")
+        );
+    }
+
+    [Test]
+    public void DuplicateLuaNames_InTheSameTypeRemainErrors()
+    {
+        var result = CompileGeneratedSource(
+            """
+            using Lua;
+            [LuaObject]
+            internal partial class DuplicateObject
+            {
+                [LuaMember("read")] public int FirstRead() => 1;
+                [LuaMember("read")] public int SecondRead() => 2;
+            }
+            """
+        );
+
+        Assert.That(result.Success, Is.False);
+        Assert.That(result.Diagnostics, Has.Some.Matches<Diagnostic>(x => x.Id == "CS0102"));
+    }
+
     [TestCase("class DocumentedObject", false)]
     [TestCase("class DocumentedObject", true)]
     [TestCase("class DocumentedObject<T>", false)]
