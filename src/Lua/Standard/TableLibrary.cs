@@ -82,17 +82,17 @@ public sealed class TableLibrary
 
         LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.State, 2, pos_arg);
 
-        var pos = (int)pos_arg;
-
-        if (pos <= 0 || pos > table.ArrayLength + 1)
+        try
+        {
+            table.Insert((int)pos_arg, value);
+        }
+        catch (IndexOutOfRangeException)
         {
             throw new LuaRuntimeException(
                 context.State,
                 "bad argument #2 to 'insert' (position out of bounds)"
             );
         }
-
-        table.Insert(pos, value);
         return new(context.Return());
     }
 
