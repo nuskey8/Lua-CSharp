@@ -8,8 +8,8 @@ class MethodMetadata
     public bool IsStatic { get; }
     public bool IsAsync { get; }
     public bool HasReturnValue { get; }
-    public bool HasMemberAttribute { get; }
-    public bool HasMetamethodAttribute { get; }
+    public bool HasMemberAttribute { get; set; }
+    public bool HasMetamethodAttribute { get; set; }
     public string LuaMemberName { get; }
     public LuaObjectMetamethod Metamethod { get; }
 
