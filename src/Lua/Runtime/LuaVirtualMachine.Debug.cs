@@ -40,16 +40,24 @@ public static partial class LuaVirtualMachine
                 stack.Push("count");
                 stack.Push(LuaValue.Nil);
                 context.State.IsInHook = true;
-                var frame = context.State.CreateCallStackFrame(hook, 2, top, pc);
-                context.State.PushCallStackFrame(frame);
-                LuaFunctionExecutionContext funcContext = new()
+                try
                 {
-                    State = context.State,
-                    ArgumentCount = stack.Count - frame.Base,
-                    ReturnFrameBase = frame.ReturnBase,
-                };
-                await hook.Func(funcContext, context.CancellationToken);
-                context.State.IsInHook = false;
+                    var frame = context.State.CreateCallStackFrame(hook, 2, top, pc);
+                    context.State.PushCallStackFrame(frame);
+                    LuaFunctionExecutionContext funcContext = new()
+                    {
+                        State = context.State,
+                        ArgumentCount = stack.Count - frame.Base,
+                        ReturnFrameBase = frame.ReturnBase,
+                    };
+                    await hook.Func(funcContext, context.CancellationToken);
+                }
+                finally
+                {
+                    // An aborted hook must not suppress hooks when this state is reused.
+                    // Frame creation can also fail before the callback is invoked.
+                    context.State.IsInHook = false;
+                }
 
                 countHookIsDone = true;
             }

@@ -313,6 +313,18 @@ This code can resume the execution of the Lua script after waiting with await, a
 
 ![img](docs/img1.png)
 
+## Debug Hooks
+
+`state.SetHook(hook, mask, count)` installs a hook for that Lua thread. The mask combines `c` (call), `r` (return), and `l` (line); a positive `count` enables instruction events even with an empty mask. The callback receives the event name and a line number (`nil` for non-line events). Return values, including `false`, are ignored. `state.SetHook(null, "")` removes the hook.
+
+A hook can call `SetHook` to replace or remove itself or change its interval. Setting a hook resets the instruction counter, so subsequent count events use the new interval. Hooks are suppressed while the callback executes, including Lua code it invokes.
+
+Count events measure Lua instructions, as in [Lua 5.2](https://www.lua.org/manual/5.2/manual.html#lua_sethook). They do not fire during a C# host function's own execution or while awaiting it. If that host function calls back into Lua, the nested Lua instructions can trigger hooks. A timeout checked by a hook therefore cannot interrupt a blocking C# function. Long-running host functions should check the supplied `CancellationToken` or pass it to cancellable operations. A host-caught exception or cancellation from a hook does not prevent hooks from running on later executions using the same state.
+
+Hook-based memory sampling is approximate: one Lua instruction or host operation can allocate substantially before the next event. `GC.GetTotalMemory(false)` reports the managed heap, not memory attributable to one Lua state, so it cannot enforce a strict per-state memory limit.
+
+A `LuaRuntimeException` thrown by a hook is a Lua error that `pcall` can catch; it is not an uncatchable execution limit.
+
 ## Coroutines
 
 Lua coroutines are represented by the `LuaState` type.

@@ -416,6 +416,17 @@ public class LuaState : IDisposable
         return Environment;
     }
 
+    /// <summary>Sets the debug hook for this Lua thread, or removes it when <paramref name="hook"/> is null.</summary>
+    /// <param name="hook">The callback receiving an event name and a line number (nil for non-line events). Its return values are ignored.</param>
+    /// <param name="mask">A combination of 'c' (call), 'r' (return), and 'l' (line).</param>
+    /// <param name="count">A positive Lua instruction interval, independent of the mask. Zero disables count events.</param>
+    /// <remarks>
+    /// The callback can call SetHook to replace or remove itself or change the interval.
+    /// Setting the hook resets the count interval; callbacks do not recursively trigger hooks.
+    /// Count events track Lua instructions, not C# execution or time spent awaiting host functions.
+    /// A host function that calls back into Lua can trigger count events for that Lua execution.
+    /// Long-running host functions must cooperate with the execution's CancellationToken to stop promptly.
+    /// </remarks>
     public void SetHook(LuaFunction? hook, string mask, int count = 0)
     {
         if (hook is null)
