@@ -168,7 +168,7 @@ public class StackOverflowTests
     public void NativeReentryIsGuarded(bool throughLua)
     {
         Exception? caught = null;
-        var enteredWithInsufficientStack = false;
+        var lowStackEntries = 0;
         var calls = 0;
         var worker = new Thread(
             () =>
@@ -181,12 +181,14 @@ public class StackOverflowTests
                     (context, ct) =>
                     {
                         calls++;
-                        // Stop before an actual overflow if a guard is missing, so a regression
-                        // fails this test instead of terminating the test process.
+                        // The callback's own frame can cross the runtime's reserve threshold
+                        // after the caller checked it. Allow one such entry; the next guarded
+                        // invocation must throw. Stop on a second entry if a guard is missing,
+                        // while still inside the runtime's stack reserve, rather than overflowing.
                         if (!RuntimeHelpers.TryEnsureSufficientExecutionStack())
                         {
-                            enteredWithInsufficientStack = true;
-                            return new(context.Return());
+                            if (++lowStackEntries > 1)
+                                return new(context.Return());
                         }
                         if (calls >= 10000)
                             return new(context.Return());
@@ -207,7 +209,7 @@ public class StackOverflowTests
         );
         worker.Start();
         worker.Join();
-        Assert.That(enteredWithInsufficientStack, Is.False);
+        Assert.That(lowStackEntries, Is.LessThanOrEqualTo(1));
         Assert.That(
             caught is LuaStackOverflowException
                 || caught?.InnerException is LuaStackOverflowException,
