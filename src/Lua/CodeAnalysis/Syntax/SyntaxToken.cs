@@ -305,6 +305,18 @@ public readonly struct SyntaxToken(
     {
         return Type switch
         {
+            SyntaxTokenType.Number => Text.ToString(),
+            SyntaxTokenType.String => $"\"{Text}\"",
+            SyntaxTokenType.RawString => $"[[{Text}]]",
+            SyntaxTokenType.Identifier => Text.ToString(),
+            _ => GetFixedText(Type) ?? "",
+        };
+    }
+
+    internal static string? GetFixedText(SyntaxTokenType type)
+    {
+        return type switch
+        {
             SyntaxTokenType.EndOfLine => Keywords.LF,
             SyntaxTokenType.LParen => Keywords.LParen,
             SyntaxTokenType.RParen => Keywords.RParen,
@@ -313,14 +325,13 @@ public readonly struct SyntaxToken(
             SyntaxTokenType.LSquare => Keywords.LSquare,
             SyntaxTokenType.RSquare => Keywords.RSquare,
             SyntaxTokenType.SemiColon => ";",
+            SyntaxTokenType.Colon => ":",
             SyntaxTokenType.Comma => ",",
-            SyntaxTokenType.Number => Text.ToString(),
-            SyntaxTokenType.String => $"\"{Text}\"",
-            SyntaxTokenType.RawString => $"[[{Text}]]",
+            SyntaxTokenType.Dot => ".",
+            SyntaxTokenType.VarArg => "...",
             SyntaxTokenType.Nil => Keywords.Nil,
             SyntaxTokenType.True => Keywords.True,
             SyntaxTokenType.False => Keywords.False,
-            SyntaxTokenType.Identifier => Text.ToString(),
             SyntaxTokenType.Addition => Keywords.Addition,
             SyntaxTokenType.Subtraction => Keywords.Subtraction,
             SyntaxTokenType.Multiplication => Keywords.Multiplication,
@@ -355,7 +366,7 @@ public readonly struct SyntaxToken(
             SyntaxTokenType.Return => Keywords.Return,
             SyntaxTokenType.Until => Keywords.Until,
             SyntaxTokenType.While => Keywords.While,
-            _ => "",
+            _ => null,
         };
     }
 

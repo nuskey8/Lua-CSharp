@@ -116,7 +116,7 @@ struct Scanner
         ScanError(R.Position, message, Token.T);
     }
 
-    public void ErrorExpected(int position, char t)
+    public void ErrorExpected(int position, int t)
     {
         SyntaxError(position, TokenToString(t) + " expected");
     }
@@ -187,13 +187,12 @@ struct Scanner
         };
     }
 
-    public string TokenToString(int t)
+    public static string TokenToString(int t)
     {
         return t switch
         {
-            TkName or TkString => Token.S,
-            TkNumber => $"{Token.N}",
-            < FirstReserved => $"{(char)t}", // TODO check for printable rune
+            < FirstReserved when t is >= ' ' and <= '~' => $"'{(char)t}'",
+            < FirstReserved => CharTokenToLiteral(t),
             < TkEos => $"'{tokens[t - FirstReserved]}'",
             _ => tokens[t - FirstReserved],
         };
@@ -938,7 +937,8 @@ struct Scanner
     {
         if (Token.T != t)
         {
-            ErrorExpected(R.Position, (char)t);
+            // Reserved tokens exceed char.MaxValue; narrowing them loses the token identity.
+            ErrorExpected(R.Position, t);
         }
     }
 
@@ -951,7 +951,7 @@ struct Scanner
 
         if (where == LineNumber)
         {
-            ErrorExpected(R.Position, (char)what);
+            ErrorExpected(R.Position, what);
         }
         else
         {

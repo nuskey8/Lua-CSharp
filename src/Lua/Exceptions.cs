@@ -21,7 +21,7 @@ public class LuaParseException(string? chunkName, SourcePosition position, strin
         throw new LuaParseException(
             chunkName,
             position,
-            $"unexpected symbol <{token.Type}> near '{token.Text}'"
+            $"unexpected symbol near {GetNearTokenText(token)}"
         );
     }
 
@@ -31,7 +31,71 @@ public class LuaParseException(string? chunkName, SourcePosition position, strin
         SyntaxTokenType token
     )
     {
-        throw new LuaParseException(chunkName, position, $"'{token}' expected");
+        throw new LuaParseException(chunkName, position, $"{GetTokenTypeText(token)} expected");
+    }
+
+    internal static void ExpectedToken(
+        string? chunkName,
+        SourcePosition position,
+        SyntaxTokenType token,
+        SyntaxToken? nearToken
+    )
+    {
+        throw new LuaParseException(
+            chunkName,
+            position,
+            $"{GetTokenTypeText(token)} expected near {GetNearTokenText(nearToken)}"
+        );
+    }
+
+    static string GetTokenTypeText(SyntaxTokenType token)
+    {
+        // Lua's token2str quotes fixed syntax, but uses unquoted categories for literals/names.
+        return token switch
+        {
+            SyntaxTokenType.Identifier => "<name>",
+            SyntaxTokenType.Number => "<number>",
+            SyntaxTokenType.String or SyntaxTokenType.RawString => "<string>",
+            SyntaxTokenType.EndOfLine => "<eol>",
+            _ => SyntaxToken.GetFixedText(token) is { } text
+                ? $"'{text}'"
+                : $"<{token.ToString().ToLowerInvariant()}>",
+        };
+    }
+
+    internal static void ExpectedClosingToken(
+        string? chunkName,
+        SourcePosition position,
+        SyntaxTokenType token,
+        SyntaxToken openingToken,
+        SyntaxToken? nearToken
+    )
+    {
+        // Like Lua's check_match, a different line needs the opening construct's context.
+        var context =
+            openingToken.Position.Line == position.Line
+                ? ""
+                : $" (to close {GetTokenTypeText(openingToken.Type)} at line {openingToken.Position.Line})";
+        throw new LuaParseException(
+            chunkName,
+            position,
+            $"{GetTokenTypeText(token)} expected{context} near {GetNearTokenText(nearToken)}"
+        );
+    }
+
+    static string GetNearTokenText(SyntaxToken? token)
+    {
+        if (token is not { } value)
+        {
+            return "<eof>";
+        }
+
+        return value.Type switch
+        {
+            SyntaxTokenType.Identifier or SyntaxTokenType.Number => $"'{value.Text}'",
+            SyntaxTokenType.String or SyntaxTokenType.RawString => $"'{value.ToDisplayString()}'",
+            _ => GetTokenTypeText(value.Type),
+        };
     }
 
     public static void UnfinishedLongComment(string? chunkName, SourcePosition position)
@@ -48,7 +112,7 @@ public class LuaParseException(string? chunkName, SourcePosition position, strin
         throw new LuaParseException(
             chunkName,
             position,
-            $"syntax error {(token == null ? "" : $"near '{token.Value.Text}'")}"
+            $"syntax error near {GetNearTokenText(token)}"
         );
     }
 

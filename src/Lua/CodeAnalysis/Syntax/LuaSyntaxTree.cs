@@ -21,6 +21,7 @@ public record LuaSyntaxTree(SyntaxNode[] Nodes, SourcePosition Position) : Synta
             parser.Add(lexer.Current);
         }
 
+        parser.EndPosition = lexer.Position;
         return parser.Parse();
     }
 }
