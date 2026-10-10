@@ -34,23 +34,40 @@ public class LuaState : IDisposable
         return LuaGlobalState.Create(platform).MainThread;
     }
 
-    internal static LuaState CreateCoroutine(
-        LuaGlobalState globalState,
-        LuaFunction function,
-        bool isProtectedMode = false
-    )
-    {
-        return new(globalState, function, isProtectedMode);
-    }
-
+    /// <summary>Creates a thread sharing this state's globals and copying its host hook settings.</summary>
     public LuaState CreateThread()
     {
-        return new(GlobalState);
+        var thread = new LuaState(GlobalState);
+        thread.InheritHook(this);
+        return thread;
     }
 
+    /// <summary>Creates a coroutine sharing this state's globals and copying its host hook settings.</summary>
     public LuaState CreateCoroutine(LuaFunction function, bool isProtectedMode = false)
     {
-        return new(GlobalState, function, isProtectedMode);
+        var thread = new LuaState(GlobalState, function, isProtectedMode);
+        thread.InheritHook(this);
+        return thread;
+    }
+
+    void InheritHook(LuaState parent)
+    {
+        HookMask = parent.HookMask;
+        BaseHookCount = parent.BaseHookCount;
+        IsLuaDebugHook = parent.IsLuaDebugHook;
+        // Lua's debug library registers callbacks per thread. Its mask/count metadata
+        // is inherited, but there is no Lua callback registered for the new thread.
+        if (IsLuaDebugHook)
+        {
+            return;
+        }
+
+        Hook = parent.Hook;
+        IsLineHookEnabled = parent.IsLineHookEnabled;
+        CallOrReturnHookMask = parent.CallOrReturnHookMask;
+        // lua_newthread copies settings, not the parent's in-progress counter or hook suppression.
+        HookCount = BaseHookCount > 0 ? (long)BaseHookCount + 1 : 0;
+        LastPc = -1;
     }
 
     public LuaThreadStatus GetStatus()
@@ -187,6 +204,8 @@ public class LuaState : IDisposable
     public bool IsRunning => CallStackFrameCount != 0;
     public bool IsCoroutine => coroutine != null;
     internal LuaFunction? Hook { get; set; }
+    internal bool IsLuaDebugHook;
+    internal byte HookMask;
 
     public LuaFunction? CoroutineFunction => coroutine?.Function;
     public bool CanResume => GetStatus() == LuaThreadStatus.Suspended;
@@ -422,7 +441,10 @@ public class LuaState : IDisposable
     /// <param name="count">A positive Lua instruction interval, independent of the mask. Zero disables count events.</param>
     /// <remarks>
     /// The callback can call SetHook to replace or remove itself or change the interval.
-    /// Setting the hook resets the count interval; callbacks do not recursively trigger hooks.
+    /// Setting the hook resets the count interval; callbacks do not recursively trigger hooks on the same thread.
+    /// New threads and coroutines copy host hook settings with an independent instruction counter.
+    /// Later changes affect only this thread. Hooks installed by Lua's debug.sethook do not copy their callback.
+    /// A shared callback should use its context.State to inspect or reconfigure the executing thread.
     /// Count events track Lua instructions, not C# execution or time spent awaiting host functions.
     /// A host function that calls back into Lua can trigger count events for that Lua execution.
     /// Long-running host functions must cooperate with the execution's CancellationToken to stop promptly.
@@ -434,6 +456,8 @@ public class LuaState : IDisposable
             HookCount = 0;
             BaseHookCount = 0;
             Hook = null;
+            HookMask = 0;
+            IsLuaDebugHook = false;
             IsLineHookEnabled = false;
             IsCallHookEnabled = false;
             IsReturnHookEnabled = false;
@@ -453,6 +477,18 @@ public class LuaState : IDisposable
         }
 
         Hook = hook;
+        HookMask = (byte)(
+            (IsCallHookEnabled ? 1 : 0)
+            | (IsReturnHookEnabled ? 2 : 0)
+            | (IsLineHookEnabled ? 4 : 0)
+        );
+        IsLuaDebugHook = false;
+    }
+
+    internal void SetHookFromLua(LuaFunction? hook, string mask, int count)
+    {
+        SetHook(hook, mask, count);
+        IsLuaDebugHook = hook is not null;
     }
 
     internal void DumpStackValues()
