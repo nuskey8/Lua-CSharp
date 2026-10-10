@@ -1419,11 +1419,6 @@ public static partial class LuaVirtualMachine
 
         var newFrame = func.CreateNewFrame(context, newBase, RA, variableArgumentCount);
 
-        if (!RuntimeHelpers.TryEnsureSufficientExecutionStack())
-        {
-            throw new LuaStackOverflowException();
-        }
-
         state.PushCallStackFrame(newFrame);
         if (state.CallOrReturnHookMask.Value != 0 && !context.State.IsInHook)
         {
@@ -1625,15 +1620,9 @@ public static partial class LuaVirtualMachine
         newBase = context.FrameBase + variableArgumentCount;
         stack.PopUntil(newBase + argumentCount);
 
-        if (!RuntimeHelpers.TryEnsureSufficientExecutionStack())
-        {
-            throw new LuaStackOverflowException();
-        }
-
         var lastFrame = state.GetCurrentFrame();
         state.LastPc = context.Pc;
         state.LastCallerFunction = lastFrame.Function;
-        context.State.PopCallStackFrame();
         var newFrame = func.CreateNewTailCallFrame(
             context,
             newBase,
@@ -1643,7 +1632,7 @@ public static partial class LuaVirtualMachine
 
         newFrame.CallerInstructionIndex = lastFrame.CallerInstructionIndex;
         newFrame.Version = lastFrame.Version;
-        state.PushCallStackFrame(newFrame);
+        state.ReplaceCallStackFrame(newFrame);
 
         if (state.CallOrReturnHookMask.Value != 0 && !context.State.IsInHook)
         {

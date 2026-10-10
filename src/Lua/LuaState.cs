@@ -197,7 +197,26 @@ public class LuaState : IDisposable
     public LuaTable PreloadModules => GlobalState.PreloadModules;
     public LuaState MainThread => GlobalState.MainThread;
 
-    public int MaxCallDepth { get; set; } = 100_000;
+    /// <summary>
+    /// Gets or sets the positive call-frame limit shared by this state and its coroutines.
+    /// The default is 100,000. Lua and C# frames count toward the limit; tail calls reuse a frame.
+    /// Changing this value also applies to existing threads sharing the same global state.
+    /// </summary>
+    public int MaxCallDepth
+    {
+        get => GlobalState.MaxCallDepth;
+        set
+        {
+            if (value <= 0)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(value),
+                    "Call depth must be positive."
+                );
+            }
+            GlobalState.MaxCallDepth = value;
+        }
+    }
 
     public ILuaModuleLoader? ModuleLoader
     {
@@ -287,15 +306,35 @@ public class LuaState : IDisposable
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal void PushCallStackFrame(in CallStackFrame frame)
     {
-        if (CallStackFrameCount >= MaxCallDepth)
+        ref var callStack = ref CoreData!.CallStack;
+        if (callStack.Count >= GlobalState.MaxCallDepth)
         {
             throw new LuaStackOverflowException();
         }
 
         CurrentException?.BuildOrGet();
         CurrentException = null;
-        ref var callStack = ref CoreData!.CallStack;
         callStack.Push(frame);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal void ReplaceCallStackFrame(in CallStackFrame frame)
+    {
+        ref var callStack = ref CoreData!.CallStack;
+        if (callStack.Count > GlobalState.MaxCallDepth)
+        {
+            throw new LuaStackOverflowException();
+        }
+
+        // Tail calls retain the depth. Replacing the slot avoids clearing and repushing it,
+        // but a pending exception must still capture the outgoing frame before it is overwritten.
+        if (CurrentException != null)
+        {
+            ExceptionTrace.Push(callStack.Peek());
+            CurrentException.BuildOrGet();
+            CurrentException = null;
+        }
+        callStack.PeekRef() = frame;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
