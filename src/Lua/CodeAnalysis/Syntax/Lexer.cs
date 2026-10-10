@@ -16,6 +16,8 @@ public ref struct Lexer
 
     public readonly SyntaxToken Current => current;
 
+    internal readonly SourcePosition Position => position;
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     void Advance(int count)
     {

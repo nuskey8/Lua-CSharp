@@ -63,6 +63,26 @@ public class LuaParseException(string? chunkName, SourcePosition position, strin
         };
     }
 
+    internal static void ExpectedClosingToken(
+        string? chunkName,
+        SourcePosition position,
+        SyntaxTokenType token,
+        SyntaxToken openingToken,
+        SyntaxToken? nearToken
+    )
+    {
+        // Like Lua's check_match, a different line needs the opening construct's context.
+        var context =
+            openingToken.Position.Line == position.Line
+                ? ""
+                : $" (to close {GetTokenTypeText(openingToken.Type)} at line {openingToken.Position.Line})";
+        throw new LuaParseException(
+            chunkName,
+            position,
+            $"{GetTokenTypeText(token)} expected{context} near {GetNearTokenText(nearToken)}"
+        );
+    }
+
     static string GetNearTokenText(SyntaxToken? token)
     {
         if (token is not { } value)
