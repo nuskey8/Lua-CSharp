@@ -1,6 +1,6 @@
-﻿using Lua.CodeAnalysis.Compilation;
-using System.Buffers;
+﻿using System.Buffers;
 using System.Text;
+using Lua.CodeAnalysis.Compilation;
 
 namespace Lua.Internal;
 
@@ -13,7 +13,8 @@ sealed class Utf8Reader
     internal static bool scratchBufferUsed;
 
     readonly byte[] buffer;
-    int bufPos, bufLen;
+    int bufPos,
+        bufLen;
     Decoder? decoder;
 
     const int ThreadStaticBufferSize = 1024;
@@ -83,7 +84,11 @@ sealed class Utf8Reader
                         else
                         {
                             // Add just the single newline character (\r or \n)
-                            AppendToBuffer(ref resultBuffer, nl == '\r' ? "\r"u8 : "\n"u8, ref lineLen);
+                            AppendToBuffer(
+                                ref resultBuffer,
+                                nl == '\r' ? "\r"u8 : "\n"u8,
+                                ref lineLen
+                            );
                         }
                     }
 
@@ -220,7 +225,8 @@ sealed class Utf8Reader
                     false,
                     out var bytesUsed,
                     out var charsUsed,
-                    out _);
+                    out _
+                );
 
                 if (charsUsed > 0)
                 {
@@ -235,7 +241,7 @@ sealed class Utf8Reader
                 }
             }
 
-            if (!dataRead || len != charCount)
+            if (!dataRead)
             {
                 return null;
             }
@@ -247,7 +253,6 @@ sealed class Utf8Reader
             ArrayPool<char>.Shared.Return(resultBuffer);
         }
     }
-
 
     static void AppendToBuffer(ref byte[] buffer, ReadOnlySpan<byte> segment, ref int length)
     {
@@ -413,6 +418,11 @@ sealed class Utf8Reader
         {
             ArrayPool<char>.Shared.Return(resultBuffer);
         }
+    }
+
+    public bool IsEndOfStream(Stream stream)
+    {
+        return PeekByte(stream) < 0;
     }
 
     int PeekByte(Stream stream, int offset = 0)

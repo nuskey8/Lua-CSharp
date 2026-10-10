@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Lua.Standard;
 
 namespace Lua.Tests;
@@ -41,34 +42,43 @@ public partial class LuaTestObj
         return new LuaTestObj() { x = a.x - b.x, y = a.y - b.y };
     }
 
+    [LuaMetamethod(LuaObjectMetamethod.Len)]
+    public async Task<double> Len()
+    {
+        await Task.Delay(1);
+        return x + y;
+    }
+
+    [LuaMetamethod(LuaObjectMetamethod.Unm)]
+    public LuaTestObj Unm()
+    {
+        return new LuaTestObj() { x = -x, y = -y };
+    }
+
     [LuaMember]
     public object GetObj() => this;
-
-    [LuaMember]
-    public static double Sum(double a, ReadOnlySpan<LuaValue> values, CancellationToken ct)
-    {
-        var sum = a;
-        foreach (var v in values)
-        {
-            sum += v.Read<double>();
-        }
-
-        return sum;
-    }
 }
 
 [LuaObject]
 public partial class TestUserData
 {
-    [LuaMember] public int Property { get; init; }
+    [LuaMember]
+    public int Property { get; init; }
 
-    [LuaMember] public int ReadOnlyProperty { get; }
+    [LuaMember]
+    public int ReadOnlyProperty { get; }
 
-    [LuaMember] public int SetOnlyProperty { set { } }
+    [LuaMember]
+    public int SetOnlyProperty
+    {
+        set { }
+    }
 
-    [LuaMember] public LuaValue LuaValueProperty { get; set; }
+    [LuaMember]
+    public LuaValue LuaValueProperty { get; set; }
 
-    [LuaMember("p2")] public string PropertyWithName { get; set; } = "";
+    [LuaMember("p2")]
+    public string PropertyWithName { get; set; } = "";
 
     [LuaMember]
     public static void MethodVoid()
@@ -96,10 +106,29 @@ public partial class TestUserData
     }
 
     [LuaMember]
-    public async ValueTask<LuaValue> InstanceMethodWithReturnValueAsync(LuaValue value, CancellationToken ct)
+    public async ValueTask<LuaValue> InstanceMethodWithReturnValueAsync(
+        LuaValue value,
+        CancellationToken ct
+    )
     {
         await Task.Delay(1, ct);
         return value;
+    }
+
+    [LuaMember]
+    public static double RefOutTestMethod(int x, ref double a, out string b, out LuaValue c)
+    {
+        a += x;
+        b = $"x:{x}";
+        c = a * 2;
+        return a / 2;
+    }
+
+    [LuaMember]
+    public static void OutOnlyTestMethod(int x, out string b, out LuaValue c)
+    {
+        b = $"value:{x}";
+        c = x + 1;
     }
 
     [LuaMetamethod(LuaObjectMetamethod.Call)]
@@ -107,6 +136,136 @@ public partial class TestUserData
     {
         return "Called!";
     }
+}
+
+[LuaObject]
+public partial class NullableReferencedObject
+{
+    [LuaMember("label")]
+    public string Label { get; set; } = "";
+}
+
+[LuaObject]
+public partial class NullableMemberContainer
+{
+    [LuaMember("optionalObject"), AllowNull]
+    public NullableReferencedObject OptionalObject { get; set; } = null!;
+
+    [LuaMember("requiredObject")]
+    public NullableReferencedObject RequiredObject { get; set; } = null!;
+
+    [LuaMember("nullableObject")]
+    public NullableReferencedObject? NullableObject { get; set; }
+
+    [LuaMember("nullableNumber")]
+    public int? NullableNumber;
+
+    [LuaMember("allowNullNullableNumber"), AllowNull]
+    public int? AllowNullNullableNumber;
+
+    [LuaMember("nullableText")]
+    public string? NullableText { get; set; }
+
+    [LuaMember("allowNullText"), AllowNull]
+    public string AllowNullText { get; set; } = "initial";
+
+    [LuaMember("echoNullableNumber")]
+    public static int? EchoNullableNumber(int? value) => value;
+
+    [LuaMember("echoNullableText")]
+    public static string? EchoNullableText(string? value) => value;
+
+    [LuaMember("isNull")]
+    public static bool IsNull([AllowNull] string value) => value is null;
+
+    [LuaMember("nullableNumberWithDefault")]
+    public static int? NullableNumberWithDefault(int? value = 42) => value;
+}
+
+#nullable disable
+[LuaObject]
+public partial class NullableDisabledContainer
+{
+    [LuaMember, AllowNull]
+    public string Value;
+
+    [LuaMember]
+    public static bool IsNull([AllowNull] string value) => value is null;
+}
+
+#nullable restore
+
+[LuaObject]
+public partial class IntArrayUserData
+{
+    public int[] Array { get; } = new int[10];
+
+    public int this[int index]
+    {
+        get => Array[index];
+        set => Array[index] = value;
+    }
+
+    [LuaMember("name")]
+    public string Name => "IntArray";
+
+    [LuaMember("length")]
+    public int Length => Array.Length;
+
+    [LuaMetamethod(LuaObjectMetamethod.Len)]
+    public int GetLength() => Array.Length;
+
+    [LuaMetamethod(LuaObjectMetamethod.Index)]
+    public int GetAt(int index)
+    {
+        return Array[index];
+    }
+
+    [LuaMetamethod(LuaObjectMetamethod.NewIndex)]
+    public void SetAt(int index, int value)
+    {
+        Array[index] = value;
+    }
+}
+
+[LuaObject]
+public partial class StringKeyUserData
+{
+    readonly Dictionary<string, int> values = new();
+
+    [LuaMember("name")]
+    public string Name => "StringMap";
+
+    [LuaMember("length")]
+    public int Length => values.Count;
+
+    [LuaMetamethod(LuaObjectMetamethod.Index)]
+    public int GetAt(string key)
+    {
+        return values.TryGetValue(key, out var value) ? value : -1;
+    }
+
+    [LuaMetamethod(LuaObjectMetamethod.NewIndex)]
+    public void SetAt(string key, int value)
+    {
+        values[key] = value;
+    }
+}
+
+public abstract partial class ParentClass
+{
+    [LuaMember("value")]
+    public string Value { get; set; } = "";
+
+    [LuaMember("getValue")]
+    public string GetValue() => $"{GetType().Name}:{Value}";
+}
+
+[LuaObject]
+public partial class ChildClass : ParentClass
+{
+    [LuaMember("number")]
+    public int Number { get; set; }
 }
 
 public class LuaObjectTests
@@ -135,6 +294,141 @@ public class LuaObjectTests
 
         Assert.That(results, Has.Length.EqualTo(1));
         Assert.That(results[0], Is.EqualTo(new LuaValue("foo")));
+    }
+
+    [Test]
+    public async Task Test_AllowNullLuaObjectPropertyCanBeSetToNil()
+    {
+        var referencedObject = new NullableReferencedObject { Label = "reference" };
+        var userData = new NullableMemberContainer { OptionalObject = referencedObject };
+
+        var state = LuaState.Create();
+        state.Environment["referencedObject"] = referencedObject;
+        state.Environment["target"] = userData;
+        var results = await state.DoStringAsync(
+            """
+            local oldObject = target.optionalObject
+            target.optionalObject = nil
+            local nilObject = target.optionalObject
+            target.optionalObject = referencedObject
+            return oldObject.label, nilObject, target.optionalObject.label
+            """
+        );
+
+        Assert.That(results, Has.Length.EqualTo(3));
+        Assert.That(results[0], Is.EqualTo(new LuaValue("reference")));
+        Assert.That(results[1], Is.EqualTo(LuaValue.Nil));
+        Assert.That(results[2], Is.EqualTo(new LuaValue("reference")));
+        Assert.That(userData.OptionalObject, Is.SameAs(referencedObject));
+    }
+
+    [Test]
+    public async Task Test_LuaObjectPropertyRejectsNilWithoutNullableContract()
+    {
+        var referencedObject = new NullableReferencedObject { Label = "reference" };
+        var userData = new NullableMemberContainer { RequiredObject = referencedObject };
+
+        var state = LuaState.Create();
+        state.Environment["target"] = userData;
+        var exception = Assert.ThrowsAsync<LuaRuntimeException>(async () =>
+        {
+            await state.DoStringAsync("target.requiredObject = nil");
+        });
+
+        Assert.That(exception!.Message, Does.Contain("bad argument #3"));
+        Assert.That(userData.RequiredObject, Is.SameAs(referencedObject));
+    }
+
+    [Test]
+    public async Task Test_NullableMembersMapToAndFromNil()
+    {
+        var referencedObject = new NullableReferencedObject { Label = "reference" };
+        var userData = new NullableMemberContainer
+        {
+            NullableObject = referencedObject,
+            NullableNumber = 10,
+            AllowNullNullableNumber = 20,
+            NullableText = "text",
+        };
+
+        var state = LuaState.Create();
+        state.Environment["target"] = userData;
+        var results = await state.DoStringAsync(
+            """
+            local objectLabel = target.nullableObject.label
+            local number = target.nullableNumber
+            local allowNullNumber = target.allowNullNullableNumber
+            local text = target.nullableText
+            target.nullableObject = nil
+            target.nullableNumber = nil
+            target.allowNullNullableNumber = nil
+            target.nullableText = nil
+            target.allowNullText = nil
+            return objectLabel, number, allowNullNumber, text,
+                target.nullableObject, target.nullableNumber,
+                target.allowNullNullableNumber, target.nullableText, target.allowNullText
+            """
+        );
+
+        Assert.That(results, Has.Length.EqualTo(9));
+        Assert.That(results[0], Is.EqualTo(new LuaValue("reference")));
+        Assert.That(results[1], Is.EqualTo(new LuaValue(10)));
+        Assert.That(results[2], Is.EqualTo(new LuaValue(20)));
+        Assert.That(results[3], Is.EqualTo(new LuaValue("text")));
+        Assert.That(results[4..], Is.All.EqualTo(LuaValue.Nil));
+        Assert.That(userData.NullableObject, Is.Null);
+        Assert.That(userData.NullableNumber, Is.Null);
+        Assert.That(userData.AllowNullNullableNumber, Is.Null);
+        Assert.That(userData.NullableText, Is.Null);
+        Assert.That(userData.AllowNullText, Is.Null);
+    }
+
+    [Test]
+    public async Task Test_NullableParametersMapToAndFromNil()
+    {
+        var state = LuaState.Create();
+        state.Environment["target"] = new NullableMemberContainer();
+        var results = await state.DoStringAsync(
+            """
+            return target.echoNullableNumber(nil),
+                target.echoNullableNumber(12),
+                target.echoNullableText(nil),
+                target.echoNullableText("text"),
+                target.isNull(nil),
+                target.nullableNumberWithDefault(),
+                target.nullableNumberWithDefault(nil)
+            """
+        );
+
+        Assert.That(results, Has.Length.EqualTo(7));
+        Assert.That(results[0], Is.EqualTo(LuaValue.Nil));
+        Assert.That(results[1], Is.EqualTo(new LuaValue(12)));
+        Assert.That(results[2], Is.EqualTo(LuaValue.Nil));
+        Assert.That(results[3], Is.EqualTo(new LuaValue("text")));
+        Assert.That(results[4], Is.EqualTo(new LuaValue(true)));
+        Assert.That(results[5], Is.EqualTo(new LuaValue(42)));
+        Assert.That(results[6], Is.EqualTo(LuaValue.Nil));
+    }
+
+    [Test]
+    public async Task Test_AllowNullWorksWithNullableContextDisabled()
+    {
+        var userData = new NullableDisabledContainer { Value = "value" };
+        var state = LuaState.Create();
+        state.Environment["target"] = userData;
+        var results = await state.DoStringAsync(
+            """
+            local oldValue = target.Value
+            target.Value = nil
+            return oldValue, target.Value, target.IsNull(nil)
+            """
+        );
+
+        Assert.That(results, Has.Length.EqualTo(3));
+        Assert.That(results[0], Is.EqualTo(new LuaValue("value")));
+        Assert.That(results[1], Is.EqualTo(LuaValue.Nil));
+        Assert.That(results[2], Is.EqualTo(new LuaValue(true)));
+        Assert.That(userData.Value, Is.Null);
     }
 
     [Test]
@@ -194,10 +488,52 @@ public class LuaObjectTests
 
         var state = LuaState.Create();
         state.Environment["test"] = userData;
-        var results = await state.DoStringAsync("return test:InstanceMethodWithReturnValueAsync(2)");
+        var results = await state.DoStringAsync(
+            "return test:InstanceMethodWithReturnValueAsync(2)"
+        );
 
         Assert.That(results, Has.Length.EqualTo(1));
         Assert.That(results[0], Is.EqualTo(new LuaValue(2)));
+    }
+
+    [Test]
+    public async Task Test_StaticMethodWithRefAndOutParameters()
+    {
+        var userData = new TestUserData();
+
+        var state = LuaState.Create();
+        state.Environment["test"] = userData;
+        var results = await state.DoStringAsync(
+            """
+            local ret, a, b, c = test.RefOutTestMethod(4, 1.5)
+            return ret, a, b, c
+            """
+        );
+
+        Assert.That(results, Has.Length.EqualTo(4));
+        Assert.That(results[0], Is.EqualTo(new LuaValue(2.75)));
+        Assert.That(results[1], Is.EqualTo(new LuaValue(5.5)));
+        Assert.That(results[2], Is.EqualTo(new LuaValue("x:4")));
+        Assert.That(results[3], Is.EqualTo(new LuaValue(11)));
+    }
+
+    [Test]
+    public async Task Test_StaticMethodWithOutParametersAndNoReturnValue()
+    {
+        var userData = new TestUserData();
+
+        var state = LuaState.Create();
+        state.Environment["test"] = userData;
+        var results = await state.DoStringAsync(
+            """
+            local b, c = test.OutOnlyTestMethod(4)
+            return b, c
+            """
+        );
+
+        Assert.That(results, Has.Length.EqualTo(2));
+        Assert.That(results[0], Is.EqualTo(new LuaValue("value:4")));
+        Assert.That(results[1], Is.EqualTo(new LuaValue(5)));
     }
 
     [Test]
@@ -208,13 +544,38 @@ public class LuaObjectTests
         var state = LuaState.Create();
         state.OpenBasicLibrary();
         state.Environment["test"] = userData;
-        var results = await state.DoStringAsync("""
-                                                assert(test() == 'Called!')
-                                                return test()
-                                                """);
+        var results = await state.DoStringAsync(
+            """
+            assert(test() == 'Called!')
+            return test()
+            """
+        );
 
         Assert.That(results, Has.Length.EqualTo(1));
         Assert.That(results[0], Is.EqualTo(new LuaValue("Called!")));
+    }
+
+    [Test]
+    public async Task Test_AbstractBaseLuaObjectMembersAreInherited()
+    {
+        var userData = new ChildClass { Value = "initial", Number = 7 };
+
+        var state = LuaState.Create();
+        state.Environment["child"] = userData;
+        var results = await state.DoStringAsync(
+            """
+            child.value = child.value .. '-updated'
+            child.number = child.number + 1
+            return child.value, child.number, child:getValue()
+            """
+        );
+
+        Assert.That(results, Has.Length.EqualTo(3));
+        Assert.That(results[0], Is.EqualTo(new LuaValue("initial-updated")));
+        Assert.That(results[1], Is.EqualTo(new LuaValue(8)));
+        Assert.That(results[2], Is.EqualTo(new LuaValue("ChildClass:initial-updated")));
+        Assert.That(userData.Value, Is.EqualTo("initial-updated"));
+        Assert.That(userData.Number, Is.EqualTo(8));
     }
 
     [Test]
@@ -225,11 +586,13 @@ public class LuaObjectTests
         var state = LuaState.Create();
         state.OpenBasicLibrary();
         state.Environment["TestObj"] = userData;
-        var results = await state.DoStringAsync("""
-                                                local a = TestObj.create(1, 2)
-                                                local b = TestObj.create(3, 4)
-                                                return a + b, a - b
-                                                """);
+        var results = await state.DoStringAsync(
+            """
+            local a = TestObj.create(1, 2)
+            local b = TestObj.create(3, 4)
+            return a + b, a - b
+            """
+        );
         Assert.That(results, Has.Length.EqualTo(2));
         Assert.That(results[0].Read<object>(), Is.TypeOf<LuaTestObj>());
         var objAdd = results[0].Read<LuaTestObj>();
@@ -242,18 +605,135 @@ public class LuaObjectTests
     }
 
     [Test]
-    public async Task Test_Params()
+    public async Task Test_IndexMetamethod()
+    {
+        var userData = new IntArrayUserData();
+
+        userData[0] = 1;
+        userData[1] = 1;
+        userData[2] = 2;
+        userData[3] = 3;
+        userData[4] = 5;
+
+        var state = LuaState.Create();
+        state.OpenBasicLibrary();
+        state.Environment["TestObj"] = userData;
+        var results = await state.DoStringAsync(
+            """
+            return TestObj[0], TestObj[1], TestObj[2], TestObj[3], TestObj[4] ,TestObj.name, #TestObj
+            """
+        );
+        Assert.That(results, Has.Length.EqualTo(7));
+        Assert.That(results[0].TryRead<int>(out var result), Is.True);
+        Assert.That(result, Is.EqualTo(1));
+        Assert.That(results[1].TryRead<int>(out result), Is.True);
+        Assert.That(result, Is.EqualTo(1));
+        Assert.That(results[2].TryRead<int>(out result), Is.True);
+        Assert.That(result, Is.EqualTo(2));
+        Assert.That(results[3].TryRead<int>(out result), Is.True);
+        Assert.That(result, Is.EqualTo(3));
+        Assert.That(results[4].TryRead<int>(out result), Is.True);
+        Assert.That(result, Is.EqualTo(5));
+        Assert.That(results[5].TryRead<string>(out var strResult), Is.True);
+        Assert.That(strResult, Is.EqualTo("IntArray"));
+        Assert.That(results[6].TryRead<int>(out result), Is.True);
+        Assert.That(result, Is.EqualTo(10));
+    }
+
+    [Test]
+    public async Task Test_NewIndexMetamethod()
+    {
+        var userData = new IntArrayUserData();
+
+        var state = LuaState.Create();
+        state.OpenBasicLibrary();
+        state.Environment["TestObj"] = userData;
+        var results = await state.DoStringAsync(
+            """
+            TestObj[2] = 8
+            return TestObj[2], TestObj.name, #TestObj
+            """
+        );
+        Assert.That(results, Has.Length.EqualTo(3));
+        Assert.That(results[0].TryRead<int>(out var result), Is.True);
+        Assert.That(result, Is.EqualTo(8));
+        Assert.That(results[1].TryRead<string>(out var strResult), Is.True);
+        Assert.That(strResult, Is.EqualTo("IntArray"));
+        Assert.That(results[2].TryRead<int>(out result), Is.True);
+        Assert.That(result, Is.EqualTo(10));
+    }
+
+    [Test]
+    public async Task Test_StringIndexMetamethod()
+    {
+        var userData = new StringKeyUserData();
+
+        var state = LuaState.Create();
+        state.OpenBasicLibrary();
+        state.Environment["TestObj"] = userData;
+        var results = await state.DoStringAsync(
+            """
+            TestObj.answer = 42
+            return TestObj.answer, TestObj.name, TestObj.length
+            """
+        );
+        Assert.That(results, Has.Length.EqualTo(3));
+        Assert.That(results[0].TryRead<int>(out var result), Is.True);
+        Assert.That(result, Is.EqualTo(42));
+        Assert.That(results[1].TryRead<string>(out var strResult), Is.True);
+        Assert.That(strResult, Is.EqualTo("StringMap"));
+        Assert.That(results[2].TryRead<int>(out result), Is.True);
+        Assert.That(result, Is.EqualTo(1));
+    }
+
+    [Test]
+    public async Task Test_StringNewIndexMetamethod()
+    {
+        var userData = new StringKeyUserData();
+
+        var state = LuaState.Create();
+        state.OpenBasicLibrary();
+        state.Environment["TestObj"] = userData;
+        var results = await state.DoStringAsync(
+            """
+            TestObj.value = 8
+            TestObj.other = 13
+            return TestObj.value, TestObj.other, TestObj.name, TestObj.length
+            """
+        );
+        Assert.That(results, Has.Length.EqualTo(4));
+        Assert.That(results[0].TryRead<int>(out var result), Is.True);
+        Assert.That(result, Is.EqualTo(8));
+        Assert.That(results[1].TryRead<int>(out result), Is.True);
+        Assert.That(result, Is.EqualTo(13));
+        Assert.That(results[2].TryRead<string>(out var strResult), Is.True);
+        Assert.That(strResult, Is.EqualTo("StringMap"));
+        Assert.That(results[3].TryRead<int>(out result), Is.True);
+        Assert.That(result, Is.EqualTo(2));
+    }
+
+    [Test]
+    public async Task Test_LenMetamethod()
     {
         var userData = new LuaTestObj();
 
         var state = LuaState.Create();
         state.OpenBasicLibrary();
         state.Environment["TestObj"] = userData;
-        var results = await state.DoStringAsync("""
-                                                local a = TestObj.Sum(1, 2, 3)
-                                                return TestObj.Sum(1, 2, 3)
-                                                """);
-        Assert.That(results, Has.Length.EqualTo(1));
-        Assert.That(results[0].Read<double>(), Is.EqualTo(6.0));
+        var results = await state.DoStringAsync(
+            """
+            function testLen(obj)
+                return #obj
+            end
+            local obj = TestObj.create(1, 2)
+            return testLen(TestObj.create(1, 2)),-obj
+            """
+        );
+        Assert.That(results, Has.Length.EqualTo(2));
+        Assert.That(results[0].Read<double>(), Is.EqualTo(3));
+        Assert.That(results[1].Read<object>(), Is.TypeOf<LuaTestObj>());
+        var objUnm = results[1].Read<LuaTestObj>();
+        Assert.That(objUnm.X, Is.EqualTo(-1));
+        Assert.That(objUnm.Y, Is.EqualTo(-2));
     }
 }

@@ -98,7 +98,9 @@ static class IOThrowHelpers
     /// <returns>A <see cref="NotSupportedException"/> with the standard text.</returns>
     public static Exception GetNotSupportedException()
     {
-        return new NotSupportedException("The requested operation is not supported for this stream.");
+        return new NotSupportedException(
+            "The requested operation is not supported for this stream."
+        );
     }
 
     /// <summary>
@@ -133,7 +135,10 @@ static class IOThrowHelpers
     /// </summary>
     static void ThrowArgumentOutOfRangeExceptionForPosition()
     {
-        throw new ArgumentOutOfRangeException(nameof(Stream.Position), "The value for the property was not in the valid range.");
+        throw new ArgumentOutOfRangeException(
+            nameof(Stream.Position),
+            "The value for the property was not in the valid range."
+        );
     }
 
     /// <summary>
@@ -169,7 +174,10 @@ static class IOThrowHelpers
     [DoesNotReturn]
     static void ThrowArgumentExceptionForLength()
     {
-        throw new ArgumentException("The sum of offset and count can't be larger than the buffer length.", "buffer");
+        throw new ArgumentException(
+            "The sum of offset and count can't be larger than the buffer length.",
+            "buffer"
+        );
     }
 
     /// <summary>

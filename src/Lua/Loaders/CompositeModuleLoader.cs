@@ -6,11 +6,13 @@ public static class CompositeModuleLoader
     {
         public bool Exists(string moduleName)
         {
-            return loader0.Exists(moduleName) ||
-                   loader1.Exists(moduleName);
+            return loader0.Exists(moduleName) || loader1.Exists(moduleName);
         }
 
-        public ValueTask<LuaModule> LoadAsync(string moduleName, CancellationToken cancellationToken = default)
+        public ValueTask<LuaModule> LoadAsync(
+            string moduleName,
+            CancellationToken cancellationToken = default
+        )
         {
             if (loader0.Exists(moduleName))
             {
@@ -26,16 +28,23 @@ public static class CompositeModuleLoader
         }
     }
 
-    class CompositeLoader_3(ILuaModuleLoader loader0, ILuaModuleLoader loader1, ILuaModuleLoader loader2) : ILuaModuleLoader
+    class CompositeLoader_3(
+        ILuaModuleLoader loader0,
+        ILuaModuleLoader loader1,
+        ILuaModuleLoader loader2
+    ) : ILuaModuleLoader
     {
         public bool Exists(string moduleName)
         {
-            return loader0.Exists(moduleName) ||
-                   loader1.Exists(moduleName) ||
-                   loader2.Exists(moduleName);
+            return loader0.Exists(moduleName)
+                || loader1.Exists(moduleName)
+                || loader2.Exists(moduleName);
         }
 
-        public ValueTask<LuaModule> LoadAsync(string moduleName, CancellationToken cancellationToken = default)
+        public ValueTask<LuaModule> LoadAsync(
+            string moduleName,
+            CancellationToken cancellationToken = default
+        )
         {
             if (loader0.Exists(moduleName))
             {
@@ -56,17 +65,25 @@ public static class CompositeModuleLoader
         }
     }
 
-    class CompositeLoader_4(ILuaModuleLoader loader0, ILuaModuleLoader loader1, ILuaModuleLoader loader2, ILuaModuleLoader loader3) : ILuaModuleLoader
+    class CompositeLoader_4(
+        ILuaModuleLoader loader0,
+        ILuaModuleLoader loader1,
+        ILuaModuleLoader loader2,
+        ILuaModuleLoader loader3
+    ) : ILuaModuleLoader
     {
         public bool Exists(string moduleName)
         {
-            return loader0.Exists(moduleName) ||
-                   loader1.Exists(moduleName) ||
-                   loader2.Exists(moduleName) ||
-                   loader3.Exists(moduleName);
+            return loader0.Exists(moduleName)
+                || loader1.Exists(moduleName)
+                || loader2.Exists(moduleName)
+                || loader3.Exists(moduleName);
         }
 
-        public ValueTask<LuaModule> LoadAsync(string moduleName, CancellationToken cancellationToken = default)
+        public ValueTask<LuaModule> LoadAsync(
+            string moduleName,
+            CancellationToken cancellationToken = default
+        )
         {
             if (loader0.Exists(moduleName))
             {
@@ -92,18 +109,27 @@ public static class CompositeModuleLoader
         }
     }
 
-    class CompositeLoader_5(ILuaModuleLoader loader0, ILuaModuleLoader loader1, ILuaModuleLoader loader2, ILuaModuleLoader loader3, ILuaModuleLoader loader4) : ILuaModuleLoader
+    class CompositeLoader_5(
+        ILuaModuleLoader loader0,
+        ILuaModuleLoader loader1,
+        ILuaModuleLoader loader2,
+        ILuaModuleLoader loader3,
+        ILuaModuleLoader loader4
+    ) : ILuaModuleLoader
     {
         public bool Exists(string moduleName)
         {
-            return loader0.Exists(moduleName) ||
-                   loader1.Exists(moduleName) ||
-                   loader2.Exists(moduleName) ||
-                   loader3.Exists(moduleName) ||
-                   loader4.Exists(moduleName);
+            return loader0.Exists(moduleName)
+                || loader1.Exists(moduleName)
+                || loader2.Exists(moduleName)
+                || loader3.Exists(moduleName)
+                || loader4.Exists(moduleName);
         }
 
-        public ValueTask<LuaModule> LoadAsync(string moduleName, CancellationToken cancellationToken = default)
+        public ValueTask<LuaModule> LoadAsync(
+            string moduleName,
+            CancellationToken cancellationToken = default
+        )
         {
             if (loader0.Exists(moduleName))
             {
@@ -134,19 +160,29 @@ public static class CompositeModuleLoader
         }
     }
 
-    class CompositeLoader_6(ILuaModuleLoader loader0, ILuaModuleLoader loader1, ILuaModuleLoader loader2, ILuaModuleLoader loader3, ILuaModuleLoader loader4, ILuaModuleLoader loader5) : ILuaModuleLoader
+    class CompositeLoader_6(
+        ILuaModuleLoader loader0,
+        ILuaModuleLoader loader1,
+        ILuaModuleLoader loader2,
+        ILuaModuleLoader loader3,
+        ILuaModuleLoader loader4,
+        ILuaModuleLoader loader5
+    ) : ILuaModuleLoader
     {
         public bool Exists(string moduleName)
         {
-            return loader0.Exists(moduleName) ||
-                   loader1.Exists(moduleName) ||
-                   loader2.Exists(moduleName) ||
-                   loader3.Exists(moduleName) ||
-                   loader4.Exists(moduleName) ||
-                   loader5.Exists(moduleName);
+            return loader0.Exists(moduleName)
+                || loader1.Exists(moduleName)
+                || loader2.Exists(moduleName)
+                || loader3.Exists(moduleName)
+                || loader4.Exists(moduleName)
+                || loader5.Exists(moduleName);
         }
 
-        public ValueTask<LuaModule> LoadAsync(string moduleName, CancellationToken cancellationToken = default)
+        public ValueTask<LuaModule> LoadAsync(
+            string moduleName,
+            CancellationToken cancellationToken = default
+        )
         {
             if (loader0.Exists(moduleName))
             {
@@ -182,7 +218,6 @@ public static class CompositeModuleLoader
         }
     }
 
-
     class CompositeLoader(ILuaModuleLoader[] loaders) : ILuaModuleLoader
     {
         public bool Exists(string moduleName)
@@ -198,7 +233,10 @@ public static class CompositeModuleLoader
             return false;
         }
 
-        public ValueTask<LuaModule> LoadAsync(string moduleName, CancellationToken cancellationToken = default)
+        public ValueTask<LuaModule> LoadAsync(
+            string moduleName,
+            CancellationToken cancellationToken = default
+        )
         {
             foreach (var loader in loaders)
             {
@@ -217,22 +255,44 @@ public static class CompositeModuleLoader
         return new CompositeLoader_2(loader0, loader1);
     }
 
-    public static ILuaModuleLoader Create(ILuaModuleLoader loader0, ILuaModuleLoader loader1, ILuaModuleLoader loader2)
+    public static ILuaModuleLoader Create(
+        ILuaModuleLoader loader0,
+        ILuaModuleLoader loader1,
+        ILuaModuleLoader loader2
+    )
     {
         return new CompositeLoader_3(loader0, loader1, loader2);
     }
 
-    public static ILuaModuleLoader Create(ILuaModuleLoader loader0, ILuaModuleLoader loader1, ILuaModuleLoader loader2, ILuaModuleLoader loader3)
+    public static ILuaModuleLoader Create(
+        ILuaModuleLoader loader0,
+        ILuaModuleLoader loader1,
+        ILuaModuleLoader loader2,
+        ILuaModuleLoader loader3
+    )
     {
         return new CompositeLoader_4(loader0, loader1, loader2, loader3);
     }
 
-    public static ILuaModuleLoader Create(ILuaModuleLoader loader0, ILuaModuleLoader loader1, ILuaModuleLoader loader2, ILuaModuleLoader loader3, ILuaModuleLoader loader4)
+    public static ILuaModuleLoader Create(
+        ILuaModuleLoader loader0,
+        ILuaModuleLoader loader1,
+        ILuaModuleLoader loader2,
+        ILuaModuleLoader loader3,
+        ILuaModuleLoader loader4
+    )
     {
         return new CompositeLoader_5(loader0, loader1, loader2, loader3, loader4);
     }
 
-    public static ILuaModuleLoader Create(ILuaModuleLoader loader0, ILuaModuleLoader loader1, ILuaModuleLoader loader2, ILuaModuleLoader loader3, ILuaModuleLoader loader4, ILuaModuleLoader loader5)
+    public static ILuaModuleLoader Create(
+        ILuaModuleLoader loader0,
+        ILuaModuleLoader loader1,
+        ILuaModuleLoader loader2,
+        ILuaModuleLoader loader3,
+        ILuaModuleLoader loader4,
+        ILuaModuleLoader loader5
+    )
     {
         return new CompositeLoader_6(loader0, loader1, loader2, loader3, loader4, loader5);
     }

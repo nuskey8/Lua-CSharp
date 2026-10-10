@@ -13,7 +13,8 @@ public record struct CallStackFrame
     internal CallStackFrameFlags Flags;
     public int Version;
 
-    internal bool IsTailCall => (Flags & CallStackFrameFlags.TailCall) == CallStackFrameFlags.TailCall;
+    internal bool IsTailCall =>
+        (Flags & CallStackFrameFlags.TailCall) == CallStackFrameFlags.TailCall;
 }
 
 [Flags]
@@ -22,5 +23,5 @@ public enum CallStackFrameFlags
     // None = 0,
     ReversedLe = 1,
     TailCall = 2,
-    InHook = 4
+    InHook = 4,
 }

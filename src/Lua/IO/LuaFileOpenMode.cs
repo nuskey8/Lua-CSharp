@@ -30,26 +30,28 @@ public enum LuaFileOpenMode
     /// <summary>
     /// a+
     /// </summary>
-    AppendUpdate
+    AppendUpdate,
 }
 
 public static class LuaFileOpenModeExtensions
 {
     public static bool CanRead(this LuaFileOpenMode mode)
     {
-        return mode is LuaFileOpenMode.Read
-            or LuaFileOpenMode.ReadUpdate
-            or LuaFileOpenMode.WriteUpdate
-            or LuaFileOpenMode.AppendUpdate;
+        return mode
+            is LuaFileOpenMode.Read
+                or LuaFileOpenMode.ReadUpdate
+                or LuaFileOpenMode.WriteUpdate
+                or LuaFileOpenMode.AppendUpdate;
     }
 
     public static bool CanWrite(this LuaFileOpenMode mode)
     {
-        return mode is LuaFileOpenMode.Write
-            or LuaFileOpenMode.ReadUpdate
-            or LuaFileOpenMode.WriteUpdate
-            or LuaFileOpenMode.Append
-            or LuaFileOpenMode.AppendUpdate;
+        return mode
+            is LuaFileOpenMode.Write
+                or LuaFileOpenMode.ReadUpdate
+                or LuaFileOpenMode.WriteUpdate
+                or LuaFileOpenMode.Append
+                or LuaFileOpenMode.AppendUpdate;
     }
 
     public static LuaFileOpenMode ParseModeFromString(string mode)
@@ -68,24 +70,27 @@ public static class LuaFileOpenModeExtensions
             "w+b" => LuaFileOpenMode.WriteUpdate,
             "a+" => LuaFileOpenMode.AppendUpdate,
             "a+b" => LuaFileOpenMode.AppendUpdate,
-            _ => (LuaFileOpenMode)(-1)
+            _ => (LuaFileOpenMode)(-1),
         };
     }
 
-
     public static bool IsValid(this LuaFileOpenMode mode)
     {
-        return mode is LuaFileOpenMode.Read
-            or LuaFileOpenMode.Write
-            or LuaFileOpenMode.Append
-            or LuaFileOpenMode.ReadUpdate
-            or LuaFileOpenMode.WriteUpdate
-            or LuaFileOpenMode.AppendUpdate;
+        return mode
+            is LuaFileOpenMode.Read
+                or LuaFileOpenMode.Write
+                or LuaFileOpenMode.Append
+                or LuaFileOpenMode.ReadUpdate
+                or LuaFileOpenMode.WriteUpdate
+                or LuaFileOpenMode.AppendUpdate;
     }
 
     public static bool IsAppend(this LuaFileOpenMode mode)
     {
-        return mode is LuaFileOpenMode.Append or LuaFileOpenMode.AppendUpdate or LuaFileOpenMode.WriteUpdate;
+        return mode
+            is LuaFileOpenMode.Append
+                or LuaFileOpenMode.AppendUpdate
+                or LuaFileOpenMode.WriteUpdate;
     }
 
     public static void ThrowIfNotReadable(this LuaFileOpenMode mode)

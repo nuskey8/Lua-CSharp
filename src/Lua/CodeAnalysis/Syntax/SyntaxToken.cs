@@ -2,7 +2,11 @@ using Lua.Internal;
 
 namespace Lua.CodeAnalysis.Syntax;
 
-public readonly struct SyntaxToken(SyntaxTokenType type, ReadOnlyMemory<char> text, SourcePosition position) : IEquatable<SyntaxToken>
+public readonly struct SyntaxToken(
+    SyntaxTokenType type,
+    ReadOnlyMemory<char> text,
+    SourcePosition position
+) : IEquatable<SyntaxToken>
 {
     public static SyntaxToken EndOfLine(SourcePosition position)
     {
@@ -101,7 +105,11 @@ public readonly struct SyntaxToken(SyntaxTokenType type, ReadOnlyMemory<char> te
 
     public static SyntaxToken GreaterThanOrEqual(SourcePosition position)
     {
-        return new(SyntaxTokenType.GreaterThanOrEqual, Keywords.GreaterThanOrEqual.AsMemory(), position);
+        return new(
+            SyntaxTokenType.GreaterThanOrEqual,
+            Keywords.GreaterThanOrEqual.AsMemory(),
+            position
+        );
     }
 
     public static SyntaxToken LessThan(SourcePosition position)
@@ -297,6 +305,18 @@ public readonly struct SyntaxToken(SyntaxTokenType type, ReadOnlyMemory<char> te
     {
         return Type switch
         {
+            SyntaxTokenType.Number => Text.ToString(),
+            SyntaxTokenType.String => $"\"{Text}\"",
+            SyntaxTokenType.RawString => $"[[{Text}]]",
+            SyntaxTokenType.Identifier => Text.ToString(),
+            _ => GetFixedText(Type) ?? "",
+        };
+    }
+
+    internal static string? GetFixedText(SyntaxTokenType type)
+    {
+        return type switch
+        {
             SyntaxTokenType.EndOfLine => Keywords.LF,
             SyntaxTokenType.LParen => Keywords.LParen,
             SyntaxTokenType.RParen => Keywords.RParen,
@@ -305,14 +325,13 @@ public readonly struct SyntaxToken(SyntaxTokenType type, ReadOnlyMemory<char> te
             SyntaxTokenType.LSquare => Keywords.LSquare,
             SyntaxTokenType.RSquare => Keywords.RSquare,
             SyntaxTokenType.SemiColon => ";",
+            SyntaxTokenType.Colon => ":",
             SyntaxTokenType.Comma => ",",
-            SyntaxTokenType.Number => Text.ToString(),
-            SyntaxTokenType.String => $"\"{Text}\"",
-            SyntaxTokenType.RawString => $"[[{Text}]]",
+            SyntaxTokenType.Dot => ".",
+            SyntaxTokenType.VarArg => "...",
             SyntaxTokenType.Nil => Keywords.Nil,
             SyntaxTokenType.True => Keywords.True,
             SyntaxTokenType.False => Keywords.False,
-            SyntaxTokenType.Identifier => Text.ToString(),
             SyntaxTokenType.Addition => Keywords.Addition,
             SyntaxTokenType.Subtraction => Keywords.Subtraction,
             SyntaxTokenType.Multiplication => Keywords.Multiplication,
@@ -347,15 +366,15 @@ public readonly struct SyntaxToken(SyntaxTokenType type, ReadOnlyMemory<char> te
             SyntaxTokenType.Return => Keywords.Return,
             SyntaxTokenType.Until => Keywords.Until,
             SyntaxTokenType.While => Keywords.While,
-            _ => ""
+            _ => null,
         };
     }
 
     public bool Equals(SyntaxToken other)
     {
-        return other.Type == Type &&
-               other.Text.Span.SequenceEqual(Text.Span) &&
-               other.Position == Position;
+        return other.Type == Type
+            && other.Text.Span.SequenceEqual(Text.Span)
+            && other.Position == Position;
     }
 
     public override bool Equals(object? obj)
@@ -370,7 +389,11 @@ public readonly struct SyntaxToken(SyntaxTokenType type, ReadOnlyMemory<char> te
 
     public override int GetHashCode()
     {
-        return HashCode.Combine(Type, Utf16StringMemoryComparer.Default.GetHashCode(Text), Position);
+        return HashCode.Combine(
+            Type,
+            Utf16StringMemoryComparer.Default.GetHashCode(Text),
+            Position
+        );
     }
 
     public static bool operator ==(SyntaxToken left, SyntaxToken right)
@@ -555,5 +578,5 @@ public enum SyntaxTokenType
     Repeat, // repeat
     Return, // return
     Until, // until
-    While // while
+    While, // while
 }

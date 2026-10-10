@@ -1,9 +1,10 @@
-using System.Runtime.CompilerServices;
 using System.Buffers;
+using System.Runtime.CompilerServices;
+using Lua.CodeAnalysis.Compilation;
 using Lua.Internal;
+using Lua.Internal.CompilerServices;
 using Lua.Platforms;
 using Lua.Runtime;
-using Lua.CodeAnalysis.Compilation;
 
 namespace Lua;
 
@@ -33,7 +34,11 @@ public class LuaState : IDisposable
         return LuaGlobalState.Create(platform).MainThread;
     }
 
-    internal static LuaState CreateCoroutine(LuaGlobalState globalState, LuaFunction function, bool isProtectedMode = false)
+    internal static LuaState CreateCoroutine(
+        LuaGlobalState globalState,
+        LuaFunction function,
+        bool isProtectedMode = false
+    )
     {
         return new(globalState, function, isProtectedMode);
     }
@@ -68,11 +73,20 @@ public class LuaState : IDisposable
         coroutine.status = (byte)status;
     }
 
-    public ValueTask<int> ResumeAsync(LuaFunctionExecutionContext context, CancellationToken cancellationToken = default)
+    public ValueTask<int> ResumeAsync(
+        LuaFunctionExecutionContext context,
+        CancellationToken cancellationToken = default
+    )
     {
         if (coroutine is not null)
         {
-            return coroutine.ResumeAsyncCore(context.State.Stack, context.ArgumentCount, context.ReturnFrameBase, context.State, cancellationToken);
+            return coroutine.ResumeAsyncCore(
+                context.State.Stack,
+                context.ArgumentCount,
+                context.ReturnFrameBase,
+                context.State,
+                cancellationToken
+            );
         }
 
         return new(context.Return(false, "cannot resume non-suspended coroutine"));
@@ -90,14 +104,23 @@ public class LuaState : IDisposable
         return new(2);
     }
 
-    public ValueTask<int> YieldAsync(LuaFunctionExecutionContext context, CancellationToken cancellationToken = default)
+    public ValueTask<int> YieldAsync(
+        LuaFunctionExecutionContext context,
+        CancellationToken cancellationToken = default
+    )
     {
         if (coroutine is not null)
         {
-            return coroutine.YieldAsyncCore(context.State.Stack, context.ArgumentCount, context.ReturnFrameBase, context.State, cancellationToken);
+            return coroutine.YieldAsyncCore(
+                context.State.Stack,
+                context.ArgumentCount,
+                context.ReturnFrameBase,
+                context.State,
+                cancellationToken
+            );
         }
 
-        throw new LuaRuntimeException(context.State, "cannot yield from a non-running coroutine");
+        throw new LuaRuntimeException(context.State, "attempt to yield from outside a coroutine");
     }
 
     public ValueTask<int> YieldAsync(LuaStack stack, CancellationToken cancellationToken = default)
@@ -107,7 +130,7 @@ public class LuaState : IDisposable
             return coroutine.YieldAsyncCore(stack, stack.Count, 0, null, cancellationToken);
         }
 
-        throw new LuaRuntimeException(null, "cannot yield from a non-running coroutine");
+        throw new LuaRuntimeException(null, "attempt to yield from outside a coroutine");
     }
 
     class ThreadCoreData : IPoolNode<ThreadCoreData>
@@ -175,6 +198,27 @@ public class LuaState : IDisposable
     public LuaTable PreloadModules => GlobalState.PreloadModules;
     public LuaState MainThread => GlobalState.MainThread;
 
+    /// <summary>
+    /// Gets or sets the positive call-frame limit shared by this state and its coroutines.
+    /// The default is 100,000. Lua and C# frames count toward the limit; tail calls reuse a frame.
+    /// Changing this value also applies to existing threads sharing the same global state.
+    /// </summary>
+    public int MaxCallDepth
+    {
+        get => GlobalState.MaxCallDepth;
+        set
+        {
+            if (value <= 0)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(value),
+                    "Call depth must be positive."
+                );
+            }
+            GlobalState.MaxCallDepth = value;
+        }
+    }
+
     public ILuaModuleLoader? ModuleLoader
     {
         get => GlobalState.ModuleLoader;
@@ -216,7 +260,12 @@ public class LuaState : IDisposable
         return CoreData == null ? default : CoreData!.CallStack.AsSpan();
     }
 
-    internal CallStackFrame CreateCallStackFrame(LuaFunction function, int argumentCount, int returnBase, int callerInstructionIndex)
+    internal CallStackFrame CreateCallStackFrame(
+        LuaFunction function,
+        int argumentCount,
+        int returnBase,
+        int callerInstructionIndex
+    )
     {
         var state = this;
         var varArgumentCount = function.GetVariableArgumentCount(argumentCount);
@@ -230,7 +279,11 @@ public class LuaState : IDisposable
             }
             else
             {
-                LuaVirtualMachine.PrepareVariableArgument(state.Stack, argumentCount, varArgumentCount);
+                LuaVirtualMachine.PrepareVariableArgument(
+                    state.Stack,
+                    argumentCount,
+                    varArgumentCount
+                );
             }
         }
 
@@ -240,7 +293,7 @@ public class LuaState : IDisposable
             VariableArgumentCount = varArgumentCount,
             Function = function,
             ReturnBase = returnBase,
-            CallerInstructionIndex = callerInstructionIndex
+            CallerInstructionIndex = callerInstructionIndex,
         };
 
         if (state.IsInHook)
@@ -254,10 +307,35 @@ public class LuaState : IDisposable
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal void PushCallStackFrame(in CallStackFrame frame)
     {
+        ref var callStack = ref CoreData!.CallStack;
+        if (callStack.Count >= GlobalState.MaxCallDepth)
+        {
+            throw new LuaStackOverflowException();
+        }
+
         CurrentException?.BuildOrGet();
         CurrentException = null;
-        ref var callStack = ref CoreData!.CallStack;
         callStack.Push(frame);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal void ReplaceCallStackFrame(in CallStackFrame frame)
+    {
+        ref var callStack = ref CoreData!.CallStack;
+        if (callStack.Count > GlobalState.MaxCallDepth)
+        {
+            throw new LuaStackOverflowException();
+        }
+
+        // Tail calls retain the depth. Replacing the slot avoids clearing and repushing it,
+        // but a pending exception must still capture the outgoing frame before it is overwritten.
+        if (CurrentException != null)
+        {
+            ExceptionTrace.Push(callStack.Peek());
+            CurrentException.BuildOrGet();
+            CurrentException = null;
+        }
+        callStack.PeekRef() = frame;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -315,6 +393,29 @@ public class LuaState : IDisposable
         callStack.PopUntil(top);
     }
 
+    public LuaTable GetCurrentEnvironment()
+    {
+        var callStack = GetCallStackFrames();
+        for (int i = callStack.Length - 1; i >= 0; i--)
+        {
+            var function = callStack[i].Function;
+            if (function is not LuaClosure closure || closure.Proto.UpValues.Length == 0)
+            {
+                continue;
+            }
+
+            if (closure.Proto.UpValues[0].Name != "_ENV")
+            {
+                continue;
+            }
+
+            var upValue = closure.UpValues[0];
+            return upValue.GetValue().Read<LuaTable>();
+        }
+
+        return Environment;
+    }
+
     public void SetHook(LuaFunction? hook, string mask, int count = 0)
     {
         if (hook is null)
@@ -357,17 +458,30 @@ public class LuaState : IDisposable
         return new(this, GetCallStackFrames());
     }
 
-    public ValueTask<int> RunAsync(LuaFunction function, CancellationToken cancellationToken = default)
+    public ValueTask<int> RunAsync(
+        LuaFunction function,
+        CancellationToken cancellationToken = default
+    )
     {
         return RunAsync(function, 0, Stack.Count, cancellationToken);
     }
 
-    public ValueTask<int> RunAsync(LuaFunction function, int argumentCount, CancellationToken cancellationToken = default)
+    public ValueTask<int> RunAsync(
+        LuaFunction function,
+        int argumentCount,
+        CancellationToken cancellationToken = default
+    )
     {
         return RunAsync(function, argumentCount, Stack.Count - argumentCount, cancellationToken);
     }
 
-    public async ValueTask<int> RunAsync(LuaFunction function, int argumentCount, int returnBase, CancellationToken cancellationToken = default)
+    [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder<>))]
+    public async ValueTask<int> RunAsync(
+        LuaFunction function,
+        int argumentCount,
+        int returnBase,
+        CancellationToken cancellationToken = default
+    )
     {
         if (function == null)
         {
@@ -386,20 +500,35 @@ public class LuaState : IDisposable
             }
             else
             {
-                LuaVirtualMachine.PrepareVariableArgument(state.Stack, argumentCount, varArgumentCount);
+                LuaVirtualMachine.PrepareVariableArgument(
+                    state.Stack,
+                    argumentCount,
+                    varArgumentCount
+                );
             }
 
             argumentCount -= varArgumentCount;
         }
 
-        CallStackFrame frame = new() { Base = state.Stack.Count - argumentCount, VariableArgumentCount = varArgumentCount, Function = function, ReturnBase = returnBase };
+        CallStackFrame frame = new()
+        {
+            Base = state.Stack.Count - argumentCount,
+            VariableArgumentCount = varArgumentCount,
+            Function = function,
+            ReturnBase = returnBase,
+        };
         if (state.IsInHook)
         {
             frame.Flags |= CallStackFrameFlags.InHook;
         }
 
         state.PushCallStackFrame(frame);
-        LuaFunctionExecutionContext context = new() { State = state, ArgumentCount = argumentCount, ReturnFrameBase = returnBase };
+        LuaFunctionExecutionContext context = new()
+        {
+            State = state,
+            ArgumentCount = argumentCount,
+            ReturnFrameBase = returnBase,
+        };
         var callStackTop = state.CallStackFrameCount;
         try
         {
@@ -416,7 +545,11 @@ public class LuaState : IDisposable
         }
     }
 
-    public unsafe LuaClosure Load(ReadOnlySpan<char> chunk, string chunkName, LuaTable? environment = null)
+    public unsafe LuaClosure Load(
+        ReadOnlySpan<char> chunk,
+        string chunkName,
+        LuaTable? environment = null
+    )
     {
         Prototype prototype;
         fixed (char* ptr = chunk)
@@ -427,14 +560,34 @@ public class LuaState : IDisposable
         return new(this, prototype, environment);
     }
 
-    public LuaClosure Load(ReadOnlySpan<byte> chunk, string? chunkName = null, string mode = "bt", LuaTable? environment = null)
+    public LuaClosure Load(
+        ReadOnlySpan<byte> chunk,
+        string? chunkName = null,
+        string mode = "bt",
+        LuaTable? environment = null
+    )
     {
+        static bool AllowsMode(string mode, char chunkMode)
+        {
+            return mode.IndexOf(chunkMode) >= 0;
+        }
+
         if (chunk.Length > 4)
         {
             if (chunk[0] == '\e')
             {
+                if (!AllowsMode(mode, 'b'))
+                {
+                    throw new Exception("attempt to load a binary chunk (mode is 't')");
+                }
+
                 return new(this, Parser.Undump(chunk, chunkName), environment);
             }
+        }
+
+        if (!AllowsMode(mode, 't'))
+        {
+            throw new Exception("attempt to load a text chunk (mode is 'b')");
         }
 
         chunk = BomUtility.GetEncodingFromBytes(chunk, out var encoding);
@@ -487,7 +640,8 @@ public class LuaState : IDisposable
 
     public void Dispose()
     {
-        if(CoreData == null) return;
+        if (CoreData == null)
+            return;
         if (CoreData.CallStack.Count != 0)
         {
             throw new InvalidOperationException("This state is running! Call stack is not empty!!");

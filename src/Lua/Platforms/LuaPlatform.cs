@@ -9,15 +9,22 @@ namespace Lua.Platforms;
 /// <param name="FileSystem"></param>
 /// <param name="OsEnvironment"></param>
 /// <param name="StandardIO"></param>
-public record LuaPlatform(ILuaFileSystem FileSystem, ILuaOsEnvironment OsEnvironment, ILuaStandardIO StandardIO, TimeProvider TimeProvider)
+public record LuaPlatform(
+    ILuaFileSystem FileSystem,
+    ILuaOsEnvironment OsEnvironment,
+    ILuaStandardIO StandardIO,
+    TimeProvider TimeProvider
+)
 {
     /// <summary>
     /// Standard console platform implementation.
     /// Uses real file system, console I/O, and system operations.
     /// </summary>
     public static LuaPlatform Default { get; } =
-        new(FileSystem: new FileSystem(),
+        new(
+            FileSystem: new FileSystem(),
             OsEnvironment: new SystemOsEnvironment(),
             StandardIO: new ConsoleStandardIO(),
-            TimeProvider: TimeProvider.System);
+            TimeProvider: TimeProvider.System
+        );
 }

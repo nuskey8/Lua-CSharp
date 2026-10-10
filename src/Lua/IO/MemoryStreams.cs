@@ -56,7 +56,11 @@ public class CharMemoryStream(ReadOnlyMemory<char> contents) : ILuaStream
             var endOfLineLength = 1;
 
             // Check for CRLF
-            if (nlChar == '\r' && newlineIndex + 1 < remainingSpan.Length && remainingSpan[newlineIndex + 1] == '\n')
+            if (
+                nlChar == '\r'
+                && newlineIndex + 1 < remainingSpan.Length
+                && remainingSpan[newlineIndex + 1] == '\n'
+            )
             {
                 endOfLineLength = 2; // \r\n
             }
@@ -121,7 +125,9 @@ public class CharMemoryStream(ReadOnlyMemory<char> contents) : ILuaStream
 
         // Find where the actual number starts (after whitespace)
         var whitespaceLength = 0;
-        while (whitespaceLength < remaining.Length && char.IsWhiteSpace(remaining[whitespaceLength]))
+        while (
+            whitespaceLength < remaining.Length && char.IsWhiteSpace(remaining[whitespaceLength])
+        )
         {
             whitespaceLength++;
         }
@@ -165,7 +171,7 @@ public class CharMemoryStream(ReadOnlyMemory<char> contents) : ILuaStream
             SeekOrigin.Begin => offset,
             SeekOrigin.Current => Position + offset,
             SeekOrigin.End => contents.Length + offset,
-            _ => throw new ArgumentException("Invalid seek origin", nameof(origin))
+            _ => throw new ArgumentException("Invalid seek origin", nameof(origin)),
         };
 
         if (newPosition < 0 || newPosition > contents.Length)

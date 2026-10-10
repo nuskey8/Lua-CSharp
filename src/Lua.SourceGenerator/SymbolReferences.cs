@@ -16,8 +16,15 @@ public sealed class SymbolReferences
         {
             LuaObjectAttribute = luaObjectAttribute,
             LuaMemberAttribute = compilation.GetTypeByMetadataName("Lua.LuaMemberAttribute")!,
-            LuaIgnoreMemberAttribute = compilation.GetTypeByMetadataName("Lua.LuaIgnoreMemberAttribute")!,
-            LuaMetamethodAttribute = compilation.GetTypeByMetadataName("Lua.LuaMetamethodAttribute")!,
+            LuaIgnoreMemberAttribute = compilation.GetTypeByMetadataName(
+                "Lua.LuaIgnoreMemberAttribute"
+            )!,
+            LuaMetamethodAttribute = compilation.GetTypeByMetadataName(
+                "Lua.LuaMetamethodAttribute"
+            )!,
+            AllowNullAttribute = compilation.GetTypeByMetadataName(
+                "System.Diagnostics.CodeAnalysis.AllowNullAttribute"
+            )!,
             LuaValue = compilation.GetTypeByMetadataName("Lua.LuaValue")!,
             Object = compilation.GetTypeByMetadataName("System.Object")!,
             Boolean = compilation.GetTypeByMetadataName("System.Boolean")!,
@@ -27,9 +34,11 @@ public sealed class SymbolReferences
             LuaThread = compilation.GetTypeByMetadataName("Lua.LuaThread")!,
             LuaTable = compilation.GetTypeByMetadataName("Lua.LuaTable")!,
             LuaUserData = compilation.GetTypeByMetadataName("Lua.ILuaUserData")!,
-            LuaValueMemory = compilation.GetTypeByMetadataName("System.ReadOnlyMemory`1")!,
-            LuaValueSpan = compilation.GetTypeByMetadataName("System.ReadOnlySpan`1")!,
-            CancellationToken = compilation.GetTypeByMetadataName("System.Threading.CancellationToken")!
+            ReadOnlyMemory = compilation.GetTypeByMetadataName("System.ReadOnlyMemory`1")!,
+            ReadOnlySpan = compilation.GetTypeByMetadataName("System.ReadOnlySpan`1")!,
+            CancellationToken = compilation.GetTypeByMetadataName(
+                "System.Threading.CancellationToken"
+            )!,
         };
     }
 
@@ -37,6 +46,7 @@ public sealed class SymbolReferences
     public INamedTypeSymbol LuaMemberAttribute { get; private set; } = null!;
     public INamedTypeSymbol LuaIgnoreMemberAttribute { get; private set; } = null!;
     public INamedTypeSymbol LuaMetamethodAttribute { get; private set; } = null!;
+    public INamedTypeSymbol AllowNullAttribute { get; private set; } = null!;
     public INamedTypeSymbol LuaValue { get; private set; } = null!;
     public INamedTypeSymbol Object { get; private set; } = null!;
     public INamedTypeSymbol Boolean { get; private set; } = null!;
@@ -46,7 +56,7 @@ public sealed class SymbolReferences
     public INamedTypeSymbol LuaThread { get; private set; } = null!;
     public INamedTypeSymbol LuaTable { get; private set; } = null!;
     public INamedTypeSymbol LuaUserData { get; private set; } = null!;
-    public INamedTypeSymbol LuaValueMemory { get; private set; } = null!;
-    public INamedTypeSymbol LuaValueSpan { get; private set; } = null!;
+    public INamedTypeSymbol ReadOnlyMemory { get; private set; } = null!;
+    public INamedTypeSymbol ReadOnlySpan { get; private set; } = null!;
     public INamedTypeSymbol CancellationToken { get; private set; } = null!;
 }

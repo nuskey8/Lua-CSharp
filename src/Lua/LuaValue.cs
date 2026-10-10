@@ -16,7 +16,7 @@ public enum LuaValueType : byte
     Thread,
     LightUserData,
     UserData,
-    Table
+    Table,
 }
 
 [StructLayout(LayoutKind.Auto)]
@@ -38,6 +38,13 @@ public readonly struct LuaValue : IEquatable<LuaValue>
     public bool TryRead<T>(out T result)
     {
         var t = typeof(T);
+
+        if (t == typeof(LuaValue))
+        {
+            var v = this;
+            result = Unsafe.As<LuaValue, T>(ref v);
+            return true;
+        }
 
         switch (Type)
         {
@@ -74,6 +81,28 @@ public readonly struct LuaValue : IEquatable<LuaValue>
 
                     var v = (long)value;
                     result = Unsafe.As<long, T>(ref v);
+                    return true;
+                }
+                else if (t == typeof(uint))
+                {
+                    if (!MathEx.IsInteger(value))
+                    {
+                        break;
+                    }
+
+                    var v = checked((uint)value);
+                    result = Unsafe.As<uint, T>(ref v);
+                    return true;
+                }
+                else if (t == typeof(ulong))
+                {
+                    if (!MathEx.IsInteger(value))
+                    {
+                        break;
+                    }
+
+                    var v = checked((ulong)value);
+                    result = Unsafe.As<ulong, T>(ref v);
                     return true;
                 }
                 else if (t == typeof(object))
@@ -155,15 +184,15 @@ public readonly struct LuaValue : IEquatable<LuaValue>
                     break;
                 }
             case LuaValueType.LightUserData:
+            {
+                if (referenceValue is T tValue)
                 {
-                    if (referenceValue is T tValue)
-                    {
-                        result = tValue;
-                        return true;
-                    }
-
-                    break;
+                    result = tValue;
+                    return true;
                 }
+
+                break;
+            }
             case LuaValueType.UserData:
                 if (t == typeof(ILuaUserData) || typeof(ILuaUserData).IsAssignableFrom(t))
                 {
@@ -274,7 +303,6 @@ public readonly struct LuaValue : IEquatable<LuaValue>
         return false;
     }
 
-
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal bool TryReadDouble(out double result)
     {
@@ -369,7 +397,12 @@ public readonly struct LuaValue : IEquatable<LuaValue>
         }
         else
         {
-            return double.TryParse(str, NumberStyles.Float, CultureInfo.InvariantCulture, out result);
+            return double.TryParse(
+                str,
+                NumberStyles.Float,
+                CultureInfo.InvariantCulture,
+                out result
+            );
         }
     }
 
@@ -377,7 +410,9 @@ public readonly struct LuaValue : IEquatable<LuaValue>
     {
         if (!TryRead<T>(out var result))
         {
-            throw new InvalidOperationException($"Cannot convert LuaValueType.{Type} to {typeof(T).FullName}.");
+            throw new InvalidOperationException(
+                $"Cannot convert LuaValueType.{Type} to {typeof(T).FullName}."
+            );
         }
 
         return result;
@@ -389,25 +424,25 @@ public readonly struct LuaValue : IEquatable<LuaValue>
         switch (Type)
         {
             case LuaValueType.Boolean:
-                {
-                    var v = value != 0;
-                    return Unsafe.As<bool, T>(ref v);
-                }
+            {
+                var v = value != 0;
+                return Unsafe.As<bool, T>(ref v);
+            }
             case LuaValueType.Number:
-                {
-                    var v = value;
-                    return Unsafe.As<double, T>(ref v);
-                }
+            {
+                var v = value;
+                return Unsafe.As<double, T>(ref v);
+            }
             case LuaValueType.String:
             case LuaValueType.Thread:
             case LuaValueType.Function:
             case LuaValueType.Table:
             case LuaValueType.LightUserData:
             case LuaValueType.UserData:
-                {
-                    var v = referenceValue!;
-                    return Unsafe.As<object, T>(ref v);
-                }
+            {
+                var v = referenceValue!;
+                return Unsafe.As<object, T>(ref v);
+            }
         }
 
         return default!;
@@ -444,8 +479,10 @@ public readonly struct LuaValue : IEquatable<LuaValue>
             ILuaUserData userData => FromUserData(userData),
             int intValue => intValue,
             long longValue => longValue,
+            uint uintValue => uintValue,
+            ulong ulongValue => ulongValue,
             float floatValue => floatValue,
-            _ => new(obj)
+            _ => new(obj),
         };
     }
 
@@ -559,7 +596,7 @@ public readonly struct LuaValue : IEquatable<LuaValue>
             LuaValueType.Nil => 0,
             LuaValueType.Boolean or LuaValueType.Number => value.GetHashCode(),
             LuaValueType.String => Unsafe.As<string>(referenceValue)!.GetHashCode(),
-            _ => referenceValue!.GetHashCode()
+            _ => referenceValue!.GetHashCode(),
         };
     }
 
@@ -575,20 +612,23 @@ public readonly struct LuaValue : IEquatable<LuaValue>
         {
             LuaValueType.Nil => true,
             LuaValueType.Boolean or LuaValueType.Number => other.value == value,
-            LuaValueType.String => Unsafe.As<string>(other.referenceValue) == Unsafe.As<string>(referenceValue),
-            _ => other.referenceValue == referenceValue
+            LuaValueType.String => Unsafe.As<string>(other.referenceValue)
+                == Unsafe.As<string>(referenceValue),
+            _ => other.referenceValue == referenceValue,
         };
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool EqualsForDict(LuaValue other)
     {
-        return other.Type == Type && Type switch
-        {
-            LuaValueType.Boolean or LuaValueType.Number => other.value == value,
-            LuaValueType.String => Unsafe.As<string>(other.referenceValue) == Unsafe.As<string>(referenceValue),
-            _ => other.referenceValue == referenceValue
-        };
+        return other.Type == Type
+            && Type switch
+            {
+                LuaValueType.Boolean or LuaValueType.Number => other.value == value,
+                LuaValueType.String => Unsafe.As<string>(other.referenceValue)
+                    == Unsafe.As<string>(referenceValue),
+                _ => other.referenceValue == referenceValue,
+            };
     }
 
     public override bool Equals(object? obj)
@@ -621,7 +661,7 @@ public readonly struct LuaValue : IEquatable<LuaValue>
             LuaValueType.Table => $"table: {referenceValue!.GetHashCode()}",
             LuaValueType.LightUserData => $"userdata: {referenceValue!.GetHashCode()}",
             LuaValueType.UserData => $"userdata: {referenceValue!.GetHashCode()}",
-            _ => ""
+            _ => "",
         };
     }
 
@@ -643,13 +683,20 @@ public readonly struct LuaValue : IEquatable<LuaValue>
             LuaValueType.Table => "table",
             LuaValueType.LightUserData => "light userdata",
             LuaValueType.UserData => "userdata",
-            _ => ""
+            _ => "",
         };
     }
 
     public static bool TryGetLuaValueType(Type type, out LuaValueType result)
     {
-        if (type == typeof(double) || type == typeof(float) || type == typeof(int) || type == typeof(long))
+        if (
+            type == typeof(double)
+            || type == typeof(float)
+            || type == typeof(int)
+            || type == typeof(long)
+            || type == typeof(uint)
+            || type == typeof(ulong)
+        )
         {
             result = LuaValueType.Number;
             return true;
@@ -689,14 +736,22 @@ public readonly struct LuaValue : IEquatable<LuaValue>
         return false;
     }
 
-    internal ValueTask<int> CallToStringAsync(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    internal ValueTask<int> CallToStringAsync(
+        LuaFunctionExecutionContext context,
+        CancellationToken cancellationToken
+    )
     {
         if (this.TryGetMetamethod(context.GlobalState, Metamethods.ToString, out var metamethod))
         {
             var stack = context.State.Stack;
             stack.Push(metamethod);
             stack.Push(this);
-            return LuaVirtualMachine.Call(context.State, stack.Count - 2, stack.Count - 2, cancellationToken);
+            return LuaVirtualMachine.Call(
+                context.State,
+                stack.Count - 2,
+                stack.Count - 2,
+                cancellationToken
+            );
         }
         else
         {

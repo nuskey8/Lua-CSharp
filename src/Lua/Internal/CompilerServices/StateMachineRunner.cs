@@ -51,7 +51,9 @@ interface IStateMachineRunnerPromise<T> : IValueTaskSource<T>
     void SetException(Exception exception);
 }
 
-sealed class LightAsyncValueTask<TStateMachine> : IStateMachineRunnerPromise, IPoolNode<LightAsyncValueTask<TStateMachine>>
+sealed class LightAsyncValueTask<TStateMachine>
+    : IStateMachineRunnerPromise,
+        IPoolNode<LightAsyncValueTask<TStateMachine>>
     where TStateMachine : IAsyncStateMachine
 {
     static LinkedPool<LightAsyncValueTask<TStateMachine>> pool;
@@ -66,7 +68,10 @@ sealed class LightAsyncValueTask<TStateMachine> : IStateMachineRunnerPromise, IP
         MoveNext = Run;
     }
 
-    public static void SetStateMachine(ref TStateMachine stateMachine, ref IStateMachineRunnerPromise? runnerPromiseFieldRef)
+    public static void SetStateMachine(
+        ref TStateMachine stateMachine,
+        ref IStateMachineRunnerPromise? runnerPromiseFieldRef
+    )
     {
         if (!pool.TryPop(out var result))
         {
@@ -81,10 +86,7 @@ sealed class LightAsyncValueTask<TStateMachine> : IStateMachineRunnerPromise, IP
 
     public ref LightAsyncValueTask<TStateMachine>? NextNode
     {
-        get
-        {
-            return ref nextNode;
-        }
+        get { return ref nextNode; }
     }
 
     void Return()
@@ -93,7 +95,6 @@ sealed class LightAsyncValueTask<TStateMachine> : IStateMachineRunnerPromise, IP
         stateMachine = default;
         pool.TryPush(this);
     }
-
 
     [DebuggerHidden]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -105,10 +106,7 @@ sealed class LightAsyncValueTask<TStateMachine> : IStateMachineRunnerPromise, IP
     public ValueTask Task
     {
         [DebuggerHidden]
-        get
-        {
-            return new(this, core.Version);
-        }
+        get { return new(this, core.Version); }
     }
 
     [DebuggerHidden]
@@ -142,15 +140,23 @@ sealed class LightAsyncValueTask<TStateMachine> : IStateMachineRunnerPromise, IP
         return core.GetStatus(token);
     }
 
-
     [DebuggerHidden]
-    public void OnCompleted(Action<object?> continuation, object? state, short token, ValueTaskSourceOnCompletedFlags flags)
+    public void OnCompleted(
+        Action<object?> continuation,
+        object? state,
+        short token,
+        ValueTaskSourceOnCompletedFlags flags
+    )
     {
+        // Never marshal to SynchronizationContext (required for Unity WebGL coroutines).
+        flags &= ~ValueTaskSourceOnCompletedFlags.UseSchedulingContext;
         core.OnCompleted(continuation, state, token, flags);
     }
 }
 
-sealed class LightAsyncValueTask<TStateMachine, T> : IStateMachineRunnerPromise<T>, IPoolNode<LightAsyncValueTask<TStateMachine, T>>
+sealed class LightAsyncValueTask<TStateMachine, T>
+    : IStateMachineRunnerPromise<T>,
+        IPoolNode<LightAsyncValueTask<TStateMachine, T>>
     where TStateMachine : IAsyncStateMachine
 {
     static LinkedPool<LightAsyncValueTask<TStateMachine, T>> pool;
@@ -165,7 +171,10 @@ sealed class LightAsyncValueTask<TStateMachine, T> : IStateMachineRunnerPromise<
         MoveNext = Run;
     }
 
-    public static void SetStateMachine(ref TStateMachine stateMachine, ref IStateMachineRunnerPromise<T>? runnerPromiseFieldRef)
+    public static void SetStateMachine(
+        ref TStateMachine stateMachine,
+        ref IStateMachineRunnerPromise<T>? runnerPromiseFieldRef
+    )
     {
         if (!pool.TryPop(out var result))
         {
@@ -180,12 +189,8 @@ sealed class LightAsyncValueTask<TStateMachine, T> : IStateMachineRunnerPromise<
 
     public ref LightAsyncValueTask<TStateMachine, T>? NextNode
     {
-        get
-        {
-            return ref nextNode;
-        }
+        get { return ref nextNode; }
     }
-
 
     void Return()
     {
@@ -193,7 +198,6 @@ sealed class LightAsyncValueTask<TStateMachine, T> : IStateMachineRunnerPromise<
         stateMachine = default!;
         pool.TryPush(this);
     }
-
 
     [DebuggerHidden]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -205,10 +209,7 @@ sealed class LightAsyncValueTask<TStateMachine, T> : IStateMachineRunnerPromise<
     public ValueTask<T> Task
     {
         [DebuggerHidden]
-        get
-        {
-            return new(this, core.Version);
-        }
+        get { return new(this, core.Version); }
     }
 
     [DebuggerHidden]
@@ -248,10 +249,16 @@ sealed class LightAsyncValueTask<TStateMachine, T> : IStateMachineRunnerPromise<
         return core.GetStatus(token);
     }
 
-
     [DebuggerHidden]
-    public void OnCompleted(Action<object?> continuation, object? state, short token, ValueTaskSourceOnCompletedFlags flags)
+    public void OnCompleted(
+        Action<object?> continuation,
+        object? state,
+        short token,
+        ValueTaskSourceOnCompletedFlags flags
+    )
     {
+        // Never marshal to SynchronizationContext (required for Unity WebGL coroutines).
+        flags &= ~ValueTaskSourceOnCompletedFlags.UseSchedulingContext;
         core.OnCompleted(continuation, state, token, flags);
     }
 }

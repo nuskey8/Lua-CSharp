@@ -1,5 +1,5 @@
-using Lua.CodeAnalysis;
 using System.Runtime.CompilerServices;
+using Lua.CodeAnalysis;
 using Lua.Internal;
 
 namespace Lua.Runtime;
@@ -9,7 +9,10 @@ public sealed class LuaClosure : LuaFunction
     FastListCore<UpValue> upValues;
 
     public LuaClosure(LuaState state, Prototype proto, LuaTable? environment = null)
-        : base(proto.ChunkName, static (context, ct) => LuaVirtualMachine.ExecuteClosureAsync(context.State, ct))
+        : base(
+            proto.ChunkName,
+            static (context, ct) => LuaVirtualMachine.ExecuteClosureAsync(context.State, ct)
+        )
     {
         Proto = proto;
         if (environment != null)
@@ -30,7 +33,12 @@ public sealed class LuaClosure : LuaFunction
         for (var i = 0; i < proto.UpValues.Length; i++)
         {
             var description = proto.UpValues[i];
-            var upValue = GetUpValueFromDescription(state.GlobalState, state, description, baseIndex);
+            var upValue = GetUpValueFromDescription(
+                state.GlobalState,
+                state,
+                description,
+                baseIndex
+            );
             upValues.Add(upValue);
         }
     }
@@ -62,7 +70,28 @@ public sealed class LuaClosure : LuaFunction
         upValues[index].SetValue(value);
     }
 
-    static UpValue GetUpValueFromDescription(LuaGlobalState globalState, LuaState state, UpValueDesc description, int baseIndex = 0)
+    internal void SetEnvironment(LuaValue environment)
+    {
+        if (Proto.UpValues.Length == 0 || Proto.UpValues[0].Name != "_ENV")
+        {
+            return;
+        }
+
+        if (upValues.Length == 0)
+        {
+            upValues.Add(UpValue.Closed(environment));
+            return;
+        }
+
+        upValues[0] = UpValue.Closed(environment);
+    }
+
+    static UpValue GetUpValueFromDescription(
+        LuaGlobalState globalState,
+        LuaState state,
+        UpValueDesc description,
+        int baseIndex = 0
+    )
     {
         if (description.IsLocal)
         {
@@ -73,7 +102,6 @@ public sealed class LuaClosure : LuaFunction
 
             return state.GetOrAddUpValue(baseIndex + description.Index);
         }
-
 
         if (state.GetCurrentFrame().Function is LuaClosure parentClosure)
         {

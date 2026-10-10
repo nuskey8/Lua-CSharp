@@ -14,7 +14,10 @@ internal sealed class Utf16StringMemoryComparer : IEqualityComparer<ReadOnlyMemo
 
     public int GetHashCode(ReadOnlyMemory<char> obj)
     {
-        var span = MemoryMarshal.CreateReadOnlySpan(ref Unsafe.As<char, byte>(ref MemoryMarshal.GetReference(obj.Span)), obj.Length * 2);
+        var span = MemoryMarshal.CreateReadOnlySpan(
+            ref Unsafe.As<char, byte>(ref MemoryMarshal.GetReference(obj.Span)),
+            obj.Length * 2
+        );
         return (int)unchecked(FarmHash.Hash64(span));
     }
 }

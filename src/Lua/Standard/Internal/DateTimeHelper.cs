@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Text;
 
@@ -30,9 +31,23 @@ static class DateTimeHelper
         return DateTime.UnixEpoch + ts;
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static double GetUnixTimeFromLocalTime(DateTime dateTime)
+    {
+        return new DateTimeOffset(
+            DateTime.SpecifyKind(dateTime, DateTimeKind.Local)
+        ).ToUnixTimeSeconds();
+    }
+
     public static DateTime ParseTimeTable(LuaState state, LuaTable table)
     {
-        static int GetTimeField(LuaState state, LuaTable table, string key, bool required = true, int defaultValue = 0)
+        static int GetTimeField(
+            LuaState state,
+            LuaTable table,
+            string key,
+            bool required = true,
+            int defaultValue = 0
+        )
         {
             if (!table.TryGetValue(key, out var value))
             {
@@ -68,6 +83,15 @@ static class DateTimeHelper
     {
         // reference: http://www.cplusplus.com/reference/ctime/strftime/
 
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        static void ThrowInvalidConversionSpecifier(LuaState state, ReadOnlySpan<char> format)
+        {
+            throw new LuaRuntimeException(
+                state,
+                $"bad argument #1 to 'date' (invalid conversion specifier '{format.ToString()}')"
+            );
+        }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         static string? STANDARD_PATTERNS(char c)
         {
@@ -99,7 +123,7 @@ static class DateTimeHelper
                 'X' => "T",
                 'z' => "zzz",
                 'Z' => "zzz",
-                _ => null
+                _ => null,
             };
         }
 
@@ -132,9 +156,9 @@ static class DateTimeHelper
                 continue;
             }
 
-            if (c == 'O' || c == 'E')
+            if (c is 'O' or 'E')
             {
-                continue; // no modifiers
+                ThrowInvalidConversionSpecifier(state, format);
             }
 
             isEscapeSequence = false;
@@ -142,64 +166,64 @@ static class DateTimeHelper
             var pattern = STANDARD_PATTERNS(c);
             if (pattern != null)
             {
-                builder.Append(d.ToString(pattern));
-            }
-            else if (c == 'e')
-            {
-                var s = d.ToString("%d");
-                builder.Append(s.Length < 2 ? $" {s}" : s);
-            }
-            else if (c == 'n')
-            {
-                builder.Append('\n');
-            }
-            else if (c == 't')
-            {
-                builder.Append('\t');
-            }
-            else if (c == 'C')
-            {
-                // TODO: reduce allocation
-                builder.Append((d.Year / 100).ToString());
-            }
-            else if (c == 'j')
-            {
-                builder.Append(d.DayOfYear.ToString("000"));
-            }
-            else if (c == 'u')
-            {
-                var weekDay = (int)d.DayOfWeek;
-                if (weekDay == 0)
-                {
-                    weekDay = 7;
-                }
-
-                builder.Append(weekDay.ToString());
-            }
-            else if (c == 'w')
-            {
-                var weekDay = (int)d.DayOfWeek;
-                builder.Append(weekDay.ToString());
-            }
-            else if (c == 'U')
-            {
-                // Week number with the first Sunday as the first day of week one (00-53)
-                builder.Append("??");
-            }
-            else if (c == 'V')
-            {
-                // ISO 8601 week number (00-53)
-                builder.Append("??");
-            }
-            else if (c == 'W')
-            {
-                // Week number with the first Monday as the first day of week one (00-53)
-                builder.Append("??");
+                builder.Append(d.ToString(pattern, CultureInfo.InvariantCulture));
             }
             else
-            {
-                throw new LuaRuntimeException(state, $"bad argument #1 to 'date' (invalid conversion specifier '{format.ToString()}')");
-            }
+                switch (c)
+                {
+                    case 'e':
+                    {
+                        var s = d.ToString("%d", CultureInfo.InvariantCulture);
+                        builder.Append(s.Length < 2 ? $" {s}" : s);
+                        break;
+                    }
+                    case 'n':
+                        builder.Append('\n');
+                        break;
+                    case 't':
+                        builder.Append('\t');
+                        break;
+                    case 'C':
+                        // TODO: reduce allocation
+                        builder.Append((d.Year / 100).ToString(CultureInfo.InvariantCulture));
+                        break;
+                    case 'j':
+                        builder.Append(d.DayOfYear.ToString("000", CultureInfo.InvariantCulture));
+                        break;
+                    case 'u':
+                    {
+                        var weekDay = (int)d.DayOfWeek;
+                        if (weekDay == 0)
+                        {
+                            weekDay = 7;
+                        }
+
+                        builder.Append(weekDay.ToString(CultureInfo.InvariantCulture));
+                        break;
+                    }
+                    case 'w':
+                    {
+                        var weekDay = (int)d.DayOfWeek;
+                        builder.Append(weekDay.ToString(CultureInfo.InvariantCulture));
+                        break;
+                    }
+                    case 'U':
+                    // ISO 8601 week number (00-53)
+                    case 'V':
+                    // Week number with the first Monday as the first day of week one (00-53)
+                    case 'W':
+                        // Week number with the first Sunday as the first day of week one (00-53)
+                        builder.Append("??");
+                        break;
+                    default:
+                        ThrowInvalidConversionSpecifier(state, format);
+                        break;
+                }
+        }
+
+        if (isEscapeSequence)
+        {
+            ThrowInvalidConversionSpecifier(state, format);
         }
 
         return builder.ToString();

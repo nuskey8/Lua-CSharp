@@ -21,6 +21,9 @@ sealed class LuaGlobalState
     public LuaPlatform Platform { get; set; }
     public ILuaModuleLoader? ModuleLoader { get; set; }
 
+    // Coroutines share this policy so Lua code cannot reset the limit by creating a new thread.
+    internal int MaxCallDepth = 100_000;
+
     internal UpValue EnvUpValue => envUpValue;
     internal ref FastStackCore<LuaState> ThreadStack => ref stateStack;
     internal ref FastStackCore<LuaDebug.LuaDebugBuffer> DebugBufferPool => ref debugBufferPool;
@@ -28,7 +31,8 @@ sealed class LuaGlobalState
     public LuaTable Environment => environment;
     public LuaTable Registry => registry;
     public LuaTable LoadedModules => registry[ModuleLibrary.LoadedKeyForRegistry].Read<LuaTable>();
-    public LuaTable PreloadModules => registry[ModuleLibrary.PreloadKeyForRegistry].Read<LuaTable>();
+    public LuaTable PreloadModules =>
+        registry[ModuleLibrary.PreloadKeyForRegistry].Read<LuaTable>();
     public LuaState MainThread => mainState;
 
     // metatables
@@ -55,7 +59,6 @@ sealed class LuaGlobalState
         Platform = platform;
     }
 
-
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal bool TryGetMetatable(LuaValue value, [NotNullWhen(true)] out LuaTable? result)
     {
@@ -69,7 +72,7 @@ sealed class LuaGlobalState
             LuaValueType.Thread => stateMetatable,
             LuaValueType.UserData => value.UnsafeRead<ILuaUserData>().Metatable,
             LuaValueType.Table => value.UnsafeRead<LuaTable>().Metatable,
-            _ => null
+            _ => null,
         };
 
         return result != null;

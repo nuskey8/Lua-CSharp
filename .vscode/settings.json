@@ -1,9 +1,12 @@
 {
-    "dotnet.defaultSolution": "Lua.sln",
+    "dotnet.defaultSolution": "Lua.slnx",
     "Lua.diagnostics.globals": [
         "vec3",
         "Vector3"
     ],
     "Lua.runtime.version": "Lua 5.2",
-    "dotnet.backgroundAnalysis.analyzerDiagnosticsScope": "fullSolution"
+    "dotnet.backgroundAnalysis.analyzerDiagnosticsScope": "fullSolution",
+    "[csharp]": {
+        "editor.defaultFormatter": "csharpier.csharpier-vscode"
+    }
 }

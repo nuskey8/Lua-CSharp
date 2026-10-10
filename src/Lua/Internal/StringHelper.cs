@@ -11,16 +11,23 @@ static class StringHelper
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static ReadOnlySpan<char> Slice(string s, int i, int j)
     {
-        if (i < 0) i = s.Length + i + 1;
-        if (j < 0) j = s.Length + j + 1;
+        if (i < 0)
+            i = s.Length + i + 1;
+        if (j < 0)
+            j = s.Length + j + 1;
 
-        if (i < 1) i = 1;
-        if (j > s.Length) j = s.Length;
+        if (i < 1)
+            i = 1;
+        if (j > s.Length)
+            j = s.Length;
 
         return i > j ? "" : s.AsSpan()[(i - 1)..j];
     }
 
-    public static bool TryFromStringLiteral(ReadOnlySpan<char> literal, [NotNullWhen(true)] out string? result)
+    public static bool TryFromStringLiteral(
+        ReadOnlySpan<char> literal,
+        [NotNullWhen(true)] out string? result
+    )
     {
         ValueStringBuilder builder = new(literal.Length);
         for (var i = 0; i < literal.Length; i++)
@@ -108,7 +115,9 @@ static class StringHelper
                                 }
                             }
 
-                            builder.Append((char)int.Parse(literal[start..i], NumberStyles.HexNumber));
+                            builder.Append(
+                                (char)int.Parse(literal[start..i], NumberStyles.HexNumber)
+                            );
                             i--;
                         }
                         else
@@ -379,8 +388,6 @@ static class StringHelper
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool IsDigit(char c)
     {
-        return IsNumber(c) ||
-               ('a' <= c && c <= 'f') ||
-               ('A' <= c && c <= 'F');
+        return IsNumber(c) || ('a' <= c && c <= 'f') || ('A' <= c && c <= 'F');
     }
 }

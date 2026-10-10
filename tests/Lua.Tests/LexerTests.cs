@@ -1,3 +1,4 @@
+using System.Text;
 using Lua.CodeAnalysis.Syntax;
 
 namespace Lua.Tests;
@@ -93,16 +94,20 @@ public class LexerTests
     }
 
     [Test]
-    [TestCase(@"--[[
+    [TestCase(
+        @"--[[
         hello!
         how are you?
         goodbye!
-    ]]--")]
-    [TestCase(@"--[[
+    ]]--"
+    )]
+    [TestCase(
+        @"--[[
         hello!
         how are you?
         goodbye!
-    ]]")]
+    ]]"
+    )]
     public void Test_Comment_Block(string code)
     {
         var expected = Array.Empty<SyntaxToken>();
@@ -117,7 +122,10 @@ public class LexerTests
     [TestCase("--[[ \r\n hello")]
     public void Test_Comment_Block_Error(string code)
     {
-        Assert.Throws<LuaParseException>(() => GetTokens(code), "main.lua:(1,5): unfinished long comment (starting at line 0)");
+        Assert.Throws<LuaParseException>(
+            () => GetTokens(code),
+            "main.lua:(1,5): unfinished long comment (starting at line 0)"
+        );
     }
 
     [Test]
@@ -159,11 +167,24 @@ public class LexerTests
     [Test]
     public void Test_If()
     {
-        var expected = new[] { SyntaxToken.If(new(1, 0)), SyntaxToken.Identifier("x", new(1, 3)), SyntaxToken.Equality(new(1, 5)), SyntaxToken.Number("1.0", new(1, 8)), SyntaxToken.Then(new(1, 12)), SyntaxToken.EndOfLine(new(1, 16)), SyntaxToken.Return(new(2, 4)), SyntaxToken.Nil(new(2, 11)), SyntaxToken.EndOfLine(new(2, 14)), SyntaxToken.End(new(3, 0)) };
+        var expected = new[]
+        {
+            SyntaxToken.If(new(1, 0)),
+            SyntaxToken.Identifier("x", new(1, 3)),
+            SyntaxToken.Equality(new(1, 5)),
+            SyntaxToken.Number("1.0", new(1, 8)),
+            SyntaxToken.Then(new(1, 12)),
+            SyntaxToken.EndOfLine(new(1, 16)),
+            SyntaxToken.Return(new(2, 4)),
+            SyntaxToken.Nil(new(2, 11)),
+            SyntaxToken.EndOfLine(new(2, 14)),
+            SyntaxToken.End(new(3, 0)),
+        };
         var actual = GetTokens(
             @"if x == 1.0 then
     return nil
-end");
+end"
+        );
 
         CollectionAssert.AreEqual(expected, actual);
     }
@@ -171,15 +192,48 @@ end");
     [Test]
     public void Test_If_Else()
     {
-        var expected = new[] { SyntaxToken.If(new(1, 0)), SyntaxToken.Identifier("x", new(1, 3)), SyntaxToken.Equality(new(1, 5)), SyntaxToken.Number("1.0", new(1, 8)), SyntaxToken.Then(new(1, 12)), SyntaxToken.EndOfLine(new(1, 16)), SyntaxToken.Return(new(2, 4)), SyntaxToken.Number("1.0", new(2, 11)), SyntaxToken.EndOfLine(new(2, 14)), SyntaxToken.Else(new(3, 0)), SyntaxToken.EndOfLine(new(3, 4)), SyntaxToken.Return(new(4, 4)), SyntaxToken.Number("0.0", new(4, 11)), SyntaxToken.EndOfLine(new(4, 14)), SyntaxToken.End(new(5, 0)) };
+        var expected = new[]
+        {
+            SyntaxToken.If(new(1, 0)),
+            SyntaxToken.Identifier("x", new(1, 3)),
+            SyntaxToken.Equality(new(1, 5)),
+            SyntaxToken.Number("1.0", new(1, 8)),
+            SyntaxToken.Then(new(1, 12)),
+            SyntaxToken.EndOfLine(new(1, 16)),
+            SyntaxToken.Return(new(2, 4)),
+            SyntaxToken.Number("1.0", new(2, 11)),
+            SyntaxToken.EndOfLine(new(2, 14)),
+            SyntaxToken.Else(new(3, 0)),
+            SyntaxToken.EndOfLine(new(3, 4)),
+            SyntaxToken.Return(new(4, 4)),
+            SyntaxToken.Number("0.0", new(4, 11)),
+            SyntaxToken.EndOfLine(new(4, 14)),
+            SyntaxToken.End(new(5, 0)),
+        };
         var actual = GetTokens(
             @"if x == 1.0 then
     return 1.0
 else
     return 0.0
-end");
+end"
+        );
 
         CollectionAssert.AreEqual(expected, actual);
+    }
+
+    [Test]
+    public void Test_ManyComments()
+    {
+        var builder = new StringBuilder();
+
+        for (int i = 0; i < 1000; i++)
+        {
+            builder.AppendLine("--");
+            builder.AppendLine("--");
+        }
+
+        var many = builder.ToString();
+        GetTokens(many);
     }
 
     static SyntaxToken[] GetTokens(string source)

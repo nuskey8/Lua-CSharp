@@ -20,7 +20,10 @@ static class BomUtility
     ///  <param name="text">The text to check for BOM.</param>
     ///  <param name="encoding">The encoding of the text.</param>
     ///  <returns>The text without the BOM.</returns>
-    public static ReadOnlySpan<byte> GetEncodingFromBytes(ReadOnlySpan<byte> text, out Encoding encoding)
+    public static ReadOnlySpan<byte> GetEncodingFromBytes(
+        ReadOnlySpan<byte> text,
+        out Encoding encoding
+    )
     {
         if (text.StartsWith(BomUtf8))
         {

@@ -1,7 +1,7 @@
 using Lua.CodeAnalysis;
 using Lua.Runtime;
-using static Lua.Internal.OpMode;
 using static Lua.Internal.OpArgMask;
+using static Lua.Internal.OpMode;
 
 namespace Lua.Internal;
 
@@ -124,7 +124,15 @@ readonly struct LuaDebug : IDisposable
         }
     }
 
-    public static LuaDebug Create(LuaGlobalState globalState, CallStackFrame? prevFrame, CallStackFrame? frame, LuaFunction function, int pc, ReadOnlySpan<char> what, out bool isValid)
+    public static LuaDebug Create(
+        LuaGlobalState globalState,
+        CallStackFrame? prevFrame,
+        CallStackFrame? frame,
+        LuaFunction function,
+        int pc,
+        ReadOnlySpan<char> what,
+        out bool isValid
+    )
     {
         if (!globalState.DebugBufferPool.TryPop(out var buffer))
         {
@@ -158,7 +166,6 @@ readonly struct LuaDebug : IDisposable
     {
         throw new ObjectDisposedException("This has been disposed");
     }
-
 
     internal class LuaDebugBuffer(LuaGlobalState globalState)
     {
@@ -204,8 +211,13 @@ readonly struct LuaDebug : IDisposable
             }
         }
 
-
-        internal bool GetInfo(CallStackFrame? prevFrame, CallStackFrame? frame, LuaFunction function, int pc, ReadOnlySpan<char> what)
+        internal bool GetInfo(
+            CallStackFrame? prevFrame,
+            CallStackFrame? frame,
+            LuaFunction function,
+            int pc,
+            ReadOnlySpan<char> what
+        )
         {
             var closure = function as LuaClosure;
             var status = 1;
@@ -214,60 +226,68 @@ readonly struct LuaDebug : IDisposable
                 switch (c)
                 {
                     case 'S':
-                        {
-                            GetFuncInfo(function);
-                            break;
-                        }
+                    {
+                        GetFuncInfo(function);
+                        break;
+                    }
                     case 'l':
-                        {
-                            CurrentLine = pc >= 0 && closure is not null ? closure.Proto.LineInfo[pc] : -1;
-                            break;
-                        }
+                    {
+                        CurrentLine =
+                            pc >= 0 && closure is not null ? closure.Proto.LineInfo[pc] : -1;
+                        break;
+                    }
                     case 'u':
+                    {
+                        UpValueCount = closure is null ? 0 : closure.UpValues.Length;
+                        if (closure is null)
                         {
-                            UpValueCount = closure is null ? 0 : closure.UpValues.Length;
-                            if (closure is null)
-                            {
-                                IsVarArg = true;
-                                ParameterCount = 0;
-                            }
-                            else
-                            {
-                                IsVarArg = closure.Proto.HasVariableArguments;
-                                ParameterCount = closure.Proto.ParameterCount;
-                            }
-
-                            break;
+                            IsVarArg = true;
+                            ParameterCount = 0;
                         }
+                        else
+                        {
+                            IsVarArg = closure.Proto.HasVariableArguments;
+                            ParameterCount = closure.Proto.ParameterCount;
+                        }
+
+                        break;
+                    }
                     case 't':
-                        {
-                            IsTailCall = frame.HasValue && (frame.Value.Flags | CallStackFrameFlags.TailCall) == frame.Value.Flags;
-                            break;
-                        }
+                    {
+                        IsTailCall =
+                            frame.HasValue
+                            && (frame.Value.Flags | CallStackFrameFlags.TailCall)
+                                == frame.Value.Flags;
+                        break;
+                    }
                     case 'n':
+                    {
+                        /* calling function is a known Lua function? */
+                        if (prevFrame is { Function: LuaClosure prevFrameClosure })
                         {
-                            /* calling function is a known Lua function? */
-                            if (prevFrame is { Function: LuaClosure prevFrameClosure })
-                            {
-                                NameWhat = GetFuncName(prevFrameClosure.Proto, frame?.CallerInstructionIndex ?? 0, out Name);
-                            }
-                            else
-                            {
-                                NameWhat = null;
-                            }
-
-                            if (NameWhat is null)
-                            {
-                                NameWhat = ""; /* not found */
-                                Name = null;
-                            }
-                            else if (NameWhat != null && Name is "?")
-                            {
-                                Name = function.Name;
-                            }
-
-                            break;
+                            NameWhat = GetFuncName(
+                                prevFrameClosure.Proto,
+                                frame?.CallerInstructionIndex ?? 0,
+                                out Name
+                            );
                         }
+                        else
+                        {
+                            NameWhat = null;
+                        }
+
+                        if (NameWhat is null)
+                        {
+                            NameWhat = ""; /* not found */
+                            Name = null;
+                        }
+                        else if (NameWhat != null && Name is "?")
+                        {
+                            Name = function.Name;
+                        }
+
+                        break;
+                    }
                     case 'L':
                     case 'f': /* handled by lua_getinfo */
                         break;
@@ -301,7 +321,6 @@ readonly struct LuaDebug : IDisposable
             ShortSourceLength = WriteShortSource(Source, ShortSource);
         }
     }
-
 
     internal static string? GetLocalName(Prototype prototype, int register, int pc)
     {
@@ -355,58 +374,58 @@ readonly struct LuaDebug : IDisposable
             switch (op)
             {
                 case OpCode.LoadNil:
+                {
+                    var b = i.B;
+                    if (a <= reg && reg <= a + b) /* set registers from 'a' to 'a+b' */
                     {
-                        var b = i.B;
-                        if (a <= reg && reg <= a + b) /* set registers from 'a' to 'a+b' */
-                        {
-                            setReg = FilterPc(pc, jmpTarget);
-                        }
-
-                        break;
+                        setReg = FilterPc(pc, jmpTarget);
                     }
+
+                    break;
+                }
                 case OpCode.TForCall:
+                {
+                    if (reg >= a + 2) /* affect all regs above its base */
                     {
-                        if (reg >= a + 2) /* affect all regs above its base */
-                        {
-                            setReg = FilterPc(pc, jmpTarget);
-                        }
-
-                        break;
+                        setReg = FilterPc(pc, jmpTarget);
                     }
+
+                    break;
+                }
                 case OpCode.Call:
                 case OpCode.TailCall:
+                {
+                    if (reg >= a) /* affect all registers above base */
                     {
-                        if (reg >= a) /* affect all registers above base */
-                        {
-                            setReg = FilterPc(pc, jmpTarget);
-                        }
-
-                        break;
+                        setReg = FilterPc(pc, jmpTarget);
                     }
+
+                    break;
+                }
                 case OpCode.Jmp:
+                {
+                    var b = i.SBx;
+                    var dest = pc + 1 + b;
+                    /* jump is forward and do not skip `lastpc'? */
+                    if (pc < dest && dest <= lastPc)
                     {
-                        var b = i.SBx;
-                        var dest = pc + 1 + b;
-                        /* jump is forward and do not skip `lastpc'? */
-                        if (pc < dest && dest <= lastPc)
+                        if (dest > jmpTarget)
                         {
-                            if (dest > jmpTarget)
-                            {
-                                jmpTarget = dest; /* update 'jmptarget' */
-                            }
+                            jmpTarget = dest; /* update 'jmptarget' */
                         }
-
-                        break;
                     }
+
+                    break;
+                }
                 case OpCode.Test:
+                {
+                    if (reg == a) /* jumped code can change 'a' */
                     {
-                        if (reg == a) /* jumped code can change 'a' */
-                        {
-                            setReg = FilterPc(pc, jmpTarget);
-                        }
-
-                        break;
+                        setReg = FilterPc(pc, jmpTarget);
                     }
+
+                    break;
+                }
                 default:
                     if (TestAMode(op) && reg == a) /* any instruction that set A */
                     {
@@ -449,7 +468,6 @@ readonly struct LuaDebug : IDisposable
         name = "?"; /* no reasonable name found */
     }
 
-
     internal static string? GetName(Prototype prototype, int lastPc, int reg, out string? name)
     {
         name = GetLocalName(prototype, reg, lastPc);
@@ -467,52 +485,52 @@ readonly struct LuaDebug : IDisposable
             switch (op)
             {
                 case OpCode.Move:
+                {
+                    var b = i.B; /* move from 'b' to 'a' */
+                    if (b < i.A)
                     {
-                        var b = i.B; /* move from 'b' to 'a' */
-                        if (b < i.A)
-                        {
-                            return GetName(prototype, pc, b, out name); /* get name for 'b' */
-                        }
-
-                        break;
+                        return GetName(prototype, pc, b, out name); /* get name for 'b' */
                     }
+
+                    break;
+                }
                 case OpCode.GetTabUp:
                 case OpCode.GetTable:
-                    {
-                        var k = i.C; /* key index */
-                        var t = i.B; /* table index */
+                {
+                    var k = i.C; /* key index */
+                    var t = i.B; /* table index */
 
-                        var vn = op == OpCode.GetTable /* name of indexed variable */
+                    var vn =
+                        op == OpCode.GetTable /* name of indexed variable */
                             ? GetLocalName(prototype, t, pc)
                             : prototype.UpValues[t].Name.ToString();
-                        GetConstantName(prototype, pc, k, out name);
-                        return vn is "_ENV" ? "global" : "field";
-                    }
+                    GetConstantName(prototype, pc, k, out name);
+                    return vn is "_ENV" ? "global" : "field";
+                }
                 case OpCode.GetUpVal:
-                    {
-                        name = prototype.UpValues[i.B].Name.ToString();
-                        return "upvalue";
-                    }
+                {
+                    name = prototype.UpValues[i.B].Name.ToString();
+                    return "upvalue";
+                }
                 case OpCode.LoadK:
                 case OpCode.LoadKX:
+                {
+                    var b = op != OpCode.LoadKX ? i.Bx : prototype.Code[pc + 1].Ax;
+                    if (prototype.Constants[b].TryReadString(out name))
                     {
-                        var b = op != OpCode.LoadKX
-                            ? i.Bx
-                            : prototype.Code[pc + 1].Ax;
-                        if (prototype.Constants[b].TryReadString(out name))
-                        {
-                            return "constant";
-                        }
+                        return "constant";
+                    }
 
-                        break;
-                    }
+                    break;
+                }
                 case OpCode.Self:
-                    {
-                        var k = i.C; /* key index */
-                        GetConstantName(prototype, pc, k, out name);
-                        return "method";
-                    }
-                default: break; /* go through to return NULL */
+                {
+                    var k = i.C; /* key index */
+                    GetConstantName(prototype, pc, k, out name);
+                    return "method";
+                }
+                default:
+                    break; /* go through to return NULL */
             }
         }
 
@@ -528,11 +546,11 @@ readonly struct LuaDebug : IDisposable
             case OpCode.TailCall: /* get function name */
                 return GetName(prototype, pc, i.A, out name);
             case OpCode.TForCall:
-                {
-                    /* for iterator */
-                    name = "for iterator";
-                    return "for iterator";
-                }
+            {
+                /* for iterator */
+                name = "for iterator";
+                return "for iterator";
+            }
             case OpCode.Self:
             case OpCode.GetTabUp:
             case OpCode.GetTable:
@@ -646,7 +664,6 @@ readonly struct LuaDebug : IDisposable
         {
             /* string; format as [string "source"] */
 
-
             PRE.AsSpan().CopyTo(dest);
             var newLine = source.IndexOfAny("\r\n");
             if (newLine == -1 && source.Length < BUFFER_LEN - (PRE_LEN + RETS_LEN + POS_LEN))
@@ -681,46 +698,46 @@ readonly struct LuaDebug : IDisposable
 
     static readonly int[] OpModes =
     [
-        GetOpMode(0, 1, OpArgR, OpArgN, iABC),  /* OP_MOVE */
-        GetOpMode(0, 1, OpArgK, OpArgN, iABx),  /* OP_LOADK */
-        GetOpMode(0, 1, OpArgN, OpArgN, iABx),  /* OP_LOADKX */
-        GetOpMode(0, 1, OpArgU, OpArgU, iABC),  /* OP_LOADBOOL */
-        GetOpMode(0, 1, OpArgU, OpArgN, iABC),  /* OP_LOADNIL */
-        GetOpMode(0, 1, OpArgU, OpArgN, iABC),  /* OP_GETUPVAL */
-        GetOpMode(0, 1, OpArgU, OpArgK, iABC),  /* OP_GETTABUP */
-        GetOpMode(0, 1, OpArgR, OpArgK, iABC),  /* OP_GETTABLE */
-        GetOpMode(0, 0, OpArgK, OpArgK, iABC),  /* OP_SETTABUP */
-        GetOpMode(0, 0, OpArgU, OpArgN, iABC),  /* OP_SETUPVAL */
-        GetOpMode(0, 0, OpArgK, OpArgK, iABC),  /* OP_SETTABLE */
-        GetOpMode(0, 1, OpArgU, OpArgU, iABC),  /* OP_NEWTABLE */
-        GetOpMode(0, 1, OpArgR, OpArgK, iABC),  /* OP_SELF */
-        GetOpMode(0, 1, OpArgK, OpArgK, iABC),  /* OP_ADD */
-        GetOpMode(0, 1, OpArgK, OpArgK, iABC),  /* OP_SUB */
-        GetOpMode(0, 1, OpArgK, OpArgK, iABC),  /* OP_MUL */
-        GetOpMode(0, 1, OpArgK, OpArgK, iABC),  /* OP_DIV */
-        GetOpMode(0, 1, OpArgK, OpArgK, iABC),  /* OP_MOD */
-        GetOpMode(0, 1, OpArgK, OpArgK, iABC),  /* OP_POW */
-        GetOpMode(0, 1, OpArgR, OpArgN, iABC),  /* OP_UNM */
-        GetOpMode(0, 1, OpArgR, OpArgN, iABC),  /* OP_NOT */
-        GetOpMode(0, 1, OpArgR, OpArgN, iABC),  /* OP_LEN */
-        GetOpMode(0, 1, OpArgR, OpArgR, iABC),  /* OP_CONCAT */
+        GetOpMode(0, 1, OpArgR, OpArgN, iABC), /* OP_MOVE */
+        GetOpMode(0, 1, OpArgK, OpArgN, iABx), /* OP_LOADK */
+        GetOpMode(0, 1, OpArgN, OpArgN, iABx), /* OP_LOADKX */
+        GetOpMode(0, 1, OpArgU, OpArgU, iABC), /* OP_LOADBOOL */
+        GetOpMode(0, 1, OpArgU, OpArgN, iABC), /* OP_LOADNIL */
+        GetOpMode(0, 1, OpArgU, OpArgN, iABC), /* OP_GETUPVAL */
+        GetOpMode(0, 1, OpArgU, OpArgK, iABC), /* OP_GETTABUP */
+        GetOpMode(0, 1, OpArgR, OpArgK, iABC), /* OP_GETTABLE */
+        GetOpMode(0, 0, OpArgK, OpArgK, iABC), /* OP_SETTABUP */
+        GetOpMode(0, 0, OpArgU, OpArgN, iABC), /* OP_SETUPVAL */
+        GetOpMode(0, 0, OpArgK, OpArgK, iABC), /* OP_SETTABLE */
+        GetOpMode(0, 1, OpArgU, OpArgU, iABC), /* OP_NEWTABLE */
+        GetOpMode(0, 1, OpArgR, OpArgK, iABC), /* OP_SELF */
+        GetOpMode(0, 1, OpArgK, OpArgK, iABC), /* OP_ADD */
+        GetOpMode(0, 1, OpArgK, OpArgK, iABC), /* OP_SUB */
+        GetOpMode(0, 1, OpArgK, OpArgK, iABC), /* OP_MUL */
+        GetOpMode(0, 1, OpArgK, OpArgK, iABC), /* OP_DIV */
+        GetOpMode(0, 1, OpArgK, OpArgK, iABC), /* OP_MOD */
+        GetOpMode(0, 1, OpArgK, OpArgK, iABC), /* OP_POW */
+        GetOpMode(0, 1, OpArgR, OpArgN, iABC), /* OP_UNM */
+        GetOpMode(0, 1, OpArgR, OpArgN, iABC), /* OP_NOT */
+        GetOpMode(0, 1, OpArgR, OpArgN, iABC), /* OP_LEN */
+        GetOpMode(0, 1, OpArgR, OpArgR, iABC), /* OP_CONCAT */
         GetOpMode(0, 0, OpArgR, OpArgN, iAsBx), /* OP_JMP */
-        GetOpMode(1, 0, OpArgK, OpArgK, iABC),  /* OP_EQ */
-        GetOpMode(1, 0, OpArgK, OpArgK, iABC),  /* OP_LT */
-        GetOpMode(1, 0, OpArgK, OpArgK, iABC),  /* OP_LE */
-        GetOpMode(1, 0, OpArgN, OpArgU, iABC),  /* OP_TEST */
-        GetOpMode(1, 1, OpArgR, OpArgU, iABC),  /* OP_TESTSET */
-        GetOpMode(0, 1, OpArgU, OpArgU, iABC),  /* OP_CALL */
-        GetOpMode(0, 1, OpArgU, OpArgU, iABC),  /* OP_TAILCALL */
-        GetOpMode(0, 0, OpArgU, OpArgN, iABC),  /* OP_RETURN */
+        GetOpMode(1, 0, OpArgK, OpArgK, iABC), /* OP_EQ */
+        GetOpMode(1, 0, OpArgK, OpArgK, iABC), /* OP_LT */
+        GetOpMode(1, 0, OpArgK, OpArgK, iABC), /* OP_LE */
+        GetOpMode(1, 0, OpArgN, OpArgU, iABC), /* OP_TEST */
+        GetOpMode(1, 1, OpArgR, OpArgU, iABC), /* OP_TESTSET */
+        GetOpMode(0, 1, OpArgU, OpArgU, iABC), /* OP_CALL */
+        GetOpMode(0, 1, OpArgU, OpArgU, iABC), /* OP_TAILCALL */
+        GetOpMode(0, 0, OpArgU, OpArgN, iABC), /* OP_RETURN */
         GetOpMode(0, 1, OpArgR, OpArgN, iAsBx), /* OP_FORLOOP */
         GetOpMode(0, 1, OpArgR, OpArgN, iAsBx), /* OP_FORPREP */
-        GetOpMode(0, 0, OpArgN, OpArgU, iABC),  /* OP_TFORCALL */
+        GetOpMode(0, 0, OpArgN, OpArgU, iABC), /* OP_TFORCALL */
         GetOpMode(0, 1, OpArgR, OpArgN, iAsBx), /* OP_TFORLOOP */
-        GetOpMode(0, 0, OpArgU, OpArgU, iABC),  /* OP_SETLIST */
-        GetOpMode(0, 1, OpArgU, OpArgN, iABx),  /* OP_CLOSURE */
-        GetOpMode(0, 1, OpArgU, OpArgN, iABC),  /* OP_VARARG */
-        GetOpMode(0, 0, OpArgU, OpArgU, iAx)    /* OP_EXTRAARG */
+        GetOpMode(0, 0, OpArgU, OpArgU, iABC), /* OP_SETLIST */
+        GetOpMode(0, 1, OpArgU, OpArgN, iABx), /* OP_CLOSURE */
+        GetOpMode(0, 1, OpArgU, OpArgN, iABC), /* OP_VARARG */
+        GetOpMode(0, 0, OpArgU, OpArgU, iAx), /* OP_EXTRAARG */
     ];
 
     internal static OpMode GetOpMode(OpCode m)
@@ -754,7 +771,7 @@ enum OpMode : byte
     iABC,
     iABx,
     iAsBx,
-    iAx
+    iAx,
 }
 
 enum OpArgMask : byte

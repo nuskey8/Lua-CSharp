@@ -1,8 +1,12 @@
 ﻿namespace Lua.IO;
 
-public class CompositeLoaderFileSystem(ILuaFileLoader[] loaders, ILuaFileSystem? system = null) : ILuaFileSystem
+public class CompositeLoaderFileSystem(ILuaFileLoader[] loaders, ILuaFileSystem? system = null)
+    : ILuaFileSystem
 {
-    public static CompositeLoaderFileSystem Create(ILuaFileSystem system, params ILuaFileLoader[] loaders)
+    public static CompositeLoaderFileSystem Create(
+        ILuaFileSystem system,
+        params ILuaFileLoader[] loaders
+    )
     {
         if (loaders == null || loaders.Length == 0)
         {
@@ -40,7 +44,11 @@ public class CompositeLoaderFileSystem(ILuaFileLoader[] loaders, ILuaFileSystem?
         return false;
     }
 
-    public async ValueTask<ILuaStream> Open(string path, LuaFileOpenMode mode, CancellationToken cancellationToken)
+    public async ValueTask<ILuaStream> Open(
+        string path,
+        LuaFileOpenMode mode,
+        CancellationToken cancellationToken
+    )
     {
         if (cached != null)
         {
@@ -51,7 +59,9 @@ public class CompositeLoaderFileSystem(ILuaFileLoader[] loaders, ILuaFileSystem?
                 {
                     if (mode.CanWrite())
                     {
-                        throw new NotSupportedException("Cannot write to a file opened with a loader.");
+                        throw new NotSupportedException(
+                            "Cannot write to a file opened with a loader."
+                        );
                     }
 
                     return await loaders[cachedValue.index].LoadAsync(path, cancellationToken);
@@ -66,7 +76,9 @@ public class CompositeLoaderFileSystem(ILuaFileLoader[] loaders, ILuaFileSystem?
                 {
                     if (mode.CanWrite())
                     {
-                        throw new NotSupportedException("Cannot write to a file opened with a loader.");
+                        throw new NotSupportedException(
+                            "Cannot write to a file opened with a loader."
+                        );
                     }
 
                     return await loader.LoadAsync(path, cancellationToken);
@@ -74,13 +86,15 @@ public class CompositeLoaderFileSystem(ILuaFileLoader[] loaders, ILuaFileSystem?
             }
         }
 
-
-        return system != null ? await system.Open(path, mode, cancellationToken) : throw new NotSupportedException();
+        return system != null
+            ? await system.Open(path, mode, cancellationToken)
+            : throw new NotSupportedException();
     }
 
     public ValueTask Rename(string oldName, string newName, CancellationToken cancellationToken)
     {
-        return system?.Rename(oldName, newName, cancellationToken) ?? throw new NotSupportedException();
+        return system?.Rename(oldName, newName, cancellationToken)
+            ?? throw new NotSupportedException();
     }
 
     public ValueTask Remove(string path, CancellationToken cancellationToken)

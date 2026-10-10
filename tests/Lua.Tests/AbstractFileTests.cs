@@ -7,9 +7,14 @@ namespace Lua.Tests;
 
 public class AbstractFileTests
 {
-    class ReadOnlyFileSystem(Dictionary<string, string> dictionary) : NotImplementedExceptionFileSystemBase
+    class ReadOnlyFileSystem(Dictionary<string, string> dictionary)
+        : NotImplementedExceptionFileSystemBase
     {
-        public override ValueTask<ILuaStream> Open(string path, LuaFileOpenMode mode, CancellationToken cancellationToken)
+        public override ValueTask<ILuaStream> Open(
+            string path,
+            LuaFileOpenMode mode,
+            CancellationToken cancellationToken
+        )
         {
             if (!dictionary.TryGetValue(path, out var value))
             {
@@ -30,12 +35,14 @@ public class AbstractFileTests
     {
         var fileContent = "line1\nline2\r\nline3";
         var fileSystem = new ReadOnlyFileSystem(new() { { "test.txt", fileContent } });
-        var state = LuaState.Create(new LuaPlatform(
-            FileSystem: fileSystem,
-            OsEnvironment: null!,
-            StandardIO: new ConsoleStandardIO(),
-            TimeProvider: TimeProvider.System
-        ));
+        var state = LuaState.Create(
+            new LuaPlatform(
+                FileSystem: fileSystem,
+                OsEnvironment: null!,
+                StandardIO: new ConsoleStandardIO(),
+                TimeProvider: TimeProvider.System
+            )
+        );
         state.OpenStandardLibraries();
         try
         {
@@ -50,7 +57,8 @@ public class AbstractFileTests
                 assert(lines[1] == "line1", "Expected line1")
                 assert(lines[2] == "line2", "Expected line2")
                 assert(lines[3] == "line3", "Expected line3")
-                """);
+                """
+            );
         }
         catch (Exception e)
         {
@@ -64,11 +72,14 @@ public class AbstractFileTests
     {
         var fileContent = "Hello, World!";
         var fileSystem = new ReadOnlyFileSystem(new() { { "test.txt", fileContent } });
-        var state = LuaState.Create(new LuaPlatform(
-            FileSystem: fileSystem,
-            OsEnvironment: null!,
-            StandardIO: new ConsoleStandardIO(),
-            TimeProvider: TimeProvider.System));
+        var state = LuaState.Create(
+            new LuaPlatform(
+                FileSystem: fileSystem,
+                OsEnvironment: null!,
+                StandardIO: new ConsoleStandardIO(),
+                TimeProvider: TimeProvider.System
+            )
+        );
         state.OpenStandardLibraries();
 
         await state.DoStringAsync(
@@ -80,6 +91,7 @@ public class AbstractFileTests
             file:close()
             file = io.open("test2.txt", "r")
             assert(file == nil, "Expected file to be nil")
-            """);
+            """
+        );
     }
 }

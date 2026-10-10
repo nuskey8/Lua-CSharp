@@ -55,7 +55,8 @@
       <param name="right">The second reference to compare.</param>
       <typeparam name="T">The type of reference.</typeparam>
       <returns>
-        <see langword="true" /> if <paramref name="left" /> and <paramref name="right" /> point to the same location; otherwise, <see langword="false" />.</returns>
+        <see langword="true" /> if <paramref name="left" /> and <paramref name="right" /> point to the same location; otherwise, <see langword="false" />.</returns
+      >
     </member>
     <member name="M:System.Runtime.CompilerServices.Unsafe.As``1(System.Object)">
       <summary>Casts the given object to the specified type.</summary>
@@ -64,7 +65,9 @@
       <returns>The original object, casted to the given type.</returns>
     </member>
     <member name="M:System.Runtime.CompilerServices.Unsafe.As``2(``0@)">
-      <summary>Reinterprets the given reference as a reference to a value of type <typeparamref name="TTo" />.</summary>
+      <summary
+        >Reinterprets the given reference as a reference to a value of type <typeparamref name="TTo" />.</summary
+      >
       <param name="source">The reference to reinterpret.</param>
       <typeparam name="TFrom">The type of reference to reinterpret.</typeparam>
       <typeparam name="TTo">The desired type of the reference.</typeparam>
@@ -83,7 +86,9 @@
       <returns>A reference to a value of type <typeparamref name="T" />.</returns>
     </member>
     <member name="M:System.Runtime.CompilerServices.Unsafe.AsRef``1(System.Void*)">
-      <summary>Reinterprets the given location as a reference to a value of type <typeparamref name="T" />.</summary>
+      <summary
+        >Reinterprets the given location as a reference to a value of type <typeparamref name="T" />.</summary
+      >
       <param name="source">The location of the value to reference.</param>
       <typeparam name="T">The type of the interpreted location.</typeparam>
       <returns>A reference to a value of type <typeparamref name="T" />.</returns>
@@ -93,7 +98,9 @@
       <param name="origin">The reference to origin.</param>
       <param name="target">The reference to target.</param>
       <typeparam name="T">The type of reference.</typeparam>
-      <returns>Byte offset from origin to target i.e. <paramref name="target" /> - <paramref name="origin" />.</returns>
+      <returns
+        >Byte offset from origin to target i.e. <paramref name="target" /> - <paramref name="origin" />.</returns
+      >
     </member>
     <member name="M:System.Runtime.CompilerServices.Unsafe.Copy``1(``0@,System.Void*)">
       <summary>Copies a value of type <typeparamref name="T" /> to the given location.</summary>
@@ -161,7 +168,8 @@
       <param name="right">The second value to compare.</param>
       <typeparam name="T">The type of the reference.</typeparam>
       <returns>
-        <see langword="true" /> if <paramref name="left" /> is greater than <paramref name="right" />; otherwise, <see langword="false" />.</returns>
+        <see langword="true" /> if <paramref name="left" /> is greater than <paramref name="right" />; otherwise, <see langword="false" />.</returns
+      >
     </member>
     <member name="M:System.Runtime.CompilerServices.Unsafe.IsAddressLessThan``1(``0@,``0@)">
       <summary>Returns a value that indicates whether a specified reference is less than another specified reference.</summary>
@@ -169,19 +177,27 @@
       <param name="right">The second value to compare.</param>
       <typeparam name="T">The type of the reference.</typeparam>
       <returns>
-        <see langword="true" /> if <paramref name="left" /> is less than <paramref name="right" />; otherwise, <see langword="false" />.</returns>
+        <see langword="true" /> if <paramref name="left" /> is less than <paramref name="right" />; otherwise, <see langword="false" />.</returns
+      >
     </member>
     <member name="M:System.Runtime.CompilerServices.Unsafe.IsNullRef``1(``0@)">
-      <summary>Determines if a given reference to a value of type <typeparamref name="T" /> is a null reference.</summary>
+      <summary
+        >Determines if a given reference to a value of type <typeparamref name="T" /> is a null reference.</summary
+      >
       <param name="source">The reference to check.</param>
       <typeparam name="T">The type of the reference.</typeparam>
       <returns>
-        <see langword="true" /> if <paramref name="source" /> is a null reference; otherwise, <see langword="false" />.</returns>
+        <see langword="true" /> if <paramref name="source" /> is a null reference; otherwise, <see langword="false" />.</returns
+      >
     </member>
     <member name="M:System.Runtime.CompilerServices.Unsafe.NullRef``1">
-      <summary>Returns a reference to a value of type <typeparamref name="T" /> that is a null reference.</summary>
+      <summary
+        >Returns a reference to a value of type <typeparamref name="T" /> that is a null reference.</summary
+      >
       <typeparam name="T">The type of the reference.</typeparam>
-      <returns>A reference to a value of type <typeparamref name="T" /> that is a null reference.</returns>
+      <returns
+        >A reference to a value of type <typeparamref name="T" /> that is a null reference.</returns
+      >
     </member>
     <member name="M:System.Runtime.CompilerServices.Unsafe.Read``1(System.Void*)">
       <summary>Reads a value of type <typeparamref name="T" /> from the given location.</summary>
@@ -190,13 +206,17 @@
       <returns>An object of type <typeparamref name="T" /> read from the given location.</returns>
     </member>
     <member name="M:System.Runtime.CompilerServices.Unsafe.ReadUnaligned``1(System.Byte@)">
-      <summary>Reads a value of type <typeparamref name="T" /> from the given location without assuming architecture dependent alignment of the addresses.</summary>
+      <summary
+        >Reads a value of type <typeparamref name="T" /> from the given location without assuming architecture dependent alignment of the addresses.</summary
+      >
       <param name="source">The location to read from.</param>
       <typeparam name="T">The type to read.</typeparam>
       <returns>An object of type <typeparamref name="T" /> read from the given location.</returns>
     </member>
     <member name="M:System.Runtime.CompilerServices.Unsafe.ReadUnaligned``1(System.Void*)">
-      <summary>Reads a value of type <typeparamref name="T" /> from the given location without assuming architecture dependent alignment of the addresses.</summary>
+      <summary
+        >Reads a value of type <typeparamref name="T" /> from the given location without assuming architecture dependent alignment of the addresses.</summary
+      >
       <param name="source">The location to read from.</param>
       <typeparam name="T">The type to read.</typeparam>
       <returns>An object of type <typeparamref name="T" /> read from the given location.</returns>
@@ -258,16 +278,21 @@
       <param name="box">The value to unbox.</param>
       <typeparam name="T">The type to be unboxed.</typeparam>
       <exception cref="T:System.NullReferenceException">
-        <paramref name="box" /> is <see langword="null" />, and <typeparamref name="T" /> is a non-nullable value type.</exception>
+        <paramref name="box" /> is <see langword="null" />, and <typeparamref name="T" /> is a non-nullable value type.</exception
+      >
       <exception cref="T:System.InvalidCastException">
         <paramref name="box" /> is not a boxed value type.
          
 -or-
 
-<paramref name="box" /> is not a boxed <typeparamref name="T" />.</exception>
+<paramref name="box" /> is not a boxed <typeparamref name="T" />.</exception
+      >
       <exception cref="T:System.TypeLoadException">
-        <typeparamref name="T" /> cannot be found.</exception>
-      <returns>A <see langword="mutable ref" /> to the boxed value <paramref name="box" />.</returns>
+        <typeparamref name="T" /> cannot be found.</exception
+      >
+      <returns
+        >A <see langword="mutable ref" /> to the boxed value <paramref name="box" />.</returns
+      >
     </member>
     <member name="M:System.Runtime.CompilerServices.Unsafe.Write``1(System.Void*,``0)">
       <summary>Writes a value of type <typeparamref name="T" /> to the given location.</summary>
@@ -276,13 +301,17 @@
       <typeparam name="T">The type of value to write.</typeparam>
     </member>
     <member name="M:System.Runtime.CompilerServices.Unsafe.WriteUnaligned``1(System.Byte@,``0)">
-      <summary>Writes a value of type <typeparamref name="T" /> to the given location without assuming architecture dependent alignment of the addresses.</summary>
+      <summary
+        >Writes a value of type <typeparamref name="T" /> to the given location without assuming architecture dependent alignment of the addresses.</summary
+      >
       <param name="destination">The location to write to.</param>
       <param name="value">The value to write.</param>
       <typeparam name="T">The type of value to write.</typeparam>
     </member>
     <member name="M:System.Runtime.CompilerServices.Unsafe.WriteUnaligned``1(System.Void*,``0)">
-      <summary>Writes a value of type <typeparamref name="T" /> to the given location without assuming architecture dependent alignment of the addresses.</summary>
+      <summary
+        >Writes a value of type <typeparamref name="T" /> to the given location without assuming architecture dependent alignment of the addresses.</summary
+      >
       <param name="destination">The location to write to.</param>
       <param name="value">The value to write.</param>
       <typeparam name="T">The type of value to write.</typeparam>

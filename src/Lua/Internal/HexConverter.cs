@@ -38,7 +38,12 @@ public static class HexConverter
             using PooledArray<char> buffer = new(text.Length + 1);
             text.CopyTo(buffer.AsSpan()[1..]);
             buffer[0] = '0';
-            return sign * (double)BigInteger.Parse(buffer.AsSpan()[..(text.Length + 1)], NumberStyles.AllowHexSpecifier);
+            return sign
+                * (double)
+                    BigInteger.Parse(
+                        buffer.AsSpan()[..(text.Length + 1)],
+                        NumberStyles.AllowHexSpecifier
+                    );
         }
 
         ReadOnlySpan<char> intPart;
@@ -64,9 +69,7 @@ public static class HexConverter
             expPart = text[(expIndex + 1)..];
         }
 
-        var value = intPart.Length == 0
-            ? 0
-            : long.Parse(intPart, NumberStyles.AllowHexSpecifier);
+        var value = intPart.Length == 0 ? 0 : long.Parse(intPart, NumberStyles.AllowHexSpecifier);
 
         var decimalValue = 0.0;
         for (var i = 0; i < decimalPart.Length; i++)
@@ -129,7 +132,7 @@ public static class HexConverter
         // Convert double to IEEE 754 representation
         var bits = BitConverter.DoubleToInt64Bits(value);
 
-        // sign bit 
+        // sign bit
         var isNegative = (bits & (1L << 63)) != 0;
 
         // 11 bits of exponent

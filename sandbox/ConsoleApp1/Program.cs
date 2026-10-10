@@ -1,18 +1,20 @@
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.RegularExpressions;
-using Lua.Runtime;
 using Lua;
+using Lua.Runtime;
 using Lua.Standard;
 
 var state = LuaState.Create();
 state.OpenStandardLibraries();
-state.Environment["escape"] = new LuaFunction("escape",
+state.Environment["escape"] = new LuaFunction(
+    "escape",
     (c, _) =>
     {
         var arg = c.HasArgument(0) ? c.GetArgument<string>(0) : "";
         return new(c.Return(Regex.Escape(arg)));
-    });
+    }
+);
 var source = "";
 try
 {
@@ -37,7 +39,9 @@ try
         state.Pop(count);
         if (i % 100 == 0)
         {
-            Console.WriteLine($"Iteration {i} completed. Time elapsed: {timer.ElapsedMilliseconds} ms");
+            Console.WriteLine(
+                $"Iteration {i} completed. Time elapsed: {timer.ElapsedMilliseconds} ms"
+            );
             Thread.Sleep(100);
         }
     }
@@ -107,7 +111,9 @@ static void DebugChunk(Prototype chunk, int id)
     index = 0;
     foreach (var upValue in chunk.UpValues.ToArray())
     {
-        Console.WriteLine($"[{index}]\t{upValue.Name}\t{(upValue.IsLocal ? 1 : 0)}\t{upValue.Index}");
+        Console.WriteLine(
+            $"[{index}]\t{upValue.Name}\t{(upValue.IsLocal ? 1 : 0)}\t{upValue.Index}"
+        );
         index++;
     }
 
@@ -121,7 +127,8 @@ static void DebugChunk(Prototype chunk, int id)
     }
 }
 
-public class LuaRustLikeException(string message, Exception? innerException) : Exception(message, innerException);
+public class LuaRustLikeException(string message, Exception? innerException)
+    : Exception(message, innerException);
 
 class RustLikeExceptionHook //: ILuaCompileHook
 {
@@ -147,14 +154,25 @@ class RustLikeExceptionHook //: ILuaCompileHook
         var builder = new StringBuilder();
         builder.AppendLine();
         builder.AppendLine("[error]: " + exception.MessageWithNearToken);
-        builder.AppendLine("-->" + exception.ChunkName + ":" + exception.Position.Line + ":" + exception.Position.Column);
+        builder.AppendLine(
+            "-->"
+                + exception.ChunkName
+                + ":"
+                + exception.Position.Line
+                + ":"
+                + exception.Position.Column
+        );
         var line = source.Slice(lineOffset, length).ToString();
         var lineNumString = exception.Position.Line.ToString();
         builder.AppendLine(new string(' ', lineNumString.Length) + " |");
         builder.AppendLine(lineNumString + " | " + line);
-        builder.AppendLine(new string(' ', lineNumString.Length) + " | " +
-                           new string(' ', exception.Position.Column - 1) +
-                           "^ " + exception.MainMessage);
+        builder.AppendLine(
+            new string(' ', lineNumString.Length)
+                + " | "
+                + new string(' ', exception.Position.Column - 1)
+                + "^ "
+                + exception.MainMessage
+        );
         return builder.ToString();
     }
 }

@@ -68,7 +68,9 @@ public static class OpenLibsExtensions
     public static void OpenMathLibrary(this LuaState state)
     {
         var globalState = state.GlobalState;
-        globalState.Environment[MathematicsLibrary.RandomInstanceKey] = new(new MathematicsLibrary.RandomUserData(new()));
+        globalState.Environment[MathematicsLibrary.RandomInstanceKey] = new(
+            new MathematicsLibrary.RandomUserData(new())
+        );
 
         LuaTable math = new(0, MathematicsLibrary.Instance.Functions.Length);
         foreach (var func in MathematicsLibrary.Instance.Functions)
@@ -134,12 +136,15 @@ public static class OpenLibsExtensions
             globalState.SetMetatable(key, metatable);
         }
 
-        metatable[Metamethods.Index] = new LuaFunction("index", (context, cancellationToken) =>
-        {
-            context.GetArgument<string>(0);
-            var key = context.GetArgument(1);
-            return new(context.Return(@string[key]));
-        });
+        metatable[Metamethods.Index] = new LuaFunction(
+            "index",
+            (context, cancellationToken) =>
+            {
+                context.GetArgument<string>(0);
+                var key = context.GetArgument(1);
+                return new(context.Return(@string[key]));
+            }
+        );
     }
 
     public static void OpenTableLibrary(this LuaState state)

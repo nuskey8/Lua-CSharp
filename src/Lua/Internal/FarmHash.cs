@@ -179,8 +179,11 @@ static class FarmHash
             var b = Fetch64(s + 8);
             var c = Fetch64(s + len - 8) * mul;
             var d = Fetch64(s + len - 16) * k2;
-            return HashLen16(Rotate64(a + b, 43) + Rotate64(c, 30) + d,
-                a + Rotate64(b + k2, 18) + c, mul);
+            return HashLen16(
+                Rotate64(a + b, 43) + Rotate64(c, 30) + d,
+                a + Rotate64(b + k2, 18) + c,
+                mul
+            );
         }
     }
 
@@ -207,7 +210,6 @@ static class FarmHash
     static unsafe ulong HashLen33to64(byte* s, uint len)
     {
         const ulong mul0 = k2 - 30;
-
         unchecked
         {
             var mul1 = k2 - 30 + (2 * len);
@@ -222,7 +224,6 @@ static class FarmHash
     static unsafe ulong HashLen65to96(byte* s, uint len)
     {
         const ulong mul0 = k2 - 114;
-
         unchecked
         {
             var mul1 = k2 - 114 + (2 * len);
@@ -256,12 +257,14 @@ static class FarmHash
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     static unsafe Pair WeakHashLen32WithSeeds(byte* s, ulong a, ulong b)
     {
-        return WeakHashLen32WithSeeds(Fetch64(s),
+        return WeakHashLen32WithSeeds(
+            Fetch64(s),
             Fetch64(s + 8),
             Fetch64(s + 16),
             Fetch64(s + 24),
             a,
-            b);
+            b
+        );
     }
 
     // na(97-256) farmhashna.cc
@@ -269,7 +272,6 @@ static class FarmHash
     static unsafe ulong Hash64NA(byte* s, uint len)
     {
         const ulong seed = 81;
-
         unchecked
         {
             // For strings over 64 bytes we loop.  Internal state consists of
@@ -312,9 +314,11 @@ static class FarmHash
             v = WeakHashLen32WithSeeds(s, v.second * mul, x + w.first);
             w = WeakHashLen32WithSeeds(s + 32, z + w.second, y + Fetch64(s + 16));
             swap(ref z, ref x);
-            return HashLen16(HashLen16(v.first, w.first, mul) + (ShiftMix(y) * k0) + z,
+            return HashLen16(
+                HashLen16(v.first, w.first, mul) + (ShiftMix(y) * k0) + z,
                 HashLen16(v.second, w.second, mul) + x,
-                mul);
+                mul
+            );
         }
     }
 
@@ -337,7 +341,6 @@ static class FarmHash
     {
         const ulong seed0 = 81;
         const ulong seed1 = 0;
-
         unchecked
         {
             // For strings over 64 bytes we loop.  Internal state consists of
@@ -421,10 +424,12 @@ static class FarmHash
             z = Rotate64(z + w.first, 33) * mul;
             v = WeakHashLen32WithSeeds(s, v.second * mul, x + w.first);
             w = WeakHashLen32WithSeeds(s + 32, z + w.second, y + Fetch64(s + 16));
-            return H(HashLen16(v.first + x, w.first ^ y, mul) + z - u,
+            return H(
+                HashLen16(v.first + x, w.first ^ y, mul) + z - u,
                 H(v.second + y, w.second + z, k2, 30) ^ x,
                 k2,
-                31);
+                31
+            );
         }
     }
 }

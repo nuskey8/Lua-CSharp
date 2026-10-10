@@ -2,7 +2,10 @@ namespace Lua;
 
 static class EnumerableEx
 {
-    public static IEnumerable<IEnumerable<T>> GroupConsecutiveBy<T, TKey>(this IEnumerable<T> source, Func<T, TKey> keySelector)
+    public static IEnumerable<IEnumerable<T>> GroupConsecutiveBy<T, TKey>(
+        this IEnumerable<T> source,
+        Func<T, TKey> keySelector
+    )
     {
         if (source == null)
             throw new ArgumentNullException(nameof(source));

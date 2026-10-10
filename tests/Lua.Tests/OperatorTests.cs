@@ -1,7 +1,54 @@
+using Lua.Standard;
+
 namespace Lua.Tests;
 
 public class OperatorTests
 {
+    [Test]
+    public void NilGreaterThan_ThrowsRuntimeException()
+    {
+        var state = LuaState.Create();
+
+        var ex = Assert.ThrowsAsync<LuaRuntimeException>(async () =>
+            await state.DoStringAsync("local test = nil > 5").AsTask()
+        );
+
+        Assert.That(
+            ex!.Message,
+            Does.Contain("attempt to compare a number value with a nil value")
+        );
+    }
+
+    [Test]
+    public void NilGreaterThanOrEquals_ThrowsRuntimeException()
+    {
+        var state = LuaState.Create();
+
+        var ex = Assert.ThrowsAsync<LuaRuntimeException>(async () =>
+            await state.DoStringAsync("local test = nil >= 5").AsTask()
+        );
+
+        Assert.That(
+            ex!.Message,
+            Does.Contain("attempt to compare a number value with a nil value")
+        );
+    }
+
+    [Test]
+    public void GreaterThanOrEqualsNil_ThrowsRuntimeException()
+    {
+        var state = LuaState.Create();
+
+        var ex = Assert.ThrowsAsync<LuaRuntimeException>(async () =>
+            await state.DoStringAsync("local test = 5 >= nil").AsTask()
+        );
+
+        Assert.That(
+            ex!.Message,
+            Does.Contain("attempt to compare a nil value with a number value")
+        );
+    }
+
     [TestCase(1, 6)]
     [TestCase(2, 7)]
     [TestCase(3, 8)]
@@ -80,7 +127,8 @@ public class OperatorTests
     [TestCase(false, false)]
     public async Task Test_Or(bool a, bool b)
     {
-        string strA = a.ToString().ToLower(), strB = b.ToString().ToLower();
+        string strA = a.ToString().ToLower(),
+            strB = b.ToString().ToLower();
         var result = await LuaState.Create().DoStringAsync($"return {strA} or {strB}");
         Assert.That(result, Has.Length.EqualTo(1));
         Assert.That(result[0], Is.EqualTo(new LuaValue(a || b)));
@@ -92,7 +140,8 @@ public class OperatorTests
     [TestCase(false, false)]
     public async Task Test_And(bool a, bool b)
     {
-        string strA = a.ToString().ToLower(), strB = b.ToString().ToLower();
+        string strA = a.ToString().ToLower(),
+            strB = b.ToString().ToLower();
         var result = await LuaState.Create().DoStringAsync($"return {strA} and {strB}");
         Assert.That(result, Has.Length.EqualTo(1));
         Assert.That(result[0], Is.EqualTo(new LuaValue(a && b)));
@@ -136,5 +185,25 @@ public class OperatorTests
         var result = await LuaState.Create().DoStringAsync($"return {a} >= {b}");
         Assert.That(result, Has.Length.EqualTo(1));
         Assert.That(result[0], Is.EqualTo(new LuaValue(a >= b)));
+    }
+
+    [Test]
+    public async Task Test_TableLength()
+    {
+        using var state = LuaState.Create();
+        state.OpenBasicLibrary();
+        var source =
+            @"
+function f1()
+    local c = {}
+    return #c
+end
+function f2(a, b)
+    assert(b == nil)
+end
+f1()
+f2()
+";
+        await state.DoStringAsync(source);
     }
 }

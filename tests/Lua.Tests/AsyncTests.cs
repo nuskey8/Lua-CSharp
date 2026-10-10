@@ -12,7 +12,8 @@ public class AsyncTests
         state = LuaState.Create();
         state.OpenStandardLibraries();
         var assert = state.Environment["assert"].Read<LuaFunction>();
-        state.Environment["assert"] = new LuaFunction("assert_with_wait",
+        state.Environment["assert"] = new LuaFunction(
+            "assert_with_wait",
             async (context, ct) =>
             {
                 await Task.Delay(1, ct);
@@ -30,7 +31,8 @@ public class AsyncTests
                 }
 
                 return context.Return(context.Arguments);
-            });
+            }
+        );
     }
 
     [Test]

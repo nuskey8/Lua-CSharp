@@ -10,6 +10,7 @@ public class PropertyMetadata
     public bool IsStatic { get; }
     public bool IsReadOnly { get; }
     public bool IsWriteOnly { get; }
+    public bool AllowNull { get; }
     public string LuaMemberName { get; }
 
     public PropertyMetadata(ISymbol symbol, SymbolReferences references)
@@ -28,7 +29,8 @@ public class PropertyMetadata
         {
             Type = property.Type;
             TypeFullName = property.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
-            IsReadOnly = property.IsReadOnly || property.SetMethod == null || property.SetMethod.IsInitOnly;
+            IsReadOnly =
+                property.IsReadOnly || property.SetMethod == null || property.SetMethod.IsInitOnly;
             IsWriteOnly = property.IsWriteOnly;
         }
         else
@@ -38,6 +40,7 @@ public class PropertyMetadata
         }
 
         LuaMemberName = symbol.Name;
+        AllowNull = symbol.ContainsAttribute(references.AllowNullAttribute);
 
         var memberAttribute = symbol.GetAttribute(references.LuaMemberAttribute);
         if (memberAttribute != null)

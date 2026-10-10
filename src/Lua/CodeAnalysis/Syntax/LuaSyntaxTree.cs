@@ -2,7 +2,10 @@ namespace Lua.CodeAnalysis.Syntax;
 
 public record LuaSyntaxTree(SyntaxNode[] Nodes, SourcePosition Position) : SyntaxNode(Position)
 {
-    public override TResult Accept<TContext, TResult>(ISyntaxNodeVisitor<TContext, TResult> visitor, TContext context)
+    public override TResult Accept<TContext, TResult>(
+        ISyntaxNodeVisitor<TContext, TResult> visitor,
+        TContext context
+    )
     {
         return visitor.VisitSyntaxTree(this, context);
     }
@@ -18,6 +21,7 @@ public record LuaSyntaxTree(SyntaxNode[] Nodes, SourcePosition Position) : Synta
             parser.Add(lexer.Current);
         }
 
+        parser.EndPosition = lexer.Position;
         return parser.Parse();
     }
 }

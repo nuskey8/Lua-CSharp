@@ -1,7 +1,6 @@
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using Lua.Internal;
-using System.Diagnostics;
-
 #if NET6_0_OR_GREATER
 using System.Runtime.InteropServices;
 #endif

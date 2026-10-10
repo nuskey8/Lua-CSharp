@@ -13,7 +13,11 @@ class TypeMetadata
     public PropertyMetadata[] Properties { get; }
     public MethodMetadata[] Methods { get; }
 
-    public TypeMetadata(TypeDeclarationSyntax syntax, INamedTypeSymbol symbol, SymbolReferences references)
+    public TypeMetadata(
+        TypeDeclarationSyntax syntax,
+        INamedTypeSymbol symbol,
+        SymbolReferences references
+    )
     {
         Syntax = syntax;
         Symbol = symbol;
@@ -21,47 +25,92 @@ class TypeMetadata
         TypeName = symbol.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
         FullTypeName = symbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
 
-        Properties = Symbol.GetAllMembers(false)
-            .Where(x => x is (IFieldSymbol or IPropertySymbol) and { IsImplicitlyDeclared: false })
-            .Where(x =>
+        var properties = new List<PropertyMetadata>();
+        var methods = new List<MethodMetadata>();
+        var memberOwners = new Dictionary<string, INamedTypeSymbol>();
+        var metamethodOwners = new Dictionary<LuaObjectMetamethod, INamedTypeSymbol>();
+
+        foreach (var member in Symbol.GetAllMembers())
+        {
+            if (
+                member.IsImplicitlyDeclared
+                || member.ContainsAttribute(references.LuaIgnoreMemberAttribute)
+            )
             {
-                if (!x.ContainsAttribute(references.LuaMemberAttribute))
-                {
-                    return false;
-                }
+                continue;
+            }
 
-                if (x.ContainsAttribute(references.LuaIgnoreMemberAttribute))
-                {
-                    return false;
-                }
-
-                if (x is IPropertySymbol p)
-                {
-                    if (p.IsIndexer)
-                    {
-                        return false;
-                    }
-                }
-
-                return true;
-            })
-            .Select(x => new PropertyMetadata(x, references))
-            .ToArray();
-
-        Methods = Symbol.GetAllMembers(false)
-            .Where(x => x is IMethodSymbol and { IsImplicitlyDeclared: false })
-            .Select(x => (IMethodSymbol)x)
-            .Where(x =>
+            if (member is IFieldSymbol or IPropertySymbol)
             {
-                if (x.ContainsAttribute(references.LuaIgnoreMemberAttribute))
+                if (
+                    !member.ContainsAttribute(references.LuaMemberAttribute)
+                    || member is IPropertySymbol { IsIndexer: true }
+                )
                 {
-                    return false;
+                    continue;
                 }
 
-                return x.ContainsAttribute(references.LuaMemberAttribute) || x.ContainsAttribute(references.LuaMetamethodAttribute);
-            })
-            .Select(x => new MethodMetadata(x, references))
-            .ToArray();
+                var property = new PropertyMetadata(member, references);
+                if (SelectBinding(memberOwners, property.LuaMemberName, member))
+                {
+                    properties.Add(property);
+                }
+            }
+            else if (member is IMethodSymbol methodSymbol)
+            {
+                if (
+                    !member.ContainsAttribute(references.LuaMemberAttribute)
+                    && !member.ContainsAttribute(references.LuaMetamethodAttribute)
+                )
+                {
+                    continue;
+                }
+
+                var method = new MethodMetadata(methodSymbol, references);
+                // A method's member and metamethod bindings can be replaced independently.
+                if (method.HasMemberAttribute)
+                {
+                    method.HasMemberAttribute = SelectBinding(
+                        memberOwners,
+                        method.LuaMemberName,
+                        member
+                    );
+                }
+                if (method.HasMetamethodAttribute)
+                {
+                    method.HasMetamethodAttribute = SelectBinding(
+                        metamethodOwners,
+                        method.Metamethod,
+                        member
+                    );
+                }
+                if (method.HasMemberAttribute || method.HasMetamethodAttribute)
+                {
+                    methods.Add(method);
+                }
+            }
+        }
+
+        Properties = properties.ToArray();
+        Methods = methods.ToArray();
+    }
+
+    static bool SelectBinding<TKey>(
+        Dictionary<TKey, INamedTypeSymbol> owners,
+        TKey key,
+        ISymbol member
+    )
+        where TKey : notnull
+    {
+        if (!owners.TryGetValue(key, out var owner))
+        {
+            owners.Add(key, member.ContainingType);
+            return true;
+        }
+
+        // Derived bindings replace inherited ones. Keep duplicates within one type
+        // so that invalid declarations still produce diagnostics.
+        return SymbolEqualityComparer.Default.Equals(owner, member.ContainingType);
     }
 
     public bool IsPartial()

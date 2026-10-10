@@ -1,3 +1,6 @@
+using System.Runtime.CompilerServices;
+using Lua.Internal.CompilerServices;
+
 namespace Lua.Standard;
 
 public sealed class ModuleLibrary
@@ -15,7 +18,11 @@ public sealed class ModuleLibrary
     public readonly LuaFunction RequireFunction;
     public readonly LuaFunction SearchPathFunction;
 
-    public async ValueTask<int> Require(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder<>))]
+    public async ValueTask<int> Require(
+        LuaFunctionExecutionContext context,
+        CancellationToken cancellationToken
+    )
     {
         var arg0 = context.GetArgument<string>(0);
         var loaded = context.GlobalState.LoadedModules;
@@ -27,9 +34,10 @@ public sealed class ModuleLibrary
             if (moduleLoader != null && moduleLoader.Exists(arg0))
             {
                 var module = await moduleLoader.LoadAsync(arg0, cancellationToken);
-                loader = module.Type == LuaModuleType.Bytes
-                    ? context.State.Load(module.ReadBytes(), module.Name)
-                    : context.State.Load(module.ReadText(), module.Name);
+                loader =
+                    module.Type == LuaModuleType.Bytes
+                        ? context.State.Load(module.ReadBytes(), module.Name)
+                        : context.State.Load(module.ReadText(), module.Name);
             }
             else
             {
@@ -44,7 +52,13 @@ public sealed class ModuleLibrary
         return context.Return(loadedTable);
     }
 
-    internal static async ValueTask<string?> FindFile(LuaState state, string name, string pName, string dirSeparator)
+    [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder<>))]
+    internal static async ValueTask<string?> FindFile(
+        LuaState state,
+        string name,
+        string pName,
+        string dirSeparator
+    )
     {
         var globalState = state.GlobalState;
         var package = globalState.Environment["package"];
@@ -57,7 +71,10 @@ public sealed class ModuleLibrary
         return SearchPath(state, name, path, ".", dirSeparator);
     }
 
-    public ValueTask<int> SearchPath(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    public ValueTask<int> SearchPath(
+        LuaFunctionExecutionContext context,
+        CancellationToken cancellationToken
+    )
     {
         var name = context.GetArgument<string>(0);
         var path = context.GetArgument<string>(1);
@@ -67,7 +84,13 @@ public sealed class ModuleLibrary
         return new(context.Return(fileName ?? LuaValue.Nil));
     }
 
-    internal static string? SearchPath(LuaState state, string name, string path, string separator, string dirSeparator)
+    internal static string? SearchPath(
+        LuaState state,
+        string name,
+        string path,
+        string separator,
+        string dirSeparator
+    )
     {
         if (separator != "")
         {
@@ -106,7 +129,12 @@ public sealed class ModuleLibrary
         return null;
     }
 
-    internal static async ValueTask<LuaFunction> FindLoader(LuaState state, string name, CancellationToken cancellationToken)
+    [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder<>))]
+    internal static async ValueTask<LuaFunction> FindLoader(
+        LuaState state,
+        string name,
+        CancellationToken cancellationToken
+    )
     {
         var package = state.GlobalState.Environment["package"].Read<LuaTable>();
         var searchers = package["searchers"].Read<LuaTable>();
@@ -139,7 +167,10 @@ public sealed class ModuleLibrary
         throw new LuaRuntimeException(state, $"Module '{name}' not found");
     }
 
-    public ValueTask<int> SearcherPreload(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    public ValueTask<int> SearcherPreload(
+        LuaFunctionExecutionContext context,
+        CancellationToken cancellationToken
+    )
     {
         var name = context.GetArgument<string>(0);
         var preload = context.GlobalState.PreloadModules[name];
@@ -151,15 +182,25 @@ public sealed class ModuleLibrary
         return new(context.Return(preload));
     }
 
-    public async ValueTask<int> SearcherLua(LuaFunctionExecutionContext context, CancellationToken cancellationToken)
+    public async ValueTask<int> SearcherLua(
+        LuaFunctionExecutionContext context,
+        CancellationToken cancellationToken
+    )
     {
         var name = context.GetArgument<string>(0);
-        var fileName = await FindFile(context.State, name, "path", context.GlobalState.Platform.FileSystem.DirectorySeparator);
+        var fileName = await FindFile(
+            context.State,
+            name,
+            "path",
+            context.GlobalState.Platform.FileSystem.DirectorySeparator
+        );
         if (fileName == null)
         {
             return context.Return(LuaValue.Nil);
         }
 
-        return context.Return(await context.State.LoadFileAsync(fileName, "bt", null, cancellationToken));
+        return context.Return(
+            await context.State.LoadFileAsync(fileName, "bt", null, cancellationToken)
+        );
     }
 }

@@ -9,12 +9,20 @@ abstract class NotImplementedExceptionFileSystemBase : ILuaFileSystem
         throw new NotImplementedException();
     }
 
-    public virtual ValueTask<ILuaStream> Open(string path, LuaFileOpenMode mode, CancellationToken cancellationToken)
+    public virtual ValueTask<ILuaStream> Open(
+        string path,
+        LuaFileOpenMode mode,
+        CancellationToken cancellationToken
+    )
     {
         throw new NotImplementedException();
     }
 
-    public virtual ValueTask Rename(string oldName, string newName, CancellationToken cancellationToken)
+    public virtual ValueTask Rename(
+        string oldName,
+        string newName,
+        CancellationToken cancellationToken
+    )
     {
         throw new NotImplementedException();
     }

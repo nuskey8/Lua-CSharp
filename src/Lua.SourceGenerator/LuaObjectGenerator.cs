@@ -8,15 +8,18 @@ public partial class LuaObjectGenerator : IIncrementalGenerator
 {
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
-        var provider = context.SyntaxProvider
-            .ForAttributeWithMetadataName(
+        var provider = context
+            .SyntaxProvider.ForAttributeWithMetadataName(
                 "Lua.LuaObjectAttribute",
                 static (node, cancellation) =>
                 {
-                    return node is ClassDeclarationSyntax
-                        or RecordDeclarationSyntax;
+                    return node is ClassDeclarationSyntax or RecordDeclarationSyntax;
                 },
-                static (context, cancellation) => { return context; })
+                static (context, cancellation) =>
+                {
+                    return context;
+                }
+            )
             .Combine(context.CompilationProvider)
             .WithComparer(Comparer.Instance);
 
@@ -26,16 +29,23 @@ public partial class LuaObjectGenerator : IIncrementalGenerator
             {
                 var (compilation, list) = t;
                 var references = SymbolReferences.Create(compilation);
-                if (references == null) return;
+                if (references == null)
+                    return;
 
                 var builder = new CodeBuilder();
 
-                var metaDict = new Dictionary<INamedTypeSymbol, TypeMetadata>(SymbolEqualityComparer.Default);
+                var metaDict = new Dictionary<INamedTypeSymbol, TypeMetadata>(
+                    SymbolEqualityComparer.Default
+                );
 
                 foreach (var (x, _) in list)
                 {
                     var symbol = (INamedTypeSymbol)x.TargetSymbol;
-                    var typeMeta = new TypeMetadata((TypeDeclarationSyntax)x.TargetNode, symbol, references);
+                    var typeMeta = new TypeMetadata(
+                        (TypeDeclarationSyntax)x.TargetNode,
+                        symbol,
+                        references
+                    );
                     metaDict.Add(symbol, typeMeta);
                 }
 
@@ -43,19 +53,33 @@ public partial class LuaObjectGenerator : IIncrementalGenerator
                 foreach (var pair in metaDict)
                 {
                     var typeMeta = pair.Value;
-                    if (TryEmit(typeMeta, builder, references, compilation, in sourceProductionContext, metaDict, tempCollections))
+                    if (
+                        TryEmit(
+                            typeMeta,
+                            builder,
+                            references,
+                            compilation,
+                            in sourceProductionContext,
+                            metaDict,
+                            tempCollections
+                        )
+                    )
                     {
-                        var fullType = typeMeta.FullTypeName
-                            .Replace("global::", "")
+                        var fullType = typeMeta
+                            .FullTypeName.Replace("global::", "")
                             .Replace("<", "_")
                             .Replace(">", "_");
 
-                        sourceProductionContext.AddSource($"{fullType}.LuaObject.g.cs", builder.ToString());
+                        sourceProductionContext.AddSource(
+                            $"{fullType}.LuaObject.g.cs",
+                            builder.ToString()
+                        );
                     }
 
                     tempCollections.Clear();
                     builder.Clear();
                 }
-            });
+            }
+        );
     }
 }

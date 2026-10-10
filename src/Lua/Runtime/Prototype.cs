@@ -1,6 +1,6 @@
+using System.Buffers;
 using Lua.CodeAnalysis;
 using Lua.CodeAnalysis.Compilation;
-using System.Buffers;
 
 namespace Lua.Runtime;
 
@@ -33,8 +33,10 @@ public sealed class Prototype(
 
     // public LuaClosure Cache;
     public readonly string ChunkName = chunkName;
-    public readonly int LineDefined = lineDefined, LastLineDefined = lastLineDefined;
-    public readonly int ParameterCount = parameterCount, MaxStackSize = maxStackSize;
+    public readonly int LineDefined = lineDefined,
+        LastLineDefined = lastLineDefined;
+    public readonly int ParameterCount = parameterCount,
+        MaxStackSize = maxStackSize;
     public readonly bool HasVariableArguments = hasVariableArguments;
 
     /// <summary>

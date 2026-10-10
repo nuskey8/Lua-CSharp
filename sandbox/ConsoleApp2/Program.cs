@@ -1,11 +1,14 @@
-﻿using Lua.Runtime;
-using Lua;
+﻿using Lua;
+using Lua.Runtime;
 using Lua.Standard;
 
 var state = LuaState.Create();
 state.OpenStandardLibraries();
 {
-    var closure = state.Load("return function (a,b,...)  print('a : '..a..' b :'..'args : ',...) end", "@simple");
+    var closure = state.Load(
+        "return function (a,b,...)  print('a : '..a..' b :'..'args : ',...) end",
+        "@simple"
+    );
     using var access = state.CreateThread();
     {
         var count = await access.RunAsync(closure, 0);
@@ -39,7 +42,9 @@ state.OpenStandardLibraries();
                 print('In Lua:', coroutine.yield('from lua', i,v))
             end
         end
-        """, "coroutine");
+        """,
+        "coroutine"
+    );
     var f = results[0].Read<LuaClosure>();
     using var coroutine = state.CreateCoroutine(f);
     {

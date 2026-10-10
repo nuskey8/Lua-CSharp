@@ -1,5 +1,5 @@
-﻿using Lua.Internal;
-using System.Globalization;
+﻿using System.Globalization;
+using Lua.Internal;
 using static System.Diagnostics.Debug;
 using static Lua.Internal.Constants;
 
@@ -11,7 +11,8 @@ struct Scanner
     public PooledList<char> Buffer;
     public TextReader R;
     public int Current;
-    public int LineNumber, LastLine;
+    public int LineNumber,
+        LastLine;
     public string Source;
     public Token LookAheadToken;
     int lastNewLinePos;
@@ -26,6 +27,7 @@ struct Scanner
 
     public const int FirstReserved = ushort.MaxValue + 257;
     public const int EndOfStream = -1;
+    public const int InitialState = -2;
 
     public const int MaxInt = int.MaxValue >> (1 + 1); // 9223372036854775807
 
@@ -67,12 +69,39 @@ struct Scanner
 
     static readonly string[] tokens =
     [
-        "and", "break", "do", "else", "elseif",
-        "end", "false", "for", "function", "goto", "if",
-        "in", "local", "nil", "not", "or", "repeat",
-        "return", "then", "true", "until", "while",
-        "..", "...", "==", ">=", "<=", "~=", "::", "<eof>",
-        "<number>", "<name>", "<string>"
+        "and",
+        "break",
+        "do",
+        "else",
+        "elseif",
+        "end",
+        "false",
+        "for",
+        "function",
+        "goto",
+        "if",
+        "in",
+        "local",
+        "nil",
+        "not",
+        "or",
+        "repeat",
+        "return",
+        "then",
+        "true",
+        "until",
+        "while",
+        "..",
+        "...",
+        "==",
+        ">=",
+        "<=",
+        "~=",
+        "::",
+        "<eof>",
+        "<number>",
+        "<name>",
+        "<string>",
     ];
 
     public static ReadOnlySpan<string> Tokens => tokens;
@@ -87,7 +116,7 @@ struct Scanner
         ScanError(R.Position, message, Token.T);
     }
 
-    public void ErrorExpected(int position, char t)
+    public void ErrorExpected(int position, int t)
     {
         SyntaxError(position, TokenToString(t) + " expected");
     }
@@ -95,7 +124,11 @@ struct Scanner
     public void NumberError(int numberStartPosition, int position)
     {
         Buffer.Clear();
-        Token = new(numberStartPosition, TkString, Intern(R.Span[numberStartPosition..(position - 1)]));
+        Token = new(
+            numberStartPosition,
+            TkString,
+            Intern(R.Span[numberStartPosition..(position - 1)])
+        );
         ScanError(position, "malformed number", TkString);
     }
 
@@ -109,6 +142,38 @@ struct Scanner
         return c is >= '0' and <= '9';
     }
 
+    int RawTokenLength(int pos)
+    {
+        return R.Position - pos + (Current == EndOfStream ? 1 : 0);
+    }
+
+    static string CharTokenToLiteral(int t)
+    {
+        return t is >= ' ' and <= '~' ? $"{(char)t}" : $"char({t})";
+    }
+
+    static string QuoteNearToken(string token)
+    {
+        return token.StartsWith('<') || token.StartsWith("char(") ? token : $"'{token}'";
+    }
+
+    static bool IsQuotedStringLiteral(string token)
+    {
+        return token.Length >= 2
+            && ((token[0] == '\'' && token[^1] == '\'') || (token[0] == '"' && token[^1] == '"'));
+    }
+
+    static string FormatStringNearToken(string token)
+    {
+        return IsQuotedStringLiteral(token) && token.Contains('\\') ? token : QuoteNearToken(token);
+    }
+
+    string? GetTokenRawText()
+    {
+        return Token.RawLength > 0
+            ? new string(R.Span[(Token.Pos - 1)..((Token.Pos - 1) + Token.RawLength)])
+            : null;
+    }
 
     public static string TokenToString(Token t)
     {
@@ -118,29 +183,33 @@ struct Scanner
             TkNumber => $"{t.N}",
             < FirstReserved => $"{(char)t.T}", // TODO check for printable rune
             < TkEos => $"'{tokens[t.T - FirstReserved]}'",
-            _ => tokens[t.T - FirstReserved]
+            _ => tokens[t.T - FirstReserved],
         };
     }
 
-    public string TokenToString(int t)
+    public static string TokenToString(int t)
     {
         return t switch
         {
-            TkName or TkString => Token.S,
-            TkNumber => $"{Token.N}",
-            < FirstReserved => $"{(char)t}", // TODO check for printable rune
+            < FirstReserved when t is >= ' ' and <= '~' => $"'{(char)t}'",
+            < FirstReserved => CharTokenToLiteral(t),
             < TkEos => $"'{tokens[t - FirstReserved]}'",
-            _ => tokens[t - FirstReserved]
+            _ => tokens[t - FirstReserved],
         };
     }
 
-    public static string TokenRuteToString(int t)
+    string FormatNearToken(int t)
     {
+        var raw = GetTokenRawText();
+
         return t switch
         {
-            < FirstReserved => $"{(char)t}", // TODO check for printable rune
-            <= TkString => $"'{tokens[t - FirstReserved]}'",
-            _ => tokens[t - FirstReserved]
+            TkName => QuoteNearToken(raw ?? Token.S),
+            TkString => FormatStringNearToken(raw ?? Token.S),
+            TkNumber => $"'{raw ?? Token.N.ToString(CultureInfo.InvariantCulture)}'",
+            < FirstReserved => QuoteNearToken(CharTokenToLiteral(t)),
+            < TkEos => QuoteNearToken(tokens[t - FirstReserved]),
+            _ => tokens[t - FirstReserved],
         };
     }
 
@@ -152,10 +221,16 @@ struct Scanner
         string? nearToken = null;
         if (token != 0)
         {
-            nearToken = TokenToString(token);
+            nearToken = FormatNearToken(token);
         }
 
-        throw new LuaCompileException(buff, new(LineNumber, pos - lastNewLinePos + 1), pos - 1, message, nearToken);
+        throw new LuaCompileException(
+            buff,
+            new(LineNumber, pos - lastNewLinePos + 1),
+            pos - 1,
+            message,
+            nearToken
+        );
     }
 
     public void IncrementLineNumber()
@@ -178,6 +253,24 @@ struct Scanner
     public void Advance()
     {
         Current = R.TryRead(out var c) ? c : EndOfStream;
+    }
+
+    void SkipFirstLineComment()
+    {
+        if (Current != '#' || Source.Length == 0 || Source[0] != '@')
+        {
+            return;
+        }
+
+        while (!IsNewLine(Current) && Current != EndOfStream)
+        {
+            Advance();
+        }
+
+        if (IsNewLine(Current))
+        {
+            IncrementLineNumber();
+        }
     }
 
     public void SaveAndAdvance()
@@ -238,7 +331,11 @@ struct Scanner
             switch (Current)
             {
                 case EndOfStream:
-                    ScanError(R.Position, comment ? "unfinished long comment" : "unfinished long string", TkEos);
+                    ScanError(
+                        R.Position,
+                        comment ? "unfinished long comment" : "unfinished long string",
+                        TkEos
+                    );
 
                     break;
                 case ']':
@@ -247,7 +344,9 @@ struct Scanner
                         SaveAndAdvance();
                         if (!comment)
                         {
-                            var s = Intern(Buffer.AsSpan().Slice(2 + sep, Buffer.Length - (4 + (2 * sep))));
+                            var s = Intern(
+                                Buffer.AsSpan().Slice(2 + sep, Buffer.Length - (4 + (2 * sep)))
+                            );
                             Buffer.Clear();
                             return s;
                         }
@@ -315,7 +414,8 @@ struct Scanner
                 case >= 'A' and <= 'F':
                     c = c - 'A' + 10;
                     break;
-                case EndOfStream or '}' or ',' or '.' or ')' or 'p' or 'P': return (n, c, i);
+                case EndOfStream or '}' or ',' or '.' or ')' or 'p' or 'P':
+                    return (n, c, i);
                 default:
                     if (IsWhiteSpace(c))
                     {
@@ -373,7 +473,14 @@ struct Scanner
 
                 _ = ReadDigits();
 
-                if (!long.TryParse(Buffer.AsSpan(), NumberStyles.Float, CultureInfo.InvariantCulture, out var e))
+                if (
+                    !long.TryParse(
+                        Buffer.AsSpan(),
+                        NumberStyles.Float,
+                        CultureInfo.InvariantCulture,
+                        out var e
+                    )
+                )
                 {
                     NumberError(startPosition, pos + 1);
                 }
@@ -389,7 +496,7 @@ struct Scanner
                 Buffer.Clear();
             }
 
-            return new(pos, fraction * Math.Pow(2, exponent));
+            return new(pos, fraction * Math.Pow(2, exponent), RawTokenLength(pos));
         }
 
         c = ReadDigits();
@@ -417,7 +524,7 @@ struct Scanner
             if (strSpan.Length == 1)
             {
                 Buffer.Clear();
-                return new(pos, 0d);
+                return new(pos, 0d, RawTokenLength(pos));
             }
 
             while (strSpan.Length > 1 && strSpan[0] == '0' && strSpan[1] == '0')
@@ -432,7 +539,7 @@ struct Scanner
         }
 
         Buffer.Clear();
-        return new(pos, f);
+        return new(pos, f, RawTokenLength(pos));
     }
 
     static readonly Dictionary<int, char> escapes = new()
@@ -446,7 +553,7 @@ struct Scanner
         { 'v', '\v' },
         { '\\', '\\' },
         { '"', '"' },
-        { '\'', '\'' }
+        { '\'', '\'' },
     };
 
     public void EscapeError(int pos, ReadOnlySpan<int> c, string message)
@@ -528,7 +635,7 @@ struct Scanner
     {
         var pos = R.Position;
         var delimiter = Current;
-        for (SaveAndAdvance(); Current != delimiter;)
+        for (SaveAndAdvance(); Current != delimiter; )
         {
             switch (Current)
             {
@@ -553,15 +660,14 @@ struct Scanner
                         Save('\n');
                     }
                     else if (c == EndOfStream) // do nothing
-                    {
-                    }
+                    { }
                     else if (c == 'x')
                     {
                         Save(ReadHexEscape());
                     }
                     else if (c == 'z')
                     {
-                        for (Advance(); IsWhiteSpace(Current);)
+                        for (Advance(); IsWhiteSpace(Current); )
                         {
                             if (IsNewLine(Current))
                             {
@@ -597,7 +703,7 @@ struct Scanner
         // }
         var str = Intern(Buffer.AsSpan().Slice(1, length));
         Buffer.Clear();
-        return new(pos, TkString, str);
+        return new(pos, TkString, str, RawTokenLength(pos));
     }
 
     public static bool IsReserved(string s)
@@ -613,25 +719,26 @@ struct Scanner
         return false;
     }
 
-    public Token ReservedOrName()
+    public Token ReservedOrName(int pos)
     {
-        var pos = R.Position - Buffer.Length;
+        var rawLength = RawTokenLength(pos);
         var str = Intern(Buffer.AsSpan());
         Buffer.Clear();
         for (var i = 0; i < Tokens.Length; i++)
         {
             if (str == Tokens[i])
             {
-                return new(pos, i + FirstReserved, str);
+                return new(pos, i + FirstReserved, str, rawLength);
             }
         }
 
-        return new(pos, TkName, str);
+        return new(pos, TkName, str, rawLength);
     }
 
     public Token Scan()
     {
-        const bool comment = true, str = false;
+        const bool comment = true,
+            str = false;
         var pos = R.Position;
         while (true)
         {
@@ -669,7 +776,6 @@ struct Scanner
                         Buffer.Clear();
                     }
 
-
                     while (!IsNewLine(Current) && Current != EndOfStream)
                     {
                         Advance();
@@ -677,22 +783,22 @@ struct Scanner
 
                     break;
                 case '[':
+                {
+                    var sep = SkipSeparator();
+                    if (sep >= 0)
                     {
-                        var sep = SkipSeparator();
-                        if (sep >= 0)
-                        {
-                            return new(pos, TkString, ReadMultiLine(str, sep));
-                        }
-
-                        Buffer.Clear();
-                        if (sep == -1)
-                        {
-                            return new(pos, '[');
-                        }
-
-                        ScanError(pos, "invalid long string delimiter", TkString);
-                        break;
+                        return new(pos, TkString, ReadMultiLine(str, sep), RawTokenLength(pos));
                     }
+
+                    Buffer.Clear();
+                    if (sep == -1)
+                    {
+                        return new(pos, '[');
+                    }
+
+                    ScanError(pos, "invalid long string delimiter", TkString);
+                    break;
+                }
                 case '=':
                     Advance();
                     if (Current != '=')
@@ -764,30 +870,31 @@ struct Scanner
                     }
 
                     return ReadNumber(pos);
-                case 0:
+                case InitialState:
                     Advance();
+                    SkipFirstLineComment();
                     pos = R.Position;
                     break;
                 default:
+                {
+                    if (IsDigit(c))
                     {
-                        if (IsDigit(c))
-                        {
-                            return ReadNumber(pos);
-                        }
-
-                        if (IsLetter(c))
-                        {
-                            for (; IsLetter(c) || IsDigit(c); c = Current)
-                            {
-                                SaveAndAdvance();
-                            }
-
-                            return ReservedOrName();
-                        }
-
-                        Advance();
-                        return new(pos, c);
+                        return ReadNumber(pos);
                     }
+
+                    if (IsLetter(c))
+                    {
+                        for (; IsLetter(c) || IsDigit(c); c = Current)
+                        {
+                            SaveAndAdvance();
+                        }
+
+                        return ReservedOrName(pos);
+                    }
+
+                    Advance();
+                    return new(pos, c);
+                }
             }
         }
     }
@@ -830,7 +937,8 @@ struct Scanner
     {
         if (Token.T != t)
         {
-            ErrorExpected(R.Position, (char)t);
+            // Reserved tokens exceed char.MaxValue; narrowing them loses the token identity.
+            ErrorExpected(R.Position, t);
         }
     }
 
@@ -843,11 +951,14 @@ struct Scanner
 
         if (where == LineNumber)
         {
-            ErrorExpected(R.Position, (char)what);
+            ErrorExpected(R.Position, what);
         }
         else
         {
-            SyntaxError(R.Position, $"{TokenToString(what)} expected (to close {TokenToString(who)} at line {where})");
+            SyntaxError(
+                R.Position,
+                $"{TokenToString(what)} expected (to close {TokenToString(who)} at line {where})"
+            );
         }
     }
 

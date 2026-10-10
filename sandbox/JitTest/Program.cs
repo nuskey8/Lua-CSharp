@@ -38,10 +38,14 @@ if (lastJitPaths.Any())
     }
 }
 
-var method = typeof(LuaVirtualMachine).GetMethod("MoveNext", BindingFlags.Static | BindingFlags.NonPublic)!;
+var method = typeof(LuaVirtualMachine).GetMethod(
+    "MoveNext",
+    BindingFlags.Static | BindingFlags.NonPublic
+)!;
 using var disassembler = JitDisassembler.Create();
 var nextJitText = disassembler.Disassemble(method, new() { PrintInstructionAddresses = true });
 File.WriteAllText(newJIitPath, nextJitText);
+
 // Console.WriteLine("New:" + nextJitText.Split("\n")[^1]);
 
 static string GetThisDirectoryName([CallerFilePath] string callerFilePath = "")

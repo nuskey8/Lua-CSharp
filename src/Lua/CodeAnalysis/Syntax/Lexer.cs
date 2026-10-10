@@ -12,11 +12,11 @@ public ref struct Lexer
     SourcePosition position = new(1, 0);
     int offset;
 
-    public Lexer()
-    {
-    }
+    public Lexer() { }
 
     public readonly SyntaxToken Current => current;
+
+    internal readonly SourcePosition Position => position;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     void Advance(int count)
@@ -79,6 +79,14 @@ public ref struct Lexer
         {
             case ' ':
             case '\t':
+                while (
+                    offset < Source.Length
+                    && (Source.Span[offset] == ' ' || Source.Span[offset] == '\t')
+                )
+                {
+                    Advance(1);
+                }
+
                 return MoveNext();
             case '\n':
                 current = SyntaxToken.EndOfLine(position);
@@ -110,16 +118,20 @@ public ref struct Lexer
                 current = SyntaxToken.Addition(position);
                 return true;
             case '-':
-                // comment
-                if (c2 == '-')
+                // handle comments iteratively
+                while (offset < span.Length && c2 == '-')
                 {
                     var pos = position;
-                    Advance(1);
+                    Advance(1); // consume first '-'
 
                     // block comment
-                    if (span.Length > offset + 1 && span[offset] is '[' && span[offset + 1] is '[' or '=')
+                    if (
+                        span.Length > offset + 1
+                        && span[offset] == '['
+                        && (span[offset + 1] == '[' || span[offset + 1] == '=')
+                    )
                     {
-                        Advance(1);
+                        Advance(1); // consume second '-'
                         var (_, _, isTerminated) = ReadUntilLongBracketEnd(ref span);
                         if (!isTerminated)
                         {
@@ -131,13 +143,25 @@ public ref struct Lexer
                         ReadUntilEOL(ref span, ref offset, out _);
                     }
 
-                    return MoveNext();
+                    // prepare for next iteration
+                    if (offset < span.Length)
+                    {
+                        c2 = (offset + 1 < span.Length) ? span[offset + 1] : char.MinValue;
+                        if (span[offset] != '-')
+                            break; // next char is not a comment, exit loop
+                    }
+                    else
+                    {
+                        break;
+                    }
                 }
-                else
-                {
-                    current = SyntaxToken.Subtraction(position);
-                    return true;
-                }
+
+                // after skipping comments, if we reached end, return false
+                if (offset >= span.Length)
+                    return false;
+
+                current = SyntaxToken.Subtraction(position); // if single '-' remains
+                return true;
             case '*':
                 current = SyntaxToken.Multiplication(position);
                 return true;
@@ -269,7 +293,11 @@ public ref struct Lexer
 
                 if (readCount == 0)
                 {
-                    throw new LuaParseException(ChunkName, this.position, $"error: Illegal hexadecimal number");
+                    throw new LuaParseException(
+                        ChunkName,
+                        this.position,
+                        $"error: Illegal hexadecimal number"
+                    );
                 }
             }
             else
@@ -397,7 +425,11 @@ public ref struct Lexer
 
                 if (!isTerminated)
                 {
-                    throw new LuaParseException(ChunkName, this.position, "error: Unterminated string");
+                    throw new LuaParseException(
+                        ChunkName,
+                        this.position,
+                        "error: Unterminated string"
+                    );
                 }
 
                 current = SyntaxToken.RawString(Source[start..end], position);
@@ -444,7 +476,7 @@ public ref struct Lexer
                 Keywords.Until => SyntaxToken.Until(position),
                 Keywords.Break => SyntaxToken.Break(position),
                 Keywords.Function => SyntaxToken.Function(position),
-                _ => new(SyntaxTokenType.Identifier, identifier, position)
+                _ => new(SyntaxTokenType.Identifier, identifier, position),
             };
 
             return true;
@@ -549,7 +581,7 @@ public ref struct Lexer
                 break;
             }
 
-        CONTINUE:
+            CONTINUE:
             prevC = current;
             Advance(1);
         }
@@ -582,9 +614,9 @@ public ref struct Lexer
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     static bool IsIdentifier(char c)
     {
-        return c == '_' ||
-               ('A' <= c && c <= 'Z') ||
-               ('a' <= c && c <= 'z') ||
-               StringHelper.IsNumber(c);
+        return c == '_'
+            || ('A' <= c && c <= 'Z')
+            || ('a' <= c && c <= 'z')
+            || StringHelper.IsNumber(c);
     }
 }

@@ -2,7 +2,10 @@ namespace Lua;
 
 public static class LuaThreadExtensions
 {
-    internal static void ThrowIfCancellationRequested(this LuaState state, CancellationToken cancellationToken)
+    internal static void ThrowIfCancellationRequested(
+        this LuaState state,
+        CancellationToken cancellationToken
+    )
     {
         if (cancellationToken.IsCancellationRequested)
         {

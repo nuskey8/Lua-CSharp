@@ -24,7 +24,6 @@ public class HookedBenchmark
         GC.Collect();
     }
 
-
     [Benchmark(Description = "NLua (DoString)", Baseline = true)]
     public object[] Benchmark_NLua_String()
     {
