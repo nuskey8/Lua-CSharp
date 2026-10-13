@@ -420,8 +420,13 @@ sealed class MatchState(LuaState state, string source, string pattern)
 
                 do
                 {
-                    pIdx++;
-                    if (pIdx < pattern.Length && pattern[pIdx] == LEsc)
+                    if (pIdx >= pattern.Length)
+                    {
+                        throw new LuaRuntimeException(State, "malformed pattern (missing ']')");
+                    }
+
+                    // Check the consumed character so an escaped ']' cannot end the class.
+                    if (pattern[pIdx++] == LEsc && pIdx < pattern.Length)
                     {
                         pIdx++;
                     }
@@ -430,7 +435,7 @@ sealed class MatchState(LuaState state, string source, string pattern)
                     {
                         throw new LuaRuntimeException(State, "malformed pattern (missing ']')");
                     }
-                } while (pIdx < pattern.Length && pattern[pIdx] != ']');
+                } while (pattern[pIdx] != ']');
 
                 return pIdx + 1;
 
