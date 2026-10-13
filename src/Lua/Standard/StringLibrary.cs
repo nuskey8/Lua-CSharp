@@ -513,12 +513,8 @@ public sealed class StringLibrary
                         var anchor = pattern.Length > 0 && pattern[0] == '^';
                         var pIdx = anchor ? 1 : 0;
 
-                        // For empty patterns, we need to match at every position including after the last character
-                        var sEndIdx =
-                            s.Length
-                            + (pattern.Length == 0 || (anchor && pattern.Length == 1) ? 1 : 0);
-
-                        for (var sIdx = start; sIdx < sEndIdx; sIdx++)
+                        // Include the end position so patterns can match an empty string there.
+                        for (var sIdx = start; sIdx <= s.Length; sIdx++)
                         {
                             // Reset match state for each attempt
                             matchState.Level = 0;
@@ -604,9 +600,8 @@ public sealed class StringLibrary
         var anchor = pattern.Length > 0 && pattern[0] == '^';
         var sIdx = 0;
 
-        // For empty patterns, we need to match at every position including after the last character
-        var sEndIdx = s.Length + (pattern.Length == 0 || (anchor && pattern.Length == 1) ? 1 : 0);
-        while (sIdx < sEndIdx && replaceCount < n)
+        // Include the end position so patterns can match an empty string there.
+        while (sIdx <= s.Length && replaceCount < n)
         {
             // Reset match state for each attempt
             matchState.Level = 0;
@@ -898,10 +893,8 @@ public sealed class StringLibrary
         var anchor = pattern.Length > 0 && pattern[0] == '^';
         var pIdx = anchor ? 1 : 0;
 
-        // For empty patterns, we need to match at every position including after the last character
-        var sEndIdx = s.Length + (pattern.Length == 0 ? 1 : 0);
-
-        for (var sIdx = init; sIdx < sEndIdx; sIdx++)
+        // Include the end position so patterns can match an empty string there.
+        for (var sIdx = init; sIdx <= s.Length; sIdx++)
         {
             // Reset match state for each attempt
             matchState.Level = 0;

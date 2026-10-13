@@ -374,7 +374,7 @@ public class PatternMatchingTests
             return count
         "
         );
-        Assert.That(result[0].Read<double>(), Is.EqualTo(3));
+        Assert.That(result[0].Read<double>(), Is.EqualTo(4)); // Includes the empty match after 'c'.
     }
 
     [Test]
