@@ -5,7 +5,8 @@ namespace Lua.Tests;
 public class PatternClassTests
 {
     const string SingleElementArray = """{"SomeArray":["Alice"], "Text":"some_text"}""";
-    const string MultipleElementArray = """{"SomeArray":["Alice","Bob","Denis"], "Text":"some_text"}""";
+    const string MultipleElementArray =
+        """{"SomeArray":["Alice","Bob","Denis"], "Text":"some_text"}""";
 
     [TestCase(SingleElementArray, "%[[^%]]*,", -1, -1)]
     [TestCase(MultipleElementArray, "%[[^%]]*,", 14, 28)]
