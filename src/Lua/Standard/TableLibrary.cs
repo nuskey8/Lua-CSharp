@@ -26,7 +26,40 @@ public sealed class TableLibrary
 
     public readonly LibraryFunction[] Functions;
 
-    public ValueTask<int> Concat(
+    [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder<>))]
+    static async ValueTask<int> GetLengthAsync(
+        LuaState state,
+        LuaTable table,
+        CancellationToken cancellationToken
+    )
+    {
+        LuaValue value = table;
+        if (!value.TryGetMetamethod(state.GlobalState, Metamethods.Len, out _))
+        {
+            return table.ArrayLength;
+        }
+
+        var result = await LuaVirtualMachine.ExecuteUnaryOperationMetaMethod(
+            state,
+            value,
+            OpCode.Len,
+            cancellationToken
+        );
+        if (!result.TryReadDouble(out var length))
+        {
+            throw new LuaRuntimeException(state, "object length is not a number");
+        }
+
+        if (double.IsNaN(length) || length < int.MinValue || length > int.MaxValue)
+        {
+            throw new LuaRuntimeException(state, "object length is out of range");
+        }
+
+        return (int)length;
+    }
+
+    [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder<>))]
+    public async ValueTask<int> Concat(
         LuaFunctionExecutionContext context,
         CancellationToken cancellationToken
     )
@@ -34,7 +67,9 @@ public sealed class TableLibrary
         var arg0 = context.GetArgument<LuaTable>(0);
         var arg1 = context.HasArgument(1) ? context.GetArgument<string>(1) : "";
         var arg2 = context.HasArgument(2) ? (long)context.GetArgument<double>(2) : 1;
-        var arg3 = context.HasArgument(3) ? (long)context.GetArgument<double>(3) : arg0.ArrayLength;
+        var arg3 = context.HasArgument(3)
+            ? (long)context.GetArgument<double>(3)
+            : await GetLengthAsync(context.State, arg0, cancellationToken);
 
         using PooledList<char> builder = new(512);
 
@@ -64,36 +99,50 @@ public sealed class TableLibrary
             }
         }
 
-        return new(context.Return(builder.AsSpan().ToString()));
+        return context.Return(builder.AsSpan().ToString());
     }
 
-    public ValueTask<int> Insert(
+    [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder<>))]
+    public async ValueTask<int> Insert(
         LuaFunctionExecutionContext context,
         CancellationToken cancellationToken
     )
     {
         var table = context.GetArgument<LuaTable>(0);
 
-        var value = context.HasArgument(2) ? context.GetArgument(2) : context.GetArgument(1);
-
-        var pos_arg = context.HasArgument(2)
-            ? context.GetArgument<double>(1)
-            : table.ArrayLength + 1;
-
-        LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.State, 2, pos_arg);
-
-        try
+        var length = await GetLengthAsync(context.State, table, cancellationToken);
+        if (length == int.MaxValue)
         {
-            table.Insert((int)pos_arg, value);
+            throw new LuaRuntimeException(context.State, "table length is out of range");
         }
-        catch (IndexOutOfRangeException)
+
+        if (context.ArgumentCount is not (2 or 3))
+        {
+            throw new LuaRuntimeException(context.State, "wrong number of arguments to 'insert'");
+        }
+        var value = context.ArgumentCount == 3 ? context.GetArgument(2) : context.GetArgument(1);
+        var position = context.ArgumentCount == 3 ? context.GetArgument<double>(1) : length + 1;
+        LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.State, 2, position);
+        if (context.ArgumentCount == 3 && (position < 1 || position > length + 1))
         {
             throw new LuaRuntimeException(
                 context.State,
                 "bad argument #2 to 'insert' (position out of bounds)"
             );
         }
-        return new(context.Return());
+
+        // Lua 5.2 uses the logical length but raw element reads and writes.
+        var index = (int)position;
+        if (table.TryInsertWithinArray(index, length, value))
+        {
+            return context.Return();
+        }
+        for (var i = length; i >= index; i--)
+        {
+            table[i + 1] = table[i];
+        }
+        table[index] = value;
+        return context.Return();
     }
 
     public ValueTask<int> Pack(
@@ -114,24 +163,17 @@ public sealed class TableLibrary
         return new(context.Return(table));
     }
 
-    public ValueTask<int> Remove(
+    [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder<>))]
+    public async ValueTask<int> Remove(
         LuaFunctionExecutionContext context,
         CancellationToken cancellationToken
     )
     {
         var table = context.GetArgument<LuaTable>(0);
-        var n_arg = context.HasArgument(1) ? context.GetArgument<double>(1) : table.ArrayLength;
-
-        LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.State, 2, n_arg);
-
-        var n = (int)n_arg;
-
-        if ((!context.HasArgument(1) && n == 0) || n == table.GetArraySpan().Length + 1)
-        {
-            return new(context.Return(LuaValue.Nil));
-        }
-
-        if (n <= 0 || n > table.GetArraySpan().Length)
+        var length = await GetLengthAsync(context.State, table, cancellationToken);
+        var position = context.HasArgument(1) ? context.GetArgument<double>(1) : length;
+        LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.State, 2, position);
+        if (position != length && (position < 1 || position > (long)length + 1))
         {
             throw new LuaRuntimeException(
                 context.State,
@@ -139,10 +181,26 @@ public sealed class TableLibrary
             );
         }
 
-        return new(context.Return(table.RemoveAt(n)));
+        var index = (long)position;
+        if (
+            index >= 1
+            && index <= length
+            && table.TryRemoveWithinArray((int)index, length, out var removed)
+        )
+        {
+            return context.Return(removed);
+        }
+        var value = table[index];
+        for (; index < length; index++)
+        {
+            table[index] = table[index + 1];
+        }
+        table[index] = LuaValue.Nil;
+        return context.Return(value);
     }
 
-    public ValueTask<int> Sort(
+    [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder<>))]
+    public async ValueTask<int> Sort(
         LuaFunctionExecutionContext context,
         CancellationToken cancellationToken
     )
@@ -150,43 +208,19 @@ public sealed class TableLibrary
         var table = context.GetArgument<LuaTable>(0);
         var comparer = context.HasArgument(1) ? context.GetArgument<LuaFunction>(1) : null;
 
-        var length = table.ArrayLength;
-        if (length <= 1)
+        var length = await GetLengthAsync(context.State, table, cancellationToken);
+        // A __len result can extend beyond the backing array; use raw table keys.
+        if (length > 1)
         {
-            return new(context.Return());
+            await AuxSortAsync(context.State, table, 0, length - 1, comparer, cancellationToken);
         }
-
-        var sortTask = AuxSortAsync(
-            context.State,
-            table.GetArrayMemory()[..length],
-            0,
-            length - 1,
-            comparer,
-            cancellationToken
-        );
-        if (sortTask.IsCompletedSuccessfully)
-        {
-            sortTask.GetAwaiter().GetResult();
-            return new(context.Return());
-        }
-
-        return AwaitSortAsync(context, sortTask);
-    }
-
-    [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder<>))]
-    static async ValueTask<int> AwaitSortAsync(
-        LuaFunctionExecutionContext context,
-        ValueTask sortTask
-    )
-    {
-        await sortTask;
         return context.Return();
     }
 
     [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder))]
     async ValueTask AuxSortAsync(
         LuaState state,
-        Memory<LuaValue> memory,
+        LuaTable table,
         int lo,
         int up,
         LuaFunction? comparer,
@@ -199,13 +233,13 @@ public sealed class TableLibrary
                 await CompareAsync(
                     state,
                     comparer,
-                    memory.Span[up],
-                    memory.Span[lo],
+                    table.GetIntegerValue(up + 1),
+                    table.GetIntegerValue(lo + 1),
                     cancellationToken
                 )
             )
             {
-                Swap(memory.Span, lo, up);
+                Swap(table, lo, up);
             }
 
             if (up - lo == 1)
@@ -218,25 +252,25 @@ public sealed class TableLibrary
                 await CompareAsync(
                     state,
                     comparer,
-                    memory.Span[pivotIndex],
-                    memory.Span[lo],
+                    table.GetIntegerValue(pivotIndex + 1),
+                    table.GetIntegerValue(lo + 1),
                     cancellationToken
                 )
             )
             {
-                Swap(memory.Span, pivotIndex, lo);
+                Swap(table, pivotIndex, lo);
             }
             else if (
                 await CompareAsync(
                     state,
                     comparer,
-                    memory.Span[up],
-                    memory.Span[pivotIndex],
+                    table.GetIntegerValue(up + 1),
+                    table.GetIntegerValue(pivotIndex + 1),
                     cancellationToken
                 )
             )
             {
-                Swap(memory.Span, pivotIndex, up);
+                Swap(table, pivotIndex, up);
             }
 
             if (up - lo == 2)
@@ -244,14 +278,14 @@ public sealed class TableLibrary
                 return;
             }
 
-            Swap(memory.Span, pivotIndex, up - 1);
-            pivotIndex = await PartitionAsync(state, memory, lo, up, comparer, cancellationToken);
+            Swap(table, pivotIndex, up - 1);
+            pivotIndex = await PartitionAsync(state, table, lo, up, comparer, cancellationToken);
 
             if (pivotIndex - lo < up - pivotIndex)
             {
                 var sortTask = AuxSortAsync(
                     state,
-                    memory,
+                    table,
                     lo,
                     pivotIndex - 1,
                     comparer,
@@ -268,7 +302,7 @@ public sealed class TableLibrary
             {
                 var sortTask = AuxSortAsync(
                     state,
-                    memory,
+                    table,
                     pivotIndex + 1,
                     up,
                     comparer,
@@ -287,20 +321,28 @@ public sealed class TableLibrary
     [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder<>))]
     async ValueTask<int> PartitionAsync(
         LuaState state,
-        Memory<LuaValue> memory,
+        LuaTable table,
         int lo,
         int up,
         LuaFunction? comparer,
         CancellationToken cancellationToken
     )
     {
-        var pivot = memory.Span[up - 1];
+        var pivot = table.GetIntegerValue(up);
         var i = lo;
         var j = up - 1;
 
         while (true)
         {
-            while (await CompareAsync(state, comparer, memory.Span[++i], pivot, cancellationToken))
+            while (
+                await CompareAsync(
+                    state,
+                    comparer,
+                    table.GetIntegerValue((++i) + 1),
+                    pivot,
+                    cancellationToken
+                )
+            )
             {
                 if (i == up - 1)
                 {
@@ -308,7 +350,15 @@ public sealed class TableLibrary
                 }
             }
 
-            while (await CompareAsync(state, comparer, pivot, memory.Span[--j], cancellationToken))
+            while (
+                await CompareAsync(
+                    state,
+                    comparer,
+                    pivot,
+                    table.GetIntegerValue((--j) + 1),
+                    cancellationToken
+                )
+            )
             {
                 if (j < i)
                 {
@@ -318,11 +368,11 @@ public sealed class TableLibrary
 
             if (j < i)
             {
-                Swap(memory.Span, up - 1, i);
+                Swap(table, up - 1, i);
                 return i;
             }
 
-            Swap(memory.Span, i, j);
+            Swap(table, i, j);
         }
     }
 
@@ -371,19 +421,22 @@ public sealed class TableLibrary
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void Swap(Span<LuaValue> span, int i, int j)
+    void Swap(LuaTable table, int i, int j)
     {
-        (span[i], span[j]) = (span[j], span[i]);
+        table.SwapIntegerValues(i + 1, j + 1);
     }
 
-    public ValueTask<int> Unpack(
+    [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder<>))]
+    public async ValueTask<int> Unpack(
         LuaFunctionExecutionContext context,
         CancellationToken cancellationToken
     )
     {
         var arg0 = context.GetArgument<LuaTable>(0);
         var arg1 = context.HasArgument(1) ? (long)context.GetArgument<double>(1) : 1;
-        var arg2 = context.HasArgument(2) ? (long)context.GetArgument<double>(2) : arg0.ArrayLength;
+        var arg2 = context.HasArgument(2)
+            ? (long)context.GetArgument<double>(2)
+            : await GetLengthAsync(context.State, arg0, cancellationToken);
 
         var index = 0;
         arg1 = Math.Min(arg1, arg2 + 1);
@@ -395,6 +448,6 @@ public sealed class TableLibrary
             index++;
         }
 
-        return new(index);
+        return index;
     }
 }

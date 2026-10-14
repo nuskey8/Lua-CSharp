@@ -243,6 +243,78 @@ public sealed class LuaTable : IEnumerable<KeyValuePair<LuaValue, LuaValue>>
         }
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal LuaValue GetIntegerValue(int index)
+    {
+        return index > 0 && index <= array.Length ? array[index - 1] : this[index];
+    }
+
+    internal void SwapIntegerValues(int i, int j)
+    {
+        if (i > 0 && j > 0 && i <= array.Length && j <= array.Length)
+        {
+            (array[i - 1], array[j - 1]) = (array[j - 1], array[i - 1]);
+            if (array[i - 1].Type is LuaValueType.Nil)
+            {
+                knownArrayPrefixLength = Math.Min(knownArrayPrefixLength, i - 1);
+            }
+            if (array[j - 1].Type is LuaValueType.Nil)
+            {
+                knownArrayPrefixLength = Math.Min(knownArrayPrefixLength, j - 1);
+            }
+        }
+        else
+        {
+            (this[i], this[j]) = (this[j], this[i]);
+        }
+    }
+
+    // Table-library moves stop at the Lua length, which may differ from both
+    // ArrayLength and capacity. Keep host Insert/RemoveAt behavior separate.
+    internal bool TryInsertWithinArray(int index, int length, LuaValue value)
+    {
+        if (index < 1 || length < 0 || length > array.Length || length >= MaxArraySize)
+        {
+            return false;
+        }
+
+        if (length + 1 >= array.Length)
+        {
+            EnsureArrayCapacity(length + 1);
+        }
+        var arrayIndex = index - 1;
+        array.AsSpan(arrayIndex, length - arrayIndex).CopyTo(array.AsSpan(arrayIndex + 1));
+        array[arrayIndex] = value;
+        if (knownArrayPrefixLength >= arrayIndex)
+        {
+            knownArrayPrefixLength =
+                value.Type is LuaValueType.Nil
+                    ? arrayIndex
+                    : Math.Min(knownArrayPrefixLength, length) + 1;
+        }
+        return true;
+    }
+
+    internal bool TryRemoveWithinArray(int index, int length, out LuaValue value)
+    {
+        if (length > array.Length)
+        {
+            value = default;
+            return false;
+        }
+
+        var arrayIndex = index - 1;
+        value = array[arrayIndex];
+        array.AsSpan(index, length - index).CopyTo(array.AsSpan(arrayIndex));
+        array[length - 1] = default;
+        knownArrayPrefixLength = Math.Min(knownArrayPrefixLength, length);
+        if (arrayIndex < knownArrayPrefixLength)
+        {
+            knownArrayPrefixLength--;
+        }
+        return true;
+    }
+
     public bool TryGetNext(LuaValue key, out KeyValuePair<LuaValue, LuaValue> pair)
     {
         var index = -1;
