@@ -4,6 +4,138 @@ namespace Lua.Tests;
 
 public class TableLibraryMetatableTests
 {
+    [Test]
+    public async Task Test_InsertAtArrayBoundaryPromotesConsecutiveHashKeys()
+    {
+        var state = LuaState.Create();
+        state.OpenStandardLibraries();
+        state.Environment["t"] = new LuaTable(0, 0);
+        await state.DoStringAsync(
+            """
+            t[9] = 99
+            for i=1,7 do t[i]=i end
+            assert(#t == 7)
+            table.insert(t,1,42)
+            assert(#t == 9 and t[1] == 42 and t[8] == 7 and t[9] == 99)
+            """
+        );
+    }
+
+    [Test]
+    public async Task Test_MovesRespectRetainedWritableArray()
+    {
+        var state = LuaState.Create();
+        state.OpenStandardLibraries();
+        var table = new LuaTable(16, 0);
+        table[1] = 1;
+        table[2] = 2;
+        table[3] = 3;
+        Assert.That(table.ArrayLength, Is.EqualTo(3));
+        var memory = table.GetArrayMemory();
+        state.Environment["t"] = table;
+        await state.DoStringAsync("table.insert(t,1,42); assert(table.remove(t,2) == 1)");
+        memory.Span[1] = LuaValue.Nil;
+        Assert.That(table.ArrayLength, Is.EqualTo(1));
+        await state.DoStringAsync(
+            "table.insert(t,5); assert(#t == 3 and t[1] == 42 and t[2] == 5 and t[3] == 3)"
+        );
+    }
+
+    [Test]
+    public async Task Test_InsertNilValueAndArgumentCount()
+    {
+        var state = LuaState.Create();
+        state.OpenStandardLibraries();
+        await state.DoStringAsync(
+            """
+            local t = {10,20}
+            table.insert(t, 1, nil)
+            assert(rawget(t,1) == nil and t[2] == 10 and t[3] == 20)
+            assert(not pcall(table.insert, t))
+            assert(not pcall(table.insert, t, 1, 42, 99))
+            """
+        );
+    }
+
+    [TestCase(-2)]
+    [TestCase(-1)]
+    public async Task Test_AppendWithNegativeLength(int length)
+    {
+        var state = LuaState.Create();
+        state.OpenStandardLibraries();
+        await state.DoStringAsync(
+            "local t = setmetatable({}, {__len=function() return "
+                + length
+                + " end}); table.insert(t,42); assert(rawget(t,"
+                + (length + 1)
+                + ") == 42)"
+        );
+    }
+
+    [TestCase(0)]
+    [TestCase(2)]
+    [TestCase(8)]
+    [TestCase(16)]
+    public async Task Test_MovesPreserveValuesBeyondLogicalEnd(int length)
+    {
+        var state = LuaState.Create();
+        state.OpenStandardLibraries();
+        await state.DoStringAsync(
+            "local n = "
+                + length
+                + "; "
+                + """
+                local t = setmetatable({}, {__len=function() return n end})
+                for i=1,n do t[i]=i end
+                t[n+2]=99
+                table.insert(t,1,42)
+                assert(t[1] == 42 and rawget(t,n+2) == 99)
+                for i=2,n+1 do assert(t[i] == i-1) end
+                local v = table.remove(t,1)
+                assert(v == 42 and rawget(t,n+2) == 99)
+                for i=1,n-1 do assert(t[i] == i) end
+                assert(rawget(t,n) == nil and rawget(t,n+1) == (n > 0 and n or nil))
+                """
+        );
+    }
+
+    [Test]
+    public async Task Test_MovesAcrossHolesKeepLengthCacheValid()
+    {
+        var state = LuaState.Create();
+        state.OpenStandardLibraries();
+        await state.DoStringAsync(
+            """
+            local t = {1,2,3,4}
+            assert(#t == 4)
+            setmetatable(t, {__len=function() return 4 end})
+            t[3] = nil
+            table.insert(t,2,5)
+            setmetatable(t,nil)
+            assert(#t == 3 and t[4] == nil and t[5] == 4)
+            setmetatable(t, {__len=function() return 5 end})
+            assert(table.remove(t,2) == 5)
+            setmetatable(t,nil)
+            assert(#t == 2 and t[3] == nil and t[4] == 4 and t[5] == nil)
+            """
+        );
+    }
+
+    [Test]
+    public async Task Test_SortUsesCurrentArrayAfterComparatorResizesTable()
+    {
+        var state = LuaState.Create();
+        state.OpenStandardLibraries();
+        await state.DoStringAsync(
+            """
+            local t = {3,2,1}
+            assert(#t == 3)
+            table.sort(t, function(a,b) t[64] = 99; return a < b end)
+            assert(t[1] == 1 and t[2] == 2 and t[3] == 3 and t[64] == 99 and #t == 3)
+            """
+        );
+    }
+
     [TestCase("local a,b,c = table.unpack(t); assert(a == 30 and b == 10 and c == nil)")]
     [TestCase("assert(table.concat(t, ',') == '30,10')")]
     [TestCase(

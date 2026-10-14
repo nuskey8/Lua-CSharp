@@ -116,10 +116,14 @@ public sealed class TableLibrary
             throw new LuaRuntimeException(context.State, "table length is out of range");
         }
 
-        var value = context.HasArgument(2) ? context.GetArgument(2) : context.GetArgument(1);
-        var position = context.HasArgument(2) ? context.GetArgument<double>(1) : length + 1;
+        if (context.ArgumentCount is not (2 or 3))
+        {
+            throw new LuaRuntimeException(context.State, "wrong number of arguments to 'insert'");
+        }
+        var value = context.ArgumentCount == 3 ? context.GetArgument(2) : context.GetArgument(1);
+        var position = context.ArgumentCount == 3 ? context.GetArgument<double>(1) : length + 1;
         LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.State, 2, position);
-        if (position < 1 || position > length + 1)
+        if (context.ArgumentCount == 3 && (position < 1 || position > length + 1))
         {
             throw new LuaRuntimeException(
                 context.State,
@@ -129,6 +133,10 @@ public sealed class TableLibrary
 
         // Lua 5.2 uses the logical length but raw element reads and writes.
         var index = (int)position;
+        if (table.TryInsertWithinArray(index, length, value))
+        {
+            return context.Return();
+        }
         for (var i = length; i >= index; i--)
         {
             table[i + 1] = table[i];
@@ -174,6 +182,14 @@ public sealed class TableLibrary
         }
 
         var index = (long)position;
+        if (
+            index >= 1
+            && index <= length
+            && table.TryRemoveWithinArray((int)index, length, out var removed)
+        )
+        {
+            return context.Return(removed);
+        }
         var value = table[index];
         for (; index < length; index++)
         {
@@ -214,7 +230,13 @@ public sealed class TableLibrary
         while (lo < up)
         {
             if (
-                await CompareAsync(state, comparer, table[up + 1], table[lo + 1], cancellationToken)
+                await CompareAsync(
+                    state,
+                    comparer,
+                    table.GetIntegerValue(up + 1),
+                    table.GetIntegerValue(lo + 1),
+                    cancellationToken
+                )
             )
             {
                 Swap(table, lo, up);
@@ -230,8 +252,8 @@ public sealed class TableLibrary
                 await CompareAsync(
                     state,
                     comparer,
-                    table[pivotIndex + 1],
-                    table[lo + 1],
+                    table.GetIntegerValue(pivotIndex + 1),
+                    table.GetIntegerValue(lo + 1),
                     cancellationToken
                 )
             )
@@ -242,8 +264,8 @@ public sealed class TableLibrary
                 await CompareAsync(
                     state,
                     comparer,
-                    table[up + 1],
-                    table[pivotIndex + 1],
+                    table.GetIntegerValue(up + 1),
+                    table.GetIntegerValue(pivotIndex + 1),
                     cancellationToken
                 )
             )
@@ -306,13 +328,21 @@ public sealed class TableLibrary
         CancellationToken cancellationToken
     )
     {
-        var pivot = table[up];
+        var pivot = table.GetIntegerValue(up);
         var i = lo;
         var j = up - 1;
 
         while (true)
         {
-            while (await CompareAsync(state, comparer, table[(++i) + 1], pivot, cancellationToken))
+            while (
+                await CompareAsync(
+                    state,
+                    comparer,
+                    table.GetIntegerValue((++i) + 1),
+                    pivot,
+                    cancellationToken
+                )
+            )
             {
                 if (i == up - 1)
                 {
@@ -320,7 +350,15 @@ public sealed class TableLibrary
                 }
             }
 
-            while (await CompareAsync(state, comparer, pivot, table[(--j) + 1], cancellationToken))
+            while (
+                await CompareAsync(
+                    state,
+                    comparer,
+                    pivot,
+                    table.GetIntegerValue((--j) + 1),
+                    cancellationToken
+                )
+            )
             {
                 if (j < i)
                 {
@@ -385,7 +423,7 @@ public sealed class TableLibrary
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     void Swap(LuaTable table, int i, int j)
     {
-        (table[i + 1], table[j + 1]) = (table[j + 1], table[i + 1]);
+        table.SwapIntegerValues(i + 1, j + 1);
     }
 
     [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder<>))]
