@@ -675,17 +675,27 @@ public sealed class StringLibrary
                 else if (repl.TryRead<LuaTable>(out var table))
                 {
                     // Table lookup - use first capture or whole match
-                    string key;
-                    if (matchState.Level > 0 && !captures[0].IsPosition)
+                    LuaValue key;
+                    if (matchState.Level > 0)
                     {
-                        key = s.AsSpan(captures[0].Init, captures[0].Len).ToString();
+                        key = captures[0].IsPosition
+                            ? captures[0].Init + 1
+                            : s.AsSpan(captures[0].Init, captures[0].Len).ToString();
                     }
                     else
                     {
                         key = s.AsSpan(sIdx, res - sIdx).ToString();
                     }
 
-                    result = table[key];
+                    if (!table.TryGetValue(key, out result) && table.Metatable != null)
+                    {
+                        result = await LuaVirtualMachine.ExecuteGetTableSlowPath(
+                            context.State,
+                            table,
+                            key,
+                            cancellationToken
+                        );
+                    }
                 }
                 else if (repl.TryRead<LuaFunction>(out var func))
                 {
