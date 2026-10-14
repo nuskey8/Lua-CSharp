@@ -4,6 +4,35 @@ namespace Lua.Tests;
 
 public class GSubMetatableTests
 {
+    [TestCase("{[1]='A', [2]='B'}")]
+    [TestCase(
+        "setmetatable({}, {__index = function(_, key) assert(type(key) == 'number'); return key == 1 and 'A' or 'B' end})"
+    )]
+    public async Task Test_PositionCaptureUsesNumericKey(string replacement)
+    {
+        var state = LuaState.Create();
+        state.OpenStandardLibraries();
+        await state.DoStringAsync(
+            "local r,n = string.gsub('ab', '().', "
+                + replacement
+                + "); assert(r == 'AB' and n == 2)"
+        );
+    }
+
+    [Test]
+    public async Task Test_RawFalseDoesNotInvokeIndex()
+    {
+        var state = LuaState.Create();
+        state.OpenStandardLibraries();
+        await state.DoStringAsync(
+            """
+            local repl = setmetatable({a=false}, {__index=function() error('unexpected index') end})
+            local r,n = string.gsub('a', '.', repl)
+            assert(r == 'a' and n == 1)
+            """
+        );
+    }
+
     [TestCase(
         "local r,n = string.gsub('ab', '.', repl); assert(r == 'AB' and n == 2 and calls == 2)"
     )]
