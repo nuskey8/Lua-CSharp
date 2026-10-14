@@ -685,7 +685,7 @@ public sealed class StringLibrary
                         key = s.AsSpan(sIdx, res - sIdx).ToString();
                     }
 
-                    result = table[key];
+                    result = await context.State.GetTableAsync(table, key, cancellationToken);
                 }
                 else if (repl.TryRead<LuaFunction>(out var func))
                 {
