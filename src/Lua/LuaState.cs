@@ -592,6 +592,8 @@ public class LuaState : IDisposable
         }
     }
 
+    /// <exception cref="LuaCompileException"></exception>
+    /// <exception cref="LuaParseException">If the parsing is unsuccessful</exception>
     public unsafe LuaClosure Load(
         ReadOnlySpan<char> chunk,
         string chunkName,
@@ -607,6 +609,8 @@ public class LuaState : IDisposable
         return new(this, prototype, environment);
     }
 
+    /// <exception cref="LuaCompileException">The script contains invalid semantics</exception>
+    /// <exception cref="LuaParseException">If the parsing is unsuccessful</exception>
     public LuaClosure Load(
         ReadOnlySpan<byte> chunk,
         string? chunkName = null,

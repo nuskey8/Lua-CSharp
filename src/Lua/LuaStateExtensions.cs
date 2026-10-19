@@ -11,6 +11,11 @@ namespace Lua;
 
 public static class LuaStateExtensions
 {
+    // It *could* throw multiple exceptions due to `state.GlobalState.Platform.FileSystem.Open`.
+    // However, these exceptions vary based on the implementing interface, so probably best to
+    // omit them here.
+    /// <exception cref="LuaCompileException"></exception>
+    /// <exception cref="LuaParseException">If the parsing is unsuccessful</exception>
     public static async ValueTask<LuaClosure> LoadFileAsync(
         this LuaState state,
         string fileName,
@@ -107,6 +112,8 @@ public static class LuaStateExtensions
         return ExecuteAsync(state, closure, cancellationToken);
     }
 
+    /// <exception cref="LuaCompileException">The script contains invalid semantics</exception>
+    /// <exception cref="LuaParseException">If the parsing is unsuccessful</exception>
     [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder<>))]
     public static async ValueTask<int> DoFileAsync(
         this LuaState state,
@@ -122,6 +129,7 @@ public static class LuaStateExtensions
         return results.Count;
     }
 
+    /// <exception cref=""></exception>
     [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder<>))]
     public static async ValueTask<LuaValue[]> DoFileAsync(
         this LuaState state,

@@ -406,6 +406,7 @@ public readonly struct LuaValue : IEquatable<LuaValue>
         }
     }
 
+    /// <exception cref="InvalidOperationException">If the conversion is not possible.</exception>
     public T Read<T>()
     {
         if (!TryRead<T>(out var result))

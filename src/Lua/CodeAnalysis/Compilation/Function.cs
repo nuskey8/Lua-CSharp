@@ -143,6 +143,7 @@ class Function : IPoolNode<Function>
         Assert(FreeRegisterCount == ActiveVariableCount);
     }
 
+    /// <exception cref="LuaCompileException"></exception>
     public void UndefinedGotoError(Label g)
     {
         if (Scanner.IsReserved(g.Name))
@@ -302,6 +303,7 @@ class Function : IPoolNode<Function>
         }
     }
 
+    /// <exception cref="LuaCompileException"></exception>
     public void LeaveBlock()
     {
         var b = Block;
@@ -350,6 +352,7 @@ class Function : IPoolNode<Function>
         };
     }
 
+    /// <exception cref="LuaCompileException"></exception>
     public void SemanticError(string message)
     {
         P.Scanner.Token = default;

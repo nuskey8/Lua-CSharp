@@ -106,16 +106,19 @@ struct Scanner
 
     public static ReadOnlySpan<string> Tokens => tokens;
 
+    /// <exception cref="LuaCompileException">Always</exception>
     public void SyntaxError(int position, string message)
     {
         ScanError(position, message, Token.T);
     }
 
+    /// <exception cref="LuaCompileException">Always</exception>
     public void SyntaxError(string message)
     {
         ScanError(R.Position, message, Token.T);
     }
 
+    /// <exception cref="LuaCompileException">Always</exception>
     public void ErrorExpected(int position, int t)
     {
         SyntaxError(position, TokenToString(t) + " expected");
@@ -213,6 +216,7 @@ struct Scanner
         };
     }
 
+    /// <exception cref="LuaCompileException">Always</exception>
     public void ScanError(int pos, string message, int token)
     {
         var shortSourceBuffer = (stackalloc char[59]);
@@ -735,6 +739,7 @@ struct Scanner
         return new(pos, TkName, str, rawLength);
     }
 
+    /// <exception cref="LuaCompileException"></exception>
     public Token Scan()
     {
         const bool comment = true,
@@ -899,6 +904,7 @@ struct Scanner
         }
     }
 
+    /// <exception cref="LuaCompileException"></exception>
     public void Next()
     {
         LastLine = LineNumber;

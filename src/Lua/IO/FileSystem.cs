@@ -37,6 +37,11 @@ public sealed class FileSystem(string? baseDirectory = null) : ILuaFileSystem
         return File.Exists(GetFullPath(path));
     }
 
+/// <exception cref="System.IO.PathTooLongException">The specified path, file name, or both exceed the system-defined maximum length.</exception>
+/// <exception cref="System.IO.DirectoryNotFoundException">The specified path is invalid, (for example, it is on an unmapped drive).</exception>
+/// <exception cref="System.IO.IOException">An I/O error occurred while opening the file.</exception>
+/// <exception cref="System.UnauthorizedAccessException">``path`` specified a file that is read-only and ``access`` is not ``Read``. -or- ``path`` specified a directory. -or- The caller does not have the required permission. -or- ``mode`` is ``System.IO.FileMode.Create`` and the specified file is a hidden file.</exception>
+/// <exception cref="System.NotSupportedException">``path`` is in an invalid format.</exception>
     public ValueTask<ILuaStream> Open(
         string path,
         LuaFileOpenMode openMode,

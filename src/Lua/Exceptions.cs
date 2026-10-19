@@ -12,6 +12,7 @@ public class LuaParseException(string? chunkName, SourcePosition position, strin
     public string? ChunkName { get; } = chunkName;
     public SourcePosition Position { get; } = position;
 
+    /// <exception cref="LuaParseException"></exception>
     public static void UnexpectedToken(
         string? chunkName,
         SourcePosition position,
@@ -25,6 +26,7 @@ public class LuaParseException(string? chunkName, SourcePosition position, strin
         );
     }
 
+    /// <exception cref="LuaParseException"></exception>
     public static void ExpectedToken(
         string? chunkName,
         SourcePosition position,
@@ -34,6 +36,7 @@ public class LuaParseException(string? chunkName, SourcePosition position, strin
         throw new LuaParseException(chunkName, position, $"{GetTokenTypeText(token)} expected");
     }
 
+    /// <exception cref="LuaParseException"></exception>
     internal static void ExpectedToken(
         string? chunkName,
         SourcePosition position,
@@ -63,6 +66,7 @@ public class LuaParseException(string? chunkName, SourcePosition position, strin
         };
     }
 
+    /// <exception cref="LuaParseException"></exception>
     internal static void ExpectedClosingToken(
         string? chunkName,
         SourcePosition position,
@@ -98,6 +102,7 @@ public class LuaParseException(string? chunkName, SourcePosition position, strin
         };
     }
 
+    /// <exception cref="LuaParseException"></exception>
     public static void UnfinishedLongComment(string? chunkName, SourcePosition position)
     {
         throw new LuaParseException(
@@ -107,6 +112,7 @@ public class LuaParseException(string? chunkName, SourcePosition position, strin
         );
     }
 
+    /// <exception cref="LuaParseException"></exception>
     public static void SyntaxError(string? chunkName, SourcePosition position, SyntaxToken? token)
     {
         throw new LuaParseException(
@@ -116,11 +122,13 @@ public class LuaParseException(string? chunkName, SourcePosition position, strin
         );
     }
 
+    /// <exception cref="LuaParseException"></exception>
     public static void NoVisibleLabel(string label, string? chunkName, SourcePosition position)
     {
         throw new LuaParseException(chunkName, position, $"no visible label '{label}' for <goto>");
     }
 
+    /// <exception cref="LuaParseException"></exception>
     public static void BreakNotInsideALoop(string? chunkName, SourcePosition position)
     {
         throw new LuaParseException(chunkName, position, "<break> not inside a loop");

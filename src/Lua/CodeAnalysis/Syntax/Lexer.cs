@@ -18,6 +18,7 @@ public ref struct Lexer
 
     internal readonly SourcePosition Position => position;
 
+    /// <exception cref="LuaParseException"></exception>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     void Advance(int count)
     {
@@ -60,6 +61,7 @@ public ref struct Lexer
         return true;
     }
 
+    /// <exception cref="LuaParseException"></exception>
     public bool MoveNext()
     {
         if (Source.Length <= offset)

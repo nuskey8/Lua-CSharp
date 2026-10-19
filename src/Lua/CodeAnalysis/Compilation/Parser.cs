@@ -22,6 +22,7 @@ class Parser : IPoolNode<Parser>, IDisposable
         return Scanner.TestNext(token);
     }
 
+    /// <exception cref="LuaCompileException"></exception>
     internal void Next()
     {
         Scanner.Next();
@@ -118,6 +119,7 @@ class Parser : IPoolNode<Parser>, IDisposable
         Scanner.L.CallCount--;
     }
 
+    /// <exception cref="LuaCompileException"></exception>
     public TempBlock EnterLevel()
     {
         if (!RuntimeHelpers.TryEnsureSufficientExecutionStack())
@@ -250,6 +252,7 @@ class Parser : IPoolNode<Parser>, IDisposable
         return e;
     }
 
+    /// <exception cref="LuaCompileException"></exception>
     public ExprDesc PrimaryExpression()
     {
         switch (T)
@@ -450,6 +453,7 @@ class Parser : IPoolNode<Parser>, IDisposable
         return false;
     }
 
+    /// <exception cref="LuaCompileException"></exception>
     public void StatementList()
     {
         while (!BlockFollow(true))
@@ -658,6 +662,7 @@ class Parser : IPoolNode<Parser>, IDisposable
         Function.PatchToHere(escapes);
     }
 
+    /// <exception cref="LuaCompileException"></exception>
     public void Block()
     {
         Function.EnterBlock(false);
@@ -883,6 +888,7 @@ class Parser : IPoolNode<Parser>, IDisposable
         TestNext(';');
     }
 
+    /// <exception cref="LuaCompileException"></exception>
     public void Statement()
     {
         var line = Scanner.LineNumber;
@@ -948,6 +954,7 @@ class Parser : IPoolNode<Parser>, IDisposable
         Function.FreeRegisterCount = Function.ActiveVariableCount;
     }
 
+    /// <exception cref="LuaCompileException"></exception>
     internal void MainFunction()
     {
         Function.OpenMainFunction();
@@ -957,6 +964,7 @@ class Parser : IPoolNode<Parser>, IDisposable
         Function = Function.CloseMainFunction();
     }
 
+    /// <exception cref="LuaCompileException"></exception>
     public static Prototype Parse(LuaState l, TextReader r, string name)
     {
         using var internPool = new StringInternPool(4);

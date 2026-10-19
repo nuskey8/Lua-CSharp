@@ -60,6 +60,7 @@ public ref struct Parser
         return tree;
     }
 
+    /// <exception cref="LuaParseException"></exception>
     StatementNode ParseStatement(ref SyntaxTokenEnumerator enumerator)
     {
         switch (enumerator.Current.Type)
@@ -655,6 +656,7 @@ public ref struct Parser
         );
     }
 
+    /// <exception cref="LuaParseException"></exception>
     TableMethodDeclarationStatementNode ParseTableMethodDeclarationStatement(
         ref SyntaxTokenEnumerator enumerator,
         SyntaxToken functionToken
@@ -826,6 +828,7 @@ public ref struct Parser
         return true;
     }
 
+    /// <exception cref="LuaParseException"></exception>
     ExpressionNode ParseExpression(
         ref SyntaxTokenEnumerator enumerator,
         OperatorPrecedence precedence
@@ -862,6 +865,7 @@ public ref struct Parser
         }
     }
 
+    /// <exception cref="LuaParseException"></exception>
     UnaryExpressionNode ParseUnaryExpression(
         ref SyntaxTokenEnumerator enumerator,
         SyntaxToken operatorToken
@@ -885,6 +889,7 @@ public ref struct Parser
         return new(operatorType, right, operatorToken.Position);
     }
 
+    /// <exception cref="LuaParseException"></exception>
     BinaryExpressionNode ParseBinaryExpression(
         ref SyntaxTokenEnumerator enumerator,
         OperatorPrecedence precedence,
@@ -1028,6 +1033,7 @@ public ref struct Parser
         return new(items.AsSpan().ToArray(), startToken.Position);
     }
 
+    /// <exception cref="LuaParseException"></exception>
     ExpressionNode ParseTableAccessExpression(
         ref SyntaxTokenEnumerator enumerator,
         ExpressionNode? parentTable
@@ -1334,6 +1340,7 @@ public ref struct Parser
         return EndPosition.Line > 0 ? EndPosition : enumerator.Current.Position;
     }
 
+    /// <exception cref="LuaParseException"></exception>
     void MissingClosingToken(
         ref SyntaxTokenEnumerator enumerator,
         SyntaxTokenType expectedToken,
@@ -1390,6 +1397,7 @@ public ref struct Parser
         MoveNextWithValidation(ref enumerator);
     }
 
+    /// <exception cref="LuaParseException"></exception>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     void CheckCurrent(ref SyntaxTokenEnumerator enumerator, SyntaxTokenType expectedToken)
     {
@@ -1405,6 +1413,7 @@ public ref struct Parser
         }
     }
 
+    /// <exception cref="LuaParseException"></exception>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     void MoveNextWithValidation(ref SyntaxTokenEnumerator enumerator)
     {
