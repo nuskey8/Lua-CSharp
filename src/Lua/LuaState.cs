@@ -629,7 +629,7 @@ public class LuaState : IDisposable
             {
                 if (!AllowsMode(mode, 'b'))
                 {
-                    throw new Exception("attempt to load a binary chunk (mode is 't')");
+                    throw new InvalidOperationException("attempt to load a binary chunk (mode is 't')");
                 }
 
                 return new(this, Parser.Undump(chunk, chunkName), environment);
@@ -638,7 +638,7 @@ public class LuaState : IDisposable
 
         if (!AllowsMode(mode, 't'))
         {
-            throw new Exception("attempt to load a text chunk (mode is 'b')");
+            throw new InvalidOperationException("attempt to load a text chunk (mode is 'b')");
         }
 
         chunk = BomUtility.GetEncodingFromBytes(chunk, out var encoding);
