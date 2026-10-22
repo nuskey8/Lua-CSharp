@@ -1,5 +1,6 @@
 using System.Text;
 using Lua.IO;
+using Lua.Standard;
 using NUnit.Framework;
 
 namespace Lua.Tests;
@@ -241,6 +242,31 @@ public class IOTests : IDisposable
         Assert.That(File.Exists(oldPath), Is.False);
         Assert.That(File.Exists(newPath), Is.True);
         Assert.That(File.ReadAllText(newPath), Is.EqualTo("test content"));
+    }
+
+    [Test]
+    public async Task OpenWritePlus_CreatesMissingFileAndTruncatesExisting()
+    {
+        var state = LuaState.Create();
+        state.Platform = state.Platform with { FileSystem = new FileSystem(testDirectory) };
+        state.OpenStandardLibraries();
+        var result = await state.DoStringAsync(
+            """
+            local f = assert(io.open("wplus.txt", "w+"))
+            f:write("abcdef")
+            f:seek("set", 2)
+            local middle = f:read(3)
+            f:close()
+
+            f = assert(io.open("wplus.txt", "w+"))
+            local truncated = f:read("*a")
+            f:close()
+            return middle, truncated
+            """
+        );
+
+        Assert.That(result[0].Read<string>(), Is.EqualTo("cde"));
+        Assert.That(result[1].Read<string>(), Is.EqualTo(""));
     }
 
     [Test]
