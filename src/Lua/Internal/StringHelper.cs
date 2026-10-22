@@ -379,6 +379,66 @@ static class StringHelper
         return new(builder.ToString());
     }
 
+    /// <summary>
+    /// toupper in the C locale: only 'a'-'z' change, every other char (including bytes 0x80-0xFF) is kept.
+    /// </summary>
+    public static string ToUpperAscii(string s)
+    {
+        var i = 0;
+        while (i < s.Length && !(s[i] >= 'a' && s[i] <= 'z'))
+        {
+            i++;
+        }
+
+        if (i == s.Length)
+        {
+            return s;
+        }
+
+        return string.Create(
+            s.Length,
+            s,
+            static (span, source) =>
+            {
+                for (var k = 0; k < span.Length; k++)
+                {
+                    var c = source[k];
+                    span[k] = c >= 'a' && c <= 'z' ? (char)(c - 32) : c;
+                }
+            }
+        );
+    }
+
+    /// <summary>
+    /// tolower in the C locale: only 'A'-'Z' change, every other char (including bytes 0x80-0xFF) is kept.
+    /// </summary>
+    public static string ToLowerAscii(string s)
+    {
+        var i = 0;
+        while (i < s.Length && !(s[i] >= 'A' && s[i] <= 'Z'))
+        {
+            i++;
+        }
+
+        if (i == s.Length)
+        {
+            return s;
+        }
+
+        return string.Create(
+            s.Length,
+            s,
+            static (span, source) =>
+            {
+                for (var k = 0; k < span.Length; k++)
+                {
+                    var c = source[k];
+                    span[k] = c >= 'A' && c <= 'Z' ? (char)(c + 32) : c;
+                }
+            }
+        );
+    }
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool IsNumber(char c)
     {

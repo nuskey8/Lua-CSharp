@@ -1,6 +1,12 @@
 ﻿namespace Lua.IO;
 
-public sealed class FileSystem(string? baseDirectory = null) : ILuaFileSystem
+/// <param name="baseDirectory">Directory that relative paths are resolved against.</param>
+/// <param name="byteStrings">
+/// When true, files are read and written as raw bytes (one byte per char) instead of UTF-8 text.
+/// Use together with <see cref="Lua.Platforms.LuaPlatform.ByteStrings"/>.
+/// </param>
+public sealed class FileSystem(string? baseDirectory = null, bool byteStrings = false)
+    : ILuaFileSystem
 {
     public string BaseDirectory => baseDirectory ?? Directory.GetCurrentDirectory();
 
@@ -32,9 +38,15 @@ public sealed class FileSystem(string? baseDirectory = null) : ILuaFileSystem
         return Path.Combine(baseDirectory, path);
     }
 
+    // Paths come from Lua as byte strings in byte mode: decode the UTF-8 bytes into the real file name.
+    string ResolvePath(string path)
+    {
+        return GetFullPath(byteStrings ? LuaByteString.ToString(path) : path);
+    }
+
     public bool IsReadable(string path)
     {
-        return File.Exists(GetFullPath(path));
+        return File.Exists(ResolvePath(path));
     }
 
     public ValueTask<ILuaStream> Open(
@@ -45,7 +57,7 @@ public sealed class FileSystem(string? baseDirectory = null) : ILuaFileSystem
     {
         var (mode, access) = GetFileMode(openMode);
         Stream stream;
-        path = GetFullPath(path);
+        path = ResolvePath(path);
         if (openMode == LuaFileOpenMode.AppendUpdate)
         {
             stream = File.Open(
@@ -60,7 +72,7 @@ public sealed class FileSystem(string? baseDirectory = null) : ILuaFileSystem
             stream = File.Open(path, mode, access, FileShare.ReadWrite | FileShare.Delete);
         }
 
-        ILuaStream wrapper = new LuaStream(openMode, stream);
+        ILuaStream wrapper = new LuaStream(openMode, stream, byteStrings);
 
         if (openMode == LuaFileOpenMode.AppendUpdate)
         {
@@ -72,8 +84,8 @@ public sealed class FileSystem(string? baseDirectory = null) : ILuaFileSystem
 
     public ValueTask Rename(string oldName, string newName, CancellationToken cancellationToken)
     {
-        oldName = GetFullPath(oldName);
-        newName = GetFullPath(newName);
+        oldName = ResolvePath(oldName);
+        newName = ResolvePath(newName);
         if (oldName == newName)
         {
             return default;
@@ -91,7 +103,7 @@ public sealed class FileSystem(string? baseDirectory = null) : ILuaFileSystem
 
     public ValueTask Remove(string path, CancellationToken cancellationToken)
     {
-        path = GetFullPath(path);
+        path = ResolvePath(path);
         if (!File.Exists(path))
         {
             throw new FileNotFoundException("No such file or directory", path);
@@ -107,7 +119,8 @@ public sealed class FileSystem(string? baseDirectory = null) : ILuaFileSystem
 
     public string GetTempFileName()
     {
-        return Path.GetTempFileName();
+        var name = Path.GetTempFileName();
+        return byteStrings ? LuaByteString.FromString(name) : name;
     }
 
     public ValueTask<ILuaStream> OpenTempFileStream(CancellationToken cancellationToken)

@@ -684,6 +684,26 @@ print(l)
 
 All string library functions handle strings as UTF-16.
 
+#### Byte strings (opt-in)
+
+If you need byte-exact strings like the reference C implementation (for example `#"ế"` is `3`, `string.sub` cuts inside a UTF-8 sequence, and files are read and written as raw bytes), enable `LuaPlatform.ByteStrings`. `LuaPlatform.DefaultByteStrings` is the default platform with byte strings and byte-oriented file and standard I/O:
+
+```cs
+using Lua;
+using Lua.Platforms;
+using Lua.Standard;
+
+var state = LuaState.Create(LuaPlatform.DefaultByteStrings);
+state.OpenStandardLibraries();
+
+// Every char of a Lua string holds one byte, so convert .NET strings at the boundary.
+state.Environment["name"] = LuaByteString.FromString("Tiến Lên"); // UTF-8 bytes, #name == 11
+var results = await state.DoStringAsync("return #name, name:upper()");
+var upper = LuaByteString.ToString(results[1].Read<string>());   // back to a .NET string
+```
+
+In this mode `string.upper`, `string.lower` and the pattern classes (`%a`, `%w`, `%l`, ...) follow the C locale (ASCII only), `string.char` rejects values above 255, and UTF-8 source files are loaded byte by byte (a UTF-8 BOM is skipped). The default stays UTF-16.
+
 ### Garbage Collection
 
 Since Lua-CSharp is implemented in C#, it relies on .NET's garbage collector. As a result, memory management behavior differs from regular Lua.

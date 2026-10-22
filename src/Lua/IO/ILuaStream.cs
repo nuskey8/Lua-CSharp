@@ -74,6 +74,11 @@ public interface ILuaStream : IDisposable
         return new LuaStream(openMode, stream);
     }
 
+    static ILuaStream CreateFromStream(Stream stream, LuaFileOpenMode openMode, bool byteStrings)
+    {
+        return new LuaStream(openMode, stream, byteStrings);
+    }
+
     static ILuaStream CreateFromString(string content)
     {
         return new StringStream(content);
