@@ -570,6 +570,62 @@ public sealed class StringLibrary
     }
 
     [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder<>))]
+    static void AppendReplacement(
+        StringBuilder builder,
+        string replacement,
+        string source,
+        int matchStart,
+        int matchEnd,
+        MatchState matchState
+    )
+    {
+        for (var i = 0; i < replacement.Length; i++)
+        {
+            var c = replacement[i];
+            if (c != '%')
+            {
+                builder.Append(c);
+                continue;
+            }
+
+            i++;
+            var next = i < replacement.Length ? replacement[i] : '\0';
+            if (next == '%')
+            {
+                builder.Append('%');
+            }
+            else if (next == '0')
+            {
+                builder.Append(source, matchStart, matchEnd - matchStart);
+            }
+            else if (next >= '1' && next <= '9')
+            {
+                var index = next - '1';
+                if (index >= matchState.Level)
+                {
+                    throw new LuaRuntimeException(matchState.State, "invalid capture index");
+                }
+
+                var capture = matchState.Captures[index];
+                if (capture.IsPosition)
+                {
+                    builder.Append(capture.Init + 1); // 1-based position
+                }
+                else
+                {
+                    builder.Append(source, capture.Init, capture.Len);
+                }
+            }
+            else
+            {
+                throw new LuaRuntimeException(
+                    matchState.State,
+                    "invalid use of '%' in replacement string"
+                );
+            }
+        }
+    }
+
     public async ValueTask<int> GSub(
         LuaFunctionExecutionContext context,
         CancellationToken cancellationToken
@@ -640,35 +696,7 @@ public sealed class StringLibrary
                     {
                         // String replacement
                         replacedBuilder!.Clear();
-                        replacedBuilder.Append(str);
-
-                        // Replace %% with %
-                        replacedBuilder.Replace("%%", "\0"); // Use null char as temporary marker
-
-                        // Replace %0 with whole match
-                        var wholeMatch = s.AsSpan(sIdx, res - sIdx).ToString();
-                        replacedBuilder.Replace("%0", wholeMatch);
-
-                        // Replace %1, %2, etc. with captures
-                        for (var k = 0; k < matchState.Level; k++)
-                        {
-                            var capture = captures[k];
-                            string captureText;
-
-                            if (capture.IsPosition)
-                            {
-                                captureText = (capture.Init + 1).ToString(); // 1-based position
-                            }
-                            else
-                            {
-                                captureText = s.AsSpan(capture.Init, capture.Len).ToString();
-                            }
-
-                            replacedBuilder.Replace($"%{k + 1}", captureText);
-                        }
-
-                        // Replace temporary marker back to %
-                        replacedBuilder.Replace('\0', '%');
+                        AppendReplacement(replacedBuilder, str, s, sIdx, res, matchState);
                         result = replacedBuilder.ToString();
                     }
                 }
