@@ -28,6 +28,12 @@ public record LuaPlatform(
     /// </summary>
     public bool ByteStrings { get; init; }
 
+    // Converts a .NET string (file name, environment value, error text) into a Lua string for this platform.
+    internal string ToLuaString(string value)
+    {
+        return ByteStrings ? LuaByteString.FromString(value) : value;
+    }
+
     /// <summary>
     /// Standard console platform implementation.
     /// Uses real file system, console I/O, and system operations.

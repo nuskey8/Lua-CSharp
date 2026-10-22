@@ -156,10 +156,15 @@ public sealed class OperatingSystemLibrary
     )
     {
         var variable = context.GetArgument<string>(0);
+        var byteStrings = context.GlobalState.Platform.ByteStrings;
+        var value = context.GlobalState.Platform.OsEnvironment.GetEnvironmentVariable(
+            byteStrings ? LuaByteString.ToString(variable) : variable
+        );
         return new(
             context.Return(
-                context.GlobalState.Platform.OsEnvironment.GetEnvironmentVariable(variable)
-                    ?? LuaValue.Nil
+                value is not null && byteStrings ? LuaByteString.FromString(value)
+                : value is not null ? value
+                : LuaValue.Nil
             )
         );
     }
@@ -177,7 +182,11 @@ public sealed class OperatingSystemLibrary
         }
         catch (IOException ex)
         {
-            return context.Return(LuaValue.Nil, ex.Message, ex.HResult);
+            return context.Return(
+                LuaValue.Nil,
+                context.GlobalState.Platform.ToLuaString(ex.Message),
+                ex.HResult
+            );
         }
     }
 
@@ -199,7 +208,11 @@ public sealed class OperatingSystemLibrary
         }
         catch (IOException ex)
         {
-            return context.Return(LuaValue.Nil, ex.Message, ex.HResult);
+            return context.Return(
+                LuaValue.Nil,
+                context.GlobalState.Platform.ToLuaString(ex.Message),
+                ex.HResult
+            );
         }
     }
 

@@ -365,6 +365,70 @@ public sealed class ByteStringTests : IDisposable
     }
 
     [Test]
+    public async Task FileNames_AreDecodedFromUtf8Bytes()
+    {
+        using var state = CreateByteState();
+        var result = await state.DoStringAsync(
+            """
+            local f = assert(io.open("t\xE1\xBA\xBFn.bin", "wb"))
+            f:write("x")
+            f:close()
+            local g = assert(io.open("r\xC3\xAA.bin", "wb"))
+            g:close()
+            local renamed = os.rename("r\xC3\xAA.bin", "r2\xC3\xAA.bin")
+            local gone = io.open("r\xC3\xAA.bin", "rb") == nil
+            local removed = os.remove("r2\xC3\xAA.bin")
+            local ok, msg = io.open("missing_\xE1\xBA\xBF.bin", "rb")
+            return renamed, gone, removed, ok == nil, type(msg)
+            """
+        );
+
+        Assert.That(File.Exists(Path.Combine(testDirectory, "t\u1EBFn.bin")), Is.True);
+        Assert.That(File.Exists(Path.Combine(testDirectory, "r\u00EA.bin")), Is.False);
+        Assert.That(File.Exists(Path.Combine(testDirectory, "r2\u00EA.bin")), Is.False);
+        Assert.That(result[0], Is.EqualTo(new LuaValue(true)));
+        Assert.That(result[1], Is.EqualTo(new LuaValue(true)));
+        Assert.That(result[2], Is.EqualTo(new LuaValue(true)));
+        Assert.That(result[3], Is.EqualTo(new LuaValue(true)));
+        Assert.That(result[4].Read<string>(), Is.EqualTo("string"));
+    }
+
+    [Test]
+    public async Task Require_FindsModuleWithNonAsciiName()
+    {
+        await File.WriteAllTextAsync(Path.Combine(testDirectory, "m\u1EBFd.lua"), "return 'ok'");
+
+        using var state = CreateByteState();
+        var result = await state.DoStringAsync(
+            $$"""
+            package.path = "{{LuaByteString.FromString(testDirectory.Replace("\\", "/"))}}/?.lua"
+            return require("m\xE1\xBA\xBFd")
+            """
+        );
+
+        Assert.That(result[0].Read<string>(), Is.EqualTo("ok"));
+    }
+
+    [Test]
+    public async Task OsGetenv_ReturnsUtf8Bytes()
+    {
+        const string name = "LUA_CSHARP_BYTE_STRINGS_TEST";
+        Environment.SetEnvironmentVariable(name, "Ti\u1EBFn");
+        try
+        {
+            using var state = CreateByteState();
+            var result = await state.DoStringAsync($"local v = os.getenv('{name}'); return #v, v");
+
+            Assert.That(result[0], Is.EqualTo(new LuaValue(6)));
+            Assert.That(LuaByteString.ToString(result[1].Read<string>()), Is.EqualTo("Ti\u1EBFn"));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(name, null);
+        }
+    }
+
+    [Test]
     public async Task Io_DoesNotSkipBomOnRead()
     {
         await File.WriteAllBytesAsync(

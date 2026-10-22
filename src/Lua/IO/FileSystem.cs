@@ -38,9 +38,15 @@ public sealed class FileSystem(string? baseDirectory = null, bool byteStrings = 
         return Path.Combine(baseDirectory, path);
     }
 
+    // Paths come from Lua as byte strings in byte mode: decode the UTF-8 bytes into the real file name.
+    string ResolvePath(string path)
+    {
+        return GetFullPath(byteStrings ? LuaByteString.ToString(path) : path);
+    }
+
     public bool IsReadable(string path)
     {
-        return File.Exists(GetFullPath(path));
+        return File.Exists(ResolvePath(path));
     }
 
     public ValueTask<ILuaStream> Open(
@@ -51,7 +57,7 @@ public sealed class FileSystem(string? baseDirectory = null, bool byteStrings = 
     {
         var (mode, access) = GetFileMode(openMode);
         Stream stream;
-        path = GetFullPath(path);
+        path = ResolvePath(path);
         if (openMode == LuaFileOpenMode.AppendUpdate)
         {
             stream = File.Open(
@@ -78,8 +84,8 @@ public sealed class FileSystem(string? baseDirectory = null, bool byteStrings = 
 
     public ValueTask Rename(string oldName, string newName, CancellationToken cancellationToken)
     {
-        oldName = GetFullPath(oldName);
-        newName = GetFullPath(newName);
+        oldName = ResolvePath(oldName);
+        newName = ResolvePath(newName);
         if (oldName == newName)
         {
             return default;
@@ -97,7 +103,7 @@ public sealed class FileSystem(string? baseDirectory = null, bool byteStrings = 
 
     public ValueTask Remove(string path, CancellationToken cancellationToken)
     {
-        path = GetFullPath(path);
+        path = ResolvePath(path);
         if (!File.Exists(path))
         {
             throw new FileNotFoundException("No such file or directory", path);
@@ -113,7 +119,8 @@ public sealed class FileSystem(string? baseDirectory = null, bool byteStrings = 
 
     public string GetTempFileName()
     {
-        return Path.GetTempFileName();
+        var name = Path.GetTempFileName();
+        return byteStrings ? LuaByteString.FromString(name) : name;
     }
 
     public ValueTask<ILuaStream> OpenTempFileStream(CancellationToken cancellationToken)
