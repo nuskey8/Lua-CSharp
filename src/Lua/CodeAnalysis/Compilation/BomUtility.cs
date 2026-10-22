@@ -12,6 +12,11 @@ static class BomUtility
 
     static ReadOnlySpan<byte> BomUtf32Little => [0xFF, 0xFE, 0x00, 0x00];
 
+    public static ReadOnlySpan<byte> SkipUtf8Bom(ReadOnlySpan<byte> text)
+    {
+        return text.StartsWith(BomUtf8) ? text.Slice(BomUtf8.Length) : text;
+    }
+
     /// <summary>
     ///  Removes the BOM from the beginning of the text and returns the encoding.
     ///  Supported encodings are UTF-8, UTF-16 (little and big endian), and UTF-32 (little endian).

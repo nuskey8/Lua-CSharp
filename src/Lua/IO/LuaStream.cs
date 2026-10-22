@@ -4,7 +4,9 @@ using Lua.Internal;
 
 namespace Lua.IO;
 
-public sealed class LuaStream(LuaFileOpenMode mode, Stream innerStream) : ILuaStream, ILuaByteStream
+public sealed class LuaStream(LuaFileOpenMode mode, Stream innerStream, bool byteStrings = false)
+    : ILuaStream,
+        ILuaByteStream
 {
     Utf8Reader? reader;
     ulong flushSize = ulong.MaxValue;
@@ -19,14 +21,14 @@ public sealed class LuaStream(LuaFileOpenMode mode, Stream innerStream) : ILuaSt
     public ValueTask<string?> ReadLineAsync(bool keepEol, CancellationToken cancellationToken)
     {
         mode.ThrowIfNotReadable();
-        reader ??= new();
+        reader ??= new(byteStrings);
         return new(reader.ReadLine(innerStream, keepEol));
     }
 
     public ValueTask<string> ReadAllAsync(CancellationToken cancellationToken)
     {
         mode.ThrowIfNotReadable();
-        reader ??= new();
+        reader ??= new(byteStrings);
         var text = reader.ReadToEnd(innerStream);
         return new(text);
     }
@@ -57,7 +59,7 @@ public sealed class LuaStream(LuaFileOpenMode mode, Stream innerStream) : ILuaSt
     public ValueTask<string?> ReadAsync(int count, CancellationToken cancellationToken)
     {
         mode.ThrowIfNotReadable();
-        reader ??= new();
+        reader ??= new(byteStrings);
         if (count == 0)
         {
             return new(reader.IsEndOfStream(innerStream) ? null : string.Empty);
@@ -69,7 +71,7 @@ public sealed class LuaStream(LuaFileOpenMode mode, Stream innerStream) : ILuaSt
     public ValueTask<double?> ReadNumberAsync(CancellationToken cancellationToken)
     {
         mode.ThrowIfNotReadable();
-        reader ??= new();
+        reader ??= new(byteStrings);
 
         // Use the Utf8Reader's ReadNumber method which handles positioning correctly
         var numberStr = reader.ReadNumber(innerStream);
@@ -93,7 +95,7 @@ public sealed class LuaStream(LuaFileOpenMode mode, Stream innerStream) : ILuaSt
         }
 
         using PooledArray<byte> byteBuffer = new(4096);
-        var encoder = Encoding.UTF8.GetEncoder();
+        var encoder = (byteStrings ? LuaByteEncoding.Instance : Encoding.UTF8).GetEncoder();
         var remainingChars = buffer.Span;
         var totalBytes = 0;
         while (!remainingChars.IsEmpty)

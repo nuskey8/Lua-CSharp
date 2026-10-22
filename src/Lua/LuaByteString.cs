@@ -1,0 +1,44 @@
+using System.Text;
+using Lua.IO;
+
+namespace Lua;
+
+/// <summary>
+/// Conversions between .NET strings and Lua byte strings (see
+/// <see cref="Lua.Platforms.LuaPlatform.ByteStrings"/>), where every <see cref="char"/> holds one byte.
+/// </summary>
+public static class LuaByteString
+{
+    /// <summary>
+    /// Converts raw bytes (for example UTF-8 text) to a byte string.
+    /// </summary>
+    public static string FromBytes(ReadOnlySpan<byte> bytes)
+    {
+        return LuaByteEncoding.Instance.GetString(bytes);
+    }
+
+    /// <summary>
+    /// Converts a byte string back to raw bytes. Chars above 0xFF are written as '?'.
+    /// </summary>
+    public static byte[] ToBytes(string byteString)
+    {
+        return LuaByteEncoding.Instance.GetBytes(byteString);
+    }
+
+    /// <summary>
+    /// Converts a .NET string to a byte string holding its UTF-8 bytes.
+    /// </summary>
+    public static string FromString(string value)
+    {
+        return FromBytes(Encoding.UTF8.GetBytes(value));
+    }
+
+    /// <summary>
+    /// Decodes the UTF-8 bytes held by a byte string into a .NET string.
+    /// Invalid UTF-8 is replaced with U+FFFD.
+    /// </summary>
+    public static string ToString(string byteString)
+    {
+        return Encoding.UTF8.GetString(ToBytes(byteString));
+    }
+}

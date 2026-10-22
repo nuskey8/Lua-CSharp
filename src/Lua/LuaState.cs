@@ -1,8 +1,10 @@
 using System.Buffers;
 using System.Runtime.CompilerServices;
+using System.Text;
 using Lua.CodeAnalysis.Compilation;
 using Lua.Internal;
 using Lua.Internal.CompilerServices;
+using Lua.IO;
 using Lua.Platforms;
 using Lua.Runtime;
 
@@ -637,7 +639,17 @@ public class LuaState : IDisposable
             throw new Exception("attempt to load a text chunk (mode is 'b')");
         }
 
-        chunk = BomUtility.GetEncodingFromBytes(chunk, out var encoding);
+        Encoding encoding;
+        if (Platform.ByteStrings)
+        {
+            // Byte strings: like luaL_loadfile, skip a UTF-8 BOM and keep every other byte as one char.
+            chunk = BomUtility.SkipUtf8Bom(chunk);
+            encoding = LuaByteEncoding.Instance;
+        }
+        else
+        {
+            chunk = BomUtility.GetEncodingFromBytes(chunk, out encoding);
+        }
 
         var charCount = encoding.GetCharCount(chunk);
         var pooled = ArrayPool<char>.Shared.Rent(charCount);

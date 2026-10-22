@@ -1,6 +1,12 @@
 ﻿namespace Lua.IO;
 
-public sealed class FileSystem(string? baseDirectory = null) : ILuaFileSystem
+/// <param name="baseDirectory">Directory that relative paths are resolved against.</param>
+/// <param name="byteStrings">
+/// When true, files are read and written as raw bytes (one byte per char) instead of UTF-8 text.
+/// Use together with <see cref="Lua.Platforms.LuaPlatform.ByteStrings"/>.
+/// </param>
+public sealed class FileSystem(string? baseDirectory = null, bool byteStrings = false)
+    : ILuaFileSystem
 {
     public string BaseDirectory => baseDirectory ?? Directory.GetCurrentDirectory();
 
@@ -60,7 +66,7 @@ public sealed class FileSystem(string? baseDirectory = null) : ILuaFileSystem
             stream = File.Open(path, mode, access, FileShare.ReadWrite | FileShare.Delete);
         }
 
-        ILuaStream wrapper = new LuaStream(openMode, stream);
+        ILuaStream wrapper = new LuaStream(openMode, stream, byteStrings);
 
         if (openMode == LuaFileOpenMode.AppendUpdate)
         {
