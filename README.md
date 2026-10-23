@@ -673,7 +673,7 @@ Lua-CSharp is designed with integration into .NET in mind, so there are several 
 
 ### Character Encoding
 
-The character encoding used in Lua-CSharp is UTF-16. Since standard Lua assumes a single-byte character encoding, string behavior differs significantly.
+By default, Lua-CSharp uses UTF-16. Since standard Lua assumes a single-byte character encoding, string behavior differs significantly. See [String modes](docs/string-modes.md) for UTF-16 and byte-string behavior and C# conversions.
 
 For example, in regular Lua, the following code outputs `15`, but in Lua-CSharp, it outputs `5`.
 
@@ -682,7 +682,7 @@ local l = string.len("あいうえお")
 print(l)
 ```
 
-All string library functions handle strings as UTF-16.
+In the default mode, string library functions handle strings as UTF-16.
 
 #### Byte strings (opt-in)
 
