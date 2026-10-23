@@ -11,14 +11,6 @@ public class LuaTests
     {
         const char utf8Bom = '\uFEFF';
         var lines = source.Replace("\r\n", "\n").Split('\n');
-        lines[127] =
-            "io.read('*a') -- Lua-CSharp test harness skips this UTF-16 text-mode block; see tests-lua/files.lua for the unmodified source.";
-        for (var i = 128; i <= 148; i++)
-        {
-            lines[i] =
-                "-- Lua-CSharp test harness skips this UTF-16 text-mode assertion; see tests-lua/files.lua for the unmodified source.";
-        }
-
         lines[246] =
             "do local __f = assert(io.open(file)); local __src = assert(__f:read('*a')); __f:close(); assert(load(__src, nil, nil, t))() end -- Lua-CSharp test harness uses string load because load(reader) is unsupported.";
         lines[292] =
@@ -66,7 +58,7 @@ public class LuaTests
     [TestCase("tests-lua/constructs.lua")]
     [TestCase("tests-lua/locals.lua")]
     [TestCase("tests-lua/literals.lua")]
-    //[TestCase("tests-lua/pm.lua")] //string.match is not implemented
+    [TestCase("tests-lua/pm.lua")]
     [TestCase("tests-lua/sort.lua")]
     //[TestCase("tests-lua/calls.lua")] //  string.dump and reader function for load chunk is not implemented
     [TestCase("tests-lua/files.lua")]

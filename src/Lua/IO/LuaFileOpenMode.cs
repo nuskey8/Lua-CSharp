@@ -87,10 +87,7 @@ public static class LuaFileOpenModeExtensions
 
     public static bool IsAppend(this LuaFileOpenMode mode)
     {
-        return mode
-            is LuaFileOpenMode.Append
-                or LuaFileOpenMode.AppendUpdate
-                or LuaFileOpenMode.WriteUpdate;
+        return mode is LuaFileOpenMode.Append or LuaFileOpenMode.AppendUpdate;
     }
 
     public static void ThrowIfNotReadable(this LuaFileOpenMode mode)
