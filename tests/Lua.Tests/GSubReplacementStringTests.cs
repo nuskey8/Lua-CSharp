@@ -12,6 +12,7 @@ public class GSubReplacementStringTests
     [TestCase("hello world", "(o)", "%1%1", "helloo woorld", 2)]
     [TestCase("abc", "", "-", "-a-b-c-", 4)]
     [TestCase("abc", "b", "%1", "abc", 1)]
+    [TestCase("abc", "(a", "%0", "abc", 1)]
     public async Task Test_ReplacementString(
         string source,
         string pattern,
@@ -66,6 +67,7 @@ public class GSubReplacementStringTests
     [TestCase("alo", ".", "%2", "invalid capture index")]
     [TestCase("abc", "b", "%x", "invalid use of '%' in replacement string")]
     [TestCase("abc", "b", "%", "invalid use of '%' in replacement string")]
+    [TestCase("abc", "(a", "%1", "unfinished capture")]
     public async Task Test_InvalidReplacementString(
         string source,
         string pattern,

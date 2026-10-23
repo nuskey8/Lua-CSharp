@@ -569,7 +569,6 @@ public sealed class StringLibrary
         );
     }
 
-    [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder<>))]
     static void AppendReplacement(
         StringBuilder builder,
         string replacement,
@@ -607,6 +606,11 @@ public sealed class StringLibrary
                 }
 
                 var capture = matchState.Captures[index];
+                if (capture.IsUnfinished)
+                {
+                    throw new LuaRuntimeException(matchState.State, "unfinished capture");
+                }
+
                 if (capture.IsPosition)
                 {
                     builder.Append(capture.Init + 1); // 1-based position
@@ -626,6 +630,7 @@ public sealed class StringLibrary
         }
     }
 
+    [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder<>))]
     public async ValueTask<int> GSub(
         LuaFunctionExecutionContext context,
         CancellationToken cancellationToken

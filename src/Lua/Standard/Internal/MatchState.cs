@@ -15,6 +15,7 @@ sealed class MatchState(LuaState state, string source, string pattern)
         public int Len;
 
         public bool IsPosition => Len == CapPosition;
+        public bool IsUnfinished => Len == CapUnfinished;
     }
 
     public readonly LuaState State = state;
