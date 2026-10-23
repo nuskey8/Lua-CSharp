@@ -131,15 +131,22 @@ sealed class MatchState(LuaState state, string source, string pattern)
                             {
                                 var ep = ClassEnd(Pattern, pIdx + 2);
                                 var previous = sIdx > 0 ? Source[sIdx - 1] : '\0';
+                                var current = sIdx < Source.Length ? Source[sIdx] : '\0';
                                 if (
                                     !MatchBracketClass(previous, Pattern, pIdx + 2, ep - 1)
-                                    && sIdx < Source.Length
-                                    && MatchBracketClass(Source[sIdx], Pattern, pIdx + 2, ep - 1)
+                                    && MatchBracketClass(current, Pattern, pIdx + 2, ep - 1)
                                 )
                                 {
                                     pIdx = ep;
                                     goto Init;
                                 }
+                            }
+                            else
+                            {
+                                throw new LuaRuntimeException(
+                                    State,
+                                    "missing '[' after '%f' in pattern"
+                                );
                             }
 
                             sIdx = -1;
