@@ -21,7 +21,7 @@ namespace Lua.Unity
             }
 
             var module = luaAssetBase.GetModule(name);
-            var closure = state.LoadModule(module);
+            var closure = state.Load(module);
             return state.ExecuteAsync(closure, buffer, cancellationToken);
         }
 
@@ -38,7 +38,7 @@ namespace Lua.Unity
             }
 
             var module = luaAssetBase.GetModule(name);
-            return state.ExecuteAsync(state.LoadModule(module), cancellationToken);
+            return state.ExecuteAsync(state.Load(module), cancellationToken);
         }
     }
 }

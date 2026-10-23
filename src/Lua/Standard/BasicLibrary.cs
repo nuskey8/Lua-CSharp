@@ -131,7 +131,12 @@ public sealed class BasicLibrary
     {
         var arg0 = context.GetArgument<string>(0);
         context.State.Stack.PopUntil(context.ReturnFrameBase);
-        var closure = await context.State.LoadFileAsync(arg0, "bt", null, cancellationToken);
+        var closure = await context.State.LoadFileAsync(
+            context.State.Platform.ToHostString(arg0),
+            "bt",
+            null,
+            cancellationToken
+        );
         return await context.State.RunAsync(closure, cancellationToken);
     }
 
@@ -222,7 +227,12 @@ public sealed class BasicLibrary
         // do not use LuaState.DoFileAsync as it uses the newExecutionContext
         try
         {
-            var closure = await context.State.LoadFileAsync(arg0, mode, null, cancellationToken);
+            var closure = await context.State.LoadFileAsync(
+                context.State.Platform.ToHostString(arg0),
+                mode,
+                null,
+                cancellationToken
+            );
             if (hasEnvironment)
             {
                 closure.SetEnvironment(environment);
@@ -260,7 +270,7 @@ public sealed class BasicLibrary
                     throw new Exception("attempt to load a text chunk (mode is 'b')");
                 }
 
-                var closure = context.State.Load(str, name ?? str, null);
+                var closure = context.State.LoadCore(str, name ?? str, null);
                 if (hasEnvironment)
                 {
                     closure.SetEnvironment(environment);
@@ -768,9 +778,11 @@ public sealed class BasicLibrary
 
             if (ex is LuaRuntimeException luaEx)
             {
-                var error = luaEx.InnerException is { } inner
-                    ? state.Platform.GetErrorMessage(inner)
-                    : luaEx.ErrorObject;
+                var error =
+                    state.Platform.StringMode == LuaStringMode.Bytes
+                    && luaEx.InnerException is { } inner
+                        ? state.Platform.GetErrorMessage(inner)
+                        : luaEx.ErrorObject;
                 luaEx.Forget();
                 state.Push(error);
             }

@@ -6,11 +6,11 @@ using Lua.Tests.Helpers;
 
 namespace Lua.Tests;
 
-[TestFixture(false)]
-[TestFixture(true)]
-public class LuaTests(bool byteStrings)
+[TestFixture(LuaStringMode.Utf16)]
+[TestFixture(LuaStringMode.Bytes)]
+public class LuaTests(LuaStringMode stringMode)
 {
-    static string PatchFilesLuaSource(string source, bool byteStrings)
+    static string PatchFilesLuaSource(string source, LuaStringMode stringMode)
     {
         const char utf8Bom = '\uFEFF';
         var lines = source.Replace("\r\n", "\n").Split('\n');
@@ -22,7 +22,7 @@ public class LuaTests(bool byteStrings)
             "do local __f = assert(io.open(file)); local __src = assert(__f:read('*a')); __f:close(); assert(load(__src))() end -- Lua-CSharp test harness uses string load because load(reader) is unsupported.";
         lines[296] =
             "do local __f = assert(io.open(file)); local __src = assert(__f:read('*a')); __f:close(); assert(load(__src))() end -- Lua-CSharp test harness uses string load because load(reader) is unsupported.";
-        if (!byteStrings)
+        if (stringMode != LuaStringMode.Bytes)
         {
             lines[330] =
                 $"testloadfile(\"{utf8Bom}# some comment\\nreturn 234\", 234) -- Lua-CSharp test harness uses a real BOM code point because Lua strings are UTF-16 text, not raw bytes.";
@@ -84,12 +84,12 @@ public class LuaTests(bool byteStrings)
         var path = FileHelper.GetAbsolutePath(file);
         var baseDirectory = Path.GetDirectoryName(path)!;
         using var state = LuaState.Create(
-            byteStrings ? LuaPlatform.DefaultByteStrings : LuaPlatform.Default
+            stringMode == LuaStringMode.Bytes ? LuaPlatform.DefaultByteStrings : LuaPlatform.Default
         );
         state.Platform = state.Platform with
         {
-            StandardIO = new TestStandardIO(byteStrings),
-            FileSystem = new FileSystem(baseDirectory, byteStrings),
+            StandardIO = new TestStandardIO(stringMode),
+            FileSystem = new FileSystem(baseDirectory, stringMode),
         };
         state.OpenStandardLibraries();
         if (file == "tests-lua/errors.lua")
@@ -104,9 +104,13 @@ public class LuaTests(bool byteStrings)
                 var sourceBytes = await File.ReadAllBytesAsync(path);
                 var source = PatchFilesLuaSource(
                     Encoding.Latin1.GetString(sourceBytes),
-                    byteStrings
+                    stringMode
                 );
-                var closure = state.Load(source, "@" + Path.GetFileName(file));
+                var name = "@" + Path.GetFileName(file);
+                var closure =
+                    stringMode == LuaStringMode.Bytes
+                        ? state.Load(LuaByteString.ToBytes(source), name)
+                        : state.Load(source, name);
                 await state.ExecuteAsync(closure);
             }
             else

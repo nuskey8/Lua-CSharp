@@ -156,17 +156,9 @@ public sealed class OperatingSystemLibrary
     )
     {
         var variable = context.GetArgument<string>(0);
-        var byteStrings = context.GlobalState.Platform.ByteStrings;
-        var value = context.GlobalState.Platform.OsEnvironment.GetEnvironmentVariable(
-            byteStrings ? LuaByteString.ToString(variable) : variable
-        );
-        return new(
-            context.Return(
-                value is not null && byteStrings ? LuaByteString.FromString(value)
-                : value is not null ? value
-                : LuaValue.Nil
-            )
-        );
+        var platform = context.State.Platform;
+        var value = platform.OsEnvironment.GetEnvironmentVariable(platform.ToHostString(variable));
+        return new(context.Return(value is null ? LuaValue.Nil : platform.ToLuaString(value)));
     }
 
     public async ValueTask<int> Remove(
@@ -177,7 +169,10 @@ public sealed class OperatingSystemLibrary
         var fileName = context.GetArgument<string>(0);
         try
         {
-            await context.GlobalState.Platform.FileSystem.Remove(fileName, cancellationToken);
+            await context.GlobalState.Platform.FileSystem.Remove(
+                context.State.Platform.ToHostString(fileName),
+                cancellationToken
+            );
             return context.Return(true);
         }
         catch (IOException ex)
@@ -200,8 +195,8 @@ public sealed class OperatingSystemLibrary
         try
         {
             await context.GlobalState.Platform.FileSystem.Rename(
-                oldName,
-                newName,
+                context.State.Platform.ToHostString(oldName),
+                context.State.Platform.ToHostString(newName),
                 cancellationToken
             );
             return context.Return(true);
@@ -259,6 +254,7 @@ public sealed class OperatingSystemLibrary
         CancellationToken cancellationToken
     )
     {
-        return new(context.Return(context.GlobalState.Platform.FileSystem.GetTempFileName()));
+        var platform = context.State.Platform;
+        return new(context.Return(platform.ToLuaString(platform.FileSystem.GetTempFileName())));
     }
 }

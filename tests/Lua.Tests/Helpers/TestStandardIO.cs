@@ -2,9 +2,9 @@
 
 namespace Lua.Tests.Helpers;
 
-public class TestStandardIO(bool byteStrings = false) : ILuaStandardIO
+public class TestStandardIO(LuaStringMode stringMode = LuaStringMode.Utf16) : ILuaStandardIO
 {
-    readonly ConsoleStandardIO consoleStandardIO = new(byteStrings);
+    readonly ConsoleStandardIO consoleStandardIO = new(stringMode);
 
     public ILuaStream Input
     {
@@ -19,7 +19,9 @@ public class TestStandardIO(bool byteStrings = false) : ILuaStandardIO
                 (memory) =>
                 {
                     Console.WriteLine(
-                        byteStrings ? LuaByteString.ToString(memory.ToString()) : memory.ToString()
+                        stringMode == LuaStringMode.Bytes
+                            ? LuaByteString.ToString(memory.ToString())
+                            : memory.ToString()
                     );
                 }
             )

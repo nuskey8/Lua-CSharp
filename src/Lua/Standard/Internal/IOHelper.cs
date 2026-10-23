@@ -23,7 +23,7 @@ static class IOHelper
         try
         {
             var stream = await state.GlobalState.Platform.FileSystem.Open(
-                fileName,
+                state.Platform.ToHostString(fileName),
                 fileMode,
                 cancellationToken
             );

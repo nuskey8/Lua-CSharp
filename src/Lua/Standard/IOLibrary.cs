@@ -95,7 +95,7 @@ public sealed class IOLibrary
         else
         {
             var stream = await context.GlobalState.Platform.FileSystem.Open(
-                arg.ToString(),
+                context.State.Platform.ToHostString(arg.ToString()),
                 LuaFileOpenMode.Read,
                 cancellationToken
             );
@@ -263,7 +263,7 @@ public sealed class IOLibrary
             }
 
             var stream = await context.GlobalState.Platform.FileSystem.Open(
-                arg.ToString(),
+                context.State.Platform.ToHostString(arg.ToString()),
                 LuaFileOpenMode.Write,
                 cancellationToken
             );

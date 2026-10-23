@@ -1,11 +1,12 @@
 using BenchmarkDotNet.Attributes;
+using Lua;
 using Lua.IO;
 
 [Config(typeof(BenchmarkConfig))]
 public class ByteStringIoBenchmark
 {
-    [Params(false, true)]
-    public bool ByteStrings { get; set; }
+    [Params(LuaStringMode.Utf16, LuaStringMode.Bytes)]
+    public LuaStringMode StringMode { get; set; }
 
     [Params(1, 4096)]
     public int Size { get; set; }
@@ -22,8 +23,8 @@ public class ByteStringIoBenchmark
         text = new string('a', Size);
         input = new MemoryStream(Enumerable.Repeat((byte)'a', Size).ToArray());
         output = new MemoryStream(Size);
-        reader = new LuaStream(LuaFileOpenMode.Read, input, ByteStrings);
-        writer = new LuaStream(LuaFileOpenMode.Write, output, ByteStrings);
+        reader = new LuaStream(LuaFileOpenMode.Read, input, StringMode);
+        writer = new LuaStream(LuaFileOpenMode.Write, output, StringMode);
     }
 
     [GlobalCleanup]

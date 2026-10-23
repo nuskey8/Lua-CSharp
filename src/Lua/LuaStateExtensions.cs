@@ -1,6 +1,5 @@
 using System.Buffers;
 using System.Runtime.CompilerServices;
-using System.Text;
 using Lua.Internal;
 using Lua.Internal.CompilerServices;
 using Lua.IO;
@@ -16,25 +15,14 @@ public static class LuaStateExtensions
     /// Loads a host module. Its name and text source are .NET text; byte source is
     /// preserved. In byte-string mode, text source is encoded as UTF-8 before parsing.
     /// </summary>
-    public static LuaClosure LoadModule(this LuaState state, LuaModule module)
+    public static LuaClosure Load(this LuaState state, LuaModule module)
     {
-        var name = state.Platform.ToLuaString(module.Name);
-        if (module.Type == LuaModuleType.Bytes)
-        {
-            return state.Load(module.ReadBytes(), name);
-        }
-
-        if (!state.Platform.ByteStrings)
-        {
-            return state.Load(module.ReadText(), name);
-        }
-
-        var source = module.ReadText();
-        using PooledArray<byte> bytes = new(Encoding.UTF8.GetByteCount(source));
-        var count = Encoding.UTF8.GetBytes(source, bytes.AsSpan());
-        return state.Load(bytes.AsSpan()[..count], name);
+        return module.Type == LuaModuleType.Bytes
+            ? state.Load(module.ReadBytes(), module.Name)
+            : state.Load(module.ReadText(), module.Name);
     }
 
+    /// <summary>Loads a file whose name is .NET text, including in byte-string mode.</summary>
     public static async ValueTask<LuaClosure> LoadFileAsync(
         this LuaState state,
         string fileName,
@@ -43,7 +31,7 @@ public static class LuaStateExtensions
         CancellationToken cancellationToken
     )
     {
-        var name = "@" + fileName;
+        var name = state.Platform.ToLuaString("@" + fileName);
         using var stream = await state.GlobalState.Platform.FileSystem.Open(
             fileName,
             LuaFileOpenMode.Read,
@@ -61,7 +49,7 @@ public static class LuaStateExtensions
 
             if (firstByte < 0)
             {
-                closure = state.Load(ReadOnlySpan<byte>.Empty, name, mode, environment);
+                closure = state.LoadCore(ReadOnlySpan<byte>.Empty, name, mode, environment);
             }
             else
             {
@@ -69,7 +57,7 @@ public static class LuaStateExtensions
                 source.GetSpan(1)[0] = (byte)firstByte;
                 source.Advance(1);
                 await byteStream.ReadBytesAsync(source, cancellationToken);
-                closure = state.Load(source.WrittenSpan, name, mode, environment);
+                closure = state.LoadCore(source.WrittenSpan, name, mode, environment);
             }
         }
         else if (!mode.Contains('t'))
@@ -79,12 +67,13 @@ public static class LuaStateExtensions
         else
         {
             var source = await stream.ReadAllAsync(cancellationToken);
-            closure = state.Load(source, name, environment);
+            closure = state.LoadCore(source, name, environment);
         }
 
         return closure;
     }
 
+    /// <summary>Executes .NET source text with an optional .NET chunk name.</summary>
     public static ValueTask<int> DoStringAsync(
         this LuaState state,
         string source,
@@ -97,6 +86,7 @@ public static class LuaStateExtensions
         return ExecuteAsync(state, closure, results, cancellationToken);
     }
 
+    /// <summary>Executes .NET source text with an optional .NET chunk name.</summary>
     public static ValueTask<LuaValue[]> DoStringAsync(
         this LuaState state,
         string source,
@@ -131,6 +121,7 @@ public static class LuaStateExtensions
         return ExecuteAsync(state, closure, cancellationToken);
     }
 
+    /// <summary>Executes a file whose path is .NET text, including in byte-string mode.</summary>
     [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder<>))]
     public static async ValueTask<int> DoFileAsync(
         this LuaState state,
@@ -146,6 +137,7 @@ public static class LuaStateExtensions
         return results.Count;
     }
 
+    /// <summary>Executes a file whose path is .NET text, including in byte-string mode.</summary>
     [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder<>))]
     public static async ValueTask<LuaValue[]> DoFileAsync(
         this LuaState state,

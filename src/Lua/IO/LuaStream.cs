@@ -4,12 +4,12 @@ using Lua.Internal;
 
 namespace Lua.IO;
 
-public sealed class LuaStream(LuaFileOpenMode mode, Stream innerStream, bool byteStrings)
+public sealed class LuaStream(LuaFileOpenMode mode, Stream innerStream, LuaStringMode stringMode)
     : ILuaStream,
         ILuaByteStream
 {
     public LuaStream(LuaFileOpenMode mode, Stream innerStream)
-        : this(mode, innerStream, false) { }
+        : this(mode, innerStream, LuaStringMode.Utf16) { }
 
     Utf8Reader? reader;
     ulong flushSize = ulong.MaxValue;
@@ -24,14 +24,14 @@ public sealed class LuaStream(LuaFileOpenMode mode, Stream innerStream, bool byt
     public ValueTask<string?> ReadLineAsync(bool keepEol, CancellationToken cancellationToken)
     {
         mode.ThrowIfNotReadable();
-        reader ??= new(byteStrings);
+        reader ??= new(stringMode);
         return new(reader.ReadLine(innerStream, keepEol));
     }
 
     public ValueTask<string> ReadAllAsync(CancellationToken cancellationToken)
     {
         mode.ThrowIfNotReadable();
-        reader ??= new(byteStrings);
+        reader ??= new(stringMode);
         var text = reader.ReadToEnd(innerStream);
         return new(text);
     }
@@ -62,7 +62,7 @@ public sealed class LuaStream(LuaFileOpenMode mode, Stream innerStream, bool byt
     public ValueTask<string?> ReadAsync(int count, CancellationToken cancellationToken)
     {
         mode.ThrowIfNotReadable();
-        reader ??= new(byteStrings);
+        reader ??= new(stringMode);
         if (count == 0)
         {
             return new(reader.IsEndOfStream(innerStream) ? null : string.Empty);
@@ -74,7 +74,7 @@ public sealed class LuaStream(LuaFileOpenMode mode, Stream innerStream, bool byt
     public ValueTask<double?> ReadNumberAsync(CancellationToken cancellationToken)
     {
         mode.ThrowIfNotReadable();
-        reader ??= new(byteStrings);
+        reader ??= new(stringMode);
 
         // Use the Utf8Reader's ReadNumber method which handles positioning correctly
         var numberStr = reader.ReadNumber(innerStream);
@@ -99,14 +99,14 @@ public sealed class LuaStream(LuaFileOpenMode mode, Stream innerStream, bool byt
 
         using PooledArray<byte> byteBuffer = new(4096);
         var bytes = byteBuffer.AsSpan();
-        var encoder = byteStrings ? null : Encoding.UTF8.GetEncoder();
+        var encoder = stringMode == LuaStringMode.Bytes ? null : Encoding.UTF8.GetEncoder();
         var remainingChars = buffer.Span;
         var totalBytes = 0;
         while (!remainingChars.IsEmpty)
         {
             int charsUsed,
                 bytesUsed;
-            if (byteStrings)
+            if (stringMode == LuaStringMode.Bytes)
             {
                 charsUsed = Math.Min(remainingChars.Length, bytes.Length);
                 bytesUsed = LuaByteEncoding.Instance.GetBytes(remainingChars[..charsUsed], bytes);

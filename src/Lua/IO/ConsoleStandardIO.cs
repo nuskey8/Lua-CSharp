@@ -5,14 +5,14 @@ namespace Lua.IO;
 /// <summary>
 /// Default implementation of ILuaStandardIO using Console
 /// </summary>
-/// <param name="byteStrings">
-/// When true, standard input and output are read and written as raw bytes (one byte per char)
-/// instead of UTF-8 text. Use together with <see cref="Lua.Platforms.LuaPlatform.ByteStrings"/>.
+/// <param name="stringMode">
+/// Selects UTF-8 text I/O for <see cref="LuaStringMode.Utf16"/>, or raw byte I/O for <see cref="LuaStringMode.Bytes"/>.
+/// Use the same mode as <see cref="Lua.Platforms.LuaPlatform.StringMode"/>.
 /// </param>
-public sealed class ConsoleStandardIO(bool byteStrings) : ILuaStandardIO
+public sealed class ConsoleStandardIO(LuaStringMode stringMode) : ILuaStandardIO
 {
     public ConsoleStandardIO()
-        : this(false) { }
+        : this(LuaStringMode.Utf16) { }
 
     ILuaStream? standardInput;
     ILuaStream? standardOutput;
@@ -23,7 +23,7 @@ public sealed class ConsoleStandardIO(bool byteStrings) : ILuaStandardIO
             ILuaStream.CreateFromStream(
                 ConsoleHelper.OpenStandardInput(),
                 LuaFileOpenMode.Read,
-                byteStrings
+                stringMode
             )
         );
 
@@ -32,7 +32,7 @@ public sealed class ConsoleStandardIO(bool byteStrings) : ILuaStandardIO
             ILuaStream.CreateFromStream(
                 ConsoleHelper.OpenStandardOutput(),
                 LuaFileOpenMode.Write,
-                byteStrings
+                stringMode
             )
         );
 
@@ -41,7 +41,7 @@ public sealed class ConsoleStandardIO(bool byteStrings) : ILuaStandardIO
             ILuaStream.CreateFromStream(
                 ConsoleHelper.OpenStandardError(),
                 LuaFileOpenMode.Write,
-                byteStrings
+                stringMode
             )
         );
 }

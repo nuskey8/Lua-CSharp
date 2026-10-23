@@ -31,14 +31,11 @@ public sealed class ModuleLibrary
         {
             LuaFunction loader;
             var moduleLoader = context.GlobalState.ModuleLoader;
-            var hostName =
-                moduleLoader != null && context.State.Platform.ByteStrings
-                    ? LuaByteString.ToString(arg0)
-                    : arg0;
+            var hostName = moduleLoader is null ? arg0 : context.State.Platform.ToHostString(arg0);
             if (moduleLoader != null && moduleLoader.Exists(hostName))
             {
                 var module = await moduleLoader.LoadAsync(hostName, cancellationToken);
-                loader = context.State.LoadModule(module);
+                loader = context.State.Load(module);
             }
             else
             {
@@ -109,7 +106,7 @@ public sealed class ModuleLibrary
         {
             path = pathSpan[..nextIndex].ToString();
             var fileName = path.Replace("?", name);
-            if (state.GlobalState.Platform.FileSystem.IsReadable(fileName))
+            if (state.Platform.FileSystem.IsReadable(state.Platform.ToHostString(fileName)))
             {
                 return fileName;
             }
@@ -201,7 +198,12 @@ public sealed class ModuleLibrary
         }
 
         return context.Return(
-            await context.State.LoadFileAsync(fileName, "bt", null, cancellationToken)
+            await context.State.LoadFileAsync(
+                context.State.Platform.ToHostString(fileName),
+                "bt",
+                null,
+                cancellationToken
+            )
         );
     }
 }

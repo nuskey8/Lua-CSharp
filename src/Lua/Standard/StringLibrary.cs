@@ -69,7 +69,7 @@ public sealed class StringLibrary
             return new(context.Return(""));
         }
 
-        var byteStrings = context.State.Platform.ByteStrings;
+        var byteStrings = context.State.Platform.StringMode == LuaStringMode.Bytes;
         ValueStringBuilder builder = new(context.ArgumentCount);
         for (var i = 0; i < context.ArgumentCount; i++)
         {
@@ -419,7 +419,7 @@ public sealed class StringLibrary
                                 break;
                             case 'c':
                                 formattedValue = (
-                                    context.State.Platform.ByteStrings
+                                    context.State.Platform.StringMode == LuaStringMode.Bytes
                                         ? (char)((int)x & 0xFF)
                                         : (char)(int)x
                                 ).ToString();
@@ -872,7 +872,9 @@ public sealed class StringLibrary
         var s = context.GetArgument<string>(0);
         return new(
             context.Return(
-                context.State.Platform.ByteStrings ? StringHelper.ToLowerAscii(s) : s.ToLower()
+                context.State.Platform.StringMode == LuaStringMode.Bytes
+                    ? StringHelper.ToLowerAscii(s)
+                    : s.ToLower()
             )
         );
     }
@@ -1070,7 +1072,9 @@ public sealed class StringLibrary
         var s = context.GetArgument<string>(0);
         return new(
             context.Return(
-                context.State.Platform.ByteStrings ? StringHelper.ToUpperAscii(s) : s.ToUpper()
+                context.State.Platform.StringMode == LuaStringMode.Bytes
+                    ? StringHelper.ToUpperAscii(s)
+                    : s.ToUpper()
             )
         );
     }

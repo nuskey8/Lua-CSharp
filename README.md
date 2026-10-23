@@ -686,7 +686,7 @@ All string library functions handle strings as UTF-16.
 
 #### Byte strings (opt-in)
 
-If you need byte-exact strings like the reference C implementation (for example `#"ế"` is `3`, `string.sub` cuts inside a UTF-8 sequence, and files are read and written as raw bytes), enable `LuaPlatform.ByteStrings`. `LuaPlatform.DefaultByteStrings` is the default platform with byte strings and byte-oriented file and standard I/O:
+If you need byte-exact strings like the reference C implementation (for example `#"ế"` is `3`, `string.sub` cuts inside a UTF-8 sequence, and files are read and written as raw bytes), use `LuaStringMode.Bytes`. `LuaPlatform.StringMode` defaults to `LuaStringMode.Utf16`. `LuaPlatform.DefaultByteStrings` provides byte strings and byte-oriented file and standard I/O:
 
 ```cs
 using Lua;
@@ -704,19 +704,18 @@ var upper = LuaByteString.ToString(results[1].Read<string>());   // back to a .N
 
 In this mode `string.upper`, `string.lower` and the pattern classes (`%a`, `%w`, `%l`, ...) follow the C locale (ASCII only), `string.char` rejects values above 255, and UTF-8 source files are loaded byte by byte (a UTF-8 BOM is skipped). The default stays UTF-16.
 
-Choose one representation for a state and configure it before executing scripts. Setting `ByteStrings = true` on an otherwise unchanged platform does not switch its streams to raw bytes. When configuring a file root, keep that root as a normal .NET path:
+Choose one representation for a state and configure it before executing scripts. Setting `StringMode = LuaStringMode.Bytes` on an otherwise unchanged platform does not switch its streams to raw bytes. Use matching modes for the platform and its streams. When configuring a file root, keep that root as a normal .NET path:
 
 ```cs
 var platform = LuaPlatform.DefaultByteStrings with
 {
-    FileSystem = new Lua.IO.FileSystem(baseDirectory: scriptsDirectory, byteStrings: true)
+    FileSystem = new Lua.IO.FileSystem(scriptsDirectory, LuaStringMode.Bytes)
 };
 using var byteState = LuaState.Create(platform);
 byteState.OpenStandardLibraries();
 
-// A LuaModule carries normal .NET text. LoadModule converts its source and name.
-var module = new LuaModule("greeting.lua", "return 'こんにちは'");
-var values = await byteState.ExecuteAsync(byteState.LoadModule(module));
+// C# source and filename APIs accept normal .NET text.
+var values = await byteState.DoStringAsync("return 'こんにちは'");
 var greeting = LuaByteString.ToString(values[0].Read<string>());
 
 // Raw packets can contain NUL, invalid UTF-8 and every value from 0 to 255.
@@ -725,9 +724,9 @@ var packet = await byteState.DoStringAsync("return packet:reverse()");
 byte[] reversed = LuaByteString.ToBytes(packet[0].Read<string>());
 ```
 
-Use `FromString`/`ToString` for text and `FromBytes`/`ToBytes` for binary data. This also applies to non-ASCII table keys and the arguments/results of C# functions and generated bindings; interop does not convert strings automatically. `DoStringAsync` and `Load` with character source accept Lua strings, so encode non-ASCII source with `FromString`, or use `LoadModule` for .NET text. Byte source passed to `Load` and source read from files are preserved directly.
+Use `FromString`/`ToString` for string values and `FromBytes`/`ToBytes` for binary data. This also applies to non-ASCII table keys and the arguments/results of C# functions and generated bindings; value interop does not convert strings automatically. C# source APIs (`DoStringAsync`, `Load` with character source or a `LuaModule`) accept normal .NET text and encode it as UTF-8 in byte mode. Chunk names and paths passed to `LoadFileAsync`/`DoFileAsync` are also .NET text. Byte source passed to `Load`/`ExecuteAsync` and source read from files are preserved directly; their explicit chunk names are .NET text. Lua's `load`, `loadfile`, `dofile` and `require` continue to use Lua byte strings without re-encoding their source.
 
-Names passed to `ILuaModuleLoader` are normal .NET strings. Text modules are treated as .NET text and encoded to UTF-8 in byte mode; byte modules remain bytes. Unity text assets use the same conversion. Custom file systems and standard-I/O providers must implement the selected stream representation themselves; use `ILuaStream.CreateFromStream(stream, mode, byteStrings: true)` for raw streams. Filenames passed directly to the byte-mode `FileSystem`, `DoFileAsync` or `LoadFileAsync` are Lua byte strings, while `FileSystem.BaseDirectory` is a .NET path.
+Paths and names passed to `ILuaFileSystem`, `ILuaFileLoader` and `ILuaModuleLoader` are normal .NET strings in both modes. Text modules are treated as .NET text and encoded to UTF-8 in byte mode; byte modules remain bytes. Unity text assets use the same conversion. Custom file systems and standard-I/O providers must implement the selected stream representation themselves; use `ILuaStream.CreateFromStream(stream, mode, LuaStringMode.Bytes)` for raw streams.
 
 Files, temporary files and redirected standard I/O preserve bytes, including a BOM read as data. Raw line reads stop at LF and retain CR; `*L` also retains the LF. Invalid UTF-8 is replaced when decoding with `ToString`, so keep binary data in byte strings or byte arrays. Passing unconverted .NET characters above U+00FF to raw output writes `?` for those characters.
 

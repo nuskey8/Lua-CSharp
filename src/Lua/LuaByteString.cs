@@ -5,7 +5,7 @@ namespace Lua;
 
 /// <summary>
 /// Conversions between .NET strings and Lua byte strings (see
-/// <see cref="Lua.Platforms.LuaPlatform.ByteStrings"/>), where every <see cref="char"/> holds one byte.
+/// <see cref="LuaStringMode.Bytes"/>), where every <see cref="char"/> holds one byte.
 /// </summary>
 public static class LuaByteString
 {

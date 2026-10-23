@@ -494,7 +494,7 @@ public class LuaRuntimeException : Exception, ILuaTracebackBuildable
     internal string MinimalMessage(LuaPlatform platform)
     {
         var message = InnerException is { } inner
-            ? platform.ByteStrings
+            ? platform.StringMode == LuaStringMode.Bytes
                 ? platform.GetErrorMessage(inner)
                 : inner.ToString()
             : ErrorObject.ToString();

@@ -19,7 +19,7 @@ sealed class MatchState(LuaState state, string source, string pattern)
     }
 
     // Byte strings use the C locale: classes only match ASCII, bytes 0x80-0xFF never belong to a class.
-    readonly bool byteStrings = state.Platform.ByteStrings;
+    readonly bool byteStrings = state.Platform.StringMode == LuaStringMode.Bytes;
 
     public readonly LuaState State = state;
     public readonly string Source = source;

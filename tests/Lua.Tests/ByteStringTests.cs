@@ -39,7 +39,7 @@ public sealed class ByteStringTests : IDisposable
         var state = LuaState.Create(
             LuaPlatform.DefaultByteStrings with
             {
-                FileSystem = new FileSystem(testDirectory, byteStrings: true),
+                FileSystem = new FileSystem(testDirectory, LuaStringMode.Bytes),
             }
         );
         state.OpenStandardLibraries();
@@ -55,8 +55,8 @@ public sealed class ByteStringTests : IDisposable
     [Test]
     public void DefaultPlatform_KeepsUtf16Strings()
     {
-        Assert.That(LuaPlatform.Default.ByteStrings, Is.False);
-        Assert.That(LuaPlatform.DefaultByteStrings.ByteStrings, Is.True);
+        Assert.That(LuaPlatform.Default.StringMode, Is.EqualTo(LuaStringMode.Utf16));
+        Assert.That(LuaPlatform.DefaultByteStrings.StringMode, Is.EqualTo(LuaStringMode.Bytes));
     }
 
     [Test]
@@ -241,10 +241,10 @@ public sealed class ByteStringTests : IDisposable
         );
 
     [Test]
-    public async Task LoadString_KeepsSourceBytes()
+    public async Task DoString_EncodesDotNetSourceAsUtf8()
     {
         using var state = CreateByteState();
-        var source = LuaByteString.FromString("return 'Ti\u1EBFn', #'Ti\u1EBFn', '\u1EBF'");
+        var source = "return 'Ti\u1EBFn', #'Ti\u1EBFn', '\u1EBF'";
         var result = await state.DoStringAsync(source);
 
         Assert.That(result[0].Read<string>(), Is.EqualTo(LuaByteString.FromString("Ti\u1EBFn")));
@@ -401,7 +401,7 @@ public sealed class ByteStringTests : IDisposable
         using var state = CreateByteState();
         var result = await state.DoStringAsync(
             $$"""
-            package.path = "{{LuaByteString.FromString(testDirectory.Replace("\\", "/"))}}/?.lua"
+            package.path = "{{testDirectory.Replace("\\", "/")}}/?.lua"
             return require("m\xE1\xBA\xBFd")
             """
         );
@@ -498,7 +498,7 @@ public sealed class ByteStringTests : IDisposable
     {
         var all = Enumerable.Range(0, 256).Select(i => (byte)i).ToArray();
         using var memory = new MemoryStream();
-        using (var writer = new LuaStream(LuaFileOpenMode.Write, memory, byteStrings: true))
+        using (var writer = new LuaStream(LuaFileOpenMode.Write, memory, LuaStringMode.Bytes))
         {
             await writer.WriteAsync(
                 LuaByteString.FromBytes(all).AsMemory(),
@@ -511,7 +511,7 @@ public sealed class ByteStringTests : IDisposable
         using var reader = new LuaStream(
             LuaFileOpenMode.Read,
             new MemoryStream(all),
-            byteStrings: true
+            LuaStringMode.Bytes
         );
         var text = await reader.ReadAllAsync(CancellationToken.None);
         Assert.That(LuaByteString.ToBytes(text), Is.EqualTo(all));
@@ -534,7 +534,7 @@ public sealed class ByteStringTests : IDisposable
         using var reader = new LuaStream(
             LuaFileOpenMode.Read,
             new MemoryStream(new byte[] { 0xE1, 0xBA, 0xBF, 0x61 }),
-            byteStrings: true
+            LuaStringMode.Bytes
         );
 
         var first = await reader.ReadAsync(2, CancellationToken.None);

@@ -22,13 +22,13 @@ sealed class Utf8Reader
 
     const int ThreadStaticBufferSize = 1024;
 
-    /// <param name="byteStrings">
-    /// When true, every byte is decoded to one char (0x00-0xFF) and a UTF-8 BOM is not skipped,
+    /// <param name="stringMode">
+    /// In byte mode, every byte is decoded to one char (0x00-0xFF) and a UTF-8 BOM is not skipped,
     /// like the reference C implementation. Otherwise the stream is decoded as UTF-8.
     /// </param>
-    public Utf8Reader(bool byteStrings = false)
+    public Utf8Reader(LuaStringMode stringMode = LuaStringMode.Utf16)
     {
-        this.byteStrings = byteStrings;
+        byteStrings = stringMode == LuaStringMode.Bytes;
         encoding = byteStrings ? LuaByteEncoding.Instance : Encoding.UTF8;
 
         if (scratchBufferUsed)
