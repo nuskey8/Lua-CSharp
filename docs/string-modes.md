@@ -11,12 +11,15 @@ using Lua.Standard;
 
 using var textState = LuaState.Create(); // Utf16
 using var byteState = LuaState.Create(LuaPlatform.DefaultByteStrings);
+textState.OpenStandardLibraries();
 byteState.OpenStandardLibraries();
 ```
 
 Keep the mode fixed for a state's lifetime. Changing its platform does not convert existing strings, table keys or compiled chunks. Values shared between states with different modes need explicit conversion.
 
 ## Lua string operations
+
+Byte mode follows Lua 5.2's byte-string model: strings can contain arbitrary bytes, and lengths, substring positions and pattern matching operate on bytes. Character classes and case conversion follow ASCII C-locale rules.
 
 For UTF-8 source text:
 
@@ -27,11 +30,22 @@ For UTF-8 source text:
 | `string.len`, `string.sub`, `string.byte` | UTF-16 code units | Bytes |
 | Case conversion and pattern classes | .NET character rules | ASCII C-locale rules |
 
+For example, this script returns different results in each mode:
+
+```lua
+local s = "é"
+return #s, string.byte(s, 1), s:match("^%a+$") ~= nil
+-- Utf16: 1, 233, true
+-- Bytes: 2, 195, false
+```
+
 Lengths and slices do not count user-perceived characters. UTF-16 slicing can split a surrogate pair; byte slicing can split a UTF-8 sequence. Byte positions from Lua cannot be reused as indices into decoded .NET text. Use .NET text-element APIs on decoded text for user-perceived-character editing.
 
 In byte mode, `string.char` accepts only 0–255. Non-ASCII letters remain unchanged by `string.upper`/`string.lower` and do not match `%a`. Decode text before applying Unicode case conversion or classification in C#.
 
 Neither mode normalizes Unicode. For example, C# `"é"` and `"e\u0301"` remain different strings and table keys.
+
+This describes string semantics. Existing Lua-CSharp limitations still apply; for example, `string.dump` is unsupported. C# values still use `string` and require the conversions below, with matching stream configuration.
 
 ## Passing values between C# and Lua
 
