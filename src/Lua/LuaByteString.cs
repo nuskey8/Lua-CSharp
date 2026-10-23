@@ -1,4 +1,5 @@
 using System.Text;
+using Lua.Internal;
 using Lua.IO;
 
 namespace Lua;
@@ -30,7 +31,16 @@ public static class LuaByteString
     /// </summary>
     public static string FromString(string value)
     {
-        return FromBytes(Encoding.UTF8.GetBytes(value));
+        var count = Encoding.UTF8.GetByteCount(value);
+        if (count == value.Length)
+        {
+            return value; // ASCII already has the byte-string representation.
+        }
+        return string.Create(
+            count,
+            value,
+            static (destination, source) => Utf8CharEncoder.Encode(source, destination)
+        );
     }
 
     /// <summary>

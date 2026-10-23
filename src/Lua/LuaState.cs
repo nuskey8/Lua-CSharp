@@ -606,9 +606,24 @@ public class LuaState : IDisposable
             return LoadCore(chunk, name, environment);
         }
 
-        using PooledArray<byte> bytes = new(Encoding.UTF8.GetByteCount(chunk));
-        var count = Encoding.UTF8.GetBytes(chunk, bytes.AsSpan());
-        return LoadCore(bytes.AsSpan()[..count], name, "t", environment);
+        var byteCount = Encoding.UTF8.GetByteCount(chunk);
+        if (byteCount > 4 && chunk[0] == '\e')
+        {
+            throw new Exception("attempt to load a binary chunk (mode is 't')");
+        }
+        // Match the byte-source loader's handling of an initial UTF-8 BOM.
+        if (!chunk.IsEmpty && chunk[0] == '\uFEFF')
+        {
+            chunk = chunk[1..];
+            byteCount -= 3;
+        }
+        if (byteCount == chunk.Length)
+        {
+            return LoadCore(chunk, name, environment);
+        }
+        using PooledArray<char> chars = new(byteCount);
+        var count = Utf8CharEncoder.Encode(chunk, chars.AsSpan());
+        return LoadCore(chars.AsSpan()[..count], name, environment);
     }
 
     // Source and chunk name already use this state's Lua string representation.

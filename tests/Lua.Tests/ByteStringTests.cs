@@ -545,6 +545,29 @@ public sealed class ByteStringTests : IDisposable
     }
 
     [Test]
+    public void Utf8EncodingMatchesDotNetForSurrogateEdgeCases()
+    {
+        var source = new StringBuilder();
+        for (var value = 0; value <= char.MaxValue; value++)
+            source.Append((char)value);
+        for (var value = 0x10000; value <= 0x10FFFF; value += 997)
+            source.Append(char.ConvertFromUtf32(value));
+        source.Append("\uD800\uDC00\uDBFF\uDFFF\uD800\uD800\uDC00\uDC00\uD800x\uDC00");
+        var text = source.ToString();
+        var actual = LuaByteString.FromString(text);
+        Assert.That(actual.All(c => c <= 255), Is.True);
+        Assert.That(LuaByteString.ToBytes(actual), Is.EqualTo(Encoding.UTF8.GetBytes(text)));
+        for (var length = 0; length < 65; length++)
+        {
+            text = new string('a', length) + "ế😀\uD800x" + new string('z', length);
+            Assert.That(
+                LuaByteString.ToBytes(LuaByteString.FromString(text)),
+                Is.EqualTo(Encoding.UTF8.GetBytes(text))
+            );
+        }
+    }
+
+    [Test]
     public void LuaByteString_ConvertsBetweenDotNetStringsAndBytes()
     {
         const string text = "Ti\u1EBFn L\u00EAn \U0001F600";

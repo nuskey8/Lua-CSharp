@@ -228,6 +228,13 @@ public sealed class ByteStringIntegrationTests : IDisposable
         ];
 
         Assert.That(await state.ExecuteAsync(state.Load(source, name)), Is.EqualTo(expected));
+        if (stringMode == LuaStringMode.Bytes)
+        {
+            Assert.That(
+                await state.ExecuteAsync(state.Load("\uFEFF" + source, name)),
+                Is.EqualTo(expected)
+            );
+        }
         var buffer = new LuaValue[expected.Length];
         Assert.That(await state.DoStringAsync(source, buffer, name), Is.EqualTo(expected.Length));
         Assert.That(buffer, Is.EqualTo(expected));
