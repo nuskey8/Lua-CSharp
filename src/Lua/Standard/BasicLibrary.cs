@@ -232,7 +232,7 @@ public sealed class BasicLibrary
         }
         catch (Exception ex)
         {
-            return context.Return(LuaValue.Nil, ex.Message);
+            return context.Return(LuaValue.Nil, context.State.Platform.GetErrorMessage(ex));
         }
     }
 
@@ -286,7 +286,7 @@ public sealed class BasicLibrary
         }
         catch (Exception ex)
         {
-            return new(context.Return(LuaValue.Nil, ex.Message));
+            return new(context.Return(LuaValue.Nil, context.State.Platform.GetErrorMessage(ex)));
         }
     }
 
@@ -384,12 +384,12 @@ public sealed class BasicLibrary
                     }
 
                     using PooledList<char> builder = new();
-                    var message = luaEx.MinimalMessage();
+                    var message = luaEx.MinimalMessage(context.State.Platform);
                     luaEx.Forget();
                     return context.Return(false, message);
                 }
                 default:
-                    return context.Return(false, ex.Message);
+                    return context.Return(false, context.State.Platform.GetErrorMessage(ex));
             }
         }
     }
@@ -768,12 +768,15 @@ public sealed class BasicLibrary
 
             if (ex is LuaRuntimeException luaEx)
             {
+                var error = luaEx.InnerException is { } inner
+                    ? state.Platform.GetErrorMessage(inner)
+                    : luaEx.ErrorObject;
                 luaEx.Forget();
-                state.Push(luaEx.ErrorObject);
+                state.Push(error);
             }
             else
             {
-                state.Push(ex.Message);
+                state.Push(state.Platform.GetErrorMessage(ex));
             }
 
             // invoke error handler

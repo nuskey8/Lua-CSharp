@@ -18,6 +18,24 @@ sealed class LuaByteEncoding : Encoding
 
     public override int GetByteCount(ReadOnlySpan<char> chars) => chars.Length;
 
+    // Encoding's pointer defaults copy through temporary arrays. Its string,
+    // encoder and decoder APIs use these overloads even when span overrides exist.
+    public override unsafe int GetByteCount(char* chars, int count)
+    {
+        if (chars == null)
+            throw new ArgumentNullException(nameof(chars));
+        return new ReadOnlySpan<char>(chars, count).Length;
+    }
+
+    public override unsafe int GetBytes(char* chars, int charCount, byte* bytes, int byteCount)
+    {
+        if (chars == null)
+            throw new ArgumentNullException(nameof(chars));
+        if (bytes == null)
+            throw new ArgumentNullException(nameof(bytes));
+        return GetBytes(new ReadOnlySpan<char>(chars, charCount), new Span<byte>(bytes, byteCount));
+    }
+
     public override int GetBytes(
         char[] chars,
         int charIndex,
@@ -45,6 +63,22 @@ sealed class LuaByteEncoding : Encoding
     public override int GetCharCount(byte[] bytes, int index, int count) => count;
 
     public override int GetCharCount(ReadOnlySpan<byte> bytes) => bytes.Length;
+
+    public override unsafe int GetCharCount(byte* bytes, int count)
+    {
+        if (bytes == null)
+            throw new ArgumentNullException(nameof(bytes));
+        return new ReadOnlySpan<byte>(bytes, count).Length;
+    }
+
+    public override unsafe int GetChars(byte* bytes, int byteCount, char* chars, int charCount)
+    {
+        if (bytes == null)
+            throw new ArgumentNullException(nameof(bytes));
+        if (chars == null)
+            throw new ArgumentNullException(nameof(chars));
+        return GetChars(new ReadOnlySpan<byte>(bytes, byteCount), new Span<char>(chars, charCount));
+    }
 
     public override int GetChars(
         byte[] bytes,

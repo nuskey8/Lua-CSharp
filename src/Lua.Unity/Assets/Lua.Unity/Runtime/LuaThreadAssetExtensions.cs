@@ -21,10 +21,7 @@ namespace Lua.Unity
             }
 
             var module = luaAssetBase.GetModule(name);
-            var closure =
-                module.Type == LuaModuleType.Bytes
-                    ? state.Load(module.ReadBytes(), module.Name)
-                    : state.Load(module.ReadText(), module.Name);
+            var closure = state.LoadModule(module);
             return state.ExecuteAsync(closure, buffer, cancellationToken);
         }
 
@@ -35,7 +32,13 @@ namespace Lua.Unity
             CancellationToken cancellationToken = default
         )
         {
-            return state.ExecuteAsync(luaAssetBase, name, cancellationToken);
+            if (luaAssetBase == null)
+            {
+                throw new ArgumentNullException(nameof(luaAssetBase));
+            }
+
+            var module = luaAssetBase.GetModule(name);
+            return state.ExecuteAsync(state.LoadModule(module), cancellationToken);
         }
     }
 }

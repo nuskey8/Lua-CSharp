@@ -1,5 +1,6 @@
 using System.Buffers;
 using System.Runtime.CompilerServices;
+using System.Text;
 using Lua.Internal;
 using Lua.Internal.CompilerServices;
 using Lua.IO;
@@ -11,6 +12,29 @@ namespace Lua;
 
 public static class LuaStateExtensions
 {
+    /// <summary>
+    /// Loads a host module. Its name and text source are .NET text; byte source is
+    /// preserved. In byte-string mode, text source is encoded as UTF-8 before parsing.
+    /// </summary>
+    public static LuaClosure LoadModule(this LuaState state, LuaModule module)
+    {
+        var name = state.Platform.ToLuaString(module.Name);
+        if (module.Type == LuaModuleType.Bytes)
+        {
+            return state.Load(module.ReadBytes(), name);
+        }
+
+        if (!state.Platform.ByteStrings)
+        {
+            return state.Load(module.ReadText(), name);
+        }
+
+        var source = module.ReadText();
+        using PooledArray<byte> bytes = new(Encoding.UTF8.GetByteCount(source));
+        var count = Encoding.UTF8.GetBytes(source, bytes.AsSpan());
+        return state.Load(bytes.AsSpan()[..count], name);
+    }
+
     public static async ValueTask<LuaClosure> LoadFileAsync(
         this LuaState state,
         string fileName,

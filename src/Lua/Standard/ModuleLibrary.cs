@@ -31,13 +31,14 @@ public sealed class ModuleLibrary
         {
             LuaFunction loader;
             var moduleLoader = context.GlobalState.ModuleLoader;
-            if (moduleLoader != null && moduleLoader.Exists(arg0))
+            var hostName =
+                moduleLoader != null && context.State.Platform.ByteStrings
+                    ? LuaByteString.ToString(arg0)
+                    : arg0;
+            if (moduleLoader != null && moduleLoader.Exists(hostName))
             {
-                var module = await moduleLoader.LoadAsync(arg0, cancellationToken);
-                loader =
-                    module.Type == LuaModuleType.Bytes
-                        ? context.State.Load(module.ReadBytes(), module.Name)
-                        : context.State.Load(module.ReadText(), module.Name);
+                var module = await moduleLoader.LoadAsync(hostName, cancellationToken);
+                loader = context.State.LoadModule(module);
             }
             else
             {

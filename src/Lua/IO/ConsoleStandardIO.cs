@@ -9,8 +9,11 @@ namespace Lua.IO;
 /// When true, standard input and output are read and written as raw bytes (one byte per char)
 /// instead of UTF-8 text. Use together with <see cref="Lua.Platforms.LuaPlatform.ByteStrings"/>.
 /// </param>
-public sealed class ConsoleStandardIO(bool byteStrings = false) : ILuaStandardIO
+public sealed class ConsoleStandardIO(bool byteStrings) : ILuaStandardIO
 {
+    public ConsoleStandardIO()
+        : this(false) { }
+
     ILuaStream? standardInput;
     ILuaStream? standardOutput;
     ILuaStream? standardError;

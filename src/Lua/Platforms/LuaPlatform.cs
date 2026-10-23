@@ -34,6 +34,15 @@ public record LuaPlatform(
         return ByteStrings ? LuaByteString.FromString(value) : value;
     }
 
+    internal string GetErrorMessage(Exception exception)
+    {
+        // Lua diagnostics already contain Lua strings (including chunk names).
+        // Only host exceptions carry .NET text that needs UTF-8 conversion.
+        return exception is LuaRuntimeException or LuaParseException or LuaCompileException
+            ? exception.Message
+            : ToLuaString(exception.Message);
+    }
+
     /// <summary>
     /// Standard console platform implementation.
     /// Uses real file system, console I/O, and system operations.

@@ -2,6 +2,7 @@ using System.Runtime.CompilerServices;
 using Lua.CodeAnalysis;
 using Lua.CodeAnalysis.Syntax;
 using Lua.Internal;
+using Lua.Platforms;
 using Lua.Runtime;
 
 namespace Lua;
@@ -490,9 +491,13 @@ public class LuaRuntimeException : Exception, ILuaTracebackBuildable
         State = null;
     }
 
-    internal string MinimalMessage()
+    internal string MinimalMessage(LuaPlatform platform)
     {
-        var message = InnerException?.ToString() ?? ErrorObject.ToString();
+        var message = InnerException is { } inner
+            ? platform.ByteStrings
+                ? platform.GetErrorMessage(inner)
+                : inner.ToString()
+            : ErrorObject.ToString();
         if (level <= 0)
         {
             return message;

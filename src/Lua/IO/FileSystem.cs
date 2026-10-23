@@ -8,6 +8,9 @@
 public sealed class FileSystem(string? baseDirectory = null, bool byteStrings = false)
     : ILuaFileSystem
 {
+    public FileSystem(string? baseDirectory)
+        : this(baseDirectory, false) { }
+
     public string BaseDirectory => baseDirectory ?? Directory.GetCurrentDirectory();
 
     public static (FileMode, FileAccess access) GetFileMode(LuaFileOpenMode luaFileOpenMode)
@@ -149,7 +152,8 @@ public sealed class FileSystem(string? baseDirectory = null, bool byteStrings = 
         return new(
             new LuaStream(
                 LuaFileOpenMode.WriteUpdate,
-                File.Open(Path.GetTempFileName(), FileMode.Open, FileAccess.ReadWrite)
+                File.Open(Path.GetTempFileName(), FileMode.Open, FileAccess.ReadWrite),
+                byteStrings
             )
         );
     }

@@ -4,10 +4,13 @@ using Lua.Internal;
 
 namespace Lua.IO;
 
-public sealed class LuaStream(LuaFileOpenMode mode, Stream innerStream, bool byteStrings = false)
+public sealed class LuaStream(LuaFileOpenMode mode, Stream innerStream, bool byteStrings)
     : ILuaStream,
         ILuaByteStream
 {
+    public LuaStream(LuaFileOpenMode mode, Stream innerStream)
+        : this(mode, innerStream, false) { }
+
     Utf8Reader? reader;
     ulong flushSize = ulong.MaxValue;
     ulong nextFlushSize = ulong.MaxValue;
@@ -95,23 +98,34 @@ public sealed class LuaStream(LuaFileOpenMode mode, Stream innerStream, bool byt
         }
 
         using PooledArray<byte> byteBuffer = new(4096);
-        var encoder = (byteStrings ? LuaByteEncoding.Instance : Encoding.UTF8).GetEncoder();
+        var bytes = byteBuffer.AsSpan();
+        var encoder = byteStrings ? null : Encoding.UTF8.GetEncoder();
         var remainingChars = buffer.Span;
         var totalBytes = 0;
         while (!remainingChars.IsEmpty)
         {
-            encoder.Convert(
-                remainingChars,
-                byteBuffer.AsSpan(),
-                flush: true,
-                out var charsUsed,
-                out var bytesUsed,
-                out _
-            );
+            int charsUsed,
+                bytesUsed;
+            if (byteStrings)
+            {
+                charsUsed = Math.Min(remainingChars.Length, bytes.Length);
+                bytesUsed = LuaByteEncoding.Instance.GetBytes(remainingChars[..charsUsed], bytes);
+            }
+            else
+            {
+                encoder!.Convert(
+                    remainingChars,
+                    bytes,
+                    flush: true,
+                    out charsUsed,
+                    out bytesUsed,
+                    out _
+                );
+            }
 
             if (bytesUsed > 0)
             {
-                innerStream.Write(byteBuffer.AsSpan()[..bytesUsed]);
+                innerStream.Write(bytes[..bytesUsed]);
                 totalBytes += bytesUsed;
             }
 

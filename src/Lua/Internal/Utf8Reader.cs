@@ -64,7 +64,10 @@ sealed class Utf8Reader
                 }
 
                 Span<byte> span = new(buffer, bufPos, bufLen - bufPos);
-                var idx = span.IndexOfAny((byte)'\r', (byte)'\n');
+                // Raw Lua byte streams end a line at LF; CR remains part of the data.
+                var idx = byteStrings
+                    ? span.IndexOf((byte)'\n')
+                    : span.IndexOfAny((byte)'\r', (byte)'\n');
 
                 if (idx >= 0)
                 {
@@ -228,6 +231,16 @@ sealed class Utf8Reader
 
                 ReadOnlySpan<byte> byteSpan = new(buffer, bufPos, bufLen - bufPos);
                 Span<char> charSpan = new(resultBuffer, len, charCount - len);
+                if (byteStrings)
+                {
+                    var count = Math.Min(byteSpan.Length, charSpan.Length);
+                    LuaByteEncoding.Instance.GetChars(byteSpan[..count], charSpan);
+                    len += count;
+                    bufPos += count;
+                    dataRead = true;
+                    continue;
+                }
+
                 decoder ??= encoding.GetDecoder();
                 decoder.Convert(
                     byteSpan,
