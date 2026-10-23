@@ -15,6 +15,7 @@ sealed class MatchState(LuaState state, string source, string pattern)
         public int Len;
 
         public bool IsPosition => Len == CapPosition;
+        public bool IsUnfinished => Len == CapUnfinished;
     }
 
     // Byte strings use the C locale: classes only match ASCII, bytes 0x80-0xFF never belong to a class.
@@ -134,15 +135,22 @@ sealed class MatchState(LuaState state, string source, string pattern)
                             {
                                 var ep = ClassEnd(Pattern, pIdx + 2);
                                 var previous = sIdx > 0 ? Source[sIdx - 1] : '\0';
+                                var current = sIdx < Source.Length ? Source[sIdx] : '\0';
                                 if (
                                     !MatchBracketClass(previous, Pattern, pIdx + 2, ep - 1)
-                                    && sIdx < Source.Length
-                                    && MatchBracketClass(Source[sIdx], Pattern, pIdx + 2, ep - 1)
+                                    && MatchBracketClass(current, Pattern, pIdx + 2, ep - 1)
                                 )
                                 {
                                     pIdx = ep;
                                     goto Init;
                                 }
+                            }
+                            else
+                            {
+                                throw new LuaRuntimeException(
+                                    State,
+                                    "missing '[' after '%f' in pattern"
+                                );
                             }
 
                             sIdx = -1;

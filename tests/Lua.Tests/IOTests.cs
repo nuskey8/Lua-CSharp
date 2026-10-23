@@ -1,5 +1,6 @@
 using System.Text;
 using Lua.IO;
+using Lua.Standard;
 using NUnit.Framework;
 
 namespace Lua.Tests;
@@ -241,6 +242,162 @@ public class IOTests : IDisposable
         Assert.That(File.Exists(oldPath), Is.False);
         Assert.That(File.Exists(newPath), Is.True);
         Assert.That(File.ReadAllText(newPath), Is.EqualTo("test content"));
+    }
+
+    [Test]
+    public void FileSystem_Rename_MissingSource_KeepsDestination()
+    {
+        var oldPath = GetTestFilePath("missing_source.txt");
+        var newPath = GetTestFilePath("existing_destination.txt");
+
+        File.WriteAllText(newPath, "keep me");
+
+        Assert.ThrowsAsync<FileNotFoundException>(async () =>
+            await fileSystem.Rename(oldPath, newPath, CancellationToken.None)
+        );
+
+        Assert.That(File.Exists(newPath), Is.True);
+        Assert.That(File.ReadAllText(newPath), Is.EqualTo("keep me"));
+    }
+
+    [Test]
+    public async Task OsRename_MissingSource_ReturnsNilAndKeepsDestination()
+    {
+        var newPath = GetTestFilePath("os_destination.txt");
+        File.WriteAllText(newPath, "keep me");
+
+        var state = LuaState.Create();
+        state.Platform = state.Platform with { FileSystem = new FileSystem(testDirectory) };
+        state.OpenStandardLibraries();
+        var result = await state.DoStringAsync(
+            "return os.rename('os_missing_source.txt', 'os_destination.txt')"
+        );
+
+        Assert.That(result[0], Is.EqualTo(LuaValue.Nil));
+        Assert.That(File.ReadAllText(newPath), Is.EqualTo("keep me"));
+    }
+
+    [Test]
+    [TestCase("w+")]
+    [TestCase("w+b")]
+    public async Task OpenWritePlus_CreatesMissingFileAndTruncatesExisting(string mode)
+    {
+        var state = LuaState.Create();
+        state.Platform = state.Platform with { FileSystem = new FileSystem(testDirectory) };
+        state.OpenStandardLibraries();
+        state.Environment["mode"] = mode;
+        var result = await state.DoStringAsync(
+            """
+            local f = assert(io.open("wplus.txt", mode))
+            f:write("abcdef")
+            f:seek("set", 2)
+            local middle = f:read(3)
+            f:seek("set", 2)
+            f:write("XY")
+            f:seek("set", 0)
+            local updated = f:read("*a")
+            f:close()
+
+            f = assert(io.open("wplus.txt", mode))
+            local truncated = f:read("*a")
+            f:close()
+            return middle, truncated, updated
+            """
+        );
+
+        Assert.That(result[0].Read<string>(), Is.EqualTo("cde"));
+        Assert.That(result[1].Read<string>(), Is.EqualTo(""));
+        Assert.That(result[2].Read<string>(), Is.EqualTo("abXYef"));
+    }
+
+    [Test]
+    [TestCase("a+")]
+    [TestCase("a+b")]
+    public async Task OpenAppendPlus_AppendsAfterSeek(string mode)
+    {
+        var path = GetTestFilePath("appendplus.txt");
+        File.WriteAllText(path, "abc");
+        using var state = LuaState.Create();
+        state.Platform = state.Platform with { FileSystem = new FileSystem(testDirectory) };
+        state.OpenStandardLibraries();
+        state.Environment["mode"] = mode;
+
+        await state.DoStringAsync(
+            """
+            local f = assert(io.open("appendplus.txt", mode))
+            f:seek("set", 0)
+            f:write("XY")
+            f:close()
+            """
+        );
+
+        Assert.That(File.ReadAllText(path), Is.EqualTo("abcXY"));
+    }
+
+    [Test]
+    [Platform("Win")]
+    public async Task OsRename_LockedSource_KeepsDestination()
+    {
+        var oldPath = GetTestFilePath("locked_source.txt");
+        var newPath = GetTestFilePath("locked_destination.txt");
+        File.WriteAllText(oldPath, "source");
+        File.WriteAllText(newPath, "keep me");
+        using var locked = File.Open(oldPath, FileMode.Open, FileAccess.Read, FileShare.Read);
+        using var state = LuaState.Create();
+        state.Platform = state.Platform with { FileSystem = new FileSystem(testDirectory) };
+        state.OpenStandardLibraries();
+
+        var result = await state.DoStringAsync(
+            "return os.rename('locked_source.txt', 'locked_destination.txt')"
+        );
+
+        Assert.That(result[0], Is.EqualTo(LuaValue.Nil));
+        Assert.That(File.ReadAllText(oldPath), Is.EqualTo("source"));
+        Assert.That(File.ReadAllText(newPath), Is.EqualTo("keep me"));
+    }
+
+    [Test]
+    public void FileSystem_Rename_DirectoryToFile_KeepsDestination()
+    {
+        var oldPath = GetTestFilePath("source_directory");
+        var newPath = GetTestFilePath("destination_file.txt");
+        Directory.CreateDirectory(oldPath);
+        File.WriteAllText(newPath, "keep me");
+
+        Assert.CatchAsync<IOException>(async () =>
+            await fileSystem.Rename(oldPath, newPath, CancellationToken.None)
+        );
+
+        Assert.That(Directory.Exists(oldPath), Is.True);
+        Assert.That(File.ReadAllText(newPath), Is.EqualTo("keep me"));
+    }
+
+    [Test]
+    public async Task FileSystem_Rename_ReplacesExistingFile()
+    {
+        var oldPath = GetTestFilePath("replace_source.txt");
+        var newPath = GetTestFilePath("replace_destination.txt");
+        File.WriteAllText(oldPath, "source");
+        File.WriteAllText(newPath, "old destination");
+
+        await fileSystem.Rename(oldPath, newPath, CancellationToken.None);
+
+        Assert.That(File.Exists(oldPath), Is.False);
+        Assert.That(File.ReadAllText(newPath), Is.EqualTo("source"));
+    }
+
+    [Test]
+    public async Task FileSystem_Rename_Directory_Works()
+    {
+        var oldPath = GetTestFilePath("old_directory");
+        var newPath = GetTestFilePath("new_directory");
+        Directory.CreateDirectory(oldPath);
+        File.WriteAllText(Path.Combine(oldPath, "child.txt"), "source");
+
+        await fileSystem.Rename(oldPath, newPath, CancellationToken.None);
+
+        Assert.That(Directory.Exists(oldPath), Is.False);
+        Assert.That(File.ReadAllText(Path.Combine(newPath, "child.txt")), Is.EqualTo("source"));
     }
 
     [Test]

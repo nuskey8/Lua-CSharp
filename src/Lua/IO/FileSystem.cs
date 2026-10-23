@@ -18,7 +18,7 @@ public sealed class FileSystem(string? baseDirectory = null, bool byteStrings = 
             LuaFileOpenMode.Write => (FileMode.Create, FileAccess.Write),
             LuaFileOpenMode.Append => (FileMode.Append, FileAccess.Write),
             LuaFileOpenMode.ReadUpdate => (FileMode.Open, FileAccess.ReadWrite),
-            LuaFileOpenMode.WriteUpdate => (FileMode.Truncate, FileAccess.ReadWrite),
+            LuaFileOpenMode.WriteUpdate => (FileMode.Create, FileAccess.ReadWrite),
             LuaFileOpenMode.AppendUpdate => (FileMode.Append, FileAccess.ReadWrite),
             _ => throw new ArgumentOutOfRangeException(
                 nameof(luaFileOpenMode),
@@ -86,18 +86,39 @@ public sealed class FileSystem(string? baseDirectory = null, bool byteStrings = 
     {
         oldName = ResolvePath(oldName);
         newName = ResolvePath(newName);
+
+        // Check the source first: a failed rename must leave the destination untouched.
+        var isFile = File.Exists(oldName);
+        if (!isFile && !Directory.Exists(oldName))
+        {
+            throw new FileNotFoundException("No such file or directory", oldName);
+        }
+
         if (oldName == newName)
         {
             return default;
         }
 
-        if (File.Exists(newName))
+        if (!isFile)
         {
-            File.Delete(newName);
+            Directory.Move(oldName, newName);
+            return default;
         }
 
-        File.Move(oldName, newName);
-        File.Delete(oldName);
+        // Let the filesystem replace the destination only when the move succeeds.
+#if NETSTANDARD2_1
+        // .NET Standard does not expose the overwrite overload of File.Move.
+        if (File.Exists(newName))
+        {
+            File.Replace(oldName, newName, null);
+        }
+        else
+        {
+            File.Move(oldName, newName);
+        }
+#else
+        File.Move(oldName, newName, overwrite: true);
+#endif
         return default;
     }
 
