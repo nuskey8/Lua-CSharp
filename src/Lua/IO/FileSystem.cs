@@ -12,7 +12,7 @@ public sealed class FileSystem(string? baseDirectory = null) : ILuaFileSystem
             LuaFileOpenMode.Write => (FileMode.Create, FileAccess.Write),
             LuaFileOpenMode.Append => (FileMode.Append, FileAccess.Write),
             LuaFileOpenMode.ReadUpdate => (FileMode.Open, FileAccess.ReadWrite),
-            LuaFileOpenMode.WriteUpdate => (FileMode.Truncate, FileAccess.ReadWrite),
+            LuaFileOpenMode.WriteUpdate => (FileMode.Create, FileAccess.ReadWrite),
             LuaFileOpenMode.AppendUpdate => (FileMode.Append, FileAccess.ReadWrite),
             _ => throw new ArgumentOutOfRangeException(
                 nameof(luaFileOpenMode),
