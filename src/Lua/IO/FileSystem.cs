@@ -74,6 +74,13 @@ public sealed class FileSystem(string? baseDirectory = null) : ILuaFileSystem
     {
         oldName = GetFullPath(oldName);
         newName = GetFullPath(newName);
+
+        // Check the source first: a failed rename must leave the destination untouched.
+        if (!File.Exists(oldName) && !Directory.Exists(oldName))
+        {
+            throw new FileNotFoundException("No such file or directory", oldName);
+        }
+
         if (oldName == newName)
         {
             return default;
@@ -85,7 +92,6 @@ public sealed class FileSystem(string? baseDirectory = null) : ILuaFileSystem
         }
 
         File.Move(oldName, newName);
-        File.Delete(oldName);
         return default;
     }
 

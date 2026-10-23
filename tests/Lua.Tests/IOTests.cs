@@ -1,5 +1,6 @@
 using System.Text;
 using Lua.IO;
+using Lua.Standard;
 using NUnit.Framework;
 
 namespace Lua.Tests;
@@ -241,6 +242,39 @@ public class IOTests : IDisposable
         Assert.That(File.Exists(oldPath), Is.False);
         Assert.That(File.Exists(newPath), Is.True);
         Assert.That(File.ReadAllText(newPath), Is.EqualTo("test content"));
+    }
+
+    [Test]
+    public void FileSystem_Rename_MissingSource_KeepsDestination()
+    {
+        var oldPath = GetTestFilePath("missing_source.txt");
+        var newPath = GetTestFilePath("existing_destination.txt");
+
+        File.WriteAllText(newPath, "keep me");
+
+        Assert.ThrowsAsync<FileNotFoundException>(async () =>
+            await fileSystem.Rename(oldPath, newPath, CancellationToken.None)
+        );
+
+        Assert.That(File.Exists(newPath), Is.True);
+        Assert.That(File.ReadAllText(newPath), Is.EqualTo("keep me"));
+    }
+
+    [Test]
+    public async Task OsRename_MissingSource_ReturnsNilAndKeepsDestination()
+    {
+        var newPath = GetTestFilePath("os_destination.txt");
+        File.WriteAllText(newPath, "keep me");
+
+        var state = LuaState.Create();
+        state.Platform = state.Platform with { FileSystem = new FileSystem(testDirectory) };
+        state.OpenStandardLibraries();
+        var result = await state.DoStringAsync(
+            "return os.rename('os_missing_source.txt', 'os_destination.txt')"
+        );
+
+        Assert.That(result[0], Is.EqualTo(LuaValue.Nil));
+        Assert.That(File.ReadAllText(newPath), Is.EqualTo("keep me"));
     }
 
     [Test]
