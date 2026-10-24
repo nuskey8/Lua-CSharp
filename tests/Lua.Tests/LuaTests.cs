@@ -1,13 +1,16 @@
 using System.Text;
 using Lua.IO;
+using Lua.Platforms;
 using Lua.Standard;
 using Lua.Tests.Helpers;
 
 namespace Lua.Tests;
 
-public class LuaTests
+[TestFixture(LuaStringMode.Utf16)]
+[TestFixture(LuaStringMode.Bytes)]
+public class LuaTests(LuaStringMode stringMode)
 {
-    static string PatchFilesLuaSource(string source)
+    static string PatchFilesLuaSource(string source, LuaStringMode stringMode)
     {
         const char utf8Bom = '\uFEFF';
         var lines = source.Replace("\r\n", "\n").Split('\n');
@@ -19,12 +22,15 @@ public class LuaTests
             "do local __f = assert(io.open(file)); local __src = assert(__f:read('*a')); __f:close(); assert(load(__src))() end -- Lua-CSharp test harness uses string load because load(reader) is unsupported.";
         lines[296] =
             "do local __f = assert(io.open(file)); local __src = assert(__f:read('*a')); __f:close(); assert(load(__src))() end -- Lua-CSharp test harness uses string load because load(reader) is unsupported.";
-        lines[330] =
-            $"testloadfile(\"{utf8Bom}# some comment\\nreturn 234\", 234) -- Lua-CSharp test harness uses a real BOM code point because Lua strings are UTF-16 text, not raw bytes.";
-        lines[331] =
-            $"testloadfile(\"{utf8Bom}return 239\", 239) -- Lua-CSharp test harness uses a real BOM code point because Lua strings are UTF-16 text, not raw bytes.";
-        lines[332] =
-            $"testloadfile(\"{utf8Bom}\", nil) -- Lua-CSharp test harness uses a real BOM code point because Lua strings are UTF-16 text, not raw bytes.";
+        if (stringMode != LuaStringMode.Bytes)
+        {
+            lines[330] =
+                $"testloadfile(\"{utf8Bom}# some comment\\nreturn 234\", 234) -- Lua-CSharp test harness uses a real BOM code point because Lua strings are UTF-16 text, not raw bytes.";
+            lines[331] =
+                $"testloadfile(\"{utf8Bom}return 239\", 239) -- Lua-CSharp test harness uses a real BOM code point because Lua strings are UTF-16 text, not raw bytes.";
+            lines[332] =
+                $"testloadfile(\"{utf8Bom}\", nil) -- Lua-CSharp test harness uses a real BOM code point because Lua strings are UTF-16 text, not raw bytes.";
+        }
         for (var i = 341; i <= 346; i++)
         {
             lines[i] =
@@ -77,11 +83,13 @@ public class LuaTests
     {
         var path = FileHelper.GetAbsolutePath(file);
         var baseDirectory = Path.GetDirectoryName(path)!;
-        var state = LuaState.Create();
+        using var state = LuaState.Create(
+            stringMode == LuaStringMode.Bytes ? LuaPlatform.DefaultByteStrings : LuaPlatform.Default
+        );
         state.Platform = state.Platform with
         {
-            StandardIO = new TestStandardIO(),
-            FileSystem = new FileSystem(baseDirectory),
+            StandardIO = new TestStandardIO(stringMode),
+            FileSystem = new FileSystem(baseDirectory, stringMode),
         };
         state.OpenStandardLibraries();
         if (file == "tests-lua/errors.lua")
@@ -91,11 +99,18 @@ public class LuaTests
             if (file == "tests-lua/files.lua")
             {
                 // files.lua contains raw 8-bit source literals. Decode its bytes 1:1
-                // and patch only the byte-sensitive assertions in memory so the
+                // and apply compatibility patches in memory so the
                 // original Lua test file stays untouched on disk.
                 var sourceBytes = await File.ReadAllBytesAsync(path);
-                var source = PatchFilesLuaSource(Encoding.Latin1.GetString(sourceBytes));
-                var closure = state.Load(source, "@" + Path.GetFileName(file));
+                var source = PatchFilesLuaSource(
+                    Encoding.Latin1.GetString(sourceBytes),
+                    stringMode
+                );
+                var name = "@" + Path.GetFileName(file);
+                var closure =
+                    stringMode == LuaStringMode.Bytes
+                        ? state.Load(LuaByteString.ToBytes(source), name)
+                        : state.Load(source, name);
                 await state.ExecuteAsync(closure);
             }
             else

@@ -69,11 +69,17 @@ public sealed class StringLibrary
             return new(context.Return(""));
         }
 
+        var byteStrings = context.State.Platform.StringMode == LuaStringMode.Bytes;
         ValueStringBuilder builder = new(context.ArgumentCount);
         for (var i = 0; i < context.ArgumentCount; i++)
         {
             var arg = context.GetArgument<double>(i);
             LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.State, i + 1, arg);
+            if (byteStrings && (arg < 0 || arg > 255))
+            {
+                LuaRuntimeException.BadArgument(context.State, i + 1, "value out of range");
+            }
+
             builder.Append((char)arg);
         }
 
@@ -412,7 +418,11 @@ public sealed class StringLibrary
                                 }
                                 break;
                             case 'c':
-                                formattedValue = ((char)(int)x).ToString();
+                                formattedValue = (
+                                    context.State.Platform.StringMode == LuaStringMode.Bytes
+                                        ? (char)((int)x & 0xFF)
+                                        : (char)(int)x
+                                ).ToString();
                                 break;
                             case 'x':
                                 {
@@ -860,7 +870,13 @@ public sealed class StringLibrary
     )
     {
         var s = context.GetArgument<string>(0);
-        return new(context.Return(s.ToLower()));
+        return new(
+            context.Return(
+                context.State.Platform.StringMode == LuaStringMode.Bytes
+                    ? StringHelper.ToLowerAscii(s)
+                    : s.ToLower()
+            )
+        );
     }
 
     public ValueTask<int> Match(
@@ -1054,6 +1070,12 @@ public sealed class StringLibrary
     )
     {
         var s = context.GetArgument<string>(0);
-        return new(context.Return(s.ToUpper()));
+        return new(
+            context.Return(
+                context.State.Platform.StringMode == LuaStringMode.Bytes
+                    ? StringHelper.ToUpperAscii(s)
+                    : s.ToUpper()
+            )
+        );
     }
 }

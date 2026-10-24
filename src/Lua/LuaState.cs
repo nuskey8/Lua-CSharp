@@ -1,8 +1,10 @@
 using System.Buffers;
 using System.Runtime.CompilerServices;
+using System.Text;
 using Lua.CodeAnalysis.Compilation;
 using Lua.Internal;
 using Lua.Internal.CompilerServices;
+using Lua.IO;
 using Lua.Platforms;
 using Lua.Runtime;
 
@@ -592,7 +594,40 @@ public class LuaState : IDisposable
         }
     }
 
-    public unsafe LuaClosure Load(
+    /// <summary>
+    /// Loads .NET source text and a .NET chunk name. In byte-string mode, text is
+    /// encoded as UTF-8. Use the byte overload for source that is already encoded.
+    /// </summary>
+    public LuaClosure Load(ReadOnlySpan<char> chunk, string chunkName, LuaTable? environment = null)
+    {
+        var name = Platform.ToLuaString(chunkName);
+        if (Platform.StringMode != LuaStringMode.Bytes)
+        {
+            return LoadCore(chunk, name, environment);
+        }
+
+        var byteCount = Encoding.UTF8.GetByteCount(chunk);
+        if (byteCount > 4 && chunk[0] == '\e')
+        {
+            throw new Exception("attempt to load a binary chunk (mode is 't')");
+        }
+        // Match the byte-source loader's handling of an initial UTF-8 BOM.
+        if (!chunk.IsEmpty && chunk[0] == '\uFEFF')
+        {
+            chunk = chunk[1..];
+            byteCount -= 3;
+        }
+        if (byteCount == chunk.Length)
+        {
+            return LoadCore(chunk, name, environment);
+        }
+        using PooledArray<char> chars = new(byteCount);
+        var count = Utf8CharEncoder.Encode(chunk, chars.AsSpan());
+        return LoadCore(chars.AsSpan()[..count], name, environment);
+    }
+
+    // Source and chunk name already use this state's Lua string representation.
+    internal unsafe LuaClosure LoadCore(
         ReadOnlySpan<char> chunk,
         string chunkName,
         LuaTable? environment = null
@@ -607,7 +642,27 @@ public class LuaState : IDisposable
         return new(this, prototype, environment);
     }
 
+    /// <summary>
+    /// Loads encoded source bytes with a .NET chunk name. Byte-string mode preserves
+    /// the source bytes, except for an initial UTF-8 BOM.
+    /// </summary>
     public LuaClosure Load(
+        ReadOnlySpan<byte> chunk,
+        string? chunkName = null,
+        string mode = "bt",
+        LuaTable? environment = null
+    )
+    {
+        return LoadCore(
+            chunk,
+            chunkName is null ? null : Platform.ToLuaString(chunkName),
+            mode,
+            environment
+        );
+    }
+
+    // Source is encoded bytes; an explicit chunk name already uses the Lua string representation.
+    internal LuaClosure LoadCore(
         ReadOnlySpan<byte> chunk,
         string? chunkName = null,
         string mode = "bt",
@@ -637,7 +692,17 @@ public class LuaState : IDisposable
             throw new Exception("attempt to load a text chunk (mode is 'b')");
         }
 
-        chunk = BomUtility.GetEncodingFromBytes(chunk, out var encoding);
+        Encoding encoding;
+        if (Platform.StringMode == LuaStringMode.Bytes)
+        {
+            // Byte strings: like luaL_loadfile, skip a UTF-8 BOM and keep every other byte as one char.
+            chunk = BomUtility.SkipUtf8Bom(chunk);
+            encoding = LuaByteEncoding.Instance;
+        }
+        else
+        {
+            chunk = BomUtility.GetEncodingFromBytes(chunk, out encoding);
+        }
 
         var charCount = encoding.GetCharCount(chunk);
         var pooled = ArrayPool<char>.Shared.Rent(charCount);
@@ -647,7 +712,7 @@ public class LuaState : IDisposable
             encoding.GetChars(chunk, chars);
             chunkName ??= chars.ToString();
 
-            return Load(chars, chunkName, environment);
+            return LoadCore(chars, chunkName, environment);
         }
         finally
         {
