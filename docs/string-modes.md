@@ -102,6 +102,8 @@ var utf8Chunk = byteState.Load("return 'é'"u8, "example");
 
 `LuaPlatform.DefaultByteStrings` configures matching byte-mode file and standard I/O. Changing `StringMode` alone does not reconfigure streams. Custom providers must use the same representation as the state; wrap raw streams with `ILuaStream.CreateFromStream(stream, openMode, LuaStringMode.Bytes)`.
 
+For Unity, use `new Lua.Unity.UnityStandardIO(LuaStringMode.Bytes)` with a byte-mode state. It decodes UTF-8 for display through `Debug.Log`/`Debug.LogError`; use raw streams to preserve binary output. A supplied input stream must also use byte strings.
+
 A file root remains a normal .NET path:
 
 ```csharp
