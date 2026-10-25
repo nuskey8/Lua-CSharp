@@ -1,6 +1,7 @@
 ﻿using System.Buffers;
 using System.Text;
 using Lua.CodeAnalysis.Compilation;
+using Lua.IO;
 
 namespace Lua.Internal;
 
@@ -13,14 +14,23 @@ sealed class Utf8Reader
     internal static bool scratchBufferUsed;
 
     readonly byte[] buffer;
+    readonly Encoding encoding;
+    readonly bool byteStrings;
     int bufPos,
         bufLen;
     Decoder? decoder;
 
     const int ThreadStaticBufferSize = 1024;
 
-    public Utf8Reader()
+    /// <param name="stringMode">
+    /// In byte mode, every byte is decoded to one char (0x00-0xFF) and a UTF-8 BOM is not skipped,
+    /// like the reference C implementation. Otherwise the stream is decoded as UTF-8.
+    /// </param>
+    public Utf8Reader(LuaStringMode stringMode = LuaStringMode.Utf16)
     {
+        byteStrings = stringMode == LuaStringMode.Bytes;
+        encoding = byteStrings ? LuaByteEncoding.Instance : Encoding.UTF8;
+
         if (scratchBufferUsed)
         {
             buffer = new byte[ThreadStaticBufferSize];
@@ -46,7 +56,7 @@ sealed class Utf8Reader
                 if (bufPos >= bufLen)
                 {
                     bufLen = stream.Read(buffer, 0, buffer.Length);
-                    bufPos = buffer.AsSpan().StartsWith(BomUtility.BomUtf8) ? 3 : 0;
+                    bufPos = !byteStrings && buffer.AsSpan().StartsWith(BomUtility.BomUtf8) ? 3 : 0;
                     if (bufLen <= bufPos)
                     {
                         break; // EOF
@@ -54,7 +64,10 @@ sealed class Utf8Reader
                 }
 
                 Span<byte> span = new(buffer, bufPos, bufLen - bufPos);
-                var idx = span.IndexOfAny((byte)'\r', (byte)'\n');
+                // Raw Lua byte streams end a line at LF; CR remains part of the data.
+                var idx = byteStrings
+                    ? span.IndexOf((byte)'\n')
+                    : span.IndexOfAny((byte)'\r', (byte)'\n');
 
                 if (idx >= 0)
                 {
@@ -92,7 +105,7 @@ sealed class Utf8Reader
                         }
                     }
 
-                    return Encoding.UTF8.GetString(resultBuffer, 0, lineLen);
+                    return encoding.GetString(resultBuffer, 0, lineLen);
                 }
                 else
                 {
@@ -107,7 +120,7 @@ sealed class Utf8Reader
                 return null;
             }
 
-            return Encoding.UTF8.GetString(resultBuffer, 0, lineLen);
+            return encoding.GetString(resultBuffer, 0, lineLen);
         }
         finally
         {
@@ -126,7 +139,7 @@ sealed class Utf8Reader
                 if (bufPos >= bufLen)
                 {
                     bufLen = stream.Read(buffer, 0, buffer.Length);
-                    bufPos = buffer.AsSpan().StartsWith(BomUtility.BomUtf8) ? 3 : 0;
+                    bufPos = !byteStrings && buffer.AsSpan().StartsWith(BomUtility.BomUtf8) ? 3 : 0;
                     if (bufLen <= bufPos)
                     {
                         break; // EOF
@@ -143,7 +156,7 @@ sealed class Utf8Reader
                 return "";
             }
 
-            return Encoding.UTF8.GetString(resultBuffer, 0, len);
+            return encoding.GetString(resultBuffer, 0, len);
         }
         finally
         {
@@ -209,7 +222,7 @@ sealed class Utf8Reader
                 if (bufPos >= bufLen)
                 {
                     bufLen = stream.Read(buffer, 0, buffer.Length);
-                    bufPos = buffer.AsSpan().StartsWith(BomUtility.BomUtf8) ? 3 : 0;
+                    bufPos = !byteStrings && buffer.AsSpan().StartsWith(BomUtility.BomUtf8) ? 3 : 0;
                     if (bufLen <= bufPos)
                     {
                         break; // EOF
@@ -218,7 +231,17 @@ sealed class Utf8Reader
 
                 ReadOnlySpan<byte> byteSpan = new(buffer, bufPos, bufLen - bufPos);
                 Span<char> charSpan = new(resultBuffer, len, charCount - len);
-                decoder ??= Encoding.UTF8.GetDecoder();
+                if (byteStrings)
+                {
+                    var count = Math.Min(byteSpan.Length, charSpan.Length);
+                    LuaByteEncoding.Instance.GetChars(byteSpan[..count], charSpan);
+                    len += count;
+                    bufPos += count;
+                    dataRead = true;
+                    continue;
+                }
+
+                decoder ??= encoding.GetDecoder();
                 decoder.Convert(
                     byteSpan,
                     charSpan,
@@ -269,6 +292,8 @@ sealed class Utf8Reader
         length += segment.Length;
     }
 
+    static bool IsAsciiSpace(char c) => c == ' ' || (c >= '\t' && c <= '\r');
+
     public void Clear()
     {
         bufPos = 0;
@@ -296,7 +321,7 @@ sealed class Utf8Reader
                 }
 
                 var c = (char)b;
-                if (!char.IsWhiteSpace(c))
+                if (byteStrings ? !IsAsciiSpace(c) : !char.IsWhiteSpace(c))
                 {
                     break;
                 }

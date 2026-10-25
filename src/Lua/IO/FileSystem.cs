@@ -1,7 +1,15 @@
 ﻿namespace Lua.IO;
 
-public sealed class FileSystem(string? baseDirectory = null) : ILuaFileSystem
+/// <param name="baseDirectory">Directory that relative paths are resolved against.</param>
+/// <param name="stringMode">
+/// Selects UTF-8 text I/O for <see cref="LuaStringMode.Utf16"/>, or raw byte I/O for <see cref="LuaStringMode.Bytes"/>.
+/// Use the same mode as <see cref="Lua.Platforms.LuaPlatform.StringMode"/>.
+/// </param>
+public sealed class FileSystem(string? baseDirectory, LuaStringMode stringMode) : ILuaFileSystem
 {
+    public FileSystem(string? baseDirectory = null)
+        : this(baseDirectory, LuaStringMode.Utf16) { }
+
     public string BaseDirectory => baseDirectory ?? Directory.GetCurrentDirectory();
 
     public static (FileMode, FileAccess access) GetFileMode(LuaFileOpenMode luaFileOpenMode)
@@ -60,7 +68,7 @@ public sealed class FileSystem(string? baseDirectory = null) : ILuaFileSystem
             stream = File.Open(path, mode, access, FileShare.ReadWrite | FileShare.Delete);
         }
 
-        ILuaStream wrapper = new LuaStream(openMode, stream);
+        ILuaStream wrapper = new LuaStream(openMode, stream, stringMode);
 
         if (openMode == LuaFileOpenMode.AppendUpdate)
         {
@@ -136,7 +144,8 @@ public sealed class FileSystem(string? baseDirectory = null) : ILuaFileSystem
         return new(
             new LuaStream(
                 LuaFileOpenMode.WriteUpdate,
-                File.Open(Path.GetTempFileName(), FileMode.Open, FileAccess.ReadWrite)
+                File.Open(Path.GetTempFileName(), FileMode.Open, FileAccess.ReadWrite),
+                stringMode
             )
         );
     }

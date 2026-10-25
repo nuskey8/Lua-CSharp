@@ -146,7 +146,11 @@ public sealed class FileHandle : ILuaUserData
             }
             catch (IOException ex)
             {
-                return context.Return(LuaValue.Nil, ex.Message, ex.HResult);
+                return context.Return(
+                    LuaValue.Nil,
+                    context.State.Platform.ToLuaString(ex.Message),
+                    ex.HResult
+                );
             }
         }
     );
@@ -164,7 +168,11 @@ public sealed class FileHandle : ILuaUserData
             }
             catch (IOException ex)
             {
-                return context.Return(LuaValue.Nil, ex.Message, ex.HResult);
+                return context.Return(
+                    LuaValue.Nil,
+                    context.State.Platform.ToLuaString(ex.Message),
+                    ex.HResult
+                );
             }
         }
     );
@@ -245,7 +253,13 @@ public sealed class FileHandle : ILuaUserData
             }
             catch (IOException ex)
             {
-                return new(context.Return(LuaValue.Nil, ex.Message, ex.HResult));
+                return new(
+                    context.Return(
+                        LuaValue.Nil,
+                        context.State.Platform.ToLuaString(ex.Message),
+                        ex.HResult
+                    )
+                );
             }
         }
     );

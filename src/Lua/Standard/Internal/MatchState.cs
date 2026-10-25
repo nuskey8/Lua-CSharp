@@ -18,6 +18,9 @@ sealed class MatchState(LuaState state, string source, string pattern)
         public bool IsUnfinished => Len == CapUnfinished;
     }
 
+    // Byte strings use the C locale: classes only match ASCII, bytes 0x80-0xFF never belong to a class.
+    readonly bool byteStrings = state.Platform.StringMode == LuaStringMode.Bytes;
+
     public readonly LuaState State = state;
     public readonly string Source = source;
     public readonly string Pattern = pattern;
@@ -452,8 +455,13 @@ sealed class MatchState(LuaState state, string source, string pattern)
         }
     }
 
-    static bool MatchClass(char c, char cl)
+    bool MatchClass(char c, char cl)
     {
+        if (byteStrings)
+        {
+            return MatchClassAscii(c, cl);
+        }
+
         bool res;
         switch (char.ToLower(cl))
         {
@@ -503,12 +511,62 @@ sealed class MatchState(LuaState state, string source, string pattern)
         return char.IsLower(cl) ? res : !res;
     }
 
+    static bool MatchClassAscii(char c, char cl)
+    {
+        bool res;
+        switch (char.ToLowerInvariant(cl))
+        {
+            case 'a':
+                res = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
+                break;
+            case 'c':
+                res = c < ' ' || c == 127;
+                break;
+            case 'd':
+                res = c >= '0' && c <= '9';
+                break;
+            case 'g':
+                res = c > ' ' && c < 127;
+                break;
+            case 'l':
+                res = c >= 'a' && c <= 'z';
+                break;
+            case 'p':
+                res =
+                    c
+                        is (>= '!' and <= '/')
+                            or (>= ':' and <= '@')
+                            or (>= '[' and <= '`')
+                            or (>= '{' and <= '~');
+                break;
+            case 's':
+                res = c == ' ' || (c >= '\t' && c <= '\r');
+                break;
+            case 'u':
+                res = c >= 'A' && c <= 'Z';
+                break;
+            case 'w':
+                res = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9');
+                break;
+            case 'x':
+                res = IsHexDigit(c);
+                break;
+            case 'z':
+                res = c == '\0';
+                break;
+            default:
+                return cl == c;
+        }
+
+        return cl is >= 'a' and <= 'z' ? res : !res;
+    }
+
     static bool IsHexDigit(char c)
     {
         return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
     }
 
-    static bool MatchBracketClass(char c, ReadOnlySpan<char> pattern, int pIdx, int ec)
+    bool MatchBracketClass(char c, ReadOnlySpan<char> pattern, int pIdx, int ec)
     {
         var sig = true;
         if (pIdx + 1 < pattern.Length && pattern[pIdx + 1] == '^')

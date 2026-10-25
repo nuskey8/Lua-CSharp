@@ -156,12 +156,9 @@ public sealed class OperatingSystemLibrary
     )
     {
         var variable = context.GetArgument<string>(0);
-        return new(
-            context.Return(
-                context.GlobalState.Platform.OsEnvironment.GetEnvironmentVariable(variable)
-                    ?? LuaValue.Nil
-            )
-        );
+        var platform = context.State.Platform;
+        var value = platform.OsEnvironment.GetEnvironmentVariable(platform.ToHostString(variable));
+        return new(context.Return(value is null ? LuaValue.Nil : platform.ToLuaString(value)));
     }
 
     public async ValueTask<int> Remove(
@@ -172,12 +169,19 @@ public sealed class OperatingSystemLibrary
         var fileName = context.GetArgument<string>(0);
         try
         {
-            await context.GlobalState.Platform.FileSystem.Remove(fileName, cancellationToken);
+            await context.GlobalState.Platform.FileSystem.Remove(
+                context.State.Platform.ToHostString(fileName),
+                cancellationToken
+            );
             return context.Return(true);
         }
         catch (IOException ex)
         {
-            return context.Return(LuaValue.Nil, ex.Message, ex.HResult);
+            return context.Return(
+                LuaValue.Nil,
+                context.GlobalState.Platform.ToLuaString(ex.Message),
+                ex.HResult
+            );
         }
     }
 
@@ -191,15 +195,19 @@ public sealed class OperatingSystemLibrary
         try
         {
             await context.GlobalState.Platform.FileSystem.Rename(
-                oldName,
-                newName,
+                context.State.Platform.ToHostString(oldName),
+                context.State.Platform.ToHostString(newName),
                 cancellationToken
             );
             return context.Return(true);
         }
         catch (IOException ex)
         {
-            return context.Return(LuaValue.Nil, ex.Message, ex.HResult);
+            return context.Return(
+                LuaValue.Nil,
+                context.GlobalState.Platform.ToLuaString(ex.Message),
+                ex.HResult
+            );
         }
     }
 
@@ -246,6 +254,7 @@ public sealed class OperatingSystemLibrary
         CancellationToken cancellationToken
     )
     {
-        return new(context.Return(context.GlobalState.Platform.FileSystem.GetTempFileName()));
+        var platform = context.State.Platform;
+        return new(context.Return(platform.ToLuaString(platform.FileSystem.GetTempFileName())));
     }
 }
