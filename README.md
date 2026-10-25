@@ -697,9 +697,9 @@ var state = LuaState.Create(LuaPlatform.DefaultByteStrings);
 state.OpenStandardLibraries();
 
 // Every char of a Lua string holds one byte, so convert .NET strings at the boundary.
-state.Environment["name"] = LuaByteString.FromString("Tiến Lên"); // UTF-8 bytes, #name == 11
+state.Environment["name"] = state.Platform.EncodeText("Tiến Lên"); // UTF-8 bytes, #name == 11
 var results = await state.DoStringAsync("return #name, name:upper()");
-var upper = LuaByteString.ToString(results[1].Read<string>());   // back to a .NET string
+var upper = state.Platform.DecodeText(results[1].Read<string>()); // back to a .NET string
 ```
 
 In this mode `string.upper`, `string.lower` and the pattern classes (`%a`, `%w`, `%l`, ...) follow the C locale (ASCII only), `string.char` rejects values above 255, and UTF-8 source files are loaded byte by byte (a UTF-8 BOM is skipped). The default stays UTF-16.
@@ -716,7 +716,7 @@ byteState.OpenStandardLibraries();
 
 // C# source and filename APIs accept normal .NET text.
 var values = await byteState.DoStringAsync("return 'こんにちは'");
-var greeting = LuaByteString.ToString(values[0].Read<string>());
+var greeting = LuaByteString.DecodeUtf8(values[0].Read<string>());
 
 // Raw packets can contain NUL, invalid UTF-8 and every value from 0 to 255.
 byteState.Environment["packet"] = LuaByteString.FromBytes(new byte[] { 0xFF, 0, 0x80 });
@@ -724,11 +724,11 @@ var packet = await byteState.DoStringAsync("return packet:reverse()");
 byte[] reversed = LuaByteString.ToBytes(packet[0].Read<string>());
 ```
 
-Use `FromString`/`ToString` for string values and `FromBytes`/`ToBytes` for binary data. This also applies to non-ASCII table keys and the arguments/results of C# functions and generated bindings; value interop does not convert strings automatically. C# source APIs (`DoStringAsync`, `Load` with character source or a `LuaModule`) accept normal .NET text and encode it as UTF-8 in byte mode. Chunk names and paths passed to `LoadFileAsync`/`DoFileAsync` are also .NET text. Byte source passed to `Load`/`ExecuteAsync` and source read from files are preserved directly; their explicit chunk names are .NET text. Lua's `load`, `loadfile`, `dofile` and `require` continue to use Lua byte strings without re-encoding their source.
+Use `platform.EncodeText`/`DecodeText` for text in either mode: they return the input unchanged in UTF-16 mode and encode/decode UTF-8 in byte mode. `LuaByteString.EncodeUtf8`/`DecodeUtf8` always use UTF-8; use `FromBytes`/`ToBytes` for binary data. This also applies to non-ASCII table keys and the arguments/results of C# functions and generated bindings; value interop does not convert strings automatically. C# source APIs (`DoStringAsync`, `Load` with character source or a `LuaModule`) accept normal .NET text and encode it as UTF-8 in byte mode. Chunk names and paths passed to `LoadFileAsync`/`DoFileAsync` are also .NET text. Byte source passed to `Load`/`ExecuteAsync` and source read from files are preserved directly; their explicit chunk names are .NET text. Lua's `load`, `loadfile`, `dofile` and `require` continue to use Lua byte strings without re-encoding their source.
 
 Paths and names passed to `ILuaFileSystem`, `ILuaFileLoader` and `ILuaModuleLoader` are normal .NET strings in both modes. Text modules are treated as .NET text and encoded to UTF-8 in byte mode; byte modules remain bytes. Unity text assets use the same conversion. Custom file systems and standard-I/O providers must implement the selected stream representation themselves; use `ILuaStream.CreateFromStream(stream, mode, LuaStringMode.Bytes)` for raw streams.
 
-Files, temporary files and redirected standard I/O preserve bytes, including a BOM read as data. Raw line reads stop at LF and retain CR; `*L` also retains the LF. Invalid UTF-8 is replaced when decoding with `ToString`, so keep binary data in byte strings or byte arrays. Passing unconverted .NET characters above U+00FF to raw output writes `?` for those characters.
+Files, temporary files and redirected standard I/O preserve bytes, including a BOM read as data. Raw line reads stop at LF and retain CR; `*L` also retains the LF. Invalid UTF-8 is replaced when decoding with `DecodeUtf8`, so keep binary data in byte strings or byte arrays. Passing unconverted .NET characters above U+00FF to raw output writes `?` for those characters.
 
 ### Garbage Collection
 

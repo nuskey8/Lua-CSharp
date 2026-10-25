@@ -49,21 +49,29 @@ This describes string semantics. Existing Lua-CSharp limitations still apply; fo
 
 ## Passing values between C# and Lua
 
-UTF-16 values can use .NET strings directly. In byte mode, convert values according to their contents:
+For text bindings that support either mode, use `platform.EncodeText(text)` to pass .NET text to Lua and `platform.DecodeText(luaString)` to read it back. Both return the input unchanged in UTF-16 mode; in byte mode they encode or decode UTF-8.
+
+```csharp
+byteState.Environment["name"] = byteState.Platform.EncodeText("こんにちは");
+var names = await byteState.DoStringAsync("return name");
+string name = byteState.Platform.DecodeText(names[0].Read<string>());
+```
+
+UTF-16 values can also use .NET strings directly. For explicit byte-string conversion, choose the API according to the contents:
 
 | Conversion | API |
 | --- | --- |
-| .NET text → Lua byte string | `LuaByteString.FromString(text)` |
+| .NET text → Lua byte string | `LuaByteString.EncodeUtf8(text)` |
 | UTF-8 or binary bytes → Lua byte string | `LuaByteString.FromBytes(bytes)` |
-| Lua byte string → .NET text | `LuaByteString.ToString(value)` |
+| Lua byte string → .NET text | `LuaByteString.DecodeUtf8(value)` |
 | Lua byte string → raw bytes | `LuaByteString.ToBytes(value)` |
 
-C# UTF-8 literals (`u8`, C# 11+) can supply bytes directly. `FromString("é")` and `FromBytes("é"u8)` produce the same bytes, `C3 A9`.
+C# UTF-8 literals (`u8`, C# 11+) can supply bytes directly. `EncodeUtf8("é")` and `FromBytes("é"u8)` produce the same bytes, `C3 A9`.
 
 ```csharp
 byteState.Environment["greeting"] = LuaByteString.FromBytes("こんにちは"u8);
 var values = await byteState.DoStringAsync("return greeting");
-string greeting = LuaByteString.ToString(values[0].Read<string>());
+string greeting = LuaByteString.DecodeUtf8(values[0].Read<string>());
 
 byteState.Environment["packet"] = LuaByteString.FromBytes(new byte[] { 0xFF, 0, 0x80 });
 var packets = await byteState.DoStringAsync("return packet");
@@ -72,13 +80,13 @@ byte[] packet = LuaByteString.ToBytes(packets[0].Read<string>());
 
 ### Convert text once
 
-Both representations use C# `string`; the type does not identify the representation. A string read from a byte-mode state is already a byte string. Calling `FromString` on it again changes non-ASCII data.
+Both representations use C# `string`; the type does not identify the representation. A string read from a byte-mode state is already a byte string. Calling `EncodeText` or `EncodeUtf8` on it again changes non-ASCII data.
 
 Value conversion is explicit for table keys, C# function arguments/results and generated bindings too. ASCII-only testing can hide missing conversions: directly assigning .NET `"é"` in byte mode gives one byte, `E9`, rather than the UTF-8 bytes `C3 A9`.
 
 ### Preserve binary data
 
-Use `FromBytes`/`ToBytes` for NUL bytes, invalid UTF-8 and other binary data. `FromString` replaces unpaired UTF-16 surrogates; `ToString` replaces invalid UTF-8 sequences with U+FFFD. These replacements lose the original data.
+Use `FromBytes`/`ToBytes` for NUL bytes, invalid UTF-8 and other binary data. `EncodeUtf8` replaces unpaired UTF-16 surrogates; `DecodeUtf8` replaces invalid UTF-8 sequences with U+FFFD. These replacements lose the original data.
 
 Valid byte strings contain only chars up to U+00FF. `ToBytes` and raw output replace higher chars with `?`.
 
@@ -94,7 +102,7 @@ var textChunk = byteState.Load("return 'é'", "example");
 var utf8Chunk = byteState.Load("return 'é'"u8, "example");
 ```
 
-- `DoStringAsync`, character-source `Load` and text `LuaModule` sources accept normal .NET text. Applying `FromString` first would encode the source twice in byte mode.
+- `DoStringAsync`, character-source `Load` and text `LuaModule` sources accept normal .NET text. Applying `EncodeText` or `EncodeUtf8` first would encode the source twice in byte mode.
 - In byte mode, byte-source `Load`, byte modules and source files preserve source bytes, except for an initial UTF-8 BOM. Lua's `load` uses strings in the state's representation without encoding them again.
 - C# chunk names and paths are normal .NET strings in both modes, including names passed to `ILuaFileSystem`, `ILuaFileLoader` and `ILuaModuleLoader`.
 

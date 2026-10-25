@@ -65,7 +65,7 @@ public sealed class ByteStringIntegrationTests : IDisposable
         Assert.That(
             result[1],
             Is.EqualTo(
-                stringMode == LuaStringMode.Bytes ? LuaByteString.FromString(message) : LuaValue.Nil
+                stringMode == LuaStringMode.Bytes ? LuaByteString.EncodeUtf8(message) : LuaValue.Nil
             )
         );
     }
@@ -96,7 +96,7 @@ public sealed class ByteStringIntegrationTests : IDisposable
     public async Task FileErrorsContainTheOriginalUtf8Path(string script)
     {
         using var state = CreateState();
-        var path = LuaByteString.FromString(Path.Combine(directory, "missing_\u1EBF", "file.lua"));
+        var path = LuaByteString.EncodeUtf8(Path.Combine(directory, "missing_\u1EBF", "file.lua"));
         state.Environment["path"] = path;
         var result = await state.DoStringAsync(script, "caller_\u1EBF");
 
@@ -110,9 +110,9 @@ public sealed class ByteStringIntegrationTests : IDisposable
     public async Task LuaErrorsAndSyntaxDiagnosticsAreNotReencoded()
     {
         using var state = CreateState();
-        var text = LuaByteString.FromString("Lua error \u1EBF");
+        var text = LuaByteString.EncodeUtf8("Lua error \u1EBF");
         state.Environment["message"] = text;
-        state.Environment["chunk"] = LuaByteString.FromString("chunk_\u1EBF");
+        state.Environment["chunk"] = LuaByteString.EncodeUtf8("chunk_\u1EBF");
         var result = await state.DoStringAsync(
             """
             local _,p = pcall(error,message,0)
@@ -146,7 +146,7 @@ public sealed class ByteStringIntegrationTests : IDisposable
         Assert.That(result[0], Is.EqualTo(LuaValue.Nil));
         Assert.That(
             result[1].Read<string>(),
-            Is.EqualTo(LuaByteString.FromString(FailingStream.Error))
+            Is.EqualTo(LuaByteString.EncodeUtf8(FailingStream.Error))
         );
     }
 
@@ -200,13 +200,13 @@ public sealed class ByteStringIntegrationTests : IDisposable
         state.OpenStandardLibraries();
         state.Environment["name"] =
             stringMode == LuaStringMode.Bytes
-                ? LuaByteString.FromString(MemoryModuleLoader.Name)
+                ? LuaByteString.EncodeUtf8(MemoryModuleLoader.Name)
                 : MemoryModuleLoader.Name;
         var result = await state.DoStringAsync("local a=require(name); return a.text,a.size");
         Assert.That(
             result[0].Read<string>(),
             Is.EqualTo(
-                stringMode == LuaStringMode.Bytes ? LuaByteString.FromString("\u1EBF") : "\u1EBF"
+                stringMode == LuaStringMode.Bytes ? LuaByteString.EncodeUtf8("\u1EBF") : "\u1EBF"
             )
         );
         Assert.That(result[1], Is.EqualTo(new LuaValue(stringMode == LuaStringMode.Bytes ? 3 : 1)));
@@ -222,9 +222,9 @@ public sealed class ByteStringIntegrationTests : IDisposable
         const string name = "@日本_é_😀.lua";
         LuaValue[] expected =
         [
-            stringMode == LuaStringMode.Bytes ? LuaByteString.FromString(text) : text,
+            stringMode == LuaStringMode.Bytes ? LuaByteString.EncodeUtf8(text) : text,
             stringMode == LuaStringMode.Bytes ? Encoding.UTF8.GetByteCount(text) : text.Length,
-            stringMode == LuaStringMode.Bytes ? LuaByteString.FromString(name) : name,
+            stringMode == LuaStringMode.Bytes ? LuaByteString.EncodeUtf8(name) : name,
         ];
 
         Assert.That(await state.ExecuteAsync(state.Load(source, name)), Is.EqualTo(expected));
@@ -259,7 +259,7 @@ public sealed class ByteStringIntegrationTests : IDisposable
         Assert.That(state.Platform.FileSystem.IsReadable(path), Is.True);
         LuaValue[] expected =
         [
-            stringMode == LuaStringMode.Bytes ? LuaByteString.FromString(text) : text,
+            stringMode == LuaStringMode.Bytes ? LuaByteString.EncodeUtf8(text) : text,
             stringMode == LuaStringMode.Bytes ? Encoding.UTF8.GetByteCount(text) : text.Length,
         ];
 
@@ -271,10 +271,10 @@ public sealed class ByteStringIntegrationTests : IDisposable
         Assert.That(await state.ExecuteAsync(closure), Is.EqualTo(expected));
 
         state.Environment["path"] =
-            stringMode == LuaStringMode.Bytes ? LuaByteString.FromString(fileName) : fileName;
+            stringMode == LuaStringMode.Bytes ? LuaByteString.EncodeUtf8(fileName) : fileName;
         var module = Path.GetFileNameWithoutExtension(fileName);
         state.Environment["module"] =
-            stringMode == LuaStringMode.Bytes ? LuaByteString.FromString(module) : module;
+            stringMode == LuaStringMode.Bytes ? LuaByteString.EncodeUtf8(module) : module;
         state.Environment["text"] = expected[0];
         await state.DoStringAsync(
             """
@@ -304,7 +304,7 @@ public sealed class ByteStringIntegrationTests : IDisposable
             const string source = "return 'こんにちは'";
             return new(
                 ILuaStream.CreateFromString(
-                    stringMode == LuaStringMode.Bytes ? LuaByteString.FromString(source) : source
+                    stringMode == LuaStringMode.Bytes ? LuaByteString.EncodeUtf8(source) : source
                 )
             );
         }

@@ -23,7 +23,7 @@ static class IOHelper
         try
         {
             var stream = await state.GlobalState.Platform.FileSystem.Open(
-                state.Platform.ToHostString(fileName),
+                state.Platform.DecodeText(fileName),
                 fileMode,
                 cancellationToken
             );
@@ -39,7 +39,7 @@ static class IOHelper
             }
 
             state.Stack.Push(LuaValue.Nil);
-            state.Stack.Push(state.Platform.ToLuaString(ex.Message));
+            state.Stack.Push(state.Platform.EncodeText(ex.Message));
             state.Stack.Push(ex.HResult);
             return 3;
         }
@@ -88,7 +88,7 @@ static class IOHelper
             context.State.Stack.PopUntil(context.ReturnFrameBase);
             var stack = context.State.Stack;
             stack.Push(LuaValue.Nil);
-            stack.Push(context.State.Platform.ToLuaString(ex.Message));
+            stack.Push(context.State.Platform.EncodeText(ex.Message));
             stack.Push(ex.HResult);
             return 3;
         }
@@ -200,7 +200,7 @@ static class IOHelper
 
             stack.PopUntil(top);
             stack.Push(LuaValue.Nil);
-            stack.Push(state.Platform.ToLuaString(ex.Message));
+            stack.Push(state.Platform.EncodeText(ex.Message));
             stack.Push(ex.HResult);
             return 3;
         }

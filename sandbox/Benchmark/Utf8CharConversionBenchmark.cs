@@ -33,5 +33,5 @@ public class Utf8CharConversionBenchmark
     public string ViaBytes() => LuaByteString.FromBytes(Encoding.UTF8.GetBytes(source));
 
     [Benchmark]
-    public string DirectChars() => LuaByteString.FromString(source);
+    public string DirectChars() => LuaByteString.EncodeUtf8(source);
 }

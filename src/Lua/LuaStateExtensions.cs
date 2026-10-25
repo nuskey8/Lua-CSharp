@@ -31,7 +31,7 @@ public static class LuaStateExtensions
         CancellationToken cancellationToken
     )
     {
-        var name = state.Platform.ToLuaString("@" + fileName);
+        var name = state.Platform.EncodeText("@" + fileName);
         using var stream = await state.GlobalState.Platform.FileSystem.Open(
             fileName,
             LuaFileOpenMode.Read,

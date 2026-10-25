@@ -247,7 +247,7 @@ public sealed class ByteStringTests : IDisposable
         var source = "return 'Ti\u1EBFn', #'Ti\u1EBFn', '\u1EBF'";
         var result = await state.DoStringAsync(source);
 
-        Assert.That(result[0].Read<string>(), Is.EqualTo(LuaByteString.FromString("Ti\u1EBFn")));
+        Assert.That(result[0].Read<string>(), Is.EqualTo(LuaByteString.EncodeUtf8("Ti\u1EBFn")));
         Assert.That(result[1], Is.EqualTo(new LuaValue(6)));
         Assert.That(
             LuaByteString.ToBytes(result[2].Read<string>()),
@@ -420,7 +420,10 @@ public sealed class ByteStringTests : IDisposable
             var result = await state.DoStringAsync($"local v = os.getenv('{name}'); return #v, v");
 
             Assert.That(result[0], Is.EqualTo(new LuaValue(6)));
-            Assert.That(LuaByteString.ToString(result[1].Read<string>()), Is.EqualTo("Ti\u1EBFn"));
+            Assert.That(
+                LuaByteString.DecodeUtf8(result[1].Read<string>()),
+                Is.EqualTo("Ti\u1EBFn")
+            );
         }
         finally
         {
@@ -554,14 +557,14 @@ public sealed class ByteStringTests : IDisposable
             source.Append(char.ConvertFromUtf32(value));
         source.Append("\uD800\uDC00\uDBFF\uDFFF\uD800\uD800\uDC00\uDC00\uD800x\uDC00");
         var text = source.ToString();
-        var actual = LuaByteString.FromString(text);
+        var actual = LuaByteString.EncodeUtf8(text);
         Assert.That(actual.All(c => c <= 255), Is.True);
         Assert.That(LuaByteString.ToBytes(actual), Is.EqualTo(Encoding.UTF8.GetBytes(text)));
         for (var length = 0; length < 65; length++)
         {
             text = new string('a', length) + "ế😀\uD800x" + new string('z', length);
             Assert.That(
-                LuaByteString.ToBytes(LuaByteString.FromString(text)),
+                LuaByteString.ToBytes(LuaByteString.EncodeUtf8(text)),
                 Is.EqualTo(Encoding.UTF8.GetBytes(text))
             );
         }
@@ -571,17 +574,17 @@ public sealed class ByteStringTests : IDisposable
     public void LuaByteString_ConvertsBetweenDotNetStringsAndBytes()
     {
         const string text = "Ti\u1EBFn L\u00EAn \U0001F600";
-        var byteString = LuaByteString.FromString(text);
+        var byteString = LuaByteString.EncodeUtf8(text);
 
         Assert.That(byteString.Length, Is.EqualTo(Encoding.UTF8.GetByteCount(text)));
         Assert.That(byteString.All(c => c <= 0xFF), Is.True);
-        Assert.That(LuaByteString.ToString(byteString), Is.EqualTo(text));
+        Assert.That(LuaByteString.DecodeUtf8(byteString), Is.EqualTo(text));
         Assert.That(LuaByteString.ToBytes(byteString), Is.EqualTo(Encoding.UTF8.GetBytes(text)));
         Assert.That(
             LuaByteString.FromBytes(new byte[] { 0xFF, 0x00, 0x80 }),
             Is.EqualTo("\u00FF\0\u0080")
         );
-        Assert.That(LuaByteString.ToString("\u00FF"), Is.EqualTo("\uFFFD"));
+        Assert.That(LuaByteString.DecodeUtf8("\u00FF"), Is.EqualTo("\uFFFD"));
         Assert.That(LuaByteString.ToBytes("\u1EBF"), Is.EqualTo(new byte[] { (byte)'?' }));
     }
 }

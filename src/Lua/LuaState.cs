@@ -600,7 +600,7 @@ public class LuaState : IDisposable
     /// </summary>
     public LuaClosure Load(ReadOnlySpan<char> chunk, string chunkName, LuaTable? environment = null)
     {
-        var name = Platform.ToLuaString(chunkName);
+        var name = Platform.EncodeText(chunkName);
         if (Platform.StringMode != LuaStringMode.Bytes)
         {
             return LoadCore(chunk, name, environment);
@@ -655,7 +655,7 @@ public class LuaState : IDisposable
     {
         return LoadCore(
             chunk,
-            chunkName is null ? null : Platform.ToLuaString(chunkName),
+            chunkName is null ? null : Platform.EncodeText(chunkName),
             mode,
             environment
         );

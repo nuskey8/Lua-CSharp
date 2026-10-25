@@ -46,7 +46,7 @@ public sealed class IOLibrary
         {
             return context.Return(
                 LuaValue.Nil,
-                context.GlobalState.Platform.ToLuaString(ex.Message),
+                context.GlobalState.Platform.EncodeText(ex.Message),
                 ex.HResult
             );
         }
@@ -68,7 +68,7 @@ public sealed class IOLibrary
         {
             return context.Return(
                 LuaValue.Nil,
-                context.GlobalState.Platform.ToLuaString(ex.Message),
+                context.GlobalState.Platform.EncodeText(ex.Message),
                 ex.HResult
             );
         }
@@ -95,7 +95,7 @@ public sealed class IOLibrary
         else
         {
             var stream = await context.GlobalState.Platform.FileSystem.Open(
-                context.State.Platform.ToHostString(arg.ToString()),
+                context.State.Platform.DecodeText(arg.ToString()),
                 LuaFileOpenMode.Read,
                 cancellationToken
             );
@@ -223,7 +223,7 @@ public sealed class IOLibrary
         {
             return context.Return(
                 LuaValue.Nil,
-                context.GlobalState.Platform.ToLuaString(ex.Message),
+                context.GlobalState.Platform.EncodeText(ex.Message),
                 ex.HResult
             );
         }
@@ -263,7 +263,7 @@ public sealed class IOLibrary
             }
 
             var stream = await context.GlobalState.Platform.FileSystem.Open(
-                context.State.Platform.ToHostString(arg.ToString()),
+                context.State.Platform.DecodeText(arg.ToString()),
                 LuaFileOpenMode.Write,
                 cancellationToken
             );

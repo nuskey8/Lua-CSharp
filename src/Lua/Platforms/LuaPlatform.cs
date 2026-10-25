@@ -24,19 +24,30 @@ public record LuaPlatform(
     /// C locale (ASCII only) and <c>string.char</c> rejects values above 255.
     /// The <see cref="FileSystem"/> and <see cref="StandardIO"/> of the platform must read and write
     /// bytes as well, which <see cref="DefaultByteStrings"/> does. The default is <see cref="LuaStringMode.Utf16"/>.
-    /// Use <see cref="Lua.LuaByteString"/> to convert between .NET strings and byte strings.
+    /// Use <see cref="EncodeText"/> and <see cref="DecodeText"/> to convert .NET text,
+    /// or <see cref="LuaByteString"/> for raw bytes.
     /// </summary>
     public LuaStringMode StringMode { get; init; }
 
-    // Converts a .NET string (file name, environment value, error text) into a Lua string for this platform.
-    internal string ToLuaString(string value)
+    /// <summary>
+    /// Converts .NET text to this platform's Lua string representation.
+    /// Returns the text unchanged in UTF-16 mode or encodes it as UTF-8 in byte mode.
+    /// </summary>
+    /// <remarks>Use <see cref="LuaByteString.FromBytes"/> for binary data.</remarks>
+    public string EncodeText(string text)
     {
-        return StringMode == LuaStringMode.Bytes ? LuaByteString.FromString(value) : value;
+        return StringMode == LuaStringMode.Bytes ? LuaByteString.EncodeUtf8(text) : text;
     }
 
-    internal string ToHostString(string value)
+    /// <summary>
+    /// Converts a Lua string in this platform's representation to .NET text.
+    /// Returns the string unchanged in UTF-16 mode or decodes its UTF-8 bytes in byte mode.
+    /// Invalid UTF-8 is replaced with U+FFFD.
+    /// </summary>
+    /// <remarks>Use <see cref="LuaByteString.ToBytes"/> for binary data.</remarks>
+    public string DecodeText(string luaString)
     {
-        return StringMode == LuaStringMode.Bytes ? LuaByteString.ToString(value) : value;
+        return StringMode == LuaStringMode.Bytes ? LuaByteString.DecodeUtf8(luaString) : luaString;
     }
 
     internal string GetErrorMessage(Exception exception)
@@ -45,7 +56,7 @@ public record LuaPlatform(
         // Only host exceptions carry .NET text that needs UTF-8 conversion.
         return exception is LuaRuntimeException or LuaParseException or LuaCompileException
             ? exception.Message
-            : ToLuaString(exception.Message);
+            : EncodeText(exception.Message);
     }
 
     /// <summary>
