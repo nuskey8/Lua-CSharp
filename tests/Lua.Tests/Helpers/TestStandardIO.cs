@@ -20,7 +20,7 @@ public class TestStandardIO(LuaStringMode stringMode = LuaStringMode.Utf16) : IL
                 {
                     Console.WriteLine(
                         stringMode == LuaStringMode.Bytes
-                            ? LuaByteString.ToString(memory.ToString())
+                            ? LuaByteString.DecodeUtf8(memory.ToString())
                             : memory.ToString()
                     );
                 }

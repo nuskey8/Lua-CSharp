@@ -132,7 +132,7 @@ public sealed class BasicLibrary
         var arg0 = context.GetArgument<string>(0);
         context.State.Stack.PopUntil(context.ReturnFrameBase);
         var closure = await context.State.LoadFileAsync(
-            context.State.Platform.ToHostString(arg0),
+            context.State.Platform.DecodeText(arg0),
             "bt",
             null,
             cancellationToken
@@ -228,7 +228,7 @@ public sealed class BasicLibrary
         try
         {
             var closure = await context.State.LoadFileAsync(
-                context.State.Platform.ToHostString(arg0),
+                context.State.Platform.DecodeText(arg0),
                 mode,
                 null,
                 cancellationToken

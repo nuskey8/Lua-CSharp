@@ -157,8 +157,8 @@ public sealed class OperatingSystemLibrary
     {
         var variable = context.GetArgument<string>(0);
         var platform = context.State.Platform;
-        var value = platform.OsEnvironment.GetEnvironmentVariable(platform.ToHostString(variable));
-        return new(context.Return(value is null ? LuaValue.Nil : platform.ToLuaString(value)));
+        var value = platform.OsEnvironment.GetEnvironmentVariable(platform.DecodeText(variable));
+        return new(context.Return(value is null ? LuaValue.Nil : platform.EncodeText(value)));
     }
 
     public async ValueTask<int> Remove(
@@ -170,7 +170,7 @@ public sealed class OperatingSystemLibrary
         try
         {
             await context.GlobalState.Platform.FileSystem.Remove(
-                context.State.Platform.ToHostString(fileName),
+                context.State.Platform.DecodeText(fileName),
                 cancellationToken
             );
             return context.Return(true);
@@ -179,7 +179,7 @@ public sealed class OperatingSystemLibrary
         {
             return context.Return(
                 LuaValue.Nil,
-                context.GlobalState.Platform.ToLuaString(ex.Message),
+                context.GlobalState.Platform.EncodeText(ex.Message),
                 ex.HResult
             );
         }
@@ -195,8 +195,8 @@ public sealed class OperatingSystemLibrary
         try
         {
             await context.GlobalState.Platform.FileSystem.Rename(
-                context.State.Platform.ToHostString(oldName),
-                context.State.Platform.ToHostString(newName),
+                context.State.Platform.DecodeText(oldName),
+                context.State.Platform.DecodeText(newName),
                 cancellationToken
             );
             return context.Return(true);
@@ -205,7 +205,7 @@ public sealed class OperatingSystemLibrary
         {
             return context.Return(
                 LuaValue.Nil,
-                context.GlobalState.Platform.ToLuaString(ex.Message),
+                context.GlobalState.Platform.EncodeText(ex.Message),
                 ex.HResult
             );
         }
@@ -255,6 +255,6 @@ public sealed class OperatingSystemLibrary
     )
     {
         var platform = context.State.Platform;
-        return new(context.Return(platform.ToLuaString(platform.FileSystem.GetTempFileName())));
+        return new(context.Return(platform.EncodeText(platform.FileSystem.GetTempFileName())));
     }
 }

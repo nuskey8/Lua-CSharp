@@ -64,7 +64,7 @@ namespace Lua.Unity
             {
                 var message = stringBuilder.ToString();
                 if (stringMode == LuaStringMode.Bytes)
-                    message = LuaByteString.ToString(message);
+                    message = LuaByteString.DecodeUtf8(message);
                 if (IsError)
                     UnityEngine.Debug.LogError(message);
                 else
