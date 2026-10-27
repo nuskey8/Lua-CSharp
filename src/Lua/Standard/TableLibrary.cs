@@ -89,6 +89,7 @@ public sealed class TableLibrary
             return context.Return("");
 
         using PooledList<char> builder = new(512);
+        Span<char> numberBuffer = stackalloc char[32];
 
         for (var i = arg2; ; i++)
         {
@@ -100,7 +101,23 @@ public sealed class TableLibrary
             }
             else if (value.Type is LuaValueType.Number)
             {
-                builder.AddRange(value.Read<double>().ToString(CultureInfo.InvariantCulture));
+                var number = value.UnsafeReadDouble();
+                if (
+                    MathEx.IsFinite(number)
+                    && number.TryFormat(
+                        numberBuffer,
+                        out var written,
+                        default,
+                        provider: CultureInfo.InvariantCulture
+                    )
+                )
+                {
+                    builder.AddRange(numberBuffer[..written]);
+                }
+                else
+                {
+                    builder.AddRange(value.ToString());
+                }
             }
             else
             {
@@ -462,9 +479,7 @@ public sealed class TableLibrary
         var count = (int)distance + 1;
         try
         {
-            var buffer = context.GetReturnBuffer(count);
-            for (var i = 0; i < count; i++)
-                buffer[i] = arg0[arg1 + i];
+            arg0.CopyIntegerValues(arg1, context.GetReturnBuffer(count));
         }
         catch (LuaStackOverflowException)
         {

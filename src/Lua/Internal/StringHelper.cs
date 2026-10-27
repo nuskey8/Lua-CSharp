@@ -1,8 +1,5 @@
-using System.Diagnostics.CodeAnalysis;
-using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Text;
-using System.Text.RegularExpressions;
 
 namespace Lua.Internal;
 
@@ -24,351 +21,34 @@ static class StringHelper
         return i > j ? "" : s.AsSpan()[(i - 1)..j];
     }
 
-    public static bool TryFromStringLiteral(
-        ReadOnlySpan<char> literal,
-        [NotNullWhen(true)] out string? result
-    )
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static int RelativePosition(int index, int length) =>
+        index < 0 ? length + index + 1 : index;
+
+    public static string Quote(ReadOnlySpan<char> str)
     {
-        ValueStringBuilder builder = new(literal.Length);
-        for (var i = 0; i < literal.Length; i++)
-        {
-            var c = literal[i];
-            if (c is '\\' && i < literal.Length - 1)
-            {
-                i++;
-                c = literal[i];
-
-                switch (c)
-                {
-                    case '\n':
-                        builder.Append('\n');
-                        break;
-                    case '\r':
-                        builder.Append('\n');
-                        // check CRLF
-                        if (i + 1 < literal.Length && literal[i + 1] is '\n')
-                        {
-                            i++;
-                        }
-
-                        break;
-                    case 'a':
-                        builder.Append('\a');
-                        break;
-                    case 'b':
-                        builder.Append('\b');
-                        break;
-                    case 'f':
-                        builder.Append('\f');
-                        break;
-                    case 'n':
-                        builder.Append('\n');
-                        break;
-                    case 'r':
-                        builder.Append('\r');
-                        break;
-                    case 't':
-                        builder.Append('\t');
-                        break;
-                    case 'v':
-                        builder.Append('\v');
-                        break;
-                    case '\\':
-                        builder.Append('\\');
-                        break;
-                    case '\"':
-                        builder.Append('\"');
-                        break;
-                    case '\'':
-                        builder.Append('\'');
-                        break;
-                    case '[':
-                        builder.Append('[');
-                        break;
-                    case ']':
-                        builder.Append(']');
-                        break;
-                    case 'x':
-                        i++;
-                        if (i >= literal.Length)
-                        {
-                            result = null;
-                            return false;
-                        }
-
-                        c = literal[i];
-                        if (IsDigit(c))
-                        {
-                            var start = i;
-                            for (var j = 0; j < 2; j++)
-                            {
-                                i++;
-                                if (i >= literal.Length)
-                                {
-                                    break;
-                                }
-
-                                c = literal[i];
-                                if (!IsDigit(c))
-                                {
-                                    break;
-                                }
-                            }
-
-                            builder.Append(
-                                (char)int.Parse(literal[start..i], NumberStyles.HexNumber)
-                            );
-                            i--;
-                        }
-                        else
-                        {
-                            result = null;
-                            return false;
-                        }
-
-                        break;
-                    default:
-                        if (IsNumber(c))
-                        {
-                            var start = i;
-                            for (var j = 0; j < 3; j++)
-                            {
-                                i++;
-                                if (i >= literal.Length)
-                                {
-                                    break;
-                                }
-
-                                c = literal[i];
-                                if (!IsNumber(c))
-                                {
-                                    break;
-                                }
-                            }
-
-                            builder.Append((char)int.Parse(literal[start..i]));
-                            i--;
-                        }
-                        else
-                        {
-                            result = null;
-                            return false;
-                        }
-
-                        break;
-                }
-            }
-            else
-            {
-                builder.Append(c);
-            }
-        }
-
-        result = builder.ToString();
-        return true;
-    }
-
-    public static string Escape(ReadOnlySpan<char> str)
-    {
-        ValueStringBuilder builder = new(str.Length);
+        ValueStringBuilder builder = new(str.Length + 2);
+        builder.Append('"');
 
         for (var i = 0; i < str.Length; i++)
         {
             var c = str[i];
 
-            switch (c)
+            if (c is '"' or '\\' or '\n')
             {
-                case '\a':
-                    builder.Append("\\7");
-                    break;
-                case '\b':
-                    builder.Append("\\8");
-                    break;
-                case '\f':
-                    builder.Append("\\12");
-                    break;
-                case '\n':
-                    builder.Append("\\\n");
-                    break;
-                case '\r':
-                    builder.Append("\\13");
-                    break;
-                case '\t':
-                    builder.Append("\\9");
-                    break;
-                case '\v':
-                    builder.Append("\\11");
-                    break;
-                case '\\':
-                    builder.Append("\\\\");
-                    break;
-                case '\"':
-                    builder.Append("\\\"");
-                    break;
-                case '\'':
-                    builder.Append("\\\'");
-                    break;
-                default:
-                    builder.Append(c);
-                    break;
-            }
-        }
-
-        return builder.ToString();
-    }
-
-    public static Regex ToRegex(ReadOnlySpan<char> pattern)
-    {
-        ValueStringBuilder builder = new();
-        var isEscapeSequence = false;
-        var isInSet = false;
-
-        for (var i = 0; i < pattern.Length; i++)
-        {
-            var c = pattern[i];
-
-            if (isEscapeSequence)
-            {
-                if (c == '%' || c == '_')
-                {
-                    builder.Append(c);
-                    isEscapeSequence = false;
-                }
-                else
-                {
-                    switch (c)
-                    {
-                        case 'a': // all letters
-                            builder.Append("\\p{L}");
-                            break;
-                        case 'A': // all Non letters
-                            builder.Append("\\P{L}");
-                            break;
-                        case 's': // all space characters
-                            builder.Append("\\s");
-                            break;
-                        case 'S': // all NON space characters
-                            builder.Append("\\S");
-                            break;
-                        case 'd': // all digits
-                            builder.Append("\\d");
-                            break;
-                        case 'D': // all NON digits
-                            builder.Append("\\D");
-                            break;
-                        case 'w': // all alphanumeric characters
-                            builder.Append("\\w");
-                            break;
-                        case 'W': // all NON alphanumeric characters
-                            builder.Append("\\W");
-                            break;
-                        case 'c': // all control characters
-                            builder.Append("\\p{C}");
-                            break;
-                        case 'C': // all NON control characters
-                            builder.Append("[\\P{C}]");
-                            break;
-                        case 'g': // all printable characters except space
-                            builder.Append("[^\\p{C}\\s]");
-                            break;
-                        case 'G': // all NON printable characters including space
-                            builder.Append("[\\p{C}\\s]");
-                            break;
-                        case 'p': // all punctuation characters
-                            builder.Append("\\p{P}");
-                            break;
-                        case 'P': // all NON punctuation characters
-                            builder.Append("\\P{P}");
-                            break;
-                        case 'l': // all lowercase letters
-                            builder.Append("\\p{Ll}");
-                            break;
-                        case 'L': // all NON lowercase letters
-                            builder.Append("\\P{Ll}");
-                            break;
-                        case 'u': // all uppercase letters
-                            builder.Append("\\p{Lu}");
-                            break;
-                        case 'U': // all NON uppercase letters
-                            builder.Append("\\P{Lu}");
-                            break;
-                        case 'x': // all hexadecimal digits
-                            builder.Append("[0-9A-Fa-f]");
-                            break;
-                        case 'X': // all NON hexadecimal digits
-                            builder.Append("[^0-9A-Fa-f]");
-                            break;
-                        case 'b':
-                            if (i < pattern.Length - 2)
-                            {
-                                var c1 = pattern[i + 1];
-                                var c2 = pattern[i + 2];
-
-                                var c1Escape = Regex.Escape(c1.ToString());
-                                var c2Escape = Regex.Escape(c2.ToString());
-
-                                builder.Append("(");
-                                builder.Append(c1Escape);
-                                builder.Append("(?>(?<n>");
-                                builder.Append(c1Escape);
-                                builder.Append(")|(?<-n>");
-                                builder.Append(c2Escape);
-                                builder.Append(")|(?:[^");
-                                builder.Append(c1Escape);
-                                builder.Append(c2Escape);
-                                builder.Append("]*))*");
-                                builder.Append(c2Escape);
-                                builder.Append("(?(n)(?!)))");
-                                i += 2;
-                            }
-                            else
-                            {
-                                throw new(); // TODO: add message
-                            }
-
-                            break;
-                        default:
-                            builder.Append('\\');
-                            builder.Append(c);
-                            break;
-                    }
-
-                    isEscapeSequence = false;
-                }
-            }
-            else if (c == '%')
-            {
-                isEscapeSequence = true;
-            }
-            else if (c == '\\')
-            {
-                builder.Append("\\\\");
-            }
-            else if (isInSet)
-            {
-                if (c == ']')
-                {
-                    isInSet = false;
-                }
-
+                builder.Append('\\');
                 builder.Append(c);
             }
-            else if (c == '-')
+            else if (c < 32 || c == 127)
             {
-                builder.Append("*?");
-            }
-            else if (c == '[')
-            {
-                builder.Append('[');
-                isInSet = true;
-            }
-            else if (c == '^' && !isInSet)
-            {
-                builder.Append("\\G");
-            }
-            else if (c == '(')
-            {
-                builder.Append('(');
+                // A following digit must not become part of this decimal escape.
+                var pad = i + 1 < str.Length && IsNumber(str[i + 1]);
+                builder.Append('\\');
+                if (c >= 100 || pad)
+                    builder.Append((char)('0' + c / 100));
+                if (c >= 10 || pad)
+                    builder.Append((char)('0' + c / 10 % 10));
+                builder.Append((char)('0' + c % 10));
             }
             else
             {
@@ -376,7 +56,8 @@ static class StringHelper
             }
         }
 
-        return new(builder.ToString());
+        builder.Append('"');
+        return builder.ToString();
     }
 
     /// <summary>
@@ -449,40 +130,5 @@ static class StringHelper
     public static bool IsDigit(char c)
     {
         return IsNumber(c) || ('a' <= c && c <= 'f') || ('A' <= c && c <= 'F');
-    }
-
-    public static string Quote(ReadOnlySpan<char> str)
-    {
-        ValueStringBuilder builder = new(str.Length + 2);
-        builder.Append('"');
-
-        for (var i = 0; i < str.Length; i++)
-        {
-            var c = str[i];
-
-            if (c is '"' or '\\' or '\n')
-            {
-                builder.Append('\\');
-                builder.Append(c);
-            }
-            else if (c < 32 || c == 127)
-            {
-                // A following digit must not become part of this decimal escape.
-                var pad = i + 1 < str.Length && str[i + 1] is >= '0' and <= '9';
-                builder.Append('\\');
-                if (c >= 100 || pad)
-                    builder.Append((char)('0' + c / 100));
-                if (c >= 10 || pad)
-                    builder.Append((char)('0' + c / 10 % 10));
-                builder.Append((char)('0' + c % 10));
-            }
-            else
-            {
-                builder.Append(c);
-            }
-        }
-
-        builder.Append('"');
-        return builder.ToString();
     }
 }

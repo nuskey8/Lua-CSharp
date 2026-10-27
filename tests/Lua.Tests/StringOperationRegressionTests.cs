@@ -42,4 +42,24 @@ public class StringOperationRegressionTests(LuaStringMode stringMode)
             """
         );
     }
+
+    [Test]
+    public async Task StringTransformsPreserveCodeUnitsAndRanges()
+    {
+        using var state = CreateState();
+        await state.DoStringAsync(
+            """
+            assert(string.reverse('') == '')
+            assert(string.reverse('a') == 'a')
+            assert(string.reverse('ab\0cd') == 'dc\0ba')
+            local s = string.char(0, 127, 128, 255)
+            assert(string.reverse(string.reverse(s)) == s)
+            assert(string.sub(s, 1) == s)
+            assert(string.sub(s, -100, 100) == s)
+            assert(string.sub(s, 2, -2) == string.char(127, 128))
+            assert(string.sub(s, 5) == '')
+            assert(string.sub(s, 3, 1) == '')
+            """
+        );
+    }
 }

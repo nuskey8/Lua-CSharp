@@ -1051,19 +1051,20 @@ public sealed class StringLibrary
 
         var result = string.Create(
             (int)length,
-            (s, sep, n),
+            (s, sep),
             static (destination, state) =>
             {
-                var (source, separator, n) = state;
-                for (var i = 0; i < n; i++)
+                var (source, separator) = state;
+                source.AsSpan().CopyTo(destination);
+                separator.AsSpan().CopyTo(destination[source.Length..]);
+                var written = source.Length + (separator?.Length ?? 0);
+                // Copy the initialized prefix to double the number of repetitions.
+                // The final copy stops before the trailing separator.
+                while (written < destination.Length)
                 {
-                    source.AsSpan().CopyTo(destination);
-                    destination = destination[source.Length..];
-                    if (i + 1 < n)
-                    {
-                        separator.AsSpan().CopyTo(destination);
-                        destination = destination[(separator?.Length ?? 0)..];
-                    }
+                    var count = Math.Min(written, destination.Length - written);
+                    destination[..count].CopyTo(destination[written..]);
+                    written += count;
                 }
             }
         );
@@ -1076,11 +1077,19 @@ public sealed class StringLibrary
     )
     {
         var s = context.GetArgument<string>(0);
-        using PooledArray<char> strBuffer = new(s.Length);
-        var span = strBuffer.AsSpan()[..s.Length];
-        s.AsSpan().CopyTo(span);
-        span.Reverse();
-        return new(context.Return(span.ToString()));
+        var result =
+            s.Length <= 1
+                ? s
+                : string.Create(
+                    s.Length,
+                    s,
+                    static (destination, source) =>
+                    {
+                        source.AsSpan().CopyTo(destination);
+                        destination.Reverse();
+                    }
+                );
+        return new(context.Return(result));
     }
 
     public ValueTask<int> Sub(
@@ -1095,7 +1104,8 @@ public sealed class StringLibrary
         LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.State, 2, i);
         LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.State, 3, j);
 
-        return new(context.Return(StringHelper.Slice(s, (int)i, (int)j).ToString()));
+        var slice = StringHelper.Slice(s, (int)i, (int)j);
+        return new(context.Return(slice.Length == s.Length ? s : slice.ToString()));
     }
 
     public ValueTask<int> Upper(

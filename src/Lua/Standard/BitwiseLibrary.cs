@@ -192,15 +192,8 @@ public sealed class BitwiseLibrary
 
         Bit32Helper.ValidateFieldAndWidth(context.State, "extract", 2, field, width);
 
-        if (field == 0 && width == 32)
-        {
-            return new(context.Return(n));
-        }
-        else
-        {
-            var mask = (uint)((1 << width) - 1);
-            return new(context.Return((n >> field) & mask));
-        }
+        var mask = uint.MaxValue >> (32 - width);
+        return new(context.Return((n >> field) & mask));
     }
 
     public ValueTask<int> LRotate(
@@ -215,18 +208,8 @@ public sealed class BitwiseLibrary
         LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.State, 2, disp);
 
         var v = Bit32Helper.ToUInt32(x);
-        var a = (int)disp % 32;
-
-        if (a < 0)
-        {
-            v = (v >> -a) | (v << (32 + a));
-        }
-        else
-        {
-            v = (v << a) | (v >> (32 - a));
-        }
-        ;
-        return new(context.Return(v));
+        var a = (int)disp & 31;
+        return new(context.Return((v << a) | (v >> (32 - a))));
     }
 
     public ValueTask<int> LShift(
@@ -280,15 +263,7 @@ public sealed class BitwiseLibrary
         var width = (int)arg3;
 
         Bit32Helper.ValidateFieldAndWidth(context.State, "replace", 3, field, width);
-        uint mask;
-        if (width == 32)
-        {
-            mask = 0xFFFFFFFF;
-        }
-        else
-        {
-            mask = (uint)((1 << width) - 1);
-        }
+        var mask = uint.MaxValue >> (32 - width);
 
         v = v & mask;
         n = (n & ~(mask << field)) | (v << field);
@@ -307,18 +282,8 @@ public sealed class BitwiseLibrary
         LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.State, 2, disp);
 
         var v = Bit32Helper.ToUInt32(x);
-        var a = (int)disp % 32;
-
-        if (a < 0)
-        {
-            v = (v << -a) | (v >> (32 + a));
-        }
-        else
-        {
-            v = (v >> a) | (v << (32 - a));
-        }
-
-        return new(context.Return(v));
+        var a = (int)disp & 31;
+        return new(context.Return((v >> a) | (v << (32 - a))));
     }
 
     public ValueTask<int> RShift(
