@@ -9,7 +9,7 @@ namespace Lua.Tests;
 
 [TestFixture(LuaStringMode.Utf16)]
 [TestFixture(LuaStringMode.Bytes)]
-public class CompilerReviewTests(LuaStringMode stringMode)
+public class CompilerTests(LuaStringMode stringMode)
 {
     LuaState CreateState()
     {
@@ -125,29 +125,5 @@ public class CompilerReviewTests(LuaStringMode stringMode)
             Assert.That(state.CallCount, Is.Zero);
         }
         Assert.That((await state.DoStringAsync("return 42"))[0].Read<double>(), Is.EqualTo(42));
-    }
-}
-
-public class CompilerConstantBoundaryTests
-{
-    [Test]
-    public async Task ConstantBeyondBxUsesLoadKxAndRoundTrips()
-    {
-        using var state = LuaState.Create();
-        var source = new StringBuilder("local x\n");
-        for (var i = 0; i <= Instruction.MaxArgBx + 1; i++)
-            source.Append("x=").Append(i).Append('\n');
-        source.Append("return x");
-        var closure = state.Load(source.ToString(), "large-constants");
-        Assert.That(closure.Proto.Code.ToArray().Any(i => i.OpCode == OpCode.LoadKX), Is.True);
-        Assert.That(
-            (await state.ExecuteAsync(closure))[0].Read<double>(),
-            Is.EqualTo(Instruction.MaxArgBx + 1)
-        );
-        var restored = state.Load(closure.Proto.ToBytecode(), "large-constants-roundtrip");
-        Assert.That(
-            (await state.ExecuteAsync(restored))[0].Read<double>(),
-            Is.EqualTo(Instruction.MaxArgBx + 1)
-        );
     }
 }

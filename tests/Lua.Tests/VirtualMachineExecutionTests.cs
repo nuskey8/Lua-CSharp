@@ -5,7 +5,7 @@ namespace Lua.Tests;
 
 [TestFixture(LuaStringMode.Utf16)]
 [TestFixture(LuaStringMode.Bytes)]
-public class VirtualMachineReviewTests(LuaStringMode stringMode)
+public class VirtualMachineExecutionTests(LuaStringMode stringMode)
 {
     LuaState CreateState()
     {

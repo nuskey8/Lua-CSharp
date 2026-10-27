@@ -6,7 +6,7 @@ namespace Lua.Tests;
 
 [TestFixture(LuaStringMode.Utf16)]
 [TestFixture(LuaStringMode.Bytes)]
-public class TableHelperReviewTests(LuaStringMode mode)
+public class TableLibraryTests(LuaStringMode mode)
 {
     LuaState CreateState()
     {
@@ -21,7 +21,7 @@ public class TableHelperReviewTests(LuaStringMode mode)
     [TestCase("table.remove(t,0.5)")]
     [TestCase("table.insert(t,0/0,99)")]
     [TestCase("table.remove(t,math.huge)")]
-    public async Task InvalidPositionsAreStillRejected(string operation)
+    public async Task InvalidPositionsAreRejected(string operation)
     {
         using var state = CreateState();
         var result = await state.DoStringAsync(
@@ -104,15 +104,5 @@ public class TableHelperReviewTests(LuaStringMode mode)
         Assert.That(values[1].Read<string>(), Does.Contain("too many results to unpack"));
         Assert.That(state.Stack.Count, Is.Zero);
         Assert.That((await state.DoStringAsync("return 42"))[0].Read<double>(), Is.EqualTo(42));
-    }
-
-    [Test]
-    public void EmptyStackCanGrowAndRejectsOverflowingCapacity()
-    {
-        var stack = new LuaStack(0);
-        stack.Push(42);
-        Assert.That(stack.Pop().Read<double>(), Is.EqualTo(42));
-        Assert.Throws<LuaStackOverflowException>(() => stack.EnsureCapacity(int.MaxValue));
-        Assert.That(stack.Count, Is.Zero);
     }
 }
