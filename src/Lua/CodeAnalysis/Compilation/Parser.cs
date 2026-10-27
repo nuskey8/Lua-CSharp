@@ -60,6 +60,7 @@ class Parser : IPoolNode<Parser>, IDisposable
     {
         Scanner.Buffer.Dispose();
         Scanner = default;
+        Function = null!;
         ActiveVariables.Clear();
         PendingGotos.Clear();
         ActiveLabels.Clear();
@@ -125,8 +126,8 @@ class Parser : IPoolNode<Parser>, IDisposable
             Scanner.SyntaxError("too many syntax levels");
         }
 
+        CheckLimit(Scanner.L.CallCount + 1, MaxCallCount, "Go levels");
         Scanner.L.CallCount++;
-        CheckLimit(Scanner.L.CallCount, MaxCallCount, "Go levels");
         return new(Scanner.L);
     }
 
@@ -479,7 +480,7 @@ class Parser : IPoolNode<Parser>, IDisposable
         return e;
     }
 
-    public void Assignment(AssignmentTarget t, int variableCount)
+    public unsafe void Assignment(AssignmentTarget t, int variableCount)
     {
         CheckCondition(t.Description.IsVariable(), "syntax error");
         if (TestNext(','))
@@ -487,7 +488,7 @@ class Parser : IPoolNode<Parser>, IDisposable
             var e = SuffixedExpression();
             if (e.Kind != Kind.Indexed)
             {
-                Function.CheckConflict(t, e);
+                Function.CheckConflict(&t, e);
             }
 
             CheckLimit(variableCount + Scanner.L.CallCount, MaxCallCount, "Go levels");

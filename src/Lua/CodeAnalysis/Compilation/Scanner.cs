@@ -433,113 +433,50 @@ struct Scanner
 
     public Token ReadNumber(int pos)
     {
-        var startPosition = pos - 1;
-        var c = Current;
-        Assert(IsDecimal(c));
-        SaveAndAdvance();
-        if (c == '0' && CheckNext("Xx")) // hexadecimal
-        {
-            pos++;
-            Buffer.Clear();
-            var exponent = 0;
-            (var fraction, c, var i) = ReadHexNumber(0, ref pos);
-            if (c == '.')
-            {
-                Advance();
-                (fraction, c, exponent) = ReadHexNumber(fraction, ref pos);
-            }
-
-            if (i == 0 && exponent == 0)
-            {
-                NumberError(startPosition, pos);
-            }
-
-            exponent *= -4;
-            if (c is 'p' or 'P')
-            {
-                Advance();
-                var negativeExponent = false;
-                c = Current;
-                if (c is '+' or '-')
-                {
-                    negativeExponent = c == '-';
-                    Advance();
-                }
-
-                if (!IsDecimal(Current))
-                {
-                    NumberError(startPosition, pos + 1);
-                }
-
-                _ = ReadDigits();
-
-                if (
-                    !long.TryParse(
-                        Buffer.AsSpan(),
-                        NumberStyles.Float,
-                        CultureInfo.InvariantCulture,
-                        out var e
-                    )
-                )
-                {
-                    NumberError(startPosition, pos + 1);
-                }
-                else if (negativeExponent)
-                {
-                    exponent += (int)-e;
-                }
-                else
-                {
-                    exponent += (int)e;
-                }
-
-                Buffer.Clear();
-            }
-
-            return new(pos, fraction * Math.Pow(2, exponent), RawTokenLength(pos));
-        }
-
-        c = ReadDigits();
-        if (c == '.')
-        {
-            SaveAndAdvance();
-            c = ReadDigits();
-        }
-
-        if (c is 'e' or 'E')
-        {
-            SaveAndAdvance();
-            c = Current;
-            if (c is '+' or '-')
-            {
-                SaveAndAdvance();
-            }
-
-            _ = ReadDigits();
-        }
-
-        var strSpan = Buffer.AsSpan();
-        if (strSpan.StartsWith("0"))
-        {
-            if (strSpan.Length == 1)
-            {
-                Buffer.Clear();
-                return new(pos, 0d, RawTokenLength(pos));
-            }
-
-            while (strSpan.Length > 1 && strSpan[0] == '0' && strSpan[1] == '0')
-            {
-                strSpan = strSpan[1..];
-            }
-        }
-
-        if (!double.TryParse(strSpan, NumberStyles.Float, CultureInfo.InvariantCulture, out var f))
-        {
-            NumberError(startPosition, pos);
-        }
-
+        // The existing scanner can leave a leading decimal point in scratch.
         Buffer.Clear();
-        return new(pos, f, RawTokenLength(pos));
+        var first = Current;
+        Assert(IsDecimal(first));
+        Advance();
+        var hexadecimal = first == '0' && Current is 'x' or 'X';
+        if (hexadecimal)
+            Advance();
+
+        // Lua 5.2 collects hex digits and dots even for decimal numerals, then
+        // validates the complete token. For example, "1and" is malformed "1a".
+        for (; ; )
+        {
+            if (hexadecimal ? Current is 'p' or 'P' : Current is 'e' or 'E')
+            {
+                Advance();
+                if (Current is '+' or '-')
+                    Advance();
+            }
+
+            if (!IsHexadecimal(Current) && Current != '.')
+                break;
+            Advance();
+        }
+
+        var length = RawTokenLength(pos);
+        var text = R.Span.Slice(pos - 1, length);
+        if (hexadecimal)
+        {
+            try
+            {
+                return new(pos, HexConverter.ToDouble(text), length);
+            }
+            catch (FormatException)
+            {
+                NumberError(pos - 1, pos + length);
+            }
+        }
+
+        if (text.Length == 1 && text[0] == '0')
+            return new(pos, 0d, length);
+        if (!double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var value))
+            NumberError(pos - 1, pos + length);
+        return new(pos, value, length);
     }
 
     static readonly Dictionary<int, char> escapes = new()
