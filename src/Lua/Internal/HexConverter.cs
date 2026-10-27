@@ -30,21 +30,8 @@ public static class HexConverter
 
         var dotIndex = text.IndexOf('.');
         var expIndex = text.IndexOfAny('p', 'P');
-
-        if (dotIndex == -1 && expIndex == -1)
-        {
-            // unsigned big integer
-            // TODO: optimize
-            using PooledArray<char> buffer = new(text.Length + 1);
-            text.CopyTo(buffer.AsSpan()[1..]);
-            buffer[0] = '0';
-            return sign
-                * (double)
-                    BigInteger.Parse(
-                        buffer.AsSpan()[..(text.Length + 1)],
-                        NumberStyles.AllowHexSpecifier
-                    );
-        }
+        if (expIndex >= 0 && (expIndex == text.Length - 1 || dotIndex > expIndex))
+            throw new FormatException("Invalid hexadecimal exponent.");
 
         ReadOnlySpan<char> intPart;
         ReadOnlySpan<char> decimalPart;
@@ -52,9 +39,9 @@ public static class HexConverter
 
         if (dotIndex == -1)
         {
-            intPart = text[..expIndex];
+            intPart = expIndex < 0 ? text : text[..expIndex];
             decimalPart = [];
-            expPart = text[(expIndex + 1)..];
+            expPart = expIndex < 0 ? [] : text[(expIndex + 1)..];
         }
         else if (expIndex == -1)
         {
@@ -69,42 +56,44 @@ public static class HexConverter
             expPart = text[(expIndex + 1)..];
         }
 
-        var value = intPart.Length == 0 ? 0 : long.Parse(intPart, NumberStyles.AllowHexSpecifier);
-
-        var decimalValue = 0.0;
+        double value = 0;
+        if (intPart.Length == 0 && decimalPart.Length == 0)
+            throw new FormatException("Hexadecimal number has no digits.");
+        foreach (var digit in intPart)
+            value = (value * 16) + ToInt(digit);
         for (var i = 0; i < decimalPart.Length; i++)
         {
-            decimalValue += ToInt(decimalPart[i]) * Math.Pow(16, -(i + 1));
+            value = (value * 16) + ToInt(decimalPart[i]);
         }
-
-        var result = value + decimalValue;
-
+        var exponent = -4 * decimalPart.Length;
         if (expPart.Length > 0)
         {
-            result *= Math.Pow(2, int.Parse(expPart));
+            var negative = expPart[0] == '-';
+            if (expPart[0] is '+' or '-')
+                expPart = expPart[1..];
+            if (expPart.Length == 0)
+                throw new FormatException("Invalid hexadecimal exponent.");
+            var parsedExponent = 0;
+            foreach (var digit in expPart)
+            {
+                if (digit is < '0' or > '9')
+                    throw new FormatException("Invalid hexadecimal exponent.");
+                parsedExponent = unchecked((parsedExponent * 10) + digit - '0');
+            }
+            exponent = unchecked(exponent + (negative ? -parsedExponent : parsedExponent));
         }
-
-        return result * sign;
+        return MathEx.ScaleB(value, exponent) * sign;
     }
 
     static int ToInt(char c)
     {
-        unchecked
+        return c switch
         {
-            switch (c)
-            {
-                case < '0':
-                    return 0;
-                case <= '9':
-                    return c - '0';
-                case >= 'A' and <= 'F':
-                    return c - 'A' + 10;
-                case >= 'a' and <= 'f':
-                    return c - 'a' + 10;
-            }
-        }
-
-        return 0;
+            >= '0' and <= '9' => c - '0',
+            >= 'A' and <= 'F' => c - 'A' + 10,
+            >= 'a' and <= 'f' => c - 'a' + 10,
+            _ => throw new FormatException("Invalid hexadecimal digit."),
+        };
     }
 
     public static string FromDouble(double value)
@@ -143,63 +132,15 @@ public static class HexConverter
 
         var sign = isNegative ? "-" : "";
 
-        if (exponent == 0)
+        // Subnormals have no implicit leading one and share the exponent -1022.
+        var adjustedExponent = exponent == 0 ? -1022 : exponent - 1023;
+        if (mantissa == 0)
         {
-            var leadingZeros = CountLeadingZeros(mantissa, 52);
-            mantissa <<= leadingZeros + 1;
-            mantissa &= (1L << 52) - 1; // 52ビットにマスク
-
-            var adjustedExponent = -1022 - leadingZeros;
-
-            var mantissaHex = FormatMantissa(mantissa);
-            return $"{sign}0x0.{mantissaHex}p{adjustedExponent:+0;-0}";
-        }
-        else
-        {
-            var adjustedExponent = exponent - 1023;
-            var mantissaHex = FormatMantissa(mantissa);
-
-            if (mantissa == 0)
-            {
-                return $"{sign}0x1p{adjustedExponent:+0;-0}";
-            }
-            else
-            {
-                return $"{sign}0x1.{mantissaHex}p{adjustedExponent:+0;-0}";
-            }
+            return $"{sign}0x1p{adjustedExponent:+0;-0}";
         }
 
-        static string FormatMantissa(long mantissa)
-        {
-            if (mantissa == 0)
-            {
-                return "";
-            }
-
-            var hex = mantissa.ToString("x13"); // 13桁の16進数
-
-            hex = hex.TrimEnd('0');
-
-            return hex;
-        }
-
-        static int CountLeadingZeros(long value, int bitLength)
-        {
-            if (value == 0)
-            {
-                return bitLength;
-            }
-
-            var count = 0;
-            var mask = 1L << (bitLength - 1);
-
-            while ((value & mask) == 0 && count < bitLength)
-            {
-                count++;
-                mask >>= 1;
-            }
-
-            return count;
-        }
+        var leadingDigit = exponent == 0 ? '0' : '1';
+        var mantissaHex = mantissa.ToString("x13").TrimEnd('0');
+        return $"{sign}0x{leadingDigit}.{mantissaHex}p{adjustedExponent:+0;-0}";
     }
 }

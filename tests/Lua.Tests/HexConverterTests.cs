@@ -1,4 +1,5 @@
 using Lua.Internal;
+using Lua.Standard;
 
 namespace Lua.Tests;
 
@@ -25,8 +26,34 @@ public class HexConverterTests
     [TestCase(double.NaN, "(0/0)")]
     [TestCase(-1.5, "-0x1.8p+0")]
     [TestCase(1.2e-39, "0x1.a22393b33036bp-130")]
+    [TestCase(double.Epsilon, "0x0.0000000000001p-1022")]
+    [TestCase(-double.Epsilon, "-0x0.0000000000001p-1022")]
+    [TestCase(1.668805393880401E-308, "0x0.cp-1022")]
+    [TestCase(2.225073858507201E-308, "0x0.fffffffffffffp-1022")]
+    [TestCase(2.2250738585072014E-308, "0x1p-1022")]
     public void Test_FromDouble(double value, string expected)
     {
         Assert.That(HexConverter.FromDouble(value), Is.EqualTo(expected.ToLower()));
+    }
+
+    [Test]
+    public void FiniteHexFormattingRoundTripsBitExactly()
+    {
+        var random = new Random(42);
+        for (var i = 0; i < 2048; i++)
+        {
+            var bits = random.NextInt64(long.MinValue, long.MaxValue);
+            if ((i & 1) == 0)
+                bits &= unchecked((long)0x800fffffffffffff); // Include subnormals.
+            var value = BitConverter.Int64BitsToDouble(bits);
+            if (!double.IsFinite(value))
+                continue;
+            var text = HexConverter.FromDouble(value);
+            Assert.That(
+                BitConverter.DoubleToInt64Bits(HexConverter.ToDouble(text)),
+                Is.EqualTo(bits),
+                text
+            );
+        }
     }
 }

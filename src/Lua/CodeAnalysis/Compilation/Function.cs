@@ -41,6 +41,7 @@ class Function : IPoolNode<Function>
     internal void Release()
     {
         Previous = null;
+        P = null!;
         ConstantLookup.Clear();
         JumpPc = NoJump;
         Proto = null!;
@@ -421,7 +422,7 @@ class Function : IPoolNode<Function>
             return EncodeABx(OpCode.LoadK, r, constant);
         }
 
-        var pc = EncodeABx(OpCode.LoadK, r, 0);
+        var pc = EncodeABx(OpCode.LoadKX, r, 0);
         EncodeExtraArg(constant);
         return pc;
     }
@@ -723,7 +724,9 @@ class Function : IPoolNode<Function>
     public void CheckStack(int n)
     {
         n += FreeRegisterCount;
-        if (n >= MaxStack)
+        // Lua 5.2 register operands are eight bits; the runtime stack's much
+        // larger capacity is not the register limit of an individual function.
+        if (n >= 250)
         {
             P.Scanner.SyntaxError("function or expression too complex");
         }
@@ -1415,11 +1418,10 @@ class Function : IPoolNode<Function>
         FreeRegisterCount = @base + 1;
     }
 
-    public unsafe void CheckConflict(AssignmentTarget tv, ExprDesc e)
+    public unsafe void CheckConflict(AssignmentTarget* t, ExprDesc e)
     {
         var extra = FreeRegisterCount;
         var conflict = false;
-        var t = &tv;
         while (t != null)
         {
             ref var d = ref t->Description;
