@@ -2060,21 +2060,23 @@ public static partial class LuaVirtualMachine
     {
         var stack = state.Stack;
         var top = stack.Count;
-        stack.Push(table);
-        stack.Push(key);
-        var (argCount, varArgCount) = PrepareForFunctionCall(state, indexTable, top);
-
-        var newFrame = new CallStackFrame
-        {
-            Base = top + varArgCount,
-            VariableArgumentCount = varArgCount,
-            Function = indexTable,
-            ReturnBase = top,
-        };
-
-        state.PushCallStackFrame(newFrame);
+        var framePushed = false;
         try
         {
+            stack.Push(table);
+            stack.Push(key);
+            var (argCount, varArgCount) = PrepareForFunctionCall(state, indexTable, top);
+
+            var newFrame = new CallStackFrame
+            {
+                Base = top + varArgCount,
+                VariableArgumentCount = varArgCount,
+                Function = indexTable,
+                ReturnBase = top,
+            };
+
+            state.PushCallStackFrame(newFrame);
+            framePushed = true;
             var functionContext = new LuaFunctionExecutionContext
             {
                 State = state,
@@ -2090,7 +2092,10 @@ public static partial class LuaVirtualMachine
         }
         finally
         {
-            state.PopCallStackFrameWithStackPop();
+            if (framePushed)
+                state.PopCallStackFrameWithStackPop(top);
+            else
+                stack.PopUntil(top);
         }
     }
 
@@ -2330,22 +2335,24 @@ public static partial class LuaVirtualMachine
     {
         var stack = state.Stack;
         var top = stack.Count;
-        stack.Push(table);
-        stack.Push(key);
-        stack.Push(value);
-        var (argCount, varArgCount) = PrepareForFunctionCall(state, newIndexFunction, top);
-
-        var newFrame = new CallStackFrame
-        {
-            Base = top + varArgCount,
-            VariableArgumentCount = varArgCount,
-            Function = newIndexFunction,
-            ReturnBase = top,
-        };
-
-        state.PushCallStackFrame(newFrame);
+        var framePushed = false;
         try
         {
+            stack.Push(table);
+            stack.Push(key);
+            stack.Push(value);
+            var (argCount, varArgCount) = PrepareForFunctionCall(state, newIndexFunction, top);
+
+            var newFrame = new CallStackFrame
+            {
+                Base = top + varArgCount,
+                VariableArgumentCount = varArgCount,
+                Function = newIndexFunction,
+                ReturnBase = top,
+            };
+
+            state.PushCallStackFrame(newFrame);
+            framePushed = true;
             var functionContext = new LuaFunctionExecutionContext
             {
                 State = state,
@@ -2363,7 +2370,10 @@ public static partial class LuaVirtualMachine
         }
         finally
         {
-            state.PopCallStackFrameWithStackPop();
+            if (framePushed)
+                state.PopCallStackFrameWithStackPop(top);
+            else
+                stack.PopUntil(top);
         }
     }
 

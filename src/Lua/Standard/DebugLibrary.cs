@@ -452,12 +452,12 @@ public sealed class DebugLibrary
         var upValues2 = closure2.GetUpValuesSpan();
         if (n1 <= 0 || n1 > upValues1.Length)
         {
-            context.ThrowBadArgument(1, "invalid upvalue index");
+            context.ThrowBadArgument(2, "invalid upvalue index");
         }
 
-        if (n2 < 0 || n2 > upValues2.Length)
+        if (n2 <= 0 || n2 > upValues2.Length)
         {
-            context.ThrowBadArgument(3, "invalid upvalue index");
+            context.ThrowBadArgument(4, "invalid upvalue index");
         }
 
         upValues1[n1 - 1] = upValues2[n2 - 1];

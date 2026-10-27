@@ -1,3 +1,4 @@
+using Lua.Runtime;
 using Lua.Standard;
 
 namespace Lua.Tests;
@@ -9,6 +10,70 @@ public class NativeCallbackResultTests
         var state = LuaState.Create();
         state.OpenStandardLibraries();
         return state;
+    }
+
+    [TestCase(0, 1, 2)]
+    [TestCase(-1, 1, 2)]
+    [TestCase(2, 1, 2)]
+    [TestCase(1, 0, 4)]
+    [TestCase(1, -1, 4)]
+    [TestCase(1, 2, 4)]
+    public async Task UpvalueJoinRejectsInvalidIndices(int first, int second, int argument)
+    {
+        using var state = CreateState();
+        var results = await state.DoStringAsync(
+            $"""
+            local a,b=1,2
+            local function f() return a end
+            local function g() return b end
+            return pcall(debug.upvaluejoin,f,{first},g,{second})
+            """
+        );
+        Assert.That(results[0].Read<bool>(), Is.False);
+        Assert.That(results[1].Read<string>(), Does.Contain($"bad argument #{argument}"));
+        Assert.That(results[1].Read<string>(), Does.Contain("invalid upvalue index"));
+        Assert.That(state.Stack.Count, Is.Zero);
+        Assert.That(state.CallStackFrameCount, Is.Zero);
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void IndexApiRestoresPrefixWhenCallFrameLimitRejectsSetup(bool setter)
+    {
+        using var state = CreateState();
+        var operation = new LuaFunction((context, token) => new(context.Return()));
+        var table = new LuaTable
+        {
+            Metatable = new LuaTable { ["__index"] = operation, ["__newindex"] = operation },
+        };
+        state.MaxCallDepth = 1;
+        state.Push(12345);
+        state.PushCallStackFrame(
+            new()
+            {
+                Function = operation,
+                Base = 1,
+                ReturnBase = 1,
+                VariableArgumentCount = 0,
+            }
+        );
+        try
+        {
+            Assert.ThrowsAsync<LuaStackOverflowException>(async () =>
+            {
+                if (setter)
+                    await state.SetTableAsync(table, "key", 42);
+                else
+                    await state.GetTableAsync(table, "key");
+            });
+            Assert.That(state.Stack.Count, Is.EqualTo(1));
+            Assert.That(state.Stack.Pop().Read<double>(), Is.EqualTo(12345));
+            Assert.That(state.CallStackFrameCount, Is.EqualTo(1));
+        }
+        finally
+        {
+            state.PopCallStackFrame();
+        }
     }
 
     [TestCase("return getmetatable,{}", 1)]
