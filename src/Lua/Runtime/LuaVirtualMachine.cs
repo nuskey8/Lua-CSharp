@@ -608,60 +608,95 @@ public static partial class LuaVirtualMachine
 
                         return true;
                     case OpCode.Add:
-                    case OpCode.Sub:
-                    case OpCode.Mul:
-                    case OpCode.Div:
-                    case OpCode.Mod:
-                    case OpCode.Pow:
                         Markers.Add();
-                        Markers.Sub();
-                        Markers.Mul();
-                        Markers.Div();
-                        Markers.Mod();
-                        Markers.Pow();
-
                         stackHead = ref stack.FastGet(frameBase);
                         vb = ref RKB(ref stackHead, ref constHead, instruction);
                         vc = ref RKC(ref stackHead, ref constHead, instruction);
-
-                        [MethodImpl(MethodImplOptions.NoInlining)]
-                        static double Mod(double a, double b)
+                        if (vb.Type != LuaValueType.Number || vc.Type != LuaValueType.Number)
                         {
-                            var mod = a % b;
-                            if ((b > 0 && mod < 0) || (b < 0 && mod > 0))
-                            {
-                                mod += b;
-                            }
-
-                            return mod;
+                            goto ArithmeticSlowPath;
                         }
 
-                        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-                        static double ArithmeticOperation(OpCode code, double a, double b)
+                        Unsafe.Add(ref stackHead, iA) =
+                            vb.UnsafeReadDouble() + vc.UnsafeReadDouble();
+                        stack.NotifyTop(iA + frameBase + 1);
+                        continue;
+                    case OpCode.Sub:
+                        Markers.Sub();
+                        stackHead = ref stack.FastGet(frameBase);
+                        vb = ref RKB(ref stackHead, ref constHead, instruction);
+                        vc = ref RKC(ref stackHead, ref constHead, instruction);
+                        if (vb.Type != LuaValueType.Number || vc.Type != LuaValueType.Number)
                         {
-                            return code switch
-                            {
-                                OpCode.Add => a + b,
-                                OpCode.Sub => a - b,
-                                OpCode.Mul => a * b,
-                                OpCode.Div => a / b,
-                                OpCode.Mod => Mod(a, b),
-                                OpCode.Pow => Math.Pow(a, b),
-                                _ => 0,
-                            };
+                            goto ArithmeticSlowPath;
                         }
 
-                        if (vb.Type == LuaValueType.Number && vc.Type == LuaValueType.Number)
+                        Unsafe.Add(ref stackHead, iA) =
+                            vb.UnsafeReadDouble() - vc.UnsafeReadDouble();
+                        stack.NotifyTop(iA + frameBase + 1);
+                        continue;
+                    case OpCode.Mul:
+                        Markers.Mul();
+                        stackHead = ref stack.FastGet(frameBase);
+                        vb = ref RKB(ref stackHead, ref constHead, instruction);
+                        vc = ref RKC(ref stackHead, ref constHead, instruction);
+                        if (vb.Type != LuaValueType.Number || vc.Type != LuaValueType.Number)
                         {
-                            Unsafe.Add(ref stackHead, iA) = ArithmeticOperation(
-                                opCode,
-                                vb.UnsafeReadDouble(),
-                                vc.UnsafeReadDouble()
-                            );
-                            stack.NotifyTop(iA + frameBase + 1);
-                            continue;
+                            goto ArithmeticSlowPath;
                         }
 
+                        Unsafe.Add(ref stackHead, iA) =
+                            vb.UnsafeReadDouble() * vc.UnsafeReadDouble();
+                        stack.NotifyTop(iA + frameBase + 1);
+                        continue;
+                    case OpCode.Div:
+                        Markers.Div();
+                        stackHead = ref stack.FastGet(frameBase);
+                        vb = ref RKB(ref stackHead, ref constHead, instruction);
+                        vc = ref RKC(ref stackHead, ref constHead, instruction);
+                        if (vb.Type != LuaValueType.Number || vc.Type != LuaValueType.Number)
+                        {
+                            goto ArithmeticSlowPath;
+                        }
+
+                        Unsafe.Add(ref stackHead, iA) =
+                            vb.UnsafeReadDouble() / vc.UnsafeReadDouble();
+                        stack.NotifyTop(iA + frameBase + 1);
+                        continue;
+                    case OpCode.Mod:
+                        Markers.Mod();
+                        stackHead = ref stack.FastGet(frameBase);
+                        vb = ref RKB(ref stackHead, ref constHead, instruction);
+                        vc = ref RKC(ref stackHead, ref constHead, instruction);
+                        if (vb.Type != LuaValueType.Number || vc.Type != LuaValueType.Number)
+                        {
+                            goto ArithmeticSlowPath;
+                        }
+
+                        Unsafe.Add(ref stackHead, iA) = Mod(
+                            vb.UnsafeReadDouble(),
+                            vc.UnsafeReadDouble()
+                        );
+                        stack.NotifyTop(iA + frameBase + 1);
+                        continue;
+                    case OpCode.Pow:
+                        Markers.Pow();
+                        stackHead = ref stack.FastGet(frameBase);
+                        vb = ref RKB(ref stackHead, ref constHead, instruction);
+                        vc = ref RKC(ref stackHead, ref constHead, instruction);
+                        if (vb.Type != LuaValueType.Number || vc.Type != LuaValueType.Number)
+                        {
+                            goto ArithmeticSlowPath;
+                        }
+
+                        Unsafe.Add(ref stackHead, iA) = Math.Pow(
+                            vb.UnsafeReadDouble(),
+                            vc.UnsafeReadDouble()
+                        );
+                        stack.NotifyTop(iA + frameBase + 1);
+                        continue;
+
+                        ArithmeticSlowPath:
                         if (vb.TryReadDouble(out numB) && vc.TryReadDouble(out var numC))
                         {
                             Unsafe.Add(ref stackHead, iA) = ArithmeticOperation(opCode, numB, numC);
@@ -682,6 +717,7 @@ public static partial class LuaVirtualMachine
                         }
 
                         return true;
+
                     case OpCode.Unm:
                         Markers.Unm();
                         stackHead = ref stack.FastGet(frameBase);
@@ -1058,6 +1094,21 @@ public static partial class LuaVirtualMachine
         }
     }
 
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    static double ArithmeticOperation(OpCode code, double a, double b)
+    {
+        return code switch
+        {
+            OpCode.Add => a + b,
+            OpCode.Sub => a - b,
+            OpCode.Mul => a * b,
+            OpCode.Div => a / b,
+            OpCode.Mod => Mod(a, b),
+            OpCode.Pow => Math.Pow(a, b),
+            _ => 0,
+        };
+    }
+
     static void ThrowLuaRuntimeException(VirtualMachineExecutionContext context, string message)
     {
         throw new LuaRuntimeException(GetstateWithCurrentPc(context), message);
@@ -1110,7 +1161,13 @@ public static partial class LuaVirtualMachine
         var c = instruction.C;
         stack.SetTop(context.FrameBase + c + 1);
         var a = instruction.A;
-        var total = c - b + 1;
+        var total = ConcatStrings(stack, c - b + 1);
+        if (total == 1)
+        {
+            stack.Get(context.FrameBase + a) = stack.AsSpan()[^1];
+            return true;
+        }
+
         var task = Concat(context, context.FrameBase + a, total);
         if (task.IsCompleted)
         {
@@ -1132,7 +1189,7 @@ public static partial class LuaVirtualMachine
     )
     {
         var stack = context.Stack;
-        while ((total = ConcatStrings(stack, total)) > 1)
+        do
         {
             var top = stack.Count;
             await ExecuteBinaryOperationMetaMethod(
@@ -1144,7 +1201,7 @@ public static partial class LuaVirtualMachine
             );
             stack.PopUntil(top - 1);
             total--;
-        }
+        } while ((total = ConcatStrings(stack, total)) > 1);
 
         stack.Get(target) = stack.AsSpan()[^1];
 
