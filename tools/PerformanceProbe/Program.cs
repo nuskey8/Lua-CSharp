@@ -155,15 +155,13 @@ foreach (var name in cases)
         allocations[sample] = (GC.GetTotalAllocatedBytes(precise: true) - before) / (double)count;
         times[sample] = elapsed / count;
     }
-    Array.Sort(times);
-    Array.Sort(allocations);
     Console.WriteLine(
         JsonSerializer.Serialize(
             new
             {
                 name,
-                ns = times[samples / 2],
-                bytes = allocations[samples / 2],
+                ns = Median(times),
+                bytes = Median(allocations),
                 checksum = expected,
                 bytecodeBytes = bytecode.Length,
                 bytecodeHash = Convert.ToHexString(SHA256.HashData(bytecode)),
@@ -176,6 +174,13 @@ foreach (var name in cases)
     );
 }
 return 0;
+
+static double Median(double[] values)
+{
+    Array.Sort(values);
+    var middle = values.Length / 2;
+    return values.Length % 2 == 0 ? (values[middle - 1] + values[middle]) / 2 : values[middle];
+}
 
 [MemoryDiagnoser]
 public class InterpreterBenchmarks
