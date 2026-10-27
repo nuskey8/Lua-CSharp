@@ -56,4 +56,20 @@ public class HexConverterTests
             );
         }
     }
+
+    [Test]
+    public async Task HexFormatPreservesSubnormalValues()
+    {
+        using var state = LuaState.Create();
+        state.OpenStandardLibraries();
+        await state.DoStringAsync(
+            """
+            for _,x in ipairs({0x1p-1074,-0x1p-1074,0x1.8p-1023,0x0.fffffffffffffp-1022}) do
+                local literal=string.format('%a',x)
+                assert(tonumber(literal)==x)
+                assert(load('return '..literal)()==x)
+            end
+            """
+        );
+    }
 }

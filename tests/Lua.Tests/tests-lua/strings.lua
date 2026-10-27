@@ -1,6 +1,6 @@
 print('testing strings and string library')
 
-local _noformatA = true
+local _noformatA = false
 local _port = true
 
 assert('alo' < 'alo1')
