@@ -8,10 +8,8 @@ static class StringHelper
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static ReadOnlySpan<char> Slice(string s, int i, int j)
     {
-        if (i < 0)
-            i = s.Length + i + 1;
-        if (j < 0)
-            j = s.Length + j + 1;
+        i = RelativePosition(i, s.Length);
+        j = RelativePosition(j, s.Length);
 
         if (i < 1)
             i = 1;

@@ -43,13 +43,10 @@ public sealed class StringLibrary
     )
     {
         var s = context.GetArgument<string>(0);
-        var i = context.HasArgument(1) ? context.GetArgument<double>(1) : 1;
-        var j = context.HasArgument(2) ? context.GetArgument<double>(2) : i;
+        var i = context.HasArgument(1) ? ReadStringIndex(context, 1) : 1;
+        var j = context.HasArgument(2) ? ReadStringIndex(context, 2) : i;
 
-        LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.State, 2, i);
-        LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.State, 3, j);
-
-        var span = StringHelper.Slice(s, (int)i, (int)j);
+        var span = StringHelper.Slice(s, i, j);
         var buffer = context.GetReturnBuffer(span.Length);
         for (var k = 0; k < span.Length; k++)
         {
@@ -71,19 +68,26 @@ public sealed class StringLibrary
 
         var byteStrings = context.State.Platform.StringMode == LuaStringMode.Bytes;
         ValueStringBuilder builder = new(context.ArgumentCount);
-        for (var i = 0; i < context.ArgumentCount; i++)
+        try
         {
-            var arg = context.GetArgument<double>(i);
-            LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.State, i + 1, arg);
-            if (byteStrings && (arg < 0 || arg > 255))
+            for (var i = 0; i < context.ArgumentCount; i++)
             {
-                LuaRuntimeException.BadArgument(context.State, i + 1, "value out of range");
+                var arg = Math.Truncate(context.GetArgument<double>(i));
+                LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.State, i + 1, arg);
+                if (byteStrings && (arg < 0 || arg > 255))
+                {
+                    LuaRuntimeException.BadArgument(context.State, i + 1, "value out of range");
+                }
+
+                builder.Append((char)arg);
             }
 
-            builder.Append((char)arg);
+            return new(context.Return(builder.ToString()));
         }
-
-        return new(context.Return(builder.ToString()));
+        finally
+        {
+            builder.Dispose();
+        }
     }
 
     public ValueTask<int> Dump(
@@ -1023,7 +1027,9 @@ public sealed class StringLibrary
             LuaRuntimeException.BadArgumentNumberIsNotInteger(context.State, 2);
         }
 
-        LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.State, 2, n_arg);
+        // Lua 5.2 converts fractional counts to integers instead of rejecting
+        // them. Truncate before the range checks and result-length calculation.
+        n_arg = Math.Truncate(n_arg);
 
         if (n_arg <= 0 || (s.Length == 0 && string.IsNullOrEmpty(sep)))
         {
@@ -1098,13 +1104,10 @@ public sealed class StringLibrary
     )
     {
         var s = context.GetArgument<string>(0);
-        var i = context.GetArgument<double>(1);
-        var j = context.HasArgument(2) ? context.GetArgument<double>(2) : -1;
+        var i = ReadStringIndex(context, 1);
+        var j = context.HasArgument(2) ? ReadStringIndex(context, 2) : -1;
 
-        LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.State, 2, i);
-        LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.State, 3, j);
-
-        var slice = StringHelper.Slice(s, (int)i, (int)j);
+        var slice = StringHelper.Slice(s, i, j);
         return new(context.Return(slice.Length == s.Length ? s : slice.ToString()));
     }
 
@@ -1121,5 +1124,20 @@ public sealed class StringLibrary
                     : s.ToUpper()
             )
         );
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    static int ReadStringIndex(in LuaFunctionExecutionContext context, int index)
+    {
+        var number = context.GetArgument<double>(index);
+        if (!MathEx.IsFinite(number))
+            LuaRuntimeException.BadArgumentNumberIsNotInteger(context.State, index + 1);
+        // Indices outside Int32 cannot address a CLR string. Saturate before
+        // relative indexing, including on targets predating saturating casts.
+#if NET10_0_OR_GREATER
+        return (int)number;
+#else
+        return (int)Math.Min(int.MaxValue, Math.Max(int.MinValue, number));
+#endif
     }
 }

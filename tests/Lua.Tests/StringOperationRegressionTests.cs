@@ -62,4 +62,29 @@ public class StringOperationRegressionTests(LuaStringMode stringMode)
             """
         );
     }
+
+    [Test]
+    public async Task FractionalRepeatCountsTruncateTowardZero()
+    {
+        using var state = CreateState();
+        await state.DoStringAsync(
+            """
+            assert(string.rep('ab', 2.9, ':') == 'ab:ab')
+            assert(string.rep('ab', '2.9', ':') == 'ab:ab')
+            assert(string.rep('ab', 1.9, ':') == 'ab')
+            assert(string.rep('ab', 0.9, ':') == '')
+            assert(string.rep('ab', -0.9, ':') == '')
+            assert(string.rep('ab', -2.9, ':') == '')
+            assert(string.rep('', 2.9, ':') == ':')
+            assert(string.rep('a\0b', 2.9, '\0') == 'a\0b\0a\0b')
+            assert(not pcall(string.rep, 'ab', 0.9, false))
+            assert(not pcall(string.rep, 'ab', {}))
+            assert(not pcall(string.rep, 'ab', 0/0))
+            assert(not pcall(string.rep, 'ab', math.huge))
+            assert(not pcall(string.rep, 'ab', -math.huge))
+            local ok, message = pcall(string.rep, 'xx', 2147483647.5, ':')
+            assert(not ok and string.find(message, 'resulting string too large', 1, true))
+            """
+        );
+    }
 }

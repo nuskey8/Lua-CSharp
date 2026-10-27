@@ -105,4 +105,38 @@ public class TableLibraryTests(LuaStringMode mode)
         Assert.That(state.Stack.Count, Is.Zero);
         Assert.That((await state.DoStringAsync("return 42"))[0].Read<double>(), Is.EqualTo(42));
     }
+
+    [TestCase("table.insert(t,1.5,99)", "99,11,22,33")]
+    [TestCase("table.insert(t,'2.5',99)", "11,99,22,33")]
+    [TestCase("assert(table.remove(t,1.5)==11)", "22,33")]
+    [TestCase("assert(table.remove(t,'2.5')==22)", "11,33")]
+    public async Task FractionalPositionsTruncateBeforeBoundsChecks(
+        string operation,
+        string expected
+    )
+    {
+        using var state = CreateState();
+        var values = await state.DoStringAsync(
+            "local t={11,22,33}; " + operation + "; return table.concat(t,',')"
+        );
+        Assert.That(values[0].Read<string>(), Is.EqualTo(expected));
+    }
+
+    [Test]
+    public async Task SortEvaluatesLengthBeforeValidatingComparator()
+    {
+        using var state = CreateState();
+        await state.DoStringAsync(
+            """
+            local calls=0
+            local t=setmetatable({3,2,1},{__len=function() calls=calls+1; return 3 end})
+            local ok,e=pcall(table.sort,t,false)
+            assert(not ok and calls==1)
+            setmetatable(t,{__len=function() error('length first',0) end})
+            ok,e=pcall(table.sort,t,false)
+            assert(not ok and string.find(e,'length first',1,true))
+            """
+        );
+        Assert.That(state.Stack.Count, Is.Zero);
+    }
 }
