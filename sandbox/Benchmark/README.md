@@ -69,3 +69,6 @@ single overall ranking without application-specific workload weights.
 
 The legacy suites include file I/O, source execution and focused API tests with
 different boundaries. Their results should not be mixed with this suite.
+
+For Lua-CSharp JIT versus NativeAOT compilation and execution, use the
+[NativeAOT benchmarks](../Benchmark.NativeAot/README.md), which share these sources.
