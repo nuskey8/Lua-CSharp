@@ -36,3 +36,6 @@ jobs:
         run: dotnet restore Lua.slnx
       - name: Test
         run: dotnet test tests/Lua.Tests/Lua.Tests.csproj -c Release --filter "TestCategory!=ExpectedFailure"
+      - name: Verify interpreter benchmark workloads
+        working-directory: sandbox/Benchmark
+        run: dotnet run --project Benchmark.csproj -c Release --no-restore -- --verify

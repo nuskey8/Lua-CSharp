@@ -33,6 +33,7 @@ public class BenchmarkCore : IDisposable
 
     public void Dispose()
     {
+        luaCSharpState.Dispose();
         nLuaState.Dispose();
     }
 }
