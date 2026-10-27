@@ -40,6 +40,8 @@ class Function : IPoolNode<Function>
 
     internal void Release()
     {
+        // Do not retain a giant constant dictionary after an unusually large chunk.
+        var retain = ConstantLookup.Count <= 4096;
         Previous = null;
         P = null!;
         ConstantLookup.Clear();
@@ -49,7 +51,8 @@ class Function : IPoolNode<Function>
         FreeRegisterCount = 0;
         ActiveVariableCount = 0;
         FirstLocal = 0;
-        pool.TryPush(this);
+        if (retain)
+            pool.TryPush(this);
     }
 
     public const int OprMinus = 0;

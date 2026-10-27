@@ -52,6 +52,25 @@ public class ScannerReviewTests(LuaStringMode mode)
         );
     }
 
+    [TestCase("local\n123", "123")]
+    [TestCase("local\r\n123", "123")]
+    [TestCase("local\n\r123", "123")]
+    [TestCase("local --comment\n123", "123")]
+    [TestCase("local --[[comment]]123", "123")]
+    [TestCase("local --[=[a\r\nb]=]123", "123")]
+    [TestCase("return 1 --[[comment]]name", "name")]
+    [TestCase("local 0x10", "0x10")]
+    [TestCase("local 0x1p2", "0x1p2")]
+    [TestCase("local 0x.8p-1", "0x.8p-1")]
+    public void DiagnosticsQuoteTheOffendingToken(string source, string token)
+    {
+        using var state = CreateState();
+        var error = Assert.Throws<LuaCompileException>(() =>
+            state.Load(source, "scanner-diagnostics")
+        )!;
+        Assert.That(error.MessageWithNearToken, Does.EndWith("near '" + token + "'"));
+    }
+
     [Test]
     public async Task NamesAfterCommentsAndNewlinesKeepTheirFullSpelling()
     {
