@@ -971,7 +971,6 @@ class Parser : IPoolNode<Parser>, IDisposable
                 LookAheadToken = new(0, TkEos),
                 L = l,
                 Source = name,
-                Buffer = new(r.Length),
                 StringPool = internPool,
             }
         );
@@ -980,7 +979,9 @@ class Parser : IPoolNode<Parser>, IDisposable
         f.Proto.IsVarArg = true;
         f.Proto.LineDefined = 0;
         p.MainFunction();
-        return f.Proto.CreatePrototypeAndRelease();
+        var prototype = f.Proto.CreatePrototypeAndRelease();
+        f.Release();
+        return prototype;
     }
 
     public static void Dump(
