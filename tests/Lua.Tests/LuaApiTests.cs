@@ -102,6 +102,8 @@ public class LuaApiTests
             local b = { 4, 5, 6 }
             local c = { 1, 2, 3 }
             setmetatable(a, metatable)
+            setmetatable(b, metatable)
+            setmetatable(c, metatable)
             return a, b, c
             """;
         var result = await state.DoStringAsync(source);

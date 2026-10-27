@@ -545,6 +545,7 @@ public class LuaState : IDisposable
             if (varArgumentCount < 0)
             {
                 state.Stack.SetTop(state.Stack.Count - varArgumentCount);
+                argumentCount -= varArgumentCount;
                 varArgumentCount = 0;
             }
             else

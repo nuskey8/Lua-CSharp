@@ -359,7 +359,7 @@ public static class LuaStateExtensions
             return new(str.Length);
         }
 
-        if (value.TryReadTable(out var table))
+        if (value.TryReadTable(out var table) && table.Metatable is null)
         {
             return new(table.ArrayLength);
         }
