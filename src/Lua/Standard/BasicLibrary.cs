@@ -569,7 +569,7 @@ public sealed class BasicLibrary
         if (value.Type == LuaValueType.String)
             text = value.UnsafeReadString();
         else if (value.Type == LuaValueType.Number)
-            text = value.ToString();
+            text = value.ToLuaString();
         else
         {
             LuaRuntimeException.BadArgument(context.State, 1, LuaValueType.String, value.Type);

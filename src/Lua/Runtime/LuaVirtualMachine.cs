@@ -1263,7 +1263,7 @@ public static partial class LuaVirtualMachine
 
             if (v.Type == LuaValueType.Number)
             {
-                v = v.ToString();
+                v = v.ToLuaString();
                 return true;
             }
 

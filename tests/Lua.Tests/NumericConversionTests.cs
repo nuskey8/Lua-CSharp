@@ -64,7 +64,7 @@ public class NumericConversionTests
             assert(tonumber(math.huge)==math.huge)
             assert(tonumber(123,16)==291)
             assert(tonumber(123,2)==nil)
-            assert(tonumber(1e14,10)==1e14) -- retains the managed numeric-text policy
+            assert(tonumber(1e14,10)==nil) -- g14 produces scientific notation
             assert(tonumber('+12',10.9)==12)
             assert(tonumber('0x10',nil)==16)
             assert(tonumber(false)==nil)

@@ -107,7 +107,7 @@ public sealed class TableLibrary
                     && number.TryFormat(
                         numberBuffer,
                         out var written,
-                        default,
+                        "g14",
                         provider: CultureInfo.InvariantCulture
                     )
                 )
@@ -116,7 +116,7 @@ public sealed class TableLibrary
                 }
                 else
                 {
-                    builder.AddRange(value.ToString());
+                    builder.AddRange(value.ToLuaString());
                 }
             }
             else

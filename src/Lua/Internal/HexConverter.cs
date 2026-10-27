@@ -154,7 +154,8 @@ public static class HexConverter
         string text;
         if (double.IsNaN(value) || double.IsInfinity(value))
         {
-            text = value.ToString(CultureInfo.InvariantCulture);
+            var sign = BitConverter.DoubleToInt64Bits(value) < 0 ? "-" : "";
+            text = sign + (double.IsNaN(value) ? "nan" : "inf");
         }
         else
         {

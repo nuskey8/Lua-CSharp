@@ -677,6 +677,16 @@ public readonly struct LuaValue : IEquatable<LuaValue>
         };
     }
 
+    internal string ToLuaString()
+    {
+        if (Type != LuaValueType.Number)
+            return ToString();
+        if (MathEx.IsFinite(value))
+            return value.ToString("g14", CultureInfo.InvariantCulture);
+        return (BitConverter.DoubleToInt64Bits(value) < 0 ? "-" : "")
+            + (double.IsNaN(value) ? "nan" : "inf");
+    }
+
     public string TypeToString()
     {
         return ToString(Type);
@@ -759,7 +769,7 @@ public readonly struct LuaValue : IEquatable<LuaValue>
         }
         else
         {
-            context.State.Stack.Push(ToString());
+            context.State.Stack.Push(ToLuaString());
             return new(1);
         }
 
@@ -782,7 +792,9 @@ public readonly struct LuaValue : IEquatable<LuaValue>
                 stack.SetTop(top + 1);
                 // Lua 5.2 converts a numeric __tostring result to text.
                 stack.FastGet(top) =
-                    result.Type == LuaValueType.Number ? new LuaValue(result.ToString()) : result;
+                    result.Type == LuaValueType.Number
+                        ? new LuaValue(result.ToLuaString())
+                        : result;
                 return 1;
             }
             catch

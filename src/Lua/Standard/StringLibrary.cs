@@ -302,7 +302,7 @@ public sealed class StringLibrary
                         {
                             case LuaValueType.String:
                             case LuaValueType.Number:
-                                formattedValue = StringHelper.Quote(parameter.ToString());
+                                formattedValue = StringHelper.Quote(parameter.ToLuaString());
                                 break;
                             default:
                                 LuaRuntimeException.BadArgument(
@@ -608,8 +608,7 @@ public sealed class StringLibrary
         StringBuilder builder = new();
         var replacementText =
             repl.Type == LuaValueType.String ? repl.UnsafeReadString()
-            : repl.Type == LuaValueType.Number
-                ? repl.UnsafeReadDouble().ToString(default, CultureInfo.InvariantCulture)
+            : repl.Type == LuaValueType.Number ? repl.ToLuaString()
             : null;
         var replacedBuilder =
             replacementText != null && replacementText.IndexOf('%') >= 0
@@ -1034,8 +1033,13 @@ public sealed class StringLibrary
 
     static void AppendNumber(StringBuilder builder, double value)
     {
+        if (!MathEx.IsFinite(value))
+        {
+            builder.Append(new LuaValue(value).ToLuaString());
+            return;
+        }
         Span<char> buffer = stackalloc char[32];
-        value.TryFormat(buffer, out var written, default, CultureInfo.InvariantCulture);
+        value.TryFormat(buffer, out var written, "g14", CultureInfo.InvariantCulture);
         builder.Append(buffer[..written]);
     }
 
@@ -1043,8 +1047,10 @@ public sealed class StringLibrary
     {
         if (double.IsNaN(value) || double.IsInfinity(value))
         {
-            var special = value.ToString(CultureInfo.InvariantCulture);
-            return specifier is 'E' or 'G' ? special.ToUpperInvariant() : special;
+            var special = double.IsNaN(value) ? "nan" : "inf";
+            if (specifier is 'E' or 'G')
+                special = special.ToUpperInvariant();
+            return (BitConverter.DoubleToInt64Bits(value) < 0 ? "-" : "") + special;
         }
         var general = specifier is 'g' or 'G';
         precision =
