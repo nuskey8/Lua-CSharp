@@ -4,7 +4,33 @@ using BenchmarkDotNet.Diagnosers;
 using BenchmarkDotNet.Jobs;
 using BenchmarkDotNet.Running;
 
-BenchmarkSwitcher.FromAssembly(Assembly.GetEntryAssembly()!).Run(args);
+if (args.Contains("--verify"))
+{
+    Console.WriteLine(
+        $"Runtime: {System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription}"
+    );
+    Console.WriteLine(
+        $"MoonSharp: {typeof(MoonSharp.Interpreter.Script).Assembly.GetName().Version}"
+    );
+    Console.WriteLine(
+        $"NuLua Lua52 assembly: {typeof(NuLua.Lua52.Lua52State).Assembly.GetName().Version}"
+    );
+    InterpreterComparison.Verify();
+    return;
+}
+
+if (args.Contains("--legacy"))
+    BenchmarkSwitcher
+        .FromAssembly(Assembly.GetEntryAssembly()!)
+        .Run(args.Where(a => a != "--legacy").ToArray());
+else
+    BenchmarkSwitcher
+        .FromTypes([
+            typeof(InterpreterComparison),
+            typeof(CompilationComparison),
+            typeof(StartupComparison),
+        ])
+        .Run(args);
 
 class BenchmarkConfig : ManualConfig
 {
