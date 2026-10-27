@@ -203,4 +203,30 @@ public class NativeCallbackResultTests
         Assert.That(state.Stack.Pop().Read<double>(), Is.EqualTo(12345));
         Assert.That(state.CallStackFrameCount, Is.Zero);
     }
+
+    [Test]
+    public async Task ToStringUsesOneStringResult([Values] bool hooks, [Values] bool suspend)
+    {
+        using var state = CreateState();
+        state.Environment["format"] = new LuaFunction(
+            async (context, token) =>
+            {
+                if (suspend)
+                    await Task.Yield();
+                return context.Return(12, "extra");
+            }
+        );
+        if (hooks)
+            await state.DoStringAsync("debug.sethook(function() end,'cr')");
+        await state.DoStringAsync(
+            """
+            local x=setmetatable({}, {__tostring=format})
+            assert(select('#',tostring(x))==1)
+            assert(tostring(x)=='12')
+            assert(string.format('%s:%s',x,'tail')=='12:tail')
+            """
+        );
+        Assert.That(state.Stack.Count, Is.Zero);
+        Assert.That(state.CallStackFrameCount, Is.Zero);
+    }
 }

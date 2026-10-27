@@ -126,4 +126,16 @@ public class CompilerTests(LuaStringMode stringMode)
         }
         Assert.That((await state.DoStringAsync("return 42"))[0].Read<double>(), Is.EqualTo(42));
     }
+
+    [TestCase("5", "0.1")]
+    [TestCase("1e308", "3")]
+    [TestCase("-5", "0.1")]
+    [TestCase("5", "-0.1")]
+    public async Task FoldedAndRuntimeModuloUseLua52Formula(string a, string b)
+    {
+        using var state = CreateState();
+        var results = await state.DoStringAsync($"local a,b={a},{b}; return {a}%{b},a%b");
+        Assert.That(results[0].Read<double>(), Is.Zero);
+        Assert.That(results[1].Read<double>(), Is.Zero);
+    }
 }
