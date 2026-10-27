@@ -42,14 +42,12 @@ public sealed class BitwiseLibrary
         var v = Bit32Helper.ToInt32(x);
         var a = (int)disp;
 
-        if (a < 0)
-        {
+        if (a <= -32)
+            v = 0;
+        else if (a < 0)
             v <<= -a;
-        }
         else
-        {
-            v >>= a;
-        }
+            v >>= Math.Min(a, 31);
 
         return new(context.Return((uint)v));
     }
@@ -245,7 +243,7 @@ public sealed class BitwiseLibrary
         var v = Bit32Helper.ToUInt32(x);
         var a = (int)disp;
 
-        if (Math.Abs(a) >= 32)
+        if (a <= -32 || a >= 32)
         {
             v = 0;
         }
@@ -281,7 +279,7 @@ public sealed class BitwiseLibrary
         var field = (int)arg2;
         var width = (int)arg3;
 
-        Bit32Helper.ValidateFieldAndWidth(context.State, "replace", 2, field, width);
+        Bit32Helper.ValidateFieldAndWidth(context.State, "replace", 3, field, width);
         uint mask;
         if (width == 32)
         {
@@ -337,7 +335,7 @@ public sealed class BitwiseLibrary
         var v = Bit32Helper.ToUInt32(x);
         var a = (int)disp;
 
-        if (Math.Abs(a) >= 32)
+        if (a <= -32 || a >= 32)
         {
             v = 0;
         }

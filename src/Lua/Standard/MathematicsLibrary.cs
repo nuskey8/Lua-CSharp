@@ -1,3 +1,5 @@
+using Lua.Standard.Internal;
+
 namespace Lua.Standard;
 
 public sealed class MathematicsLibrary
@@ -185,7 +187,7 @@ public sealed class MathematicsLibrary
         var arg0 = context.GetArgument<double>(0);
         var arg1 = context.GetArgument<double>(1);
 
-        return new(context.Return(arg0 * Math.Pow(2, arg1)));
+        return new(context.Return(MathEx.ScaleB(arg0, unchecked((int)(long)arg1))));
     }
 
     public ValueTask<int> Log(
@@ -309,7 +311,7 @@ public sealed class MathematicsLibrary
     {
         var arg0 = context.GetArgument<double>(0);
         context.GlobalState.Environment[RandomInstanceKey] = new(
-            new RandomUserData(new((int)BitConverter.DoubleToInt64Bits(arg0)))
+            new RandomUserData(new(unchecked((int)Bit32Helper.ToUInt32(arg0))))
         );
         return new(context.Return());
     }

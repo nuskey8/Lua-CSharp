@@ -9,6 +9,7 @@ namespace Lua.Runtime;
 
 public sealed class LuaStack(int initialSize = 256)
 {
+    internal const int MaxCapacity = 1000000;
     LuaValue[] array = new LuaValue[initialSize];
     int top;
 
@@ -29,13 +30,17 @@ public sealed class LuaStack(int initialSize = 256)
 
         static void Resize(ref LuaValue[] array, int newSize)
         {
-            var size = array.Length;
+            if (newSize > MaxCapacity)
+            {
+                throw new LuaStackOverflowException();
+            }
+            var size = Math.Max(1, array.Length);
             while (size < newSize)
             {
                 size *= 2;
             }
 
-            if (1000000 < size)
+            if (MaxCapacity < size)
             {
                 throw new LuaStackOverflowException();
             }

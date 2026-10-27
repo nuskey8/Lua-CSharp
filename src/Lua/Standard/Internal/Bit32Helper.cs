@@ -4,7 +4,7 @@ namespace Lua.Standard.Internal;
 
 static class Bit32Helper
 {
-    static readonly double Bit32 = 4294967296;
+    const double Bit32 = 4294967296;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static uint ToUInt32(double d)
@@ -15,7 +15,8 @@ static class Bit32Helper
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static int ToInt32(double d)
     {
-        return (int)(long)Math.IEEERemainder(d, Bit32);
+        // Lua 5.2 allows fractional words; use round-to-even like its IEEE754 conversion.
+        return (int)(long)(Math.Round(d) % Bit32);
     }
 
     public static void ValidateFieldAndWidth(
@@ -26,8 +27,6 @@ static class Bit32Helper
         int width
     )
     {
-        if (field > 31 || field + width > 32)
-            throw new LuaRuntimeException(state, "trying to access non-existent bits");
         if (field < 0)
             throw new LuaRuntimeException(
                 state,
@@ -37,7 +36,10 @@ static class Bit32Helper
         if (width <= 0)
             throw new LuaRuntimeException(
                 state,
-                $"bad argument #{argumentId} to '{functionName}' (width must be positive)"
+                $"bad argument #{argumentId + 1} to '{functionName}' (width must be positive)"
             );
+
+        if (field > 31 || width > 32 - field)
+            throw new LuaRuntimeException(state, "trying to access non-existent bits");
     }
 }

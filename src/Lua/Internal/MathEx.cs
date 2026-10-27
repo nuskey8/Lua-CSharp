@@ -88,9 +88,39 @@ static class MathEx
         return (d, e);
     }
 
-    public static (int i, double f) Modf(double d)
+    public static double ScaleB(double value, int exponent)
     {
-        return ((int)Math.Truncate(d), d % 1.0);
+#if NET6_0_OR_GREATER
+        return Math.ScaleB(value, exponent);
+#else
+        if (value == 0 || !IsFinite(value))
+            return value;
+        var (mantissa, originalExponent) = Frexp(value);
+        var scaledExponent = (long)originalExponent + exponent;
+        if (scaledExponent > 1024)
+            return mantissa * double.PositiveInfinity;
+        if (scaledExponent < -1074)
+            return mantissa * 0.0;
+        if (scaledExponent == 1024)
+            return (mantissa * 2) * Math.Pow(2, 1023);
+        // Keep the first multiplication normal so subnormals round only once.
+        if (scaledExponent < -1021)
+            return (mantissa * Math.Pow(2, scaledExponent + 53)) * (1.0 / 9007199254740992.0);
+        return mantissa * Math.Pow(2, scaledExponent);
+#endif
+    }
+
+    public static (double i, double f) Modf(double d)
+    {
+        var integral = Math.Truncate(d);
+        var fractional = d - integral;
+        if (fractional == 0 || double.IsInfinity(d))
+        {
+            fractional = BitConverter.Int64BitsToDouble(
+                BitConverter.DoubleToInt64Bits(d) & long.MinValue
+            );
+        }
+        return (integral, fractional);
     }
 
     /// <summary>

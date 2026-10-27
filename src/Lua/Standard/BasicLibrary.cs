@@ -694,7 +694,7 @@ public sealed class BasicLibrary
                 'x' or 'X' => 33,
                 'y' or 'Y' => 34,
                 'z' or 'Z' => 35,
-                _ => 0,
+                _ => throw new FormatException("Invalid digit."),
             };
 
             if (v >= toBase)
