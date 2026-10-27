@@ -162,19 +162,17 @@ public sealed class BasicLibrary
         {
             if (metatable.TryGetValue(Metamethods.Metatable, out var metaMetatable))
             {
-                context.Return(metaMetatable);
+                return new(context.Return(metaMetatable));
             }
             else
             {
-                context.Return(metatable);
+                return new(context.Return(metatable));
             }
         }
         else
         {
-            context.Return(LuaValue.Nil);
+            return new(context.Return(LuaValue.Nil));
         }
-
-        return default;
     }
 
     [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder<>))]

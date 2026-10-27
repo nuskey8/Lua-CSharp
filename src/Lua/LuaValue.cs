@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Lua.Internal;
+using Lua.Internal.CompilerServices;
 using Lua.Runtime;
 
 namespace Lua;
@@ -743,20 +744,40 @@ public readonly struct LuaValue : IEquatable<LuaValue>
     {
         if (this.TryGetMetamethod(context.GlobalState, Metamethods.ToString, out var metamethod))
         {
-            var stack = context.State.Stack;
-            stack.Push(metamethod);
-            stack.Push(this);
-            return LuaVirtualMachine.Call(
-                context.State,
-                stack.Count - 2,
-                stack.Count - 2,
-                cancellationToken
-            );
+            return CallMetamethodAsync(context.State, metamethod, this, cancellationToken);
         }
         else
         {
             context.State.Stack.Push(ToString());
-            return default;
+            return new(1);
+        }
+
+        [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder<>))]
+        static async ValueTask<int> CallMetamethodAsync(
+            LuaState state,
+            LuaValue metamethod,
+            LuaValue value,
+            CancellationToken cancellationToken
+        )
+        {
+            var stack = state.Stack;
+            var top = stack.Count;
+            try
+            {
+                stack.Push(metamethod);
+                stack.Push(value);
+                var count = await LuaVirtualMachine.Call(state, top, top, cancellationToken);
+                var result = count > 0 ? stack.Get(top) : Nil;
+                stack.SetTop(top + 1);
+                // Return one value, padding missing results and discarding extras.
+                stack.FastGet(top) = result;
+                return 1;
+            }
+            catch
+            {
+                stack.PopUntil(top);
+                throw;
+            }
         }
     }
 }

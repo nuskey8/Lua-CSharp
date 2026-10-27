@@ -461,7 +461,7 @@ public sealed class DebugLibrary
         }
 
         upValues1[n1 - 1] = upValues2[n2 - 1];
-        return new(0);
+        return new(context.Return());
     }
 
     [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder<>))]
@@ -477,7 +477,7 @@ public sealed class DebugLibrary
         state.SetHookFromLua(hook, mask, count);
         if (hook is null)
         {
-            return 0;
+            return context.Return();
         }
 
         // Re-arming a hook must not dispatch another hook while its callback is running.
@@ -512,7 +512,7 @@ public sealed class DebugLibrary
             }
         }
 
-        return 0;
+        return context.Return();
     }
 
     public ValueTask<int> GetHook(

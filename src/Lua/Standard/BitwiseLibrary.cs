@@ -61,8 +61,7 @@ public sealed class BitwiseLibrary
     {
         if (context.ArgumentCount == 0)
         {
-            context.Return(uint.MaxValue);
-            return default;
+            return new(context.Return(uint.MaxValue));
         }
 
         var arg0 = context.GetArgument<double>(0);
