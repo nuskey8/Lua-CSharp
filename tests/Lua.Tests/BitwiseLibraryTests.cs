@@ -2,7 +2,7 @@ using Lua.Standard;
 
 namespace Lua.Tests;
 
-public class BitwiseLibraryReviewTests
+public class BitwiseLibraryTests
 {
     static LuaState CreateState()
     {

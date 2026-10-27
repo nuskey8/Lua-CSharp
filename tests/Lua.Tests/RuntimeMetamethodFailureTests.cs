@@ -26,13 +26,13 @@ public class RuntimeMetamethodFailureTests
             {
                 if (suspend)
                     await Task.Yield();
-                throw new LuaRuntimeException(context.State, "branch-review-fault");
+                throw new LuaRuntimeException(context.State, "metamethod-fault");
             }
         );
         state.Environment["value"] = new LuaTable { Metatable = metatable };
         var values = await state.DoStringAsync("return pcall(function() " + source + " end)");
         Assert.That(values[0].Read<bool>(), Is.False);
-        Assert.That(values[1].Read<string>(), Does.Contain("branch-review-fault"));
+        Assert.That(values[1].Read<string>(), Does.Contain("metamethod-fault"));
         Assert.That(state.Stack.Count, Is.Zero);
         Assert.That(state.CallStackFrameCount, Is.Zero);
         Assert.That((await state.DoStringAsync("return 42"))[0].Read<double>(), Is.EqualTo(42));

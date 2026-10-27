@@ -4,7 +4,7 @@ namespace Lua.Tests;
 
 [TestFixture(LuaStringMode.Utf16)]
 [TestFixture(LuaStringMode.Bytes)]
-public class ScannerReviewTests(LuaStringMode mode)
+public class ScannerTokenTests(LuaStringMode mode)
 {
     LuaState CreateState() =>
         LuaState.Create(
@@ -44,7 +44,7 @@ public class ScannerReviewTests(LuaStringMode mode)
     [TestCase("'\\256'")]
     [TestCase("'\\x0'")]
     [TestCase("'\\xGG'")]
-    public void InvalidQuotedStringsAreStillRejected(string literal)
+    public void InvalidQuotedStringsAreRejected(string literal)
     {
         using var state = CreateState();
         Assert.Throws<LuaCompileException>(() =>
@@ -109,7 +109,7 @@ public class ScannerReviewTests(LuaStringMode mode)
     [TestCase("0X.8P+2", 2)]
     [TestCase("000001.25", 1.25)]
     [TestCase("0x1p18446744073709551616", 1)]
-    public async Task ValidNumeralBoundariesAndExponentsStillWork(
+    public async Task ValidNumeralBoundariesAndExponentsAreAccepted(
         string expression,
         double expected
     )
