@@ -123,6 +123,8 @@ public sealed class StringLibrary
             if (format[i] == '%')
             {
                 i++;
+                if (i == format.Length)
+                    throw new LuaRuntimeException(context.State, "invalid option '%' to 'format'");
 
                 // escape
                 if (format[i] == '%')
@@ -139,122 +141,53 @@ public sealed class StringLibrary
                 var width = 0;
                 var precision = -1;
 
-                // Process flags
-                while (true)
+                // Lua 5.2 permits repeated flags, with at most five in total.
+                var flagCount = 0;
+                while (i < format.Length)
                 {
-                    var c = format[i];
-                    switch (c)
+                    switch (format[i])
                     {
                         case '-':
-                            if (leftJustify)
-                            {
-                                throw new LuaRuntimeException(
-                                    context.State,
-                                    "invalid format (repeated flags)"
-                                );
-                            }
-
                             leftJustify = true;
                             break;
                         case '+':
-                            if (plusSign)
-                            {
-                                throw new LuaRuntimeException(
-                                    context.State,
-                                    "invalid format (repeated flags)"
-                                );
-                            }
-
                             plusSign = true;
                             break;
                         case '0':
-                            if (zeroPadding)
-                            {
-                                throw new LuaRuntimeException(
-                                    context.State,
-                                    "invalid format (repeated flags)"
-                                );
-                            }
-
                             zeroPadding = true;
                             break;
                         case '#':
-                            if (alternateForm)
-                            {
-                                throw new LuaRuntimeException(
-                                    context.State,
-                                    "invalid format (repeated flags)"
-                                );
-                            }
-
                             alternateForm = true;
                             break;
                         case ' ':
-                            if (blank)
-                            {
-                                throw new LuaRuntimeException(
-                                    context.State,
-                                    "invalid format (repeated flags)"
-                                );
-                            }
-
                             blank = true;
                             break;
                         default:
                             goto PROCESS_WIDTH;
                     }
-
+                    if (++flagCount > 5)
+                        throw new LuaRuntimeException(
+                            context.State,
+                            "invalid format (repeated flags)"
+                        );
                     i++;
                 }
 
                 PROCESS_WIDTH:
 
                 // Process width
-                var start = i;
-                if (char.IsDigit(format[i]))
-                {
-                    i++;
-                    if (char.IsDigit(format[i]))
-                    {
-                        i++;
-                    }
-
-                    if (char.IsDigit(format[i]))
-                    {
-                        throw new LuaRuntimeException(
-                            context.State,
-                            "invalid format (width or precision too long)"
-                        );
-                    }
-
-                    width = int.Parse(format.AsSpan()[start..i]);
-                }
+                if (i < format.Length && format[i] is >= '0' and <= '9')
+                    width = ReadFormatDigits(context.State, format, ref i);
 
                 // Process precision
-                if (format[i] == '.')
+                if (i < format.Length && format[i] == '.')
                 {
                     i++;
-                    start = i;
-                    if (char.IsDigit(format[i]))
-                    {
-                        i++;
-                    }
-
-                    if (char.IsDigit(format[i]))
-                    {
-                        i++;
-                    }
-
-                    if (char.IsDigit(format[i]))
-                    {
-                        throw new LuaRuntimeException(
-                            context.State,
-                            "invalid format (width or precision too long)"
-                        );
-                    }
-
-                    precision = int.Parse(format.AsSpan()[start..i]);
+                    precision = ReadFormatDigits(context.State, format, ref i);
                 }
+
+                if (i == format.Length)
+                    throw new LuaRuntimeException(context.State, "invalid option '%' to 'format'");
 
                 // Process conversion specifier
                 var specifier = format[i];
@@ -273,54 +206,84 @@ public sealed class StringLibrary
                 string formattedValue = default!;
                 switch (specifier)
                 {
-                    case 'f':
-                    case 'e':
-                    case 'g':
-                    case 'G':
-                        if (!parameter.TryRead<double>(out var f))
-                        {
+                    case 'a':
+                    case 'A':
+                        if (!parameter.TryRead<double>(out var a))
                             LuaRuntimeException.BadArgument(
                                 context.State,
-                                parameterIndex + 1,
+                                parameterIndex,
                                 LuaValueType.Number,
                                 parameter.Type
                             );
-                        }
 
-                        switch (specifier)
+                        formattedValue = HexConverter.FormatDouble(
+                            a,
+                            precision,
+                            alternateForm,
+                            specifier == 'A'
+                        );
+                        if (BitConverter.DoubleToInt64Bits(a) >= 0)
                         {
-                            case 'f':
-                                formattedValue =
-                                    precision < 0
-                                        ? f.ToString(CultureInfo.InvariantCulture)
-                                        : f.ToString($"F{precision}", CultureInfo.InvariantCulture);
-                                break;
-                            case 'e':
-                                formattedValue =
-                                    precision < 0
-                                        ? f.ToString(CultureInfo.InvariantCulture)
-                                        : f.ToString($"E{precision}", CultureInfo.InvariantCulture);
-                                break;
-                            case 'g':
-                                formattedValue =
-                                    precision < 0
-                                        ? f.ToString(CultureInfo.InvariantCulture)
-                                        : f.ToString($"G{precision}", CultureInfo.InvariantCulture);
-                                break;
-                            case 'G':
-                                formattedValue =
-                                    precision < 0
-                                        ? f.ToString(CultureInfo.InvariantCulture).ToUpper()
-                                        : f.ToString($"G{precision}", CultureInfo.InvariantCulture)
-                                            .ToUpper();
-                                break;
+                            if (plusSign)
+                                formattedValue = "+" + formattedValue;
+                            else if (blank)
+                                formattedValue = " " + formattedValue;
                         }
+                        if (double.IsNaN(a) || double.IsInfinity(a))
+                            zeroPadding = false;
+                        break;
+                    case 'o':
+                        if (!parameter.TryRead<double>(out var octal))
+                            LuaRuntimeException.BadArgument(
+                                context.State,
+                                parameterIndex,
+                                LuaValueType.Number,
+                                parameter.Type
+                            );
+                        if (!(octal > -1 && octal < 18446744073709551616d))
+                            LuaRuntimeException.BadArgument(
+                                context.State,
+                                parameterIndex,
+                                "not a non-negative number in proper range"
+                            );
 
-                        if (plusSign && f >= 0)
+                        var unsigned = (ulong)Math.Truncate(octal);
+                        formattedValue =
+                            unsigned == 0 && precision == 0
+                                ? ""
+                                : Convert.ToString(unchecked((long)unsigned), 8);
+                        if (precision > formattedValue.Length)
+                            formattedValue = formattedValue.PadLeft(precision, '0');
+                        if (
+                            alternateForm
+                            && (formattedValue.Length == 0 || formattedValue[0] != '0')
+                        )
+                            formattedValue = "0" + formattedValue;
+                        if (precision >= 0)
+                            zeroPadding = false;
+                        break;
+                    case 'f':
+                    case 'e':
+                    case 'E':
+                    case 'g':
+                    case 'G':
+                        if (!parameter.TryRead<double>(out var f))
+                            LuaRuntimeException.BadArgument(
+                                context.State,
+                                parameterIndex,
+                                LuaValueType.Number,
+                                parameter.Type
+                            );
+                        formattedValue = FormatFloat(f, specifier, precision, alternateForm);
+                        if (double.IsNaN(f) || double.IsInfinity(f))
+                            zeroPadding = false;
+                        if (BitConverter.DoubleToInt64Bits(f) >= 0)
                         {
-                            formattedValue = $"+{formattedValue}";
+                            if (plusSign)
+                                formattedValue = "+" + formattedValue;
+                            else if (blank)
+                                formattedValue = " " + formattedValue;
                         }
-
                         break;
                     case 's':
                         {
@@ -328,7 +291,7 @@ public sealed class StringLibrary
                             formattedValue = stack.Pop().Read<string>();
                         }
 
-                        if (specifier is 's' && precision > 0 && precision <= formattedValue.Length)
+                        if (precision >= 0 && precision < formattedValue.Length)
                         {
                             formattedValue = formattedValue[..precision];
                         }
@@ -337,45 +300,21 @@ public sealed class StringLibrary
                     case 'q':
                         switch (parameter.Type)
                         {
-                            case LuaValueType.Nil:
-                                formattedValue = "nil";
-                                break;
-                            case LuaValueType.Boolean:
-                                formattedValue = parameter.Read<bool>() ? "true" : "false";
-                                break;
                             case LuaValueType.String:
-                                formattedValue = StringHelper.Quote(parameter.Read<string>());
-                                break;
                             case LuaValueType.Number:
-                                formattedValue = DoubleToQFormat(parameter.Read<double>());
-
-                                static string DoubleToQFormat(double value)
-                                {
-                                    if (MathEx.IsInteger(value))
-                                    {
-                                        return value.ToString(CultureInfo.InvariantCulture);
-                                    }
-
-                                    return HexConverter.FromDouble(value);
-                                }
-
+                                formattedValue = StringHelper.Quote(parameter.ToString());
                                 break;
                             default:
-                                {
-                                    var top = stack.Count;
-                                    stack.Push(default);
-                                    await parameter.CallToStringAsync(
-                                        context with
-                                        {
-                                            ReturnFrameBase = top,
-                                        },
-                                        cancellationToken
-                                    );
-                                    formattedValue = stack.Pop().Read<string>();
-                                }
+                                LuaRuntimeException.BadArgument(
+                                    context.State,
+                                    parameterIndex,
+                                    LuaValueType.String,
+                                    parameter.Type
+                                );
                                 break;
                         }
 
+                        width = 0; // Lua ignores width/precision/flags for %q.
                         break;
                     case 'i':
                     case 'd':
@@ -384,93 +323,85 @@ public sealed class StringLibrary
                     case 'x':
                     case 'X':
                         if (!parameter.TryRead<double>(out var x))
-                        {
                             LuaRuntimeException.BadArgument(
                                 context.State,
-                                parameterIndex + 1,
+                                parameterIndex,
                                 LuaValueType.Number,
                                 parameter.Type
                             );
-                        }
-
-                        LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(
-                            context.State,
-                            parameterIndex + 1,
-                            x
-                        );
-
-                        switch (specifier)
+                        x = Math.Truncate(x);
+                        var signed = specifier is 'i' or 'd';
+                        if (
+                            !MathEx.IsFinite(x)
+                            || (
+                                specifier != 'c'
+                                && (
+                                    signed
+                                        ? x < long.MinValue || x >= 9223372036854775808d
+                                        : x < 0 || x >= 18446744073709551616d
+                                )
+                            )
+                        )
+                            LuaRuntimeException.BadArgument(
+                                context.State,
+                                parameterIndex,
+                                signed || specifier == 'c'
+                                    ? "not a number in proper range"
+                                    : "not a non-negative number in proper range"
+                            );
+                        if (specifier == 'c')
                         {
-                            case 'i':
-                            case 'd':
-                                {
-                                    var integer = checked((long)x);
-                                    formattedValue =
-                                        precision < 0
-                                            ? integer.ToString()
-                                            : integer.ToString($"D{precision}");
-                                }
-                                break;
-                            case 'u':
-                                {
-                                    var integer = checked((ulong)x);
-                                    formattedValue =
-                                        precision < 0
-                                            ? integer.ToString()
-                                            : integer.ToString($"D{precision}");
-                                }
-                                break;
-                            case 'c':
-                                formattedValue = (
-                                    context.State.Platform.StringMode == LuaStringMode.Bytes
-                                        ? (char)((int)x & 0xFF)
-                                        : (char)(int)x
-                                ).ToString();
-                                break;
-                            case 'x':
-                                {
-                                    var integer = checked((ulong)x);
-                                    formattedValue = alternateForm
-                                        ? $"0x{integer:x}"
-                                        : $"{integer:x}";
-                                }
-                                break;
-                            case 'X':
-                                {
-                                    var integer = checked((ulong)x);
-                                    formattedValue = alternateForm
-                                        ? $"0X{integer:X}"
-                                        : $"{integer:X}";
-                                }
-                                break;
-                            case 'o':
-                                {
-                                    var integer = checked((long)x);
-                                    formattedValue = Convert.ToString(integer, 8);
-                                }
-                                break;
+                            formattedValue = (
+                                context.State.Platform.StringMode == LuaStringMode.Bytes
+                                    ? (char)((int)x & 0xFF)
+                                    : (char)(int)x
+                            ).ToString();
                         }
-
-                        if (plusSign && x >= 0)
+                        else
                         {
-                            formattedValue = $"+{formattedValue}";
+                            if (signed)
+                            {
+                                var integer = (long)x;
+                                formattedValue =
+                                    integer == 0 && precision == 0
+                                        ? ""
+                                        : integer.ToString(
+                                            precision < 0 ? "D" : $"D{precision}",
+                                            CultureInfo.InvariantCulture
+                                        );
+                                if (integer >= 0)
+                                {
+                                    if (plusSign)
+                                        formattedValue = "+" + formattedValue;
+                                    else if (blank)
+                                        formattedValue = " " + formattedValue;
+                                }
+                            }
+                            else
+                            {
+                                var integer = (ulong)x;
+                                formattedValue =
+                                    integer == 0 && precision == 0
+                                        ? ""
+                                        : integer.ToString(
+                                            specifier is 'x' or 'X' ? specifier.ToString() : "D",
+                                            CultureInfo.InvariantCulture
+                                        );
+                                if (precision > formattedValue.Length)
+                                    formattedValue = formattedValue.PadLeft(precision, '0');
+                                if (alternateForm && integer != 0 && specifier is 'x' or 'X')
+                                    formattedValue =
+                                        (specifier == 'x' ? "0x" : "0X") + formattedValue;
+                            }
+                            if (precision >= 0)
+                                zeroPadding = false;
                         }
-
                         break;
                     default:
                         throw new LuaRuntimeException(
                             context.State,
                             $"invalid option '%{specifier}' to 'format'"
                         );
-                }
-
-                // Apply blank (' ') flag for positive numbers
-                if (specifier is 'd' or 'i' or 'f' or 'g' or 'G')
-                {
-                    if (blank && !leftJustify && !zeroPadding && parameter.Read<double>() >= 0)
-                    {
-                        formattedValue = $" {formattedValue}";
-                    }
                 }
 
                 // Apply width and padding
@@ -482,9 +413,28 @@ public sealed class StringLibrary
                     }
                     else
                     {
-                        formattedValue = zeroPadding
-                            ? formattedValue.PadLeft(width, '0')
-                            : formattedValue.PadLeft(width);
+                        if (zeroPadding)
+                        {
+                            var prefix =
+                                specifier is not ('c' or 's')
+                                && formattedValue.Length > 0
+                                && formattedValue[0] is '-' or '+' or ' '
+                                    ? 1
+                                    : 0;
+                            if (
+                                specifier is 'a' or 'A' or 'x' or 'X'
+                                && formattedValue
+                                    .AsSpan(prefix)
+                                    .StartsWith("0x", StringComparison.OrdinalIgnoreCase)
+                            )
+                                prefix += 2;
+                            formattedValue = formattedValue.Insert(
+                                prefix,
+                                new string('0', width - formattedValue.Length)
+                            );
+                        }
+                        else
+                            formattedValue = formattedValue.PadLeft(width);
                     }
                 }
 
@@ -1087,5 +1037,60 @@ public sealed class StringLibrary
         Span<char> buffer = stackalloc char[32];
         value.TryFormat(buffer, out var written, default, CultureInfo.InvariantCulture);
         builder.Append(buffer[..written]);
+    }
+
+    static string FormatFloat(double value, char specifier, int precision, bool alternateForm)
+    {
+        if (double.IsNaN(value) || double.IsInfinity(value))
+        {
+            var special = value.ToString(CultureInfo.InvariantCulture);
+            return specifier is 'E' or 'G' ? special.ToUpperInvariant() : special;
+        }
+        var general = specifier is 'g' or 'G';
+        precision =
+            precision < 0 ? 6
+            : general ? Math.Max(1, precision)
+            : precision;
+        var text = value.ToString($"{specifier}{precision}", CultureInfo.InvariantCulture);
+        var exponent = text.AsSpan().IndexOfAny('e', 'E');
+        // .NET's scientific format has three exponent digits; C requires at least two.
+        if (exponent >= 0 && text.Length - exponent == 5 && text[exponent + 2] == '0')
+            text = text.Remove(exponent + 2, 1);
+        if (!alternateForm)
+            return text;
+        var end = exponent < 0 ? text.Length : exponent;
+        if (text.AsSpan(0, end).IndexOf('.') < 0)
+        {
+            text = text.Insert(end, ".");
+            end++;
+        }
+        if (general)
+        {
+            var significant = 0;
+            for (var j = 0; j < end; j++)
+                if (text[j] is >= '0' and <= '9' && (text[j] != '0' || significant > 0))
+                    significant++;
+            if (significant == 0)
+                significant = 1;
+            if (precision > significant)
+                text = text.Insert(end, new string('0', precision - significant));
+        }
+        return text;
+    }
+
+    static int ReadFormatDigits(LuaState state, string format, ref int index)
+    {
+        var start = index;
+        var value = 0;
+        while (index < format.Length && format[index] is >= '0' and <= '9')
+        {
+            if (index - start == 2)
+                throw new LuaRuntimeException(
+                    state,
+                    "invalid format (width or precision too long)"
+                );
+            value = value * 10 + format[index++] - '0';
+        }
+        return value;
     }
 }
