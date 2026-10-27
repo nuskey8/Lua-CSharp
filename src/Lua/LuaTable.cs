@@ -249,6 +249,19 @@ public sealed class LuaTable : IEnumerable<KeyValuePair<LuaValue, LuaValue>>
         return index > 0 && index <= array.Length ? array[index - 1] : this[index];
     }
 
+    internal void CopyIntegerValues(long start, Span<LuaValue> destination)
+    {
+        if (start > 0 && start <= array.Length && destination.Length <= array.Length - start + 1)
+        {
+            array.AsSpan((int)start - 1, destination.Length).CopyTo(destination);
+            return;
+        }
+        for (var i = 0; i < destination.Length; i++)
+        {
+            destination[i] = this[start + i];
+        }
+    }
+
     internal void SwapIntegerValues(int i, int j)
     {
         if (i > 0 && j > 0 && i <= array.Length && j <= array.Length)
