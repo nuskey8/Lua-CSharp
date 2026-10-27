@@ -522,20 +522,14 @@ public sealed class StringLibrary
                         MatchState matchState = new(context.State, s, pattern);
                         var captures = matchState.Captures;
 
-                        // Check for anchor at start
-                        var anchor = pattern.Length > 0 && pattern[0] == '^';
-                        var pIdx = anchor ? 1 : 0;
-
                         // Include the end position so patterns can match an empty string there.
                         for (var sIdx = start; sIdx <= s.Length; sIdx++)
                         {
                             // Reset match state for each attempt
                             matchState.Level = 0;
                             matchState.MatchDepth = MatchState.MaxCalls;
-                            // Clear captures to avoid stale data
-                            Array.Clear(captures, 0, captures.Length);
 
-                            var res = matchState.Match(sIdx, pIdx);
+                            var res = matchState.Match(sIdx, 0);
 
                             if (res >= 0)
                             {
@@ -551,15 +545,7 @@ public sealed class StringLibrary
                                 var buffer = context.GetReturnBuffer(resultLength);
                                 for (var i = 0; i < matchState.Level; i++)
                                 {
-                                    var capture = captures[i];
-                                    if (capture.IsPosition)
-                                    {
-                                        buffer[i] = capture.Init + 1; // 1-based position
-                                    }
-                                    else
-                                    {
-                                        buffer[i] = s.AsSpan(capture.Init, capture.Len).ToString();
-                                    }
+                                    buffer[i] = matchState.GetCapture(i);
                                 }
 
                                 // Update start index for next iteration
@@ -567,15 +553,9 @@ public sealed class StringLibrary
                                 upValues[2] = res > sIdx ? res : sIdx + 1;
                                 return new(resultLength);
                             }
-
-                            // For anchored patterns, only try once
-                            if (anchor)
-                            {
-                                break;
-                            }
                         }
 
-                        return new(context.Return(LuaValue.Nil));
+                        return new(context.Return());
                     }
                 )
             )
@@ -654,18 +634,36 @@ public sealed class StringLibrary
         var repl = context.GetArgument(2);
         var n_arg = context.HasArgument(3) ? context.GetArgument<double>(3) : s.Length + 1;
 
-        LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.State, 4, n_arg);
+        n_arg = Math.Truncate(n_arg);
+        if (!MathEx.IsFinite(n_arg))
+            LuaRuntimeException.BadArgumentNumberIsNotInteger(context.State, 4);
+        if (
+            repl.Type
+            is not (
+                LuaValueType.String
+                or LuaValueType.Number
+                or LuaValueType.Table
+                or LuaValueType.Function
+            )
+        )
+            LuaRuntimeException.BadArgument(context.State, 3, "string/function/table expected");
+        // Lua 5.2 stores the limit as size_t; a negative integer means no practical limit.
+        var n = n_arg < 0 || n_arg > int.MaxValue ? int.MaxValue : (int)n_arg;
+        if (n == 0)
+            return context.Return(s, 0);
 
-        var n = (int)n_arg;
-
-        // Use MatchState instead of regex
         MatchState matchState = new(context.State, s, pattern);
         var captures = matchState.Captures;
 
         StringBuilder builder = new();
+        var replacementText =
+            repl.Type == LuaValueType.String ? repl.UnsafeReadString()
+            : repl.Type == LuaValueType.Number
+                ? repl.UnsafeReadDouble().ToString(default, CultureInfo.InvariantCulture)
+            : null;
         var replacedBuilder =
-            repl.Type == LuaValueType.String
-                ? new StringBuilder(repl.UnsafeReadString().Length)
+            replacementText != null && replacementText.IndexOf('%') >= 0
+                ? new StringBuilder(replacementText.Length)
                 : null;
         var lastIndex = 0;
         var replaceCount = 0;
@@ -680,11 +678,6 @@ public sealed class StringLibrary
             // Reset match state for each attempt
             matchState.Level = 0;
             Debug.Assert(matchState.MatchDepth == MatchState.MaxCalls);
-            // Clear captures array to avoid stale data
-            for (var i = 0; i < captures.Length; i++)
-            {
-                captures[i] = default;
-            }
 
             // Always start pattern from beginning (0 or 1 if anchored)
             var pIdx = anchor ? 1 : 0;
@@ -704,34 +697,30 @@ public sealed class StringLibrary
                 }
 
                 LuaValue result;
-                if (repl.TryRead<string>(out var str))
+                if (replacementText != null)
                 {
-                    if (!str.Contains("%"))
+                    if (replacedBuilder == null)
                     {
-                        result = str; // No special characters, use as is
+                        result = replacementText;
                     }
                     else
                     {
                         // String replacement
-                        replacedBuilder!.Clear();
-                        AppendReplacement(replacedBuilder, str, s, sIdx, res, matchState);
+                        replacedBuilder.Clear();
+                        AppendReplacement(
+                            replacedBuilder,
+                            replacementText,
+                            s,
+                            sIdx,
+                            res,
+                            matchState
+                        );
                         result = replacedBuilder.ToString();
                     }
                 }
                 else if (repl.TryRead<LuaTable>(out var table))
                 {
-                    // Table lookup - use first capture or whole match
-                    LuaValue key;
-                    if (matchState.Level > 0)
-                    {
-                        key = captures[0].IsPosition
-                            ? captures[0].Init + 1
-                            : s.AsSpan(captures[0].Init, captures[0].Len).ToString();
-                    }
-                    else
-                    {
-                        key = s.AsSpan(sIdx, res - sIdx).ToString();
-                    }
+                    var key = matchState.GetCapture(0);
 
                     if (!table.TryGetValue(key, out result) && table.Metatable != null)
                     {
@@ -743,52 +732,24 @@ public sealed class StringLibrary
                         );
                     }
                 }
-                else if (repl.TryRead<LuaFunction>(out var func))
+                else
                 {
+                    var func = repl.UnsafeRead<LuaFunction>();
                     // Function call with captures as arguments
                     var stack = context.State.Stack;
 
-                    if (matchState.Level == 0)
+                    for (var k = 0; k < matchState.Level; k++)
                     {
-                        // No captures, pass whole match
-                        stack.Push(s.AsSpan(sIdx, res - sIdx).ToString());
-                        var retCount = await context.State.RunAsync(func, 1, cancellationToken);
-                        using var results = context.State.ReadStack(retCount);
-                        result = results.Count > 0 ? results[0] : LuaValue.Nil;
+                        stack.Push(matchState.GetCapture(k));
                     }
-                    else
-                    {
-                        // Pass all captures
-                        for (var k = 0; k < matchState.Level; k++)
-                        {
-                            var capture = captures[k];
-                            if (capture.IsPosition)
-                            {
-                                stack.Push(capture.Init + 1); // 1-based position
-                            }
-                            else
-                            {
-                                stack.Push(s.AsSpan(capture.Init, capture.Len).ToString());
-                            }
-                        }
-
-                        var retCount = await context.State.RunAsync(
-                            func,
-                            matchState.Level,
-                            cancellationToken
-                        );
-                        using var results = context.State.ReadStack(retCount);
-                        result = results.Count > 0 ? results[0] : LuaValue.Nil;
-                    }
-                }
-                else
-                {
-                    throw new LuaRuntimeException(
-                        context.State,
-                        "bad argument #3 to 'gsub' (string/function/table expected)"
+                    var retCount = await context.State.RunAsync(
+                        func,
+                        matchState.Level,
+                        cancellationToken
                     );
+                    using var results = context.State.ReadStack(retCount);
+                    result = results.Count > 0 ? results[0] : LuaValue.Nil;
                 }
-
                 // Handle replacement result
                 if (result.TryRead<string>(out var rs))
                 {
@@ -796,7 +757,7 @@ public sealed class StringLibrary
                 }
                 else if (result.TryRead<double>(out var rd))
                 {
-                    builder.Append(rd);
+                    AppendNumber(builder, rd);
                 }
                 else if (!result.ToBoolean())
                 {
@@ -807,7 +768,7 @@ public sealed class StringLibrary
                 {
                     throw new LuaRuntimeException(
                         context.State,
-                        $"invalid replacement value (a {result.Type})"
+                        $"invalid replacement value (a {result.TypeToString()})"
                     );
                 }
 
@@ -894,33 +855,22 @@ public sealed class StringLibrary
     {
         var s = context.GetArgument<string>(0);
         var pattern = context.GetArgument<string>(1);
-        var init = context.HasArgument(2) ? context.GetArgument<int>(2) : 1;
-
-        LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.State, 3, init);
-
-        // Convert to 0-based index
-        if (init < 0)
-        {
-            init = s.Length + init + 1;
-        }
-
-        init--; // Convert from 1-based to 0-based
+        var init = context.HasArgument(2) ? ReadStringIndex(context, 2) : 1;
+        var offset = Math.Max(1, StringHelper.RelativePosition(init, s.Length)) - 1;
 
         // Check if init is beyond string bounds
-        if (init > s.Length)
+        if (offset > s.Length)
         {
             return new(context.Return(LuaValue.Nil));
         }
 
-        init = Math.Max(0, init); // Clamp to 0 if negative
-
         // Check for plain search mode (4th parameter = true) or if pattern has no special characters
         if (find && (context.GetArgumentOrDefault(3).ToBoolean() || MatchState.NoSpecials(pattern)))
         {
-            return PlainSearch(context, s, pattern, init);
+            return PlainSearch(context, s, pattern, offset);
         }
 
-        return PatternSearch(context, s, pattern, init, find);
+        return PatternSearch(context, s, pattern, offset, find);
     }
 
     static ValueTask<int> PlainSearch(
@@ -961,7 +911,6 @@ public sealed class StringLibrary
             // Reset match state for each attempt
             matchState.Level = 0;
             matchState.MatchDepth = MatchState.MaxCalls;
-            Array.Clear(captures, 0, captures.Length);
 
             var res = matchState.Match(sIdx, pIdx);
 
@@ -989,15 +938,7 @@ public sealed class StringLibrary
                 // Return captures
                 for (var i = 0; i < matchState.Level; i++)
                 {
-                    var capture = captures[i];
-                    if (capture.IsPosition)
-                    {
-                        buffer[i] = capture.Init + 1; // 1-based position
-                    }
-                    else
-                    {
-                        buffer[i] = s.AsSpan(capture.Init, capture.Len).ToString();
-                    }
+                    buffer[i] = matchState.GetCapture(i);
                 }
 
                 return new(resultLength);
@@ -1139,5 +1080,12 @@ public sealed class StringLibrary
 #else
         return (int)Math.Min(int.MaxValue, Math.Max(int.MinValue, number));
 #endif
+    }
+
+    static void AppendNumber(StringBuilder builder, double value)
+    {
+        Span<char> buffer = stackalloc char[32];
+        value.TryFormat(buffer, out var written, default, CultureInfo.InvariantCulture);
+        builder.Append(buffer[..written]);
     }
 }
