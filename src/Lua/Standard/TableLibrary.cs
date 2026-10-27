@@ -154,8 +154,10 @@ public sealed class TableLibrary
             throw new LuaRuntimeException(context.State, "wrong number of arguments to 'insert'");
         }
         var value = context.ArgumentCount == 3 ? context.GetArgument(2) : context.GetArgument(1);
-        var position = context.ArgumentCount == 3 ? context.GetArgument<double>(1) : length + 1;
-        LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.State, 2, position);
+        var position =
+            context.ArgumentCount == 3 ? Math.Truncate(context.GetArgument<double>(1)) : length + 1;
+        if (!MathEx.IsFinite(position))
+            LuaRuntimeException.BadArgumentNumberIsNotInteger(context.State, 2);
         if (context.ArgumentCount == 3 && (position < 1 || position > length + 1))
         {
             throw new LuaRuntimeException(
@@ -204,8 +206,11 @@ public sealed class TableLibrary
     {
         var table = context.GetArgument<LuaTable>(0);
         var length = await GetLengthAsync(context.State, table, cancellationToken);
-        var position = context.HasArgument(1) ? context.GetArgument<double>(1) : length;
-        LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.State, 2, position);
+        var position = context.HasArgument(1)
+            ? Math.Truncate(context.GetArgument<double>(1))
+            : length;
+        if (!MathEx.IsFinite(position))
+            LuaRuntimeException.BadArgumentNumberIsNotInteger(context.State, 2);
         if (position != length && (position < 1 || position > (long)length + 1))
         {
             throw new LuaRuntimeException(
@@ -239,9 +244,9 @@ public sealed class TableLibrary
     )
     {
         var table = context.GetArgument<LuaTable>(0);
-        var comparer = context.HasArgument(1) ? context.GetArgument<LuaFunction>(1) : null;
 
         var length = await GetLengthAsync(context.State, table, cancellationToken);
+        var comparer = context.HasArgument(1) ? context.GetArgument<LuaFunction>(1) : null;
         // A __len result can extend beyond the backing array; use raw table keys.
         if (length > 1)
         {
