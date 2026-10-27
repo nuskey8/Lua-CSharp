@@ -810,6 +810,21 @@ public static partial class LuaVirtualMachine
                             continue;
                         }
 
+                        // Lua 5.2 only invokes __eq for tables/userdata of the
+                        // same type. Primitive inequality needs no slow-path call.
+                        if (
+                            vb.Type != vc.Type
+                            || vb.Type is not (LuaValueType.Table or LuaValueType.UserData)
+                        )
+                        {
+                            if (iA == 1)
+                            {
+                                context.Pc++;
+                            }
+
+                            continue;
+                        }
+
                         if (
                             ExecuteCompareOperationMetaMethod(
                                 vb,
@@ -950,7 +965,7 @@ public static partial class LuaVirtualMachine
                         var step = Unsafe.Add(ref indexRef, 2).UnsafeReadDouble();
                         var index = indexRef.UnsafeReadDouble() + step;
 
-                        if (step >= 0 ? index <= limit : limit <= index)
+                        if (step > 0 ? index <= limit : limit <= index)
                         {
                             context.Pc += instruction.SBx;
                             indexRef = index;
@@ -1128,13 +1143,9 @@ public static partial class LuaVirtualMachine
     [MethodImpl(MethodImplOptions.NoInlining)]
     internal static double Mod(double a, double b)
     {
-        var mod = a % b;
-        if ((b > 0 && mod < 0) || (b < 0 && mod > 0))
-        {
-            mod += b;
-        }
-
-        return mod;
+        // Lua 5.2 uses this expression, including its floating-point rounding.
+        // A sign-adjusted remainder differs for values such as 5 and 0.1.
+        return a - (Math.Floor(a / b) * b);
     }
 
     static void SelfPostOperation(
@@ -2810,6 +2821,32 @@ public static partial class LuaVirtualMachine
         }
     }
 
+    static bool TryGetCompareMetamethod(
+        LuaGlobalState state,
+        LuaValue left,
+        LuaValue right,
+        string name,
+        out LuaValue metamethod
+    )
+    {
+        if (name == Metamethods.Eq)
+        {
+            metamethod = default;
+            return left.Type == right.Type
+                && left.Type is LuaValueType.Table or LuaValueType.UserData
+                && state.TryGetMetatable(left, out var leftMetatable)
+                && leftMetatable.TryGetValue(name, out metamethod)
+                && state.TryGetMetatable(right, out var rightMetatable)
+                && (
+                    leftMetatable == rightMetatable
+                    || rightMetatable.TryGetValue(name, out var other) && metamethod == other
+                );
+        }
+
+        return left.TryGetMetamethod(state, name, out metamethod)
+            || right.TryGetMetamethod(state, name, out metamethod);
+    }
+
     [MethodImpl(MethodImplOptions.NoInlining)]
     static bool ExecuteCompareOperationMetaMethod(
         LuaValue vb,
@@ -2823,10 +2860,7 @@ public static partial class LuaVirtualMachine
         doRestart = false;
         var reverseLe = false;
         ReCheck:
-        if (
-            vb.TryGetMetamethod(context.GlobalState, name, out var metamethod)
-            || vc.TryGetMetamethod(context.GlobalState, name, out metamethod)
-        )
+        if (TryGetCompareMetamethod(context.GlobalState, vb, vc, name, out var metamethod))
         {
             var stack = context.Stack;
             var newBase = stack.Count;
@@ -2959,10 +2993,7 @@ public static partial class LuaVirtualMachine
         var (name, description) = opCode.GetNameAndDescription();
         var reverseLe = false;
         ReCheck:
-        if (
-            vb.TryGetMetamethod(state.GlobalState, name, out var metamethod)
-            || vc.TryGetMetamethod(state.GlobalState, name, out metamethod)
-        )
+        if (TryGetCompareMetamethod(state.GlobalState, vb, vc, name, out var metamethod))
         {
             var stack = state.Stack;
             var top = stack.Count;

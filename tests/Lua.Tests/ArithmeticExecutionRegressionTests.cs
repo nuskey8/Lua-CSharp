@@ -85,4 +85,21 @@ public class ArithmeticExecutionRegressionTests
         var results = await state.ExecuteAsync(restored);
         Assert.That(results[0].Read<double>(), Is.EqualTo(8));
     }
+
+    [Test]
+    public async Task ZeroStepNumericForUsesLua52Direction()
+    {
+        using var state = CreateState();
+        await state.DoStringAsync(
+            """
+            local count = 0
+            for i = 1, 2, 0 do count = count + 1; break end
+            assert(count == 0)
+            for i = 2, 1, 0 do count = count + 1; break end
+            assert(count == 1)
+            for i = 1, 1, -0.0 do count = count + 1; break end
+            assert(count == 2)
+            """
+        );
+    }
 }

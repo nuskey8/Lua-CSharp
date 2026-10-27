@@ -769,8 +769,9 @@ public readonly struct LuaValue : IEquatable<LuaValue>
                 var count = await LuaVirtualMachine.Call(state, top, top, cancellationToken);
                 var result = count > 0 ? stack.Get(top) : Nil;
                 stack.SetTop(top + 1);
-                // Return one value, padding missing results and discarding extras.
-                stack.FastGet(top) = result;
+                // Lua 5.2 converts a numeric __tostring result to text.
+                stack.FastGet(top) =
+                    result.Type == LuaValueType.Number ? new LuaValue(result.ToString()) : result;
                 return 1;
             }
             catch

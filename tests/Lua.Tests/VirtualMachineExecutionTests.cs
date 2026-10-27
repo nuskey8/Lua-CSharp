@@ -282,4 +282,42 @@ public class VirtualMachineExecutionTests(LuaStringMode stringMode)
         Assert.That(state.Stack.Pop().Read<double>(), Is.EqualTo(12345));
         Assert.That(state.CallStackFrameCount, Is.Zero);
     }
+
+    [Test]
+    public async Task EqualityRequiresMatchingTypesAndSharedMetamethod()
+    {
+        using var state = CreateState();
+        await state.DoStringAsync(
+            """
+            local calls = 0
+            local function eq(a,b) calls=calls+1; return true end
+            local a = setmetatable({}, {__eq=eq})
+            local b = {}
+            assert(not (a == b) and not (b == a) and calls == 0)
+            setmetatable(b, {__eq=function() return true end})
+            assert(not (a == b) and calls == 0)
+            setmetatable(b, {__eq=eq})
+            assert(a == b and calls == 1)
+            assert(a == a and calls == 1)
+            assert(not (a == 1) and not (1 == a) and calls == 1)
+            debug.setmetatable(1, {__eq=function() error('numeric __eq must not run') end})
+            local x,y = 1,2
+            assert(x ~= y)
+            debug.setmetatable(1, nil)
+            -- A shared metatable selects even a non-reflexive NaN tag method.
+            -- Calling it must fail; separate metatables do not share that value.
+            local nan=0/0
+            local mt={__eq=nan}
+            setmetatable(a, mt); setmetatable(b, mt)
+            assert(not pcall(function() return a == b end))
+            setmetatable(b, {__eq=nan})
+            assert(not (a == b))
+            """
+        );
+        var a = state.Environment["a"] = new LuaTable();
+        var b = state.Environment["b"] = new LuaTable();
+        await state.DoStringAsync("setmetatable(a, {__eq=function() return true end})");
+        Assert.That(await state.EqualsAsync(a, b), Is.False);
+        Assert.That(await state.EqualsAsync(b, a), Is.False);
+    }
 }
