@@ -123,4 +123,27 @@ public class MathematicsLibraryTests
             """
         );
     }
+
+    [Test]
+    public async Task RandomAcceptsLua52FractionalBoundsAndRejectsInvalidIntervals()
+    {
+        using var state = CreateState();
+        await state.DoStringAsync(
+            """
+            math.randomseed(42)
+            for i=1,100 do
+                local x=math.random(1.5)
+                assert(x==1 or x==2)
+                local y=math.random(0.5,2.5)
+                assert(y==0.5 or y==1.5 or y==2.5)
+            end
+            assert(not pcall(math.random,1,2,3))
+            assert(not pcall(math.random,0/0))
+            assert(not pcall(math.random,0/0,2))
+            assert(not pcall(math.random,1,0/0))
+            assert(not pcall(math.random,0.5))
+            assert(not pcall(math.random,2,1))
+            """
+        );
+    }
 }

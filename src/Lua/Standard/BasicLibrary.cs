@@ -491,34 +491,24 @@ public sealed class BasicLibrary
         CancellationToken cancellationToken
     )
     {
-        var arg0 = context.GetArgument(0);
-
-        if (arg0.TryRead<int>(out var index))
+        var selector = context.GetArgument(0);
+        if (selector.Type == LuaValueType.String)
         {
-            if (Math.Abs(index) > context.ArgumentCount)
-            {
-                throw new LuaRuntimeException(
-                    context.State,
-                    "bad argument #1 to 'select' (index out of range)"
-                );
-            }
+            var text = selector.UnsafeReadString();
+            if (text.Length > 0 && text[0] == '#')
+                return new(context.Return(context.ArgumentCount - 1));
+        }
 
-            var span =
-                index >= 0
-                    ? context.Arguments[index..]
-                    : context.Arguments[(context.ArgumentCount + index)..];
-
-            return new(context.Return(span));
-        }
-        else if (arg0.TryRead<string>(out var str) && str == "#")
-        {
-            return new(context.Return(context.ArgumentCount - 1));
-        }
-        else
-        {
-            LuaRuntimeException.BadArgument(context.State, 1, LuaValueType.Number, arg0.Type);
-            return default;
-        }
+        var index = Math.Truncate(context.GetArgument<double>(0));
+        if (!MathEx.IsFinite(index))
+            context.ThrowBadArgument(1, "index out of range");
+        if (index < 0)
+            index += context.ArgumentCount;
+        else if (index > context.ArgumentCount)
+            index = context.ArgumentCount;
+        if (index < 1)
+            context.ThrowBadArgument(1, "index out of range");
+        return new(context.Return(context.Arguments[(int)index..]));
     }
 
     public ValueTask<int> SetMetatable(
@@ -560,152 +550,65 @@ public sealed class BasicLibrary
         CancellationToken cancellationToken
     )
     {
-        var e = context.GetArgument(0);
-        int? toBase = context.HasArgument(1) ? (int)context.GetArgument<double>(1) : null;
-
-        if (toBase != null && (toBase < 2 || toBase > 36))
+        var value = context.GetArgument(0);
+        if (!context.HasArgument(1))
         {
-            throw new LuaRuntimeException(
-                context.State,
-                "bad argument #2 to 'tonumber' (base out of range)"
+            if (value.Type == LuaValueType.Number)
+                return new(context.Return(value));
+            return new(
+                context.Return(
+                    value.TryReadDouble(out var number) && !double.IsNaN(number)
+                        ? new LuaValue(number)
+                        : LuaValue.Nil
+                )
             );
         }
 
-        double? value = null;
-        if (e.Type is LuaValueType.Number)
-        {
-            value = e.UnsafeRead<double>();
-        }
-        else if (e.TryRead<string>(out var str))
-        {
-            if (toBase == null)
-            {
-                if (e.TryRead<double>(out var result))
-                {
-                    value = result;
-                }
-            }
-            else if (toBase == 10)
-            {
-                if (
-                    double.TryParse(
-                        str,
-                        NumberStyles.Float,
-                        CultureInfo.InvariantCulture,
-                        out var result
-                    )
-                )
-                {
-                    value = result;
-                }
-            }
-            else
-            {
-                try
-                {
-                    // if the base is not 10, str cannot contain a minus sign
-                    var span = str.AsSpan().Trim();
-                    if (span.Length == 0)
-                    {
-                        goto END;
-                    }
-
-                    var first = span[0];
-                    var sign = first == '-' ? -1 : 1;
-                    if (first is '+' or '-')
-                    {
-                        span = span[1..];
-                    }
-
-                    if (span.Length == 0)
-                    {
-                        goto END;
-                    }
-
-                    if (toBase == 16 && span.Length > 2 && span[0] is '0' && span[1] is 'x' or 'X')
-                    {
-                        value = sign * HexConverter.ToDouble(span);
-                    }
-                    else
-                    {
-                        value = sign * StringToDouble(span, toBase.Value);
-                    }
-                }
-                catch (FormatException)
-                {
-                    goto END;
-                }
-            }
-        }
+        // Lua coerces numeric inputs to text before interpreting an explicit base.
+        string text;
+        if (value.Type == LuaValueType.String)
+            text = value.UnsafeReadString();
+        else if (value.Type == LuaValueType.Number)
+            text = value.ToString();
         else
         {
-            goto END;
+            LuaRuntimeException.BadArgument(context.State, 1, LuaValueType.String, value.Type);
+            return default;
         }
 
-        END:
-        if (value is double.NaN)
-        {
-            value = null;
-        }
-
-        return new(context.Return(value ?? LuaValue.Nil));
+        var toBase = (int)context.GetArgument<double>(1);
+        if (toBase is < 2 or > 36)
+            context.ThrowBadArgument(2, "base out of range");
+        var parsed = StringToDouble(text.AsSpan(), toBase);
+        return new(context.Return(parsed.HasValue ? new LuaValue(parsed.Value) : LuaValue.Nil));
     }
 
-    static double StringToDouble(ReadOnlySpan<char> text, int toBase)
+    static double? StringToDouble(ReadOnlySpan<char> text, int toBase)
     {
-        var value = 0.0;
-        for (var i = 0; i < text.Length; i++)
+        text = text.Trim(" \f\n\r\t\v");
+        if (text.IsEmpty)
+            return null;
+        var negative = text[0] == '-';
+        if (text[0] is '+' or '-')
+            text = text[1..];
+        if (text.IsEmpty)
+            return null;
+
+        double value = 0;
+        foreach (var c in text)
         {
-            var v = text[i] switch
+            var digit = c switch
             {
-                '0' => 0,
-                '1' => 1,
-                '2' => 2,
-                '3' => 3,
-                '4' => 4,
-                '5' => 5,
-                '6' => 6,
-                '7' => 7,
-                '8' => 8,
-                '9' => 9,
-                'a' or 'A' => 10,
-                'b' or 'B' => 11,
-                'c' or 'C' => 12,
-                'd' or 'D' => 13,
-                'e' or 'E' => 14,
-                'f' or 'F' => 15,
-                'g' or 'G' => 16,
-                'h' or 'H' => 17,
-                'i' or 'I' => 18,
-                'j' or 'J' => 19,
-                'k' or 'K' => 20,
-                'l' or 'L' => 21,
-                'm' or 'M' => 22,
-                'n' or 'N' => 23,
-                'o' or 'O' => 24,
-                'p' or 'P' => 25,
-                'q' or 'Q' => 26,
-                'r' or 'R' => 27,
-                's' or 'S' => 28,
-                't' or 'T' => 29,
-                'u' or 'U' => 30,
-                'v' or 'V' => 31,
-                'w' or 'W' => 32,
-                'x' or 'X' => 33,
-                'y' or 'Y' => 34,
-                'z' or 'Z' => 35,
-                _ => throw new FormatException("Invalid digit."),
+                >= '0' and <= '9' => c - '0',
+                >= 'A' and <= 'Z' => c - 'A' + 10,
+                >= 'a' and <= 'z' => c - 'a' + 10,
+                _ => 36,
             };
-
-            if (v >= toBase)
-            {
-                throw new FormatException();
-            }
-
-            value += v * Math.Pow(toBase, text.Length - i - 1);
+            if (digit >= toBase)
+                return null;
+            value = value * toBase + digit;
         }
-
-        return value;
+        return negative ? -value : value;
     }
 
     public ValueTask<int> ToString(

@@ -361,13 +361,18 @@ public readonly struct LuaValue : IEquatable<LuaValue>
         }
 
         var str = Unsafe.As<string>(referenceValue!);
-        var span = str.AsSpan().Trim();
-        if (span.Length == 0)
+        var span = str.AsSpan();
+        if (!span.IsEmpty && (span[0] <= ' ' || span[^1] <= ' '))
+            span = span.Trim(" \f\n\r\t\v");
+        // .NET's parser accepts trailing NULs, Unicode whitespace and named
+        // infinities/NaNs. A Lua numeral must end with a hex digit or decimal point.
+        if (span.Length == 0 || !(StringHelper.IsDigit(span[^1]) || span[^1] == '.'))
         {
             result = default!;
             return false;
         }
 
+        var numberText = span;
         var sign = 1;
         var first = span[0];
         if (first is '+')
@@ -379,6 +384,12 @@ public readonly struct LuaValue : IEquatable<LuaValue>
         {
             sign = -1;
             span = span[1..];
+        }
+
+        if (span.IsEmpty || !(span[0] is >= '0' and <= '9' or '.'))
+        {
+            result = default;
+            return false;
         }
 
         if (span.Length > 2 && span[0] is '0' && span[1] is 'x' or 'X')
@@ -399,7 +410,7 @@ public readonly struct LuaValue : IEquatable<LuaValue>
         else
         {
             return double.TryParse(
-                str,
+                numberText,
                 NumberStyles.Float,
                 CultureInfo.InvariantCulture,
                 out result

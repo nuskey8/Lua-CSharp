@@ -197,14 +197,17 @@ public sealed class MathematicsLibrary
     {
         var arg0 = context.GetArgument<double>(0);
 
-        if (context.ArgumentCount == 1)
+        if (!context.HasArgument(1))
         {
             return new(context.Return(Math.Log(arg0)));
         }
         else
         {
             var arg1 = context.GetArgument<double>(1);
-            return new(context.Return(Math.Log(arg0, arg1)));
+            // Match Lua 5.2's formula, including signed zero for base zero.
+            return new(
+                context.Return(arg1 == 10 ? Math.Log10(arg0) : Math.Log(arg0) / Math.Log(arg1))
+            );
         }
     }
 
@@ -216,7 +219,11 @@ public sealed class MathematicsLibrary
         var x = context.GetArgument<double>(0);
         for (var i = 1; i < context.ArgumentCount; i++)
         {
-            x = Math.Max(x, context.GetArgument<double>(i));
+            var next = context.GetArgument<double>(i);
+            if (x < next)
+            {
+                x = next;
+            }
         }
 
         return new(context.Return(x));
@@ -230,7 +237,11 @@ public sealed class MathematicsLibrary
         var x = context.GetArgument<double>(0);
         for (var i = 1; i < context.ArgumentCount; i++)
         {
-            x = Math.Min(x, context.GetArgument<double>(i));
+            var next = context.GetArgument<double>(i);
+            if (next < x)
+            {
+                x = next;
+            }
         }
 
         return new(context.Return(x));
@@ -281,8 +292,7 @@ public sealed class MathematicsLibrary
         if (context.ArgumentCount == 1)
         {
             var arg0 = context.GetArgument<double>(0);
-            LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.State, 1, arg0);
-            if (arg0 < 1)
+            if (!(arg0 >= 1))
             {
                 context.ThrowBadArgument(1, "interval is empty");
             }
@@ -290,11 +300,12 @@ public sealed class MathematicsLibrary
             return new(context.Return(Math.Floor(rand.NextDouble() * arg0) + 1));
         }
 
+        if (context.ArgumentCount != 2)
+            throw new LuaRuntimeException(context.State, "wrong number of arguments");
+
         var arg0Min = context.GetArgument<double>(0);
         var arg1Max = context.GetArgument<double>(1);
-        LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.State, 1, arg0Min);
-        LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.State, 2, arg1Max);
-        if (arg0Min > arg1Max)
+        if (!(arg0Min <= arg1Max))
         {
             context.ThrowBadArgument(2, "interval is empty");
         }

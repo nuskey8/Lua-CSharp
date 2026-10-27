@@ -93,4 +93,33 @@ public class BitwiseLibraryTests
         Assert.That(result[0].Read<bool>(), Is.False);
         Assert.That(result[1].Read<string>(), Does.Contain("non-existent bits"));
     }
+
+    [TestCase("band(0.5)", 0d)]
+    [TestCase("band(1.5)", 2d)]
+    [TestCase("band(2.5)", 2d)]
+    [TestCase("band(-1.5)", 4294967294d)]
+    [TestCase("band('1.5',3)", 2d)]
+    [TestCase("band(4294967295.5)", 0d)]
+    [TestCase("bnot(1.5)", 4294967293d)]
+    [TestCase("bor(1.5,0.5)", 2d)]
+    [TestCase("bxor(1.5,2.5)", 0d)]
+    [TestCase("lshift(1.5,1.5)", 4d)]
+    [TestCase("rshift(1.5,-1.5)", 4d)]
+    [TestCase("arshift(1.5,1.5)", 1d)]
+    [TestCase("lrotate(1.5,-1.5)", 1d)]
+    [TestCase("rrotate(1.5,-1.5)", 4d)]
+    [TestCase("extract(15.5,1.5,2.9)", 0d)]
+    [TestCase("replace(0.5,3.5,1.5,2.9)", 0d)]
+    [TestCase("extract(0xffffffff,0,32)", 4294967295d)]
+    [TestCase("replace(0,0xffffffff,0,32)", 4294967295d)]
+    public async Task FractionalWordsAndIntegerArgumentsFollowLua52(
+        string expression,
+        double expected
+    )
+    {
+        using var state = CreateState();
+        var result = await state.DoStringAsync("return bit32." + expression);
+        Assert.That(result[0].Read<double>(), Is.EqualTo(expected));
+        await state.DoStringAsync("assert(not bit32.btest(0.5)); assert(bit32.btest(1.5))");
+    }
 }
