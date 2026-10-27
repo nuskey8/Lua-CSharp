@@ -107,4 +107,34 @@ public class StringIndexAndQuotingTests(LuaStringMode mode)
         Assert.That(state.Stack.Count, Is.Zero);
         Assert.That(state.CallStackFrameCount, Is.Zero);
     }
+
+    [TestCase("-0.5", 1)]
+    [TestCase("1.9", 1)]
+    [TestCase("'2.9'", 3)]
+    [TestCase("-2.9", 3)]
+    [TestCase("-2147483649", 1)]
+    public async Task PatternAndPlainSearchesAcceptFractionalAndStringIndices(
+        string start,
+        int expected
+    )
+    {
+        using var state = CreateState();
+        var values = await state.DoStringAsync(
+            $"return string.find('aba','a',{start}), string.match('aba','()a',{start})"
+        );
+        Assert.That(
+            values.Select(v => v.Read<double>()),
+            Is.EqualTo(new double[] { expected, expected })
+        );
+    }
+
+    [Test]
+    public async Task SearchIndexBeyondInt32DoesNotWrap()
+    {
+        using var state = CreateState();
+        var values = await state.DoStringAsync(
+            "return string.find('abc','',2147483648),string.match('abc','',2147483648)"
+        );
+        Assert.That(values, Is.EqualTo(new[] { LuaValue.Nil, LuaValue.Nil }));
+    }
 }

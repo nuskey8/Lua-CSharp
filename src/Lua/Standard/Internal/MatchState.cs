@@ -25,8 +25,20 @@ sealed class MatchState(LuaState state, string source, string pattern)
     public readonly string Source = source;
     public readonly string Pattern = pattern;
     public int Level = 0;
+
+    // Only slots below Level are live; StartCapture initializes them before use.
     internal readonly Capture[] Captures = new Capture[LuaMaxCaptures];
     public int MatchDepth = MaxCalls;
+
+    public LuaValue GetCapture(int index)
+    {
+        var capture = Captures[index];
+        if (capture.IsUnfinished)
+            throw new LuaRuntimeException(State, "unfinished capture");
+        return capture.IsPosition
+            ? new LuaValue(capture.Init + 1)
+            : new LuaValue(Source.AsSpan(capture.Init, capture.Len).ToString());
+    }
 
     public static bool NoSpecials(ReadOnlySpan<char> pattern)
     {
