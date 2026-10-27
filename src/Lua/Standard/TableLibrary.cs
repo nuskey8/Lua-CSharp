@@ -26,6 +26,20 @@ public sealed class TableLibrary
 
     public readonly LibraryFunction[] Functions;
 
+    static long ToInteger(double value)
+    {
+#if !NET10_0_OR_GREATER
+        // Match .NET 10's saturating conversion on the older targets as well.
+        if (double.IsNaN(value))
+            return 0;
+        if (value >= long.MaxValue)
+            return long.MaxValue;
+        if (value <= long.MinValue)
+            return long.MinValue;
+#endif
+        return (long)value;
+    }
+
     [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder<>))]
     static async ValueTask<int> GetLengthAsync(
         LuaState state,
@@ -66,20 +80,23 @@ public sealed class TableLibrary
     {
         var arg0 = context.GetArgument<LuaTable>(0);
         var arg1 = context.HasArgument(1) ? context.GetArgument<string>(1) : "";
-        var arg2 = context.HasArgument(2) ? (long)context.GetArgument<double>(2) : 1;
+        var arg2 = context.HasArgument(2) ? ToInteger(context.GetArgument<double>(2)) : 1;
         var arg3 = context.HasArgument(3)
-            ? (long)context.GetArgument<double>(3)
+            ? ToInteger(context.GetArgument<double>(3))
             : await GetLengthAsync(context.State, arg0, cancellationToken);
+
+        if (arg2 > arg3)
+            return context.Return("");
 
         using PooledList<char> builder = new(512);
 
-        for (var i = arg2; i <= arg3; i++)
+        for (var i = arg2; ; i++)
         {
             var value = arg0[i];
 
             if (value.Type is LuaValueType.String)
             {
-                builder.AddRange(value.Read<string>());
+                builder.AddRange(value.UnsafeReadString());
             }
             else if (value.Type is LuaValueType.Number)
             {
@@ -93,10 +110,9 @@ public sealed class TableLibrary
                 );
             }
 
-            if (i != arg3)
-            {
-                builder.AddRange(arg1);
-            }
+            if (i == arg3)
+                break;
+            builder.AddRange(arg1);
         }
 
         return context.Return(builder.AsSpan().ToString());
@@ -433,21 +449,27 @@ public sealed class TableLibrary
     )
     {
         var arg0 = context.GetArgument<LuaTable>(0);
-        var arg1 = context.HasArgument(1) ? (long)context.GetArgument<double>(1) : 1;
+        var arg1 = context.HasArgument(1) ? ToInteger(context.GetArgument<double>(1)) : 1;
         var arg2 = context.HasArgument(2)
-            ? (long)context.GetArgument<double>(2)
+            ? ToInteger(context.GetArgument<double>(2))
             : await GetLengthAsync(context.State, arg0, cancellationToken);
 
-        var index = 0;
-        arg1 = Math.Min(arg1, arg2 + 1);
-        var count = (int)(arg2 - arg1 + 1);
-        var buffer = context.GetReturnBuffer(count);
-        for (var i = arg1; i <= arg2; i++)
+        if (arg1 > arg2)
+            return context.Return();
+        var distance = unchecked((ulong)arg2 - (ulong)arg1);
+        if (distance >= (ulong)(LuaStack.MaxCapacity - context.ReturnFrameBase))
+            throw new LuaRuntimeException(context.State, "too many results to unpack");
+        var count = (int)distance + 1;
+        try
         {
-            buffer[index] = arg0[i];
-            index++;
+            var buffer = context.GetReturnBuffer(count);
+            for (var i = 0; i < count; i++)
+                buffer[i] = arg0[arg1 + i];
         }
-
-        return index;
+        catch (LuaStackOverflowException)
+        {
+            throw new LuaRuntimeException(context.State, "too many results to unpack");
+        }
+        return count;
     }
 }

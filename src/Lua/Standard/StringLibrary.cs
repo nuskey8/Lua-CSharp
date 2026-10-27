@@ -340,8 +340,7 @@ public sealed class StringLibrary
                                 formattedValue = parameter.Read<bool>() ? "true" : "false";
                                 break;
                             case LuaValueType.String:
-                                formattedValue =
-                                    $"\"{StringHelper.Escape(parameter.Read<string>())}\"";
+                                formattedValue = StringHelper.Quote(parameter.Read<string>());
                                 break;
                             case LuaValueType.Number:
                                 formattedValue = DoubleToQFormat(parameter.Read<double>());
@@ -1019,21 +1018,56 @@ public sealed class StringLibrary
         var n_arg = context.GetArgument<double>(1);
         var sep = context.HasArgument(2) ? context.GetArgument<string>(2) : null;
 
-        LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.State, 2, n_arg);
-
-        var n = (int)n_arg;
-
-        ValueStringBuilder builder = new(s.Length * n);
-        for (var i = 0; i < n; i++)
+        if (!MathEx.IsFinite(n_arg))
         {
-            builder.Append(s);
-            if (i != n - 1 && sep != null)
-            {
-                builder.Append(sep);
-            }
+            LuaRuntimeException.BadArgumentNumberIsNotInteger(context.State, 2);
         }
 
-        return new(context.Return(builder.ToString()));
+        LuaRuntimeException.ThrowBadArgumentIfNumberIsNotInteger(context.State, 2, n_arg);
+
+        if (n_arg <= 0 || (s.Length == 0 && string.IsNullOrEmpty(sep)))
+        {
+            return new(context.Return(""));
+        }
+
+        // Validate before converting: out-of-range conversions can saturate
+        // on newer runtimes rather than producing a non-positive count.
+        if (n_arg > int.MaxValue)
+        {
+            throw new LuaRuntimeException(context.State, "resulting string too large");
+        }
+
+        var n = (int)n_arg;
+        if (n == 1)
+        {
+            return new(context.Return(s));
+        }
+
+        var length = (long)s.Length * n + (long)(sep?.Length ?? 0) * (n - 1);
+        if (length > int.MaxValue)
+        {
+            throw new LuaRuntimeException(context.State, "resulting string too large");
+        }
+
+        var result = string.Create(
+            (int)length,
+            (s, sep, n),
+            static (destination, state) =>
+            {
+                var (source, separator, n) = state;
+                for (var i = 0; i < n; i++)
+                {
+                    source.AsSpan().CopyTo(destination);
+                    destination = destination[source.Length..];
+                    if (i + 1 < n)
+                    {
+                        separator.AsSpan().CopyTo(destination);
+                        destination = destination[(separator?.Length ?? 0)..];
+                    }
+                }
+            }
+        );
+        return new(context.Return(result));
     }
 
     public ValueTask<int> Reverse(

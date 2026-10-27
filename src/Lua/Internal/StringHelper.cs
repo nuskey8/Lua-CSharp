@@ -450,4 +450,39 @@ static class StringHelper
     {
         return IsNumber(c) || ('a' <= c && c <= 'f') || ('A' <= c && c <= 'F');
     }
+
+    public static string Quote(ReadOnlySpan<char> str)
+    {
+        ValueStringBuilder builder = new(str.Length + 2);
+        builder.Append('"');
+
+        for (var i = 0; i < str.Length; i++)
+        {
+            var c = str[i];
+
+            if (c is '"' or '\\' or '\n')
+            {
+                builder.Append('\\');
+                builder.Append(c);
+            }
+            else if (c < 32 || c == 127)
+            {
+                // A following digit must not become part of this decimal escape.
+                var pad = i + 1 < str.Length && str[i + 1] is >= '0' and <= '9';
+                builder.Append('\\');
+                if (c >= 100 || pad)
+                    builder.Append((char)('0' + c / 100));
+                if (c >= 10 || pad)
+                    builder.Append((char)('0' + c / 10 % 10));
+                builder.Append((char)('0' + c % 10));
+            }
+            else
+            {
+                builder.Append(c);
+            }
+        }
+
+        builder.Append('"');
+        return builder.ToString();
+    }
 }
