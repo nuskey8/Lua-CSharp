@@ -7,6 +7,33 @@ namespace Lua.SourceGenerator.Tests;
 
 public class LuaObjectGeneratorTests
 {
+    [TestCase("class BoundObject")]
+    [TestCase("class BoundObject<T>")]
+    [TestCase("record BoundObject")]
+    [TestCase("record BoundObject<T>")]
+    public void BoundMethods_GenerateWithoutDiagnostics(string declaration)
+    {
+        var result = CompileGeneratedSource(
+            $$"""
+            using Lua;
+            [LuaObject(BindInstanceMethods = true)]
+            internal partial {{declaration}}
+            {
+                [LuaMember]
+                public int Read(int value = 1) => value;
+
+                [LuaMember, LuaMetamethod(LuaObjectMetamethod.Len)]
+                public int Length() => 2;
+
+                [LuaMember]
+                public static int StaticRead() => 3;
+            }
+            """
+        );
+        Assert.That(result.Success, Is.True, string.Join("\n", result.Diagnostics));
+        Assert.That(result.Diagnostics, Is.Empty);
+    }
+
     [TestCase("public static int Read(System.ReadOnlySpan<LuaValue> values) => values.Length;")]
     [TestCase("public int Read(System.ReadOnlySpan<LuaValue> values) => values.Length;")]
     [TestCase(
