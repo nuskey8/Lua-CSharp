@@ -10,6 +10,40 @@ public class DebugLocalMetadataTests(LuaStringMode mode)
 {
     [TestCase(false)]
     [TestCase(true)]
+    public async Task LineHooksHandleStrippedChunks(bool asynchronous)
+    {
+        using var state = LuaState.Create(
+            mode == LuaStringMode.Bytes ? LuaPlatform.DefaultByteStrings : LuaPlatform.Default
+        );
+        var prototype = state
+            .Load("local total=0;for i=1,3 do total=total+i end;return total", "lines")
+            .Proto;
+        var stripped = state.Load(StripDebug(prototype).ToBytecode(), "stripped-lines");
+        var lines = new List<int>();
+        state.SetHook(
+            new LuaFunction(
+                async (context, _) =>
+                {
+                    if (asynchronous)
+                        await Task.Yield();
+                    Assert.That(context.GetArgument<string>(0), Is.EqualTo("line"));
+                    lines.Add(context.GetArgument<int>(1));
+                    return context.Return();
+                }
+            ),
+            "l"
+        );
+        state.Stack.PushRange([101, 102]);
+        var result = await state.ExecuteAsync(stripped);
+        Assert.That(result, Is.EqualTo(new LuaValue[] { 6 }));
+        Assert.That(lines.Count, Is.GreaterThan(1));
+        Assert.That(lines, Is.All.EqualTo(0));
+        Assert.That(state.GetStackValues().ToArray(), Is.EqualTo(new LuaValue[] { 101, 102 }));
+        Assert.That(state.CallStackFrameCount, Is.Zero);
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
     public async Task LineLookupHandlesFunctionQueriesAndStrippedActiveFrames(bool stripped)
     {
         using var state = LuaState.Create(

@@ -341,11 +341,11 @@ public class LuaRuntimeException : Exception, ILuaTracebackBuildable
     {
         var current = state.GetCurrentFrame();
         var pc = current.CallerInstructionIndex;
-        LuaFunction callerFunction;
+        Prototype? callerPrototype;
         if (current.IsTailCall)
         {
             pc = state.LastPc;
-            callerFunction = state.LastCallerFunction!;
+            callerPrototype = state.LastCallerPrototype;
         }
         else
         {
@@ -353,16 +353,16 @@ public class LuaRuntimeException : Exception, ILuaTracebackBuildable
             if (frames.Length < 2)
                 return ("function", current.Function.Name);
             var caller = frames[^2];
-            callerFunction = caller.Function;
+            callerPrototype = (caller.Function as LuaClosure)?.Proto;
         }
 
-        if (callerFunction is not LuaClosure callerClosure)
+        if (callerPrototype is null)
         {
             return ("function", current.Function.Name);
         }
 
         return (
-            LuaDebug.GetFuncName(callerClosure.Proto, pc, out var name) ?? "",
+            LuaDebug.GetFuncName(callerPrototype, pc, out var name) ?? "",
             name ?? current.Function.Name
         );
     }

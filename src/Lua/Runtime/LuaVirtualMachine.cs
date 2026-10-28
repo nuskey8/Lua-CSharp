@@ -36,7 +36,7 @@ public static partial class LuaVirtualMachine
             State = state;
             LuaClosure = (LuaClosure)frame.Function;
             FrameBase = frame.Base;
-            InitialFrameBase = frame.Base;
+            InitialArgumentBase = frame.Base - frame.VariableArgumentCount;
             VariableArgumentCount = frame.VariableArgumentCount;
             CurrentReturnFrameBase = frame.ReturnBase;
             CancellationToken = cancellationToken;
@@ -57,7 +57,7 @@ public static partial class LuaVirtualMachine
         public Prototype Prototype => LuaClosure.Proto;
 
         public int FrameBase;
-        public int InitialFrameBase;
+        public int InitialArgumentBase;
         public int VariableArgumentCount;
         public CancellationToken CancellationToken;
         public int Pc;
@@ -310,7 +310,7 @@ public static partial class LuaVirtualMachine
             catch (Exception e)
             {
                 // FrameBase follows nested calls; all discarded frames need closing.
-                State.CloseUpValues(InitialFrameBase);
+                State.CloseUpValues(InitialArgumentBase);
                 if (toCatchFlag)
                 {
                     if (e is not (LuaRuntimeException or LuaCanceledException))
@@ -1107,7 +1107,7 @@ public static partial class LuaVirtualMachine
         }
         catch (Exception e)
         {
-            context.State.CloseUpValues(context.InitialFrameBase);
+            context.State.CloseUpValues(context.InitialArgumentBase);
             if (e is not (LuaRuntimeException or LuaCanceledException))
             {
                 Exception newException =
@@ -1669,12 +1669,12 @@ public static partial class LuaVirtualMachine
             newBase,
             isMetamethod
         );
-        newBase = context.FrameBase + variableArgumentCount;
+        newBase = context.FrameBase - context.VariableArgumentCount + variableArgumentCount;
         stack.PopUntil(newBase + argumentCount);
 
         var lastFrame = state.GetCurrentFrame();
         state.LastPc = context.Pc;
-        state.LastCallerFunction = lastFrame.Function;
+        state.LastCallerPrototype = context.Prototype;
         var newFrame = func.CreateNewTailCallFrame(
             context,
             newBase,
@@ -3179,9 +3179,9 @@ public static partial class LuaVirtualMachine
             state.Stack.SetTop(newBase + argumentCount);
         }
 
-        // In the case of tailcall, the local variables of the caller are immediately discarded, so there is no need to retain them.
-        // Therefore, a call can be made without allocating new registers.
-        var currentBase = state.GetCurrentFrame().Base;
+        // Reuse the caller's entire argument area, including its vararg prefix.
+        ref readonly var currentFrame = ref state.GetCurrentFrame();
+        var currentBase = currentFrame.Base - currentFrame.VariableArgumentCount;
         {
             var stackBuffer = stack.GetBuffer();
             if (argumentCount > 0)

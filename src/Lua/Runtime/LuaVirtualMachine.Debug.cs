@@ -66,14 +66,14 @@ public static partial class LuaVirtualMachine
             if (context.State.IsLineHookEnabled)
             {
                 var sourcePositions = prototype.LineInfo;
-                var line = sourcePositions[pc];
+                var line = sourcePositions.IsEmpty ? 0 : sourcePositions[pc];
 
                 if (
                     countHookIsDone
                     || pc == 0
                     || context.State.LastPc < 0
                     || pc <= context.State.LastPc
-                    || sourcePositions[context.State.LastPc] != line
+                    || (!sourcePositions.IsEmpty && sourcePositions[context.State.LastPc] != line)
                 )
                 {
                     if (countHookIsDone)

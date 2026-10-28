@@ -200,7 +200,7 @@ public class LuaState : IDisposable
 
     internal ILuaTracebackBuildable? CurrentException;
     internal readonly ReversedStack<CallStackFrame> ExceptionTrace = new();
-    internal LuaFunction? LastCallerFunction;
+    internal Prototype? LastCallerPrototype;
 
     internal ref FastListCore<UpValue> OpenUpValues => ref openUpValues;
     public bool IsRunning => CallStackFrameCount != 0;
@@ -306,6 +306,8 @@ public class LuaState : IDisposable
                     varArgumentCount
                 );
             }
+
+            argumentCount -= varArgumentCount;
         }
 
         CallStackFrame frame = new()
@@ -538,7 +540,7 @@ public class LuaState : IDisposable
 
         var state = this;
         var callStackTop = state.CallStackFrameCount;
-        var previousCallerFunction = state.LastCallerFunction;
+        var previousCallerPrototype = state.LastCallerPrototype;
         var previousPc = state.LastPc;
         try
         {
@@ -598,7 +600,7 @@ public class LuaState : IDisposable
         finally
         {
             PopCallStackFrameUntil(callStackTop);
-            LastCallerFunction = previousCallerFunction;
+            LastCallerPrototype = previousCallerPrototype;
             LastPc = previousPc;
         }
     }
