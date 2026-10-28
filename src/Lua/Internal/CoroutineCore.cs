@@ -171,6 +171,7 @@ class CoroutineCore(LuaState state, LuaFunction function, bool isProtectedMode)
                 if (functionTask.IsCompleted || (result0 = await resumeTask).IsDead)
                 {
                     _ = functionTask.Result;
+                    functionTask = default;
                     Volatile.Write(ref status, (byte)LuaThreadStatus.Dead);
                     stack.PopUntil(returnBase);
                     stack.Push(true);
@@ -188,8 +189,9 @@ class CoroutineCore(LuaState state, LuaFunction function, bool isProtectedMode)
                     return results.Length + 1;
                 }
             }
-            catch (Exception ex) when (ex is not OperationCanceledException)
+            catch (Exception ex)
             {
+                functionTask = default;
                 if (ex is ILuaTracebackBuildable tracebackBuildable)
                 {
                     traceback = tracebackBuildable.BuildOrGet();
@@ -197,7 +199,7 @@ class CoroutineCore(LuaState state, LuaFunction function, bool isProtectedMode)
 
                 Volatile.Write(ref status, (byte)LuaThreadStatus.Dead);
                 Thread.Dispose();
-                if (!IsProtectedMode)
+                if (!IsProtectedMode || ex is OperationCanceledException)
                     throw;
 
                 stack.PopUntil(returnBase);

@@ -328,7 +328,7 @@ public class LuaRuntimeException : Exception, ILuaTracebackBuildable
         var proto = closure.Proto;
 
         var upValue = proto.UpValues[reg];
-        var luaValue = closure.UpValues[upValue.Index].GetValue();
+        var luaValue = closure.UpValues[reg].GetValue();
         var name = upValue.Name;
 
         throw new LuaRuntimeException(

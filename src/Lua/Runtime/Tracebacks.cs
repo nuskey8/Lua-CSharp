@@ -98,7 +98,7 @@ public class Traceback(LuaState state, ReadOnlySpan<CallStackFrame> stackFrames)
         {
             var stackFrames = StackFrames;
 
-            for (var index = 1; index <= stackFrames.Length; index++)
+            for (var index = 1; index < stackFrames.Length; index++)
             {
                 var lastFunc = stackFrames[index - 1].Function;
                 var frame = stackFrames[index];

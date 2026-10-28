@@ -579,6 +579,8 @@ public class LuaState : IDisposable
             ReturnFrameBase = returnBase,
         };
         var callStackTop = state.CallStackFrameCount;
+        var previousCallerFunction = state.LastCallerFunction;
+        var previousPc = state.LastPc;
         try
         {
             if (CallOrReturnHookMask.Value != 0 && !IsInHook)
@@ -591,6 +593,8 @@ public class LuaState : IDisposable
         finally
         {
             PopCallStackFrameUntil(callStackTop - 1);
+            LastCallerFunction = previousCallerFunction;
+            LastPc = previousPc;
         }
     }
 

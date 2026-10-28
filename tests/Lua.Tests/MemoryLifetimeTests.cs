@@ -1,6 +1,7 @@
 using System.Runtime.CompilerServices;
 using Lua.Internal;
 using Lua.Runtime;
+using Lua.Standard;
 
 namespace Lua.Tests;
 
@@ -51,6 +52,39 @@ public class MemoryLifetimeTests
         AssertCollected(GrowAndClear(range));
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public void CompletedTailCallDoesNotRootCapturedValue(bool asynchronous)
+    {
+        using var state = LuaState.Create();
+        var reference = RunTailCall(state, asynchronous);
+        AssertCollected(reference);
+        state.DoStringAsync("return 42").AsTask().GetAwaiter().GetResult();
+        GC.KeepAlive(state);
+    }
+
+    [Test]
+    public void ClearedExceptionTraceDoesNotRootDiscardedFrames()
+    {
+        using var state = LuaState.Create();
+        state.OpenStandardLibraries();
+        var reference = HandleError(state);
+        state.DoStringAsync("return 42").AsTask().GetAwaiter().GetResult();
+        AssertCollected(reference);
+        GC.KeepAlive(state);
+    }
+
+    [TestCase("clear")]
+    [TestCase("pop")]
+    [TestCase("pop-range")]
+    [TestCase("try-pop")]
+    public void RemovedReversedStackValuesAreCollectible(string operation)
+    {
+        var stack = new ReversedStack<Payload>();
+        AssertCollected(RemoveReversedStackValue(stack, operation));
+        GC.KeepAlive(stack);
+    }
+
     static void AssertCollected(WeakReference reference)
     {
         GC.Collect();
@@ -95,6 +129,67 @@ public class MemoryLifetimeTests
     }
 
     sealed class Payload;
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    static WeakReference RunTailCall(LuaState state, bool asynchronous)
+    {
+        var payload = new object();
+        state.Environment["payload"] = LuaValue.FromObject(payload);
+        state.Environment["sink"] = new LuaFunction(
+            async (context, _) =>
+            {
+                if (asynchronous)
+                    await Task.Yield();
+                return context.Return(42);
+            }
+        );
+        state
+            .DoStringAsync(
+                "local p=payload; payload=nil; local function f() return sink(p) end; return f()"
+            )
+            .AsTask()
+            .GetAwaiter()
+            .GetResult();
+        return new WeakReference(payload);
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    static WeakReference HandleError(LuaState state)
+    {
+        var payload = new object();
+        state.Environment["payload"] = LuaValue.FromObject(payload);
+        state
+            .DoStringAsync(
+                "local p=payload; payload=nil; local ok=pcall(function() error(p) end); return ok"
+            )
+            .AsTask()
+            .GetAwaiter()
+            .GetResult();
+        return new WeakReference(payload);
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    static WeakReference RemoveReversedStackValue(ReversedStack<Payload> stack, string operation)
+    {
+        var payload = new Payload();
+        stack.Push(payload);
+        switch (operation)
+        {
+            case "clear":
+                stack.Clear();
+                break;
+            case "pop":
+                stack.Pop();
+                break;
+            case "pop-range":
+                stack.Pop(1);
+                break;
+            case "try-pop":
+                stack.TryPop(out _);
+                break;
+        }
+        return new WeakReference(payload);
+    }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
     static WeakReference AddAndDispose(bool pop)

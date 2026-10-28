@@ -1,5 +1,6 @@
 using Lua.Platforms;
 using Lua.Runtime;
+using Lua.Standard;
 
 namespace Lua.Tests;
 
@@ -11,6 +12,22 @@ public class ClosureBindingTests(LuaStringMode stringMode)
         LuaState.Create(
             stringMode == LuaStringMode.Bytes ? LuaPlatform.DefaultByteStrings : LuaPlatform.Default
         );
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task IndexingCapturedEnvironmentReportsLuaError(bool setter)
+    {
+        using var state = CreateState();
+        state.OpenStandardLibraries();
+        var results = await state.DoStringAsync(
+            "local protected=pcall; local a,b,c,d=1,2,3,4; local _ENV=1; local function f() "
+                + (setter ? "missing=42" : "return missing")
+                + " end; return protected(f)"
+        );
+        Assert.That(results[0], Is.EqualTo(new LuaValue(false)));
+        Assert.That(results[1].Read<string>(), Does.Contain("attempt to index a number value"));
+        Assert.That(results[1].Read<string>(), Does.Contain("upvalue '_ENV'"));
+    }
 
     [TestCase(false)]
     [TestCase(true)]
