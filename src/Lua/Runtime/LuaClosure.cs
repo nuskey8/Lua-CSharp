@@ -17,8 +17,9 @@ public sealed class LuaClosure : LuaFunction
     }
 
     /// <summary>
-    /// Creates a loaded chunk with its first upvalue set to the environment
-    /// and any remaining upvalues set to nil.
+    /// Creates a loaded chunk with closed upvalues initialized to nil.
+    /// An explicit environment initializes the first upvalue; otherwise the global
+    /// environment initializes it only when the chunk has a single upvalue.
     /// </summary>
     public LuaClosure(LuaState state, Prototype proto, LuaTable? environment = null)
         : this(proto)
@@ -26,7 +27,10 @@ public sealed class LuaClosure : LuaFunction
         if (proto.UpValues.IsEmpty)
             return;
 
-        upValues[0] = UpValue.Closed(environment ?? state.Environment);
+        var firstUpValue = LuaValue.Nil;
+        if (environment != null || upValues.Length == 1)
+            firstUpValue = environment ?? state.Environment;
+        upValues[0] = UpValue.Closed(firstUpValue);
         for (var i = 1; i < proto.UpValues.Length; i++)
             upValues[i] = UpValue.Closed(LuaValue.Nil);
     }

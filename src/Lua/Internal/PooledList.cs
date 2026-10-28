@@ -30,9 +30,12 @@ struct PooledList<T> : IDisposable
         else if (buffer.Length == tail)
         {
             var newArray = ArrayPool<T>.Shared.Rent(tail * 2);
-            buffer.AsSpan().CopyTo(newArray);
-            ArrayPool<T>.Shared.Return(buffer);
+            buffer.AsSpan(0, tail).CopyTo(newArray);
+            newArray[tail] = item;
+            ArrayPool<T>.Shared.Return(buffer, RuntimeHelpers.IsReferenceOrContainsReferences<T>());
             buffer = newArray;
+            tail++;
+            return;
         }
 
         buffer[tail] = item;
@@ -56,9 +59,12 @@ struct PooledList<T> : IDisposable
             }
 
             var newArray = ArrayPool<T>.Shared.Rent(newSize);
-            buffer.AsSpan().CopyTo(newArray);
-            ArrayPool<T>.Shared.Return(buffer);
+            buffer.AsSpan(0, tail).CopyTo(newArray);
+            items.CopyTo(newArray.AsSpan(tail));
+            ArrayPool<T>.Shared.Return(buffer, RuntimeHelpers.IsReferenceOrContainsReferences<T>());
             buffer = newArray;
+            tail += items.Length;
+            return;
         }
 
         items.CopyTo(buffer.AsSpan()[tail..]);
@@ -107,7 +113,7 @@ struct PooledList<T> : IDisposable
 
         if (buffer != null)
         {
-            ArrayPool<T>.Shared.Return(buffer);
+            ArrayPool<T>.Shared.Return(buffer, RuntimeHelpers.IsReferenceOrContainsReferences<T>());
             buffer = null;
         }
 

@@ -190,30 +190,26 @@ class CoroutineCore(LuaState state, LuaFunction function, bool isProtectedMode)
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
-                if (IsProtectedMode)
+                if (ex is ILuaTracebackBuildable tracebackBuildable)
                 {
-                    if (ex is ILuaTracebackBuildable tracebackBuildable)
-                    {
-                        traceback = tracebackBuildable.BuildOrGet();
-                    }
+                    traceback = tracebackBuildable.BuildOrGet();
+                }
 
-                    Volatile.Write(ref status, (byte)LuaThreadStatus.Dead);
-                    Thread.Dispose();
-                    stack.PopUntil(returnBase);
-                    stack.Push(false);
-                    // Wrapped C# exceptions carry a message rather than a Lua error object.
-                    // Keep error(nil) intact when the exception originated in Lua.
-                    stack.Push(
-                        ex is LuaRuntimeException { InnerException: null } luaEx
-                            ? luaEx.ErrorObject
-                            : ex.Message
-                    );
-                    return 2;
-                }
-                else
-                {
+                Volatile.Write(ref status, (byte)LuaThreadStatus.Dead);
+                Thread.Dispose();
+                if (!IsProtectedMode)
                     throw;
-                }
+
+                stack.PopUntil(returnBase);
+                stack.Push(false);
+                // Wrapped C# exceptions carry a message rather than a Lua error object.
+                // Keep error(nil) intact when the exception originated in Lua.
+                stack.Push(
+                    ex is LuaRuntimeException { InnerException: null } luaEx
+                        ? luaEx.ErrorObject
+                        : ex.Message
+                );
+                return 2;
             }
             finally
             {

@@ -64,9 +64,14 @@ public class ClosureBindingTests(LuaStringMode stringMode)
         Assert.That(results[1].Read<LuaTable>(), Is.SameAs(environment));
     }
 
-    [TestCase(false)]
-    [TestCase(true)]
-    public async Task ReloadedFunctionInitializesAllUpvaluesWithoutCapturingCaller(bool duringCall)
+    [TestCase(false, false)]
+    [TestCase(true, false)]
+    [TestCase(false, true)]
+    [TestCase(true, true)]
+    public async Task ReloadedFunctionInitializesAllUpvaluesWithoutCapturingCaller(
+        bool duringCall,
+        bool explicitEnvironment
+    )
     {
         using var state = CreateState();
         var original = (
@@ -76,10 +81,11 @@ public class ClosureBindingTests(LuaStringMode stringMode)
         )[0]
             .Read<LuaClosure>();
         var bytes = original.Proto.ToBytecode();
+        var environment = explicitEnvironment ? new LuaTable() : null;
         var initializedClosed = false;
         LuaClosure Load()
         {
-            var result = state.Load(bytes);
+            var result = state.Load(bytes, environment: environment);
             initializedClosed = result.UpValues.ToArray().All(value => value.IsClosed);
             return result;
         }
@@ -100,9 +106,25 @@ public class ClosureBindingTests(LuaStringMode stringMode)
         Assert.That(loaded.UpValues.Length, Is.EqualTo(2));
         Assert.That(initializedClosed, Is.True);
         var results = await state.ExecuteAsync(loaded);
-        Assert.That(results[0].Read<LuaTable>(), Is.SameAs(state.Environment));
+        Assert.That(
+            results[0],
+            Is.EqualTo(environment is null ? LuaValue.Nil : new LuaValue(environment))
+        );
         Assert.That(results[1], Is.EqualTo(LuaValue.Nil));
         Assert.That((await state.DoStringAsync("return 42"))[0], Is.EqualTo(new LuaValue(42)));
+    }
+
+    [Test]
+    public async Task ReloadedFunctionWithOneUpvalueDefaultsToGlobalEnvironment()
+    {
+        using var state = CreateState();
+        var original = (
+            await state.DoStringAsync("local value=42; return function() return value end")
+        )[0]
+            .Read<LuaClosure>();
+        var loaded = state.Load(original.Proto.ToBytecode());
+        var results = await state.ExecuteAsync(loaded);
+        Assert.That(results[0].Read<LuaTable>(), Is.SameAs(state.Environment));
     }
 
     [Test]

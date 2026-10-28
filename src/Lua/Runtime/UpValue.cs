@@ -6,7 +6,7 @@ public sealed class UpValue
 {
     LuaValue value;
 
-    public LuaState? Thread { get; }
+    public LuaState? Thread { get; private set; }
     public bool IsClosed { get; private set; }
     public int RegisterIndex { get; private set; }
 
@@ -70,6 +70,7 @@ public sealed class UpValue
         if (!IsClosed)
         {
             value = Thread!.Stack.Get(RegisterIndex);
+            Thread = null;
         }
 
         IsClosed = true;

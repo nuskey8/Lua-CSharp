@@ -59,8 +59,11 @@ public sealed class LoadEnvironmentTests : IDisposable
         Assert.That(result[0], Is.EqualTo(LuaValue.Nil));
     }
 
-    [Test]
-    public async Task LoadFileSetsFirstUpvalueRegardlessOfItsName()
+    [TestCase("")]
+    [TestCase(",nil")]
+    [TestCase(",false")]
+    [TestCase(",{value=42}")]
+    public async Task LoadFileInitializesMultipleUpvalues(string environmentArgument)
     {
         using var state = LuaState.Create();
         state.Platform = state.Platform with { FileSystem = new FileSystem(testDirectory) };
@@ -76,9 +79,15 @@ public sealed class LoadEnvironmentTests : IDisposable
             original.Proto.ToBytecode()
         );
         var results = await state.DoStringAsync(
-            "local f=assert(loadfile('captured.luac','b',{value=42})); return f()"
+            "local f=assert(loadfile('captured.luac','b'" + environmentArgument + ")); return f()"
         );
-        Assert.That(results[0].Read<LuaTable>()["value"], Is.EqualTo(new LuaValue(42)));
+        if (environmentArgument == ",{value=42}")
+            Assert.That(results[0].Read<LuaTable>()["value"], Is.EqualTo(new LuaValue(42)));
+        else
+            Assert.That(
+                results[0],
+                Is.EqualTo(environmentArgument == ",false" ? new LuaValue(false) : LuaValue.Nil)
+            );
         Assert.That(results[1], Is.EqualTo(LuaValue.Nil));
     }
 }
