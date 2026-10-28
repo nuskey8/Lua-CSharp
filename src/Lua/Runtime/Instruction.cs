@@ -998,7 +998,7 @@ func createAx(op opCode, a int) instruction { return instruction(op)<<posOp | in
         {
             OpCode = OpCode.Closure,
             A = a,
-            SBx = sBx,
+            Bx = sBx,
         };
     }
 
