@@ -372,6 +372,7 @@ public class LuaState : IDisposable
         if (CurrentException != null)
         {
             ExceptionTrace.Push(popFrame);
+            CompleteExceptionTrace(callStack.Count);
         }
 
         coreData.Stack.PopUntil(popFrame.ReturnBase);
@@ -386,6 +387,7 @@ public class LuaState : IDisposable
         if (CurrentException != null)
         {
             ExceptionTrace.Push(popFrame);
+            CompleteExceptionTrace(callStack.Count);
         }
 
         {
@@ -402,6 +404,7 @@ public class LuaState : IDisposable
         if (CurrentException != null)
         {
             ExceptionTrace.Push(popFrame);
+            CompleteExceptionTrace(callStack.Count);
         }
     }
 
@@ -413,9 +416,22 @@ public class LuaState : IDisposable
         if (CurrentException != null)
         {
             ExceptionTrace.Push(callStack.AsSpan()[top..]);
+            CompleteExceptionTrace(top);
         }
 
         callStack.PopUntil(top);
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    void CompleteExceptionTrace(int remainingFrameCount)
+    {
+        // Nested calls must keep collecting frames until the outermost call unwinds.
+        if (remainingFrameCount != 0)
+            return;
+
+        CurrentException!.BuildOrGet();
+        CurrentException = null;
+        ExceptionTrace.Clear();
     }
 
     public LuaTable GetCurrentEnvironment()
