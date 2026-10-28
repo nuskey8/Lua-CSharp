@@ -43,6 +43,9 @@ The extension package for Unity is located in the `Assets/Lua.Unity` directory w
 
 The Unity package does not include the source code of the core package. During development, a local package containing the debug DLL is added as `com.nuskey8.lua.unity.internal`.
 
+For `[LuaObject]` bindings, the local package also needs `Lua.Annotations.dll` and
+`Lua.SourceGenerator.dll`, built separately from their projects.
+
 ## Publishing Packages
 
 Publishing to NuGet is handled by a workflow via GitHub Actions. This will run whenever you push a `v.*.*.*` tag.

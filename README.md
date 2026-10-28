@@ -46,6 +46,16 @@ dotnet add package LuaCSharp
 Install-Package LuaCSharp
 ```
 
+The runtime package does not depend on the official source generator or its annotations.
+To use `[LuaObject]`, also install both packages at the same version as `LuaCSharp`:
+
+```ps1
+dotnet add package LuaCSharp.Annotations
+dotnet add package LuaCSharp.SourceGenerator
+```
+
+Existing projects using `[LuaObject]` must add these explicit references when upgrading.
+
 ### Unity
 
 You can also use Lua-CSharp with Unity. For details, see the [Lua.Unity](#luaunity) section.
@@ -367,6 +377,9 @@ for (int i = 0; i < 10; i++)
 
 ## LuaObject
 
+Requires the optional `LuaCSharp.Annotations` and `LuaCSharp.SourceGenerator` packages
+described in [Installation](#installation).
+
 By applying the `[LuaObject]` attribute, you can create custom classes that run within Lua. Adding this attribute to a class that you wish to use in Lua allows the Source Generator to automatically generate the code required for interaction from Lua.
 
 The following is an example implementation of a wrapper class for `System.Numerics.Vector3` that can be used in Lua:
@@ -618,6 +631,9 @@ Lua-CSharp can also be used in Unity (works with both Mono and IL2CPP).
 1. Install [NugetForUnity](https://github.com/GlitchEnzo/NuGetForUnity).
 
 2. Open the NuGet window by going to `NuGet > Manage NuGet Packages`, search for the `LuaCSharp` package, and install it.
+
+   For `[LuaObject]` bindings, also install `LuaCSharp.Annotations` and
+   `LuaCSharp.SourceGenerator` at the same version. Custom bindings only require the runtime.
 
 3. Open the Package Manager window by selecting `Window > Package Manager`, then click on `[+] > Add package from git URL` and enter the following URL:
 

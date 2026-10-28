@@ -30,9 +30,4 @@
     <None Include="..\..\README.md" Pack="true" PackagePath="README.md" />
     <EmbeddedResource Include="..\..\LICENSE" />
   </ItemGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="..\Lua.SourceGenerator\Lua.SourceGenerator.csproj" />
-    <ProjectReference Include="..\Lua.Annotations\Lua.Annotations.csproj" />
-  </ItemGroup>
 </Project>

@@ -46,6 +46,15 @@ dotnet add package LuaCSharp
 Install-Package LuaCSharp
 ```
 
+ランタイムパッケージは公式Source Generatorと属性パッケージに依存しません。
+`[LuaObject]`を使用する場合は、`LuaCSharp`と同じバージョンの次のパッケージも明示的に追加してください。
+既存の`[LuaObject]`利用プロジェクトも、アップグレード時に追加が必要です。
+
+```ps1
+dotnet add package LuaCSharp.Annotations
+dotnet add package LuaCSharp.SourceGenerator
+```
+
 ### Unity
 
 Lua-CSharpをUnityで利用することも可能です。詳細は[Lua.Unity](#luaunity)の項目を参照してください。
@@ -365,6 +374,9 @@ for (int i = 0; i < 10; i++)
 
 ## LuaObject
 
+利用には[インストール](#インストール)で説明した`LuaCSharp.Annotations`と
+`LuaCSharp.SourceGenerator`の追加が必要です。
+
 `[LuaObject]`属性を用いることで、Lua上で動作する独自のクラスを作成することが可能になります。Luaで使いたいクラスにこの属性を付加することで、Source GeneratorがLua側から利用されるコードを自動生成します。
 
 以下のサンプルコードはLuaで動作する`System.Numerics.Vector3`のラッパークラスの実装例です。
@@ -585,6 +597,9 @@ Lua-CSharpはUnityで利用することも可能です。(Mono/IL2CPPの両方�
 1. [NugetForUnity](https://github.com/GlitchEnzo/NuGetForUnity)をインストールします。
 
 2. `NuGet > Manage NuGet Packages`からNuGetウィンドウを開き、`LuaCSharp`パッケージを検索してインストールします。
+
+   `[LuaObject]`を使用する場合は、同じバージョンの`LuaCSharp.Annotations`と
+   `LuaCSharp.SourceGenerator`もインストールしてください。
 
 3. `Window > Package Manager`からPackage Managerウィンドウを開き、`[+] > Add package from git URL`から以下のURLを入力します。
     ```
