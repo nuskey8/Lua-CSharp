@@ -257,6 +257,9 @@ public static partial class LuaVirtualMachine
                     }
 
                     break;
+                case PostOperationType.Return:
+                    PostOperation = PostOperationType.None;
+                    return Pop(Instruction, FrameBase);
                 case PostOperationType.Self:
                     SelfPostOperation(this, lastTop, resultsSpan);
                     break;
@@ -286,7 +289,11 @@ public static partial class LuaVirtualMachine
                     var frameFlags = frame.Flags;
                     if (
                         PostOperation
-                        is not (PostOperationType.TailCall or PostOperationType.DontPop)
+                        is not (
+                            PostOperationType.TailCall
+                            or PostOperationType.Return
+                            or PostOperationType.DontPop
+                        )
                     )
                     {
                         State.PopCallStackFrame();
@@ -310,7 +317,10 @@ public static partial class LuaVirtualMachine
                 State.CloseUpValues(InitialArgumentBase);
                 if (toCatchFlag)
                 {
-                    if (e is not (LuaRuntimeException or LuaCanceledException))
+                    if (
+                        e is not (LuaRuntimeException or LuaCanceledException)
+                        && PostOperation != PostOperationType.Return
+                    )
                     {
                         Exception newException =
                             e is OperationCanceledException
@@ -362,6 +372,7 @@ public static partial class LuaVirtualMachine
         TForCall,
         Call,
         TailCall,
+        Return,
         Self,
         Compare,
         DontPop,
@@ -960,6 +971,12 @@ public static partial class LuaVirtualMachine
                     case OpCode.Return:
                         Markers.Return();
                         context.State.CloseUpValues(frameBase);
+                        if (
+                            context.State.IsReturnHookEnabled
+                            && !context.State.IsInHook
+                            && ExecuteReturnHook(context)
+                        )
+                            return true;
                         if (context.Pop(instruction, frameBase))
                         {
                             goto Restart;
@@ -1105,7 +1122,10 @@ public static partial class LuaVirtualMachine
         catch (Exception e)
         {
             context.State.CloseUpValues(context.InitialArgumentBase);
-            if (e is not (LuaRuntimeException or LuaCanceledException))
+            if (
+                e is not (LuaRuntimeException or LuaCanceledException)
+                && context.PostOperation != PostOperationType.Return
+            )
             {
                 Exception newException =
                     e is OperationCanceledException

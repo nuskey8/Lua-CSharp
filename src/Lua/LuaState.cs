@@ -735,10 +735,12 @@ public class LuaState : IDisposable
 
     internal UpValue GetOrAddUpValue(int registerIndex)
     {
-        foreach (var upValue in openUpValues.AsSpan())
+        foreach (ref var upValue in openUpValues.AsSpan())
         {
             if (upValue.RegisterIndex == registerIndex)
             {
+                if (upValue.IsClosed)
+                    upValue = UpValue.Open(this, registerIndex);
                 return upValue;
             }
         }

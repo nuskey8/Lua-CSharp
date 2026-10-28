@@ -28,7 +28,7 @@ static class IOHelper
                 cancellationToken
             );
 
-            state.Stack.Push(new(new FileHandle(stream)));
+            state.Stack.Push(new(new FileHandle(stream, state.GlobalState.FileHandleMetatable)));
             return 1;
         }
         catch (IOException ex)

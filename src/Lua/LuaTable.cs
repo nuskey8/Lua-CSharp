@@ -61,6 +61,11 @@ public sealed class LuaTable : IEnumerable<KeyValuePair<LuaValue, LuaValue>>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         set
         {
+            if (key.Type is LuaValueType.Nil)
+            {
+                ThrowIndexIsNil();
+            }
+
             if (key.TryReadNumber(out var d))
             {
                 if (double.IsNaN(d))

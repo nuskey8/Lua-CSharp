@@ -202,40 +202,70 @@ public static partial class LuaVirtualMachine
                     cancellationToken
                 );
             var r = await task;
-            if (isTailCall || !context.State.IsReturnHookEnabled)
+            if (
+                isTailCall
+                || context.State.GetCurrentFrame().Function is LuaClosure
+                || !context.State.IsReturnHookEnabled
+            )
             {
                 return r;
             }
 
             context.State.ThrowIfCancellationRequested(cancellationToken);
-            var top = stack.Count;
-            stack.Push("return");
-            stack.Push(LuaValue.Nil);
-            context.State.IsInHook = true;
-            var framePushed = false;
-            try
-            {
-                var frame = context.State.CreateCallStackFrame(hook, 2, top, 0);
-                context.State.PushCallStackFrame(frame);
-                framePushed = true;
-                LuaFunctionExecutionContext funcContext = new()
-                {
-                    State = context.State,
-                    ArgumentCount = stack.Count - frame.Base,
-                    ReturnFrameBase = frame.ReturnBase,
-                };
-                await hook.Func(funcContext, cancellationToken);
-            }
-            finally
-            {
-                context.State.IsInHook = false;
-                if (framePushed)
-                {
-                    context.State.PopCallStackFrameWithStackPop();
-                }
-            }
-
+            await ExecuteReturnHook(context.State, 0, cancellationToken);
             return r;
         }
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    static bool ExecuteReturnHook(VirtualMachineExecutionContext context)
+    {
+        // Return hooks inspect the callee before its registers are reclaimed.
+        context.PostOperation = PostOperationType.Return;
+        var task = ExecuteReturnHook(context.State, context.Pc, context.CancellationToken);
+        if (!task.IsCompleted)
+        {
+            context.Task = task;
+            return true;
+        }
+        task.GetAwaiter().GetResult();
+        context.PostOperation = PostOperationType.None;
+        return false;
+    }
+
+    [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder<>))]
+    static async ValueTask<int> ExecuteReturnHook(
+        LuaState state,
+        int pc,
+        CancellationToken cancellationToken
+    )
+    {
+        var hook = state.Hook!;
+        var stack = state.Stack;
+        var top = stack.Count;
+        stack.Push("return");
+        stack.Push(LuaValue.Nil);
+        state.IsInHook = true;
+        var framePushed = false;
+        try
+        {
+            var frame = state.CreateCallStackFrame(hook, 2, top, pc);
+            state.PushCallStackFrame(frame);
+            framePushed = true;
+            LuaFunctionExecutionContext context = new()
+            {
+                State = state,
+                ArgumentCount = stack.Count - frame.Base,
+                ReturnFrameBase = frame.ReturnBase,
+            };
+            await hook.Func(context, cancellationToken);
+        }
+        finally
+        {
+            state.IsInHook = false;
+            if (framePushed)
+                state.PopCallStackFrameWithStackPop();
+        }
+        return 0;
     }
 }

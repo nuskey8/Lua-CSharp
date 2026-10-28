@@ -43,27 +43,26 @@ public sealed class FileHandle : ILuaUserData
 
     public bool IsOpen => stream?.IsOpen ?? false;
 
-    LuaTable? ILuaUserData.Metatable
-    {
-        get => fileHandleMetatable;
-        set => fileHandleMetatable = value;
-    }
+    LuaTable? ILuaUserData.Metatable { get; set; }
 
-    static LuaTable? fileHandleMetatable;
-
-    static FileHandle()
+    internal static LuaTable CreateMetatable()
     {
-        fileHandleMetatable = new(0, 1);
-        fileHandleMetatable[Metamethods.Index] = IndexMetamethod;
-        fileHandleMetatable["__tostring"] = ToStringFunction;
+        LuaTable metatable = new(0, 2);
+        metatable[Metamethods.Index] = IndexMetamethod;
+        metatable["__tostring"] = ToStringFunction;
+        return metatable;
     }
 
     public FileHandle(Stream stream, LuaFileOpenMode mode)
         : this(ILuaStream.CreateFromStream(stream, mode)) { }
 
     public FileHandle(ILuaStream stream)
+        : this(stream, CreateMetatable()) { }
+
+    internal FileHandle(ILuaStream stream, LuaTable metatable)
     {
         this.stream = stream;
+        ((ILuaUserData)this).Metatable = metatable;
     }
 
     public ValueTask<double?> ReadNumberAsync(CancellationToken cancellationToken)

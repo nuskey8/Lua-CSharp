@@ -39,6 +39,9 @@ sealed class LuaGlobalState
     LuaTable? booleanMetatable;
     LuaTable? functionMetatable;
     LuaTable? stateMetatable;
+    LuaTable? fileHandleMetatable;
+
+    internal LuaTable FileHandleMetatable => fileHandleMetatable ??= FileHandle.CreateMetatable();
 
     public static LuaGlobalState Create(LuaPlatform? platform = null)
     {
