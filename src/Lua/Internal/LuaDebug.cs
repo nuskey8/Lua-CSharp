@@ -233,7 +233,13 @@ readonly struct LuaDebug : IDisposable
                     case 'l':
                     {
                         CurrentLine =
-                            pc >= 0 && closure is not null ? closure.Proto.LineInfo[pc] : -1;
+                            frame.HasValue && closure is not null
+                                ? (
+                                    (uint)pc < (uint)closure.Proto.LineInfo.Length
+                                        ? closure.Proto.LineInfo[pc]
+                                        : 0
+                                )
+                                : -1;
                         break;
                     }
                     case 'u':

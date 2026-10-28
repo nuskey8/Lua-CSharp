@@ -549,7 +549,11 @@ public static partial class LuaVirtualMachine
                                 && valueRef.Type != LuaValueType.Nil
                             )
                             {
-                                valueRef = RKC(ref stackHead, ref constHead, instruction);
+                                luaTable.SetExistingValue(
+                                    vb,
+                                    ref valueRef,
+                                    RKC(ref stackHead, ref constHead, instruction)
+                                );
                                 continue;
                             }
                         }
@@ -2200,20 +2204,14 @@ public static partial class LuaVirtualMachine
                 skip = false;
                 if (!Unsafe.IsNullRef(ref valueRef) && valueRef.Type != LuaValueType.Nil)
                 {
-                    valueRef = value;
+                    luaTable.SetExistingValue(key, ref valueRef, value);
                     return true;
                 }
 
                 var metatable = luaTable.Metatable;
                 if (metatable == null || !metatable.TryGetValue(Metamethods.NewIndex, out table))
                 {
-                    if (Unsafe.IsNullRef(ref valueRef))
-                    {
-                        luaTable[key] = value;
-                        return true;
-                    }
-
-                    valueRef = value;
+                    luaTable[key] = value;
                     return true;
                 }
 
@@ -2357,20 +2355,14 @@ public static partial class LuaVirtualMachine
                 skip = false;
                 if (!Unsafe.IsNullRef(ref valueRef) && valueRef.Type != LuaValueType.Nil)
                 {
-                    valueRef = value;
+                    luaTable.SetExistingValue(key, ref valueRef, value);
                     return default;
                 }
 
                 var metatable = luaTable.Metatable;
                 if (metatable == null || !metatable.TryGetValue(Metamethods.NewIndex, out table))
                 {
-                    if (Unsafe.IsNullRef(ref valueRef))
-                    {
-                        luaTable[key] = value;
-                        return default;
-                    }
-
-                    valueRef = value;
+                    luaTable[key] = value;
                     return default;
                 }
 

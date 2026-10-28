@@ -193,6 +193,15 @@ public sealed class LuaTable : IEnumerable<KeyValuePair<LuaValue, LuaValue>>
         return dictionary.TryGetValue(key, out var value) && value.Type is not LuaValueType.Nil;
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal void SetExistingValue(LuaValue key, ref LuaValue existing, LuaValue value)
+    {
+        if (value.Type == LuaValueType.Nil)
+            this[key] = value;
+        else
+            existing = value;
+    }
+
     public LuaValue RemoveAt(int index)
     {
         var arrayIndex = index - 1;

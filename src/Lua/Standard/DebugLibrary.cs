@@ -91,7 +91,7 @@ public sealed class DebugLibrary
                         or OpCode.TailCall
                     ? nextFrame.Base - 1
                     : nextFrame.Base;
-                if (nextFrameBase - 1 < frameBase + index)
+                if (index >= nextFrameBase - frameBase)
                 {
                     name = null;
                     return ref Unsafe.NullRef<LuaValue>();
@@ -123,7 +123,7 @@ public sealed class DebugLibrary
         {
             var nextFrameBase = level != 0 ? callStack[^level].Base : state.Stack.Count;
 
-            if (nextFrameBase - 1 < frameBase + index)
+            if (index >= nextFrameBase - frameBase)
             {
                 name = null;
                 return ref Unsafe.NullRef<LuaValue>();

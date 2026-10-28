@@ -218,12 +218,17 @@ public sealed class LuaStream(LuaFileOpenMode mode, Stream innerStream, LuaStrin
             {
                 innerStream.Flush();
             }
-
-            innerStream.Dispose();
         }
         finally
         {
-            reader?.Dispose();
+            try
+            {
+                innerStream.Dispose();
+            }
+            finally
+            {
+                reader?.Dispose();
+            }
         }
     }
 }

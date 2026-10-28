@@ -11,6 +11,49 @@ public class StreamLifetimeTests(LuaStringMode stringMode)
     LuaStream CreateStream(string text) =>
         new(LuaFileOpenMode.Read, new MemoryStream(Encoding.UTF8.GetBytes(text)), stringMode);
 
+    [TestCase(false, false)]
+    [TestCase(true, false)]
+    [TestCase(false, true)]
+    [TestCase(true, true)]
+    public async Task DisposalClosesUnderlyingStreamWhenCleanupThrows(
+        bool flushFailure,
+        bool disposeFailure
+    )
+    {
+        var inner = new CleanupStream(flushFailure, disposeFailure);
+        var stream = new LuaStream(LuaFileOpenMode.ReadUpdate, inner, stringMode);
+        Assert.That(await stream.ReadLineAsync(false, default), Is.EqualTo("line"));
+        if (flushFailure || disposeFailure)
+            Assert.Throws<IOException>(stream.Dispose);
+        else
+            stream.Dispose();
+        Assert.That(inner.DisposeCount, Is.EqualTo(1));
+        Assert.That(inner.CanRead, Is.False);
+        Assert.That(stream.IsOpen, Is.False);
+        stream.Dispose();
+        Assert.That(inner.DisposeCount, Is.EqualTo(1));
+    }
+
+    sealed class CleanupStream(bool flushFailure, bool disposeFailure)
+        : MemoryStream("line\n"u8.ToArray())
+    {
+        public int DisposeCount { get; private set; }
+
+        public override void Flush()
+        {
+            if (flushFailure)
+                throw new IOException("flush failed");
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            DisposeCount++;
+            base.Dispose(disposing);
+            if (disposeFailure)
+                throw new IOException("dispose failed");
+        }
+    }
+
     [TestCase(3)]
     [TestCase(2048)]
     public async Task RawByteThenBulkReadConsumeBufferedBytes(int length)

@@ -23,6 +23,8 @@ class CoroutineCore(LuaState state, LuaFunction function, bool isProtectedMode)
     internal byte status = (byte)LuaThreadStatus.Suspended;
     bool isFirstCall = true;
     ValueTask<int> functionTask;
+    CancellationToken resumeCancellationToken;
+    int yieldCompleted;
 
     const int ResumeIdle = 0;
     const int ResumeWaiting = 1;
@@ -146,19 +148,7 @@ class CoroutineCore(LuaState state, LuaFunction function, bool isProtectedMode)
             }
 
             ValueTask<ResumeContext> resumeTask = new(this, resume.Version);
-
-            CancellationTokenRegistration registration = default;
-            if (cancellationToken.CanBeCanceled)
-            {
-                registration = cancellationToken.UnsafeRegister(
-                    static x =>
-                    {
-                        var coroutine = (CoroutineCore)x!;
-                        coroutine.yield.SetException(new OperationCanceledException());
-                    },
-                    this
-                );
-            }
+            resumeCancellationToken = cancellationToken;
 
             try
             {
@@ -176,7 +166,8 @@ class CoroutineCore(LuaState state, LuaFunction function, bool isProtectedMode)
                 }
                 else
                 {
-                    yield.SetResult(new(stack, argCount));
+                    if (Interlocked.CompareExchange(ref yieldCompleted, 1, 0) == 0)
+                        yield.SetResult(new(stack, argCount));
                 }
 
                 ResumeContext result0;
@@ -184,6 +175,7 @@ class CoroutineCore(LuaState state, LuaFunction function, bool isProtectedMode)
                 {
                     _ = functionTask.Result;
                     functionTask = default;
+                    resumeCancellationToken = default;
                     stack.PopUntil(returnBase);
                     stack.Push(true);
                     stack.PushRange(Thread.Stack.AsSpan());
@@ -204,6 +196,7 @@ class CoroutineCore(LuaState state, LuaFunction function, bool isProtectedMode)
             catch (Exception ex)
             {
                 functionTask = default;
+                resumeCancellationToken = default;
                 if (ex is ILuaTracebackBuildable tracebackBuildable)
                 {
                     traceback = tracebackBuildable.BuildOrGet();
@@ -227,7 +220,6 @@ class CoroutineCore(LuaState state, LuaFunction function, bool isProtectedMode)
             }
             finally
             {
-                registration.Dispose();
                 resume.Reset();
                 var phase = Interlocked.CompareExchange(ref resumePhase, ResumeIdle, ResumeYielded);
                 if (phase == ResumeCompleted)
@@ -248,11 +240,18 @@ class CoroutineCore(LuaState state, LuaFunction function, bool isProtectedMode)
 
     void OnFunctionCompleted()
     {
+        resumeCancellationToken = default;
         var phase = Interlocked.Exchange(ref resumePhase, ResumeCompleted);
         if (phase == ResumeWaiting)
             resume.SetResult(default);
         else if (phase == ResumeIdle)
             CompleteSuspendedFunction();
+    }
+
+    void CancelYield()
+    {
+        if (Interlocked.CompareExchange(ref yieldCompleted, 1, 0) == 0)
+            yield.SetException(new OperationCanceledException());
     }
 
     void CompleteSuspendedFunction()
@@ -302,40 +301,46 @@ class CoroutineCore(LuaState state, LuaFunction function, bool isProtectedMode)
             }
         }
 
-        // Yielded values remain owned by the resumer until its copy completes.
-        Volatile.Write(ref resumePhase, ResumeYielded);
-        resume.SetResult(new(stack, argCount));
-
-        CancellationTokenRegistration registration = default;
-        if (cancellationToken.CanBeCanceled)
+        CancellationTokenSource? linkedSource = null;
+        var resumeToken = resumeCancellationToken;
+        if (resumeToken.CanBeCanceled && resumeToken != cancellationToken)
         {
-            registration = cancellationToken.UnsafeRegister(
-                static x =>
-                {
-                    var coroutine = (CoroutineCore)x!;
-                    coroutine.yield.SetException(new OperationCanceledException());
-                },
-                this
-            );
+            if (cancellationToken.CanBeCanceled)
+            {
+                linkedSource = CancellationTokenSource.CreateLinkedTokenSource(
+                    cancellationToken,
+                    resumeToken
+                );
+                cancellationToken = linkedSource.Token;
+            }
+            else
+                cancellationToken = resumeToken;
         }
 
-        RETRY:
+        CancellationTokenRegistration registration = default;
         try
         {
+            cancellationToken.ThrowIfCancellationRequested();
+            // Yielded values remain owned by the resumer until its copy completes.
+            Volatile.Write(ref resumePhase, ResumeYielded);
+            resume.SetResult(new(stack, argCount));
+            if (cancellationToken.CanBeCanceled)
+                registration = cancellationToken.UnsafeRegister(
+                    static x => ((CoroutineCore)x!).CancelYield(),
+                    this
+                );
             var result = await new ValueTask<YieldContext>(this, yield.Version);
+            resumeCancellationToken.ThrowIfCancellationRequested();
             stack.PopUntil(returnBase);
             stack.PushRange(result.Results);
             return result.Results.Length;
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            yield.Reset();
-            goto RETRY;
-        }
         finally
         {
             registration.Dispose();
+            linkedSource?.Dispose();
             yield.Reset();
+            Volatile.Write(ref yieldCompleted, 0);
         }
     }
 }

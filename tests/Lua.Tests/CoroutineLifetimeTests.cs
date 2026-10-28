@@ -10,6 +10,105 @@ public class CoroutineLifetimeTests
     [TestCase(true, false)]
     [TestCase(false, true)]
     [TestCase(true, true)]
+    public void CancellationBeforeYieldPropagatesAndReleasesExecution(
+        bool protectedMode,
+        bool asynchronous
+    )
+    {
+        using var state = LuaState.Create();
+        using var source = new CancellationTokenSource();
+        using var thread = state.CreateCoroutine(
+            new LuaFunction(
+                async (context, token) =>
+                {
+                    if (asynchronous)
+                        await Task.Yield();
+                    source.Cancel();
+                    return await context.State.YieldAsync(context, token);
+                }
+            ),
+            protectedMode
+        );
+        Assert.CatchAsync<OperationCanceledException>(async () =>
+            await thread.ResumeAsync(new LuaStack(), source.Token)
+        );
+        Assert.That(thread.GetStatus(), Is.EqualTo(LuaThreadStatus.Dead));
+        Assert.That(thread.CallStackFrameCount, Is.Zero);
+        Assert.That(thread.GetStackValues().Length, Is.Zero);
+    }
+
+    [TestCase(false, false)]
+    [TestCase(true, false)]
+    [TestCase(false, true)]
+    [TestCase(true, true)]
+    public async Task LaterResumeTokenCancelsTheNextYield(bool protectedMode, bool alreadyCancelled)
+    {
+        using var state = LuaState.Create();
+        using var source = new CancellationTokenSource();
+        using var thread = state.CreateCoroutine(
+            new LuaFunction(
+                async (context, token) =>
+                {
+                    context.State.Stack.Push(1);
+                    await context.State.YieldAsync(context with { ArgumentCount = 1 }, token);
+                    context.State.Stack.Push(2);
+                    return await context.State.YieldAsync(
+                        context with
+                        {
+                            ArgumentCount = 1,
+                        },
+                        token
+                    );
+                }
+            ),
+            protectedMode
+        );
+        var stack = new LuaStack();
+        await thread.ResumeAsync(stack);
+        Assert.That(stack.AsSpan().ToArray(), Is.EqualTo(new LuaValue[] { true, 1 }));
+        stack.Clear();
+        if (alreadyCancelled)
+        {
+            source.Cancel();
+            Assert.CatchAsync<OperationCanceledException>(async () =>
+                await thread.ResumeAsync(stack, source.Token)
+            );
+        }
+        else
+        {
+            await thread.ResumeAsync(stack, source.Token);
+            Assert.That(stack.AsSpan().ToArray(), Is.EqualTo(new LuaValue[] { true, 2 }));
+            source.Cancel();
+        }
+        Assert.That(() => thread.GetStatus(), Is.EqualTo(LuaThreadStatus.Dead).After(1000, 10));
+        Assert.That(thread.CallStackFrameCount, Is.Zero);
+        Assert.That(thread.GetStackValues().Length, Is.Zero);
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task EitherDistinctCancellationTokenCanCancelSuspendedYield(bool cancelResume)
+    {
+        using var state = LuaState.Create();
+        using var resumeSource = new CancellationTokenSource();
+        using var yieldSource = new CancellationTokenSource();
+        using var thread = state.CreateCoroutine(
+            new LuaFunction((context, _) => context.State.YieldAsync(context, yieldSource.Token))
+        );
+        var stack = new LuaStack();
+        stack.Push(42);
+        await thread.ResumeAsync(stack, resumeSource.Token);
+        Assert.That(stack.AsSpan().ToArray(), Is.EqualTo(new LuaValue[] { true, 42 }));
+        (cancelResume ? resumeSource : yieldSource).Cancel();
+        Assert.That(() => thread.GetStatus(), Is.EqualTo(LuaThreadStatus.Dead).After(1000, 10));
+        Assert.That(thread.CallStackFrameCount, Is.Zero);
+        Assert.That(thread.GetStackValues().Length, Is.Zero);
+    }
+
+    [TestCase(false, false)]
+    [TestCase(true, false)]
+    [TestCase(false, true)]
+    [TestCase(true, true)]
     public void CancellingSuspendedCoroutineReleasesExecution(bool protectedMode, bool asynchronous)
     {
         using var state = LuaState.Create();
