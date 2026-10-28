@@ -327,6 +327,7 @@ class CoroutineCore(LuaState state, LuaFunction function, bool isProtectedMode)
         try
         {
             cancellationToken.ThrowIfCancellationRequested();
+            Thread.SuspendUpValues();
             // Yielded values remain owned by the resumer until its copy completes.
             Volatile.Write(ref resumePhase, ResumeYielded);
             resume.SetResult(new(stack, argCount));
@@ -337,6 +338,7 @@ class CoroutineCore(LuaState state, LuaFunction function, bool isProtectedMode)
                 );
             var result = await new ValueTask<YieldContext>(this, yield.Version);
             resumeCancellationToken.ThrowIfCancellationRequested();
+            Thread.ResumeUpValues();
             stack.PopUntil(returnBase);
             stack.PushRange(result.Results);
             return result.Results.Length;

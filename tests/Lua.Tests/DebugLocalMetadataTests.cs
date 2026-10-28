@@ -8,6 +8,45 @@ namespace Lua.Tests;
 [TestFixture(LuaStringMode.Bytes)]
 public class DebugLocalMetadataTests(LuaStringMode mode)
 {
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task WrappedCoroutineCanInspectItsParentsNativeFrame(bool asynchronous)
+    {
+        using var state = LuaState.Create(
+            mode == LuaStringMode.Bytes ? LuaPlatform.DefaultByteStrings : LuaPlatform.Default
+        );
+        state.OpenStandardLibraries();
+        state.Environment["pause"] = new LuaFunction(
+            async (context, _) =>
+            {
+                if (asynchronous)
+                    await Task.Yield();
+                return context.Return();
+            }
+        );
+        var result = await state.DoStringAsync(
+            """
+            local main=coroutine.running()
+            local run=coroutine.wrap(function(value)
+                pause()
+                local name,before=debug.getlocal(main,0,1)
+                local changed=debug.setlocal(main,0,1,99)
+                local info=debug.getinfo(main,0,'S')
+                coroutine.yield(name,before,changed,info.what,value)
+                return value
+            end)
+            local name,before,changed,what,value=run(42)
+            return name,before,changed,what,value,run()
+            """
+        );
+        Assert.That(
+            result,
+            Is.EqualTo(new LuaValue[] { "(*temporary)", 42, "(*temporary)", "C#", 42, 42 })
+        );
+        Assert.That(state.Stack.Count, Is.Zero);
+        Assert.That(state.CallStackFrameCount, Is.Zero);
+    }
+
     [Test]
     public async Task NativeCallerLocalLookupStopsBeforeLuaVarargs()
     {

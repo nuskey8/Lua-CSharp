@@ -187,6 +187,7 @@ public class LuaState : IDisposable
     }
 
     FastListCore<UpValue> openUpValues;
+    WeakReference<LuaState>? suspendedReference;
     internal int CallCount;
     internal LuaGlobalState GlobalState { get; }
     ThreadCoreData? CoreData;
@@ -760,6 +761,35 @@ public class LuaState : IDisposable
                 i--;
             }
         }
+    }
+
+    internal void SuspendUpValues()
+    {
+        if (openUpValues.Length == 0)
+            return;
+
+        var reference = suspendedReference ??= new(this);
+        foreach (var upValue in openUpValues.AsSpan())
+            upValue.Suspend(reference);
+    }
+
+    internal void ResumeUpValues()
+    {
+        for (var i = 0; i < openUpValues.Length; i++)
+        {
+            if (!openUpValues[i].Resume(this))
+                openUpValues.RemoveAtSwapBack(i--);
+        }
+    }
+
+    internal ref LuaValue GetLocalReference(int registerIndex)
+    {
+        foreach (var upValue in openUpValues.AsSpan())
+        {
+            if (upValue.RegisterIndex == registerIndex && !upValue.IsClosed)
+                return ref upValue.GetValueRef();
+        }
+        return ref Stack.Get(registerIndex);
     }
 
     public void Dispose()

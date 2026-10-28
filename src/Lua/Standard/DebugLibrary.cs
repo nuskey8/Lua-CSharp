@@ -69,7 +69,7 @@ public sealed class DebugLibrary
             if (frameVariableArgumentCount > 0 && index < frameVariableArgumentCount)
             {
                 name = "(*vararg)";
-                return ref state.Stack.Get(frame.Base - frameVariableArgumentCount + index);
+                return ref state.GetLocalReference(frame.Base - frameVariableArgumentCount + index);
             }
 
             name = null;
@@ -115,7 +115,7 @@ public sealed class DebugLibrary
                 if (localId == 0)
                 {
                     name = l.Name;
-                    return ref state.Stack.Get(frameBase + index);
+                    return ref state.GetLocalReference(frameBase + index);
                 }
             }
         }
@@ -134,7 +134,7 @@ public sealed class DebugLibrary
         }
 
         name = "(*temporary)";
-        return ref state.Stack.Get(frameBase + index);
+        return ref state.GetLocalReference(frameBase + index);
     }
 
     public ValueTask<int> GetLocal(

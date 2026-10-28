@@ -93,37 +93,16 @@ public sealed class CoroutineLibrary
     )
     {
         var state = context.GetCsClosure()!.UpValues[0].Read<LuaState>();
-        var function = state.CoroutineFunction;
-        if (function is null)
+        if (!state.IsCoroutine)
         {
             return await state.ResumeAsync(context, cancellationToken);
         }
 
-        var stack = context.State.Stack;
-        var frameBase = stack.Count;
-        context.State.PushCallStackFrame(
-            new()
-            {
-                Base = frameBase,
-                ReturnBase = context.ReturnFrameBase,
-                VariableArgumentCount = 0,
-                Function = function,
-            }
-        );
-        try
-        {
-            await state.ResumeAsync(context, cancellationToken);
-            var result = context.GetReturnBuffer(
-                context.State.Stack.Count - context.ReturnFrameBase
-            );
-            result[1..].CopyTo(result);
-            context.State.Stack.Pop();
-            return result.Length - 1;
-        }
-        finally
-        {
-            context.State.PopCallStackFrame();
-        }
+        await state.ResumeAsync(context, cancellationToken);
+        var result = context.GetReturnBuffer(context.State.Stack.Count - context.ReturnFrameBase);
+        result[1..].CopyTo(result);
+        context.State.Stack.Pop();
+        return result.Length - 1;
     }
 
     public ValueTask<int> Yield(
