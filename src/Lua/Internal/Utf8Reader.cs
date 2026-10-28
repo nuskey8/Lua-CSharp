@@ -7,20 +7,12 @@ namespace Lua.Internal;
 
 sealed class Utf8Reader
 {
-    [ThreadStatic]
-    static byte[]? scratchBuffer;
-
-    [ThreadStatic]
-    internal static bool scratchBufferUsed;
-
-    readonly byte[] buffer;
+    byte[] buffer = ArrayPool<byte>.Shared.Rent(1024);
     readonly Encoding encoding;
     readonly bool byteStrings;
     int bufPos,
         bufLen;
     Decoder? decoder;
-
-    const int ThreadStaticBufferSize = 1024;
 
     /// <param name="stringMode">
     /// In byte mode, every byte is decoded to one char (0x00-0xFF) and a UTF-8 BOM is not skipped,
@@ -30,17 +22,6 @@ sealed class Utf8Reader
     {
         byteStrings = stringMode == LuaStringMode.Bytes;
         encoding = byteStrings ? LuaByteEncoding.Instance : Encoding.UTF8;
-
-        if (scratchBufferUsed)
-        {
-            buffer = new byte[ThreadStaticBufferSize];
-            return;
-        }
-
-        scratchBuffer ??= new byte[ThreadStaticBufferSize];
-
-        buffer = scratchBuffer;
-        scratchBufferUsed = true;
     }
 
     public long Remain => bufLen - bufPos;
@@ -56,7 +37,10 @@ sealed class Utf8Reader
                 if (bufPos >= bufLen)
                 {
                     bufLen = stream.Read(buffer, 0, buffer.Length);
-                    bufPos = !byteStrings && buffer.AsSpan().StartsWith(BomUtility.BomUtf8) ? 3 : 0;
+                    bufPos =
+                        !byteStrings && buffer.AsSpan(0, bufLen).StartsWith(BomUtility.BomUtf8)
+                            ? 3
+                            : 0;
                     if (bufLen <= bufPos)
                     {
                         break; // EOF
@@ -139,7 +123,10 @@ sealed class Utf8Reader
                 if (bufPos >= bufLen)
                 {
                     bufLen = stream.Read(buffer, 0, buffer.Length);
-                    bufPos = !byteStrings && buffer.AsSpan().StartsWith(BomUtility.BomUtf8) ? 3 : 0;
+                    bufPos =
+                        !byteStrings && buffer.AsSpan(0, bufLen).StartsWith(BomUtility.BomUtf8)
+                            ? 3
+                            : 0;
                     if (bufLen <= bufPos)
                     {
                         break; // EOF
@@ -222,7 +209,10 @@ sealed class Utf8Reader
                 if (bufPos >= bufLen)
                 {
                     bufLen = stream.Read(buffer, 0, buffer.Length);
-                    bufPos = !byteStrings && buffer.AsSpan().StartsWith(BomUtility.BomUtf8) ? 3 : 0;
+                    bufPos =
+                        !byteStrings && buffer.AsSpan(0, bufLen).StartsWith(BomUtility.BomUtf8)
+                            ? 3
+                            : 0;
                     if (bufLen <= bufPos)
                     {
                         break; // EOF
@@ -476,6 +466,9 @@ sealed class Utf8Reader
 
     public void Dispose()
     {
-        scratchBufferUsed = false;
+        var rented = buffer;
+        buffer = [];
+        bufPos = bufLen = 0;
+        ArrayPool<byte>.Shared.Return(rented);
     }
 }

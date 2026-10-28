@@ -349,7 +349,10 @@ public class LuaRuntimeException : Exception, ILuaTracebackBuildable
         }
         else
         {
-            var caller = state.GetCallStackFrames()[^2];
+            var frames = state.GetCallStackFrames();
+            if (frames.Length < 2)
+                return ("function", current.Function.Name);
+            var caller = frames[^2];
             callerFunction = caller.Function;
         }
 
@@ -487,7 +490,12 @@ public class LuaRuntimeException : Exception, ILuaTracebackBuildable
 
     internal void Forget()
     {
-        State?.ExceptionTrace.Clear();
+        var state = State ?? luaTraceback?.State;
+        if (state != null && ReferenceEquals(state.CurrentException, this))
+        {
+            state.CurrentException = null;
+            state.ExceptionTrace.Clear();
+        }
         State = null;
     }
 

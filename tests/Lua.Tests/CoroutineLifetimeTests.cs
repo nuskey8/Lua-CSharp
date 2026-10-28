@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using Lua.Runtime;
 using Lua.Standard;
 
@@ -5,6 +6,127 @@ namespace Lua.Tests;
 
 public class CoroutineLifetimeTests
 {
+    [TestCase(false, false)]
+    [TestCase(true, false)]
+    [TestCase(false, true)]
+    [TestCase(true, true)]
+    public void CancellingSuspendedCoroutineReleasesExecution(bool protectedMode, bool asynchronous)
+    {
+        using var state = LuaState.Create();
+        state.OpenStandardLibraries();
+        using var cancellation = new CancellationTokenSource();
+        var (thread, reference) = StartSuspendedCoroutine(
+            state,
+            cancellation.Token,
+            protectedMode,
+            asynchronous
+        );
+        using (thread)
+        {
+            cancellation.Cancel();
+            Assert.That(() => thread.GetStatus(), Is.EqualTo(LuaThreadStatus.Dead).After(1000, 10));
+            Assert.That(thread.CanResume, Is.False);
+            Assert.That(thread.GetStackValues().Length, Is.Zero);
+            Assert.That(thread.CallStackFrameCount, Is.Zero);
+            Assert.That(thread.LuaTraceback!.ToString(), Does.Contain("suspended-cancellation"));
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            GC.Collect();
+            Assert.That(reference.IsAlive, Is.False);
+            var results = new LuaStack();
+            if (protectedMode)
+            {
+                thread.ResumeAsync(results).AsTask().GetAwaiter().GetResult();
+                Assert.That(results[0], Is.EqualTo(new LuaValue(false)));
+                Assert.That(
+                    results[1].Read<string>(),
+                    Does.Contain("cannot resume dead coroutine")
+                );
+            }
+            else
+            {
+                Assert.ThrowsAsync<LuaRuntimeException>(async () =>
+                    await thread.ResumeAsync(results)
+                );
+            }
+        }
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    static (LuaState, WeakReference) StartSuspendedCoroutine(
+        LuaState state,
+        CancellationToken token,
+        bool protectedMode,
+        bool asynchronous
+    )
+    {
+        var payload = new object();
+        state.Environment["payload"] = LuaValue.FromObject(payload);
+        state.Environment["pause"] = new LuaFunction(
+            async (context, _) =>
+            {
+                if (asynchronous)
+                    await Task.Yield();
+                return context.Return();
+            }
+        );
+        var thread = state.CreateCoroutine(
+            state.Load(
+                "pause(); local p=payload; payload=nil; coroutine.yield(42); return p",
+                "suspended-cancellation"
+            ),
+            protectedMode
+        );
+        var stack = new LuaStack();
+        thread.ResumeAsync(stack, token).AsTask().GetAwaiter().GetResult();
+        Assert.That(stack.AsSpan().ToArray(), Is.EqualTo(new LuaValue[] { true, 42 }));
+        return (thread, new WeakReference(payload));
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task ManagedCoroutineBodyCanYieldAndReceiveResumeArguments(bool asynchronous)
+    {
+        using var state = LuaState.Create();
+        using var thread = state.CreateCoroutine(
+            new LuaFunction(
+                async (context, token) =>
+                {
+                    if (asynchronous)
+                        await Task.Yield();
+                    return await context.State.YieldAsync(context, token);
+                }
+            )
+        );
+        var stack = new LuaStack();
+        stack.Push(7);
+        await thread.ResumeAsync(stack);
+        Assert.That(stack.AsSpan().ToArray(), Is.EqualTo(new LuaValue[] { true, 7 }));
+        stack.Clear();
+        stack.Push(42);
+        await thread.ResumeAsync(stack);
+        Assert.That(stack.AsSpan().ToArray(), Is.EqualTo(new LuaValue[] { true, 42 }));
+        Assert.That(thread.GetStatus(), Is.EqualTo(LuaThreadStatus.Dead));
+    }
+
+    [Test]
+    public async Task YieldAcrossNestedManagedCallStillReportsLuaError()
+    {
+        using var state = LuaState.Create();
+        var nested = new LuaFunction((context, token) => context.State.YieldAsync(context, token));
+        using var thread = state.CreateCoroutine(
+            new LuaFunction((context, token) => context.State.RunAsync(nested, token)),
+            true
+        );
+        var stack = new LuaStack();
+        await thread.ResumeAsync(stack);
+        Assert.That(stack[0], Is.EqualTo(new LuaValue(false)));
+        Assert.That(
+            stack[1].Read<string>(),
+            Does.Contain("attempt to yield across a C#-call boundary")
+        );
+    }
+
     [Test]
     public async Task CancelledCoroutineReleasesStackAndPreservesCancellation(
         [Values] bool wrap,

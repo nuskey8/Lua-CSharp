@@ -74,6 +74,16 @@ public class MemoryLifetimeTests
         GC.KeepAlive(state);
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public void HandledErrorDoesNotRootPayloadWhileStateIsIdle(bool text)
+    {
+        using var state = LuaState.Create();
+        state.OpenStandardLibraries();
+        AssertCollected(HandleError(state, text));
+        GC.KeepAlive(state);
+    }
+
     [TestCase("clear")]
     [TestCase("pop")]
     [TestCase("pop-range")]
@@ -154,9 +164,9 @@ public class MemoryLifetimeTests
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
-    static WeakReference HandleError(LuaState state)
+    static WeakReference HandleError(LuaState state, bool text = false)
     {
-        var payload = new object();
+        object payload = text ? new string('x', 65536) : new object();
         state.Environment["payload"] = LuaValue.FromObject(payload);
         state
             .DoStringAsync(

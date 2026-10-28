@@ -24,6 +24,12 @@ class CoroutineCore(LuaState state, LuaFunction function, bool isProtectedMode)
     bool isFirstCall = true;
     ValueTask<int> functionTask;
 
+    const int ResumeIdle = 0;
+    const int ResumeWaiting = 1;
+    const int ResumeYielded = 2;
+    const int ResumeCompleted = 3;
+    int resumePhase;
+
     ManualResetValueTaskSourceCore<ResumeContext> resume;
     ManualResetValueTaskSourceCore<YieldContext> yield;
     Traceback? traceback;
@@ -97,12 +103,16 @@ class CoroutineCore(LuaState state, LuaFunction function, bool isProtectedMode)
             switch ((LuaThreadStatus)Volatile.Read(ref status))
             {
                 case LuaThreadStatus.Suspended:
+                    var phase = Interlocked.CompareExchange(
+                        ref resumePhase,
+                        ResumeWaiting,
+                        ResumeIdle
+                    );
+                    if (phase == ResumeCompleted)
+                        goto case LuaThreadStatus.Dead;
+                    if (phase != ResumeIdle)
+                        goto case LuaThreadStatus.Running;
                     Volatile.Write(ref status, (byte)LuaThreadStatus.Running);
-
-                    if (!isFirstCall)
-                    {
-                        yield.SetResult(new(stack, argCount));
-                    }
 
                     break;
                 case LuaThreadStatus.Normal:
@@ -161,10 +171,12 @@ class CoroutineCore(LuaState state, LuaFunction function, bool isProtectedMode)
                     if (!functionTask.IsCompleted)
                     {
                         // UnsafeOnCompleted: OnCompleted would capture SyncContext and deadlock on WebGL.
-                        functionTask
-                            .GetAwaiter()
-                            .UnsafeOnCompleted(() => resume.SetResult(default));
+                        functionTask.GetAwaiter().UnsafeOnCompleted(OnFunctionCompleted);
                     }
+                }
+                else
+                {
+                    yield.SetResult(new(stack, argCount));
                 }
 
                 ResumeContext result0;
@@ -172,20 +184,20 @@ class CoroutineCore(LuaState state, LuaFunction function, bool isProtectedMode)
                 {
                     _ = functionTask.Result;
                     functionTask = default;
-                    Volatile.Write(ref status, (byte)LuaThreadStatus.Dead);
                     stack.PopUntil(returnBase);
                     stack.Push(true);
                     stack.PushRange(Thread.Stack.AsSpan());
                     Thread.Dispose();
+                    Volatile.Write(ref status, (byte)LuaThreadStatus.Dead);
                     return stack.Count - returnBase;
                 }
                 else
                 {
-                    Volatile.Write(ref status, (byte)LuaThreadStatus.Suspended);
                     var results = result0.Results;
                     stack.PopUntil(returnBase);
                     stack.Push(true);
                     stack.PushRange(results);
+                    Volatile.Write(ref status, (byte)LuaThreadStatus.Suspended);
                     return results.Length + 1;
                 }
             }
@@ -197,8 +209,8 @@ class CoroutineCore(LuaState state, LuaFunction function, bool isProtectedMode)
                     traceback = tracebackBuildable.BuildOrGet();
                 }
 
-                Volatile.Write(ref status, (byte)LuaThreadStatus.Dead);
                 Thread.Dispose();
+                Volatile.Write(ref status, (byte)LuaThreadStatus.Dead);
                 if (!IsProtectedMode || ex is OperationCanceledException)
                     throw;
 
@@ -217,6 +229,11 @@ class CoroutineCore(LuaState state, LuaFunction function, bool isProtectedMode)
             {
                 registration.Dispose();
                 resume.Reset();
+                var phase = Interlocked.CompareExchange(ref resumePhase, ResumeIdle, ResumeYielded);
+                if (phase == ResumeCompleted)
+                    CompleteSuspendedFunction();
+                else if (phase == ResumeWaiting)
+                    Interlocked.CompareExchange(ref resumePhase, ResumeIdle, ResumeWaiting);
             }
         }
         finally
@@ -226,6 +243,36 @@ class CoroutineCore(LuaState state, LuaFunction function, bool isProtectedMode)
                 baseThread.GlobalState.ThreadStack.Pop();
                 baseThread.UnsafeSetStatus(LuaThreadStatus.Running);
             }
+        }
+    }
+
+    void OnFunctionCompleted()
+    {
+        var phase = Interlocked.Exchange(ref resumePhase, ResumeCompleted);
+        if (phase == ResumeWaiting)
+            resume.SetResult(default);
+        else if (phase == ResumeIdle)
+            CompleteSuspendedFunction();
+    }
+
+    void CompleteSuspendedFunction()
+    {
+        if (Volatile.Read(ref status) != (byte)LuaThreadStatus.Suspended)
+            return;
+        try
+        {
+            functionTask.GetAwaiter().GetResult();
+        }
+        catch (Exception ex)
+        {
+            if (ex is ILuaTracebackBuildable tracebackBuildable)
+                traceback = tracebackBuildable.BuildOrGet();
+        }
+        finally
+        {
+            functionTask = default;
+            Thread.Dispose();
+            Volatile.Write(ref status, (byte)LuaThreadStatus.Dead);
         }
     }
 
@@ -245,7 +292,8 @@ class CoroutineCore(LuaState state, LuaFunction function, bool isProtectedMode)
 
         if (baseThread != null)
         {
-            if (baseThread.GetCallStackFrames()[^2].Function is not LuaClosure)
+            var frames = baseThread.GetCallStackFrames();
+            if (frames.Length > 1 && frames[^2].Function is not LuaClosure)
             {
                 throw new LuaRuntimeException(
                     baseThread,
@@ -254,6 +302,8 @@ class CoroutineCore(LuaState state, LuaFunction function, bool isProtectedMode)
             }
         }
 
+        // Yielded values remain owned by the resumer until its copy completes.
+        Volatile.Write(ref resumePhase, ResumeYielded);
         resume.SetResult(new(stack, argCount));
 
         CancellationTokenRegistration registration = default;

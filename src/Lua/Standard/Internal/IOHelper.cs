@@ -163,6 +163,13 @@ static class IOHelper
                                 return i + 1;
                             }
                             break;
+                        default:
+                            LuaRuntimeException.BadArgument(
+                                state,
+                                startArgumentIndex + i + 1,
+                                "invalid format"
+                            );
+                            break;
                     }
                 }
                 else if (format.TryRead<int>(out var count))
@@ -182,7 +189,7 @@ static class IOHelper
                 {
                     LuaRuntimeException.BadArgument(
                         state,
-                        i + 1,
+                        startArgumentIndex + i + 1,
                         ["string", "integer"],
                         format.TypeToString()
                     );
