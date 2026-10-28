@@ -153,10 +153,15 @@ public readonly struct LuaValue : IEquatable<LuaValue>
                     break;
                 }
             case LuaValueType.Function:
-                if (t == typeof(LuaFunction) || t.IsSubclassOf(typeof(LuaFunction)))
+                if (t == typeof(LuaFunction))
                 {
                     var v = referenceValue!;
                     result = Unsafe.As<object, T>(ref v);
+                    return true;
+                }
+                else if (t.IsSubclassOf(typeof(LuaFunction)) && referenceValue is T function)
+                {
+                    result = function;
                     return true;
                 }
                 else if (t == typeof(object))

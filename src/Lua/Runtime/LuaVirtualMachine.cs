@@ -36,6 +36,7 @@ public static partial class LuaVirtualMachine
             State = state;
             LuaClosure = (LuaClosure)frame.Function;
             FrameBase = frame.Base;
+            InitialFrameBase = frame.Base;
             VariableArgumentCount = frame.VariableArgumentCount;
             CurrentReturnFrameBase = frame.ReturnBase;
             CancellationToken = cancellationToken;
@@ -56,6 +57,7 @@ public static partial class LuaVirtualMachine
         public Prototype Prototype => LuaClosure.Proto;
 
         public int FrameBase;
+        public int InitialFrameBase;
         public int VariableArgumentCount;
         public CancellationToken CancellationToken;
         public int Pc;
@@ -307,9 +309,10 @@ public static partial class LuaVirtualMachine
             }
             catch (Exception e)
             {
+                // FrameBase follows nested calls; all discarded frames need closing.
+                State.CloseUpValues(InitialFrameBase);
                 if (toCatchFlag)
                 {
-                    State.CloseUpValues(FrameBase);
                     if (e is not (LuaRuntimeException or LuaCanceledException))
                     {
                         Exception newException =
@@ -327,6 +330,11 @@ public static partial class LuaVirtualMachine
             }
             finally
             {
+                Stack = null!;
+                State = null!;
+                LuaClosure = null!;
+                Task = default;
+                CancellationToken = default;
                 pool.TryPush(this);
             }
         }
@@ -1093,7 +1101,7 @@ public static partial class LuaVirtualMachine
         }
         catch (Exception e)
         {
-            context.State.CloseUpValues(context.FrameBase);
+            context.State.CloseUpValues(context.InitialFrameBase);
             if (e is not (LuaRuntimeException or LuaCanceledException))
             {
                 Exception newException =
