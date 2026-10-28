@@ -11,6 +11,62 @@ public class StreamLifetimeTests(LuaStringMode stringMode)
     LuaStream CreateStream(string text) =>
         new(LuaFileOpenMode.Read, new MemoryStream(Encoding.UTF8.GetBytes(text)), stringMode);
 
+    [TestCase(3)]
+    [TestCase(2048)]
+    public async Task RawByteThenBulkReadConsumeBufferedBytes(int length)
+    {
+        var payload = Enumerable.Range(0, length).Select(i => (byte)(255 - i % 256)).ToArray();
+        var data = Encoding.ASCII.GetBytes("abc\n").Concat(payload).ToArray();
+        using var stream = new LuaStream(LuaFileOpenMode.Read, new MemoryStream(data), stringMode);
+        Assert.That(await stream.ReadLineAsync(false, default), Is.EqualTo("abc"));
+        Assert.That(await stream.ReadByteAsync(default), Is.EqualTo(255));
+        var writer = new ArrayBufferWriter<byte>();
+        writer.GetSpan(1)[0] = 42;
+        writer.Advance(1);
+        await stream.ReadBytesAsync(writer, default);
+        Assert.That(
+            writer.WrittenSpan.ToArray(),
+            Is.EqualTo(
+                new byte[] { 42 }
+                    .Concat(payload.Skip(1))
+                    .ToArray()
+            )
+        );
+        Assert.That(await stream.ReadByteAsync(default), Is.EqualTo(-1));
+        Assert.That(await stream.ReadAllAsync(default), Is.Empty);
+    }
+
+    [TestCase(3)]
+    [TestCase(2048)]
+    public async Task RawBulkReadConsumesBufferedBytes(int length)
+    {
+        var payload = Enumerable.Range(0, length).Select(i => (byte)(255 - i % 256)).ToArray();
+        var data = Encoding.ASCII.GetBytes("abc\n").Concat(payload).ToArray();
+        using var stream = new LuaStream(LuaFileOpenMode.Read, new MemoryStream(data), stringMode);
+        Assert.That(await stream.ReadLineAsync(false, default), Is.EqualTo("abc"));
+        var writer = new ArrayBufferWriter<byte>();
+        await stream.ReadBytesAsync(writer, default);
+        Assert.That(writer.WrittenSpan.ToArray(), Is.EqualTo(payload));
+        Assert.That(await stream.ReadByteAsync(default), Is.EqualTo(-1));
+        Assert.That(await stream.ReadAllAsync(default), Is.Empty);
+    }
+
+    [Test]
+    public async Task CancelledRawBulkReadDoesNotConsumeBufferedBytes()
+    {
+        using var stream = CreateStream("abc\ndef");
+        Assert.That(await stream.ReadLineAsync(false, default), Is.EqualTo("abc"));
+        using var source = new CancellationTokenSource();
+        source.Cancel();
+        var writer = new ArrayBufferWriter<byte>();
+        Assert.Throws<OperationCanceledException>(() =>
+        {
+            _ = stream.ReadBytesAsync(writer, source.Token);
+        });
+        Assert.That(writer.WrittenCount, Is.Zero);
+        Assert.That(await stream.ReadAllAsync(default), Is.EqualTo("def"));
+    }
+
     [TestCase(false)]
     [TestCase(true)]
     public async Task BomDetectionDoesNotReadUnwrittenBufferTail(bool readAll)

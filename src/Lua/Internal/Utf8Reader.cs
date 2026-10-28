@@ -151,39 +151,22 @@ sealed class Utf8Reader
         }
     }
 
-    public byte ReadByte(Stream stream)
+    public int ReadByte(Stream stream)
     {
-        if (buffer.Length == 0)
-        {
-            return 0;
-        }
+        var value = PeekByte(stream);
+        if (value >= 0)
+            bufPos++;
+        return value;
+    }
 
-        var len = 0;
-        while (len < 1)
-        {
-            if (bufPos >= bufLen)
-            {
-                bufLen = stream.Read(buffer, 0, buffer.Length);
-                bufPos = 0;
-                if (bufLen == 0)
-                {
-                    break; // EOF
-                }
-            }
-
-            var bytesToRead = Math.Min(1, bufLen - bufPos);
-            if (bytesToRead == 0)
-            {
-                break;
-            }
-
-            if (bytesToRead > 0)
-            {
-                len += bytesToRead;
-            }
-        }
-
-        return buffer[bufPos++];
+    public void CopyBufferedBytes(IBufferWriter<byte> writer)
+    {
+        var count = bufLen - bufPos;
+        if (count == 0)
+            return;
+        buffer.AsSpan(bufPos, count).CopyTo(writer.GetSpan(count));
+        writer.Advance(count);
+        bufPos = bufLen;
     }
 
     public string? Read(Stream stream, int charCount)

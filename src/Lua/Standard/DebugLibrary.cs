@@ -143,10 +143,11 @@ public sealed class DebugLibrary
         {
             if (function is LuaClosure closure)
             {
-                var paramCount = closure.Proto.ParameterCount;
+                var locals = closure.Proto.LocalVariables;
+                var paramCount = Math.Min(closure.Proto.ParameterCount, locals.Length);
                 if (0 <= index && index < paramCount)
                 {
-                    return closure.Proto.LocalVariables[index].Name;
+                    return locals[index].Name;
                 }
             }
 

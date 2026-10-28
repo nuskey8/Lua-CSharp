@@ -536,53 +536,53 @@ public class LuaState : IDisposable
             throw new ArgumentNullException(nameof(function));
         }
 
-        this.ThrowIfCancellationRequested(cancellationToken);
         var state = this;
-        var varArgumentCount = function.GetVariableArgumentCount(argumentCount);
-        if (varArgumentCount != 0)
-        {
-            if (varArgumentCount < 0)
-            {
-                state.Stack.SetTop(state.Stack.Count - varArgumentCount);
-                argumentCount -= varArgumentCount;
-                varArgumentCount = 0;
-            }
-            else
-            {
-                LuaVirtualMachine.PrepareVariableArgument(
-                    state.Stack,
-                    argumentCount,
-                    varArgumentCount
-                );
-            }
-
-            argumentCount -= varArgumentCount;
-        }
-
-        CallStackFrame frame = new()
-        {
-            Base = state.Stack.Count - argumentCount,
-            VariableArgumentCount = varArgumentCount,
-            Function = function,
-            ReturnBase = returnBase,
-        };
-        if (state.IsInHook)
-        {
-            frame.Flags |= CallStackFrameFlags.InHook;
-        }
-
-        state.PushCallStackFrame(frame);
-        LuaFunctionExecutionContext context = new()
-        {
-            State = state,
-            ArgumentCount = argumentCount,
-            ReturnFrameBase = returnBase,
-        };
         var callStackTop = state.CallStackFrameCount;
         var previousCallerFunction = state.LastCallerFunction;
         var previousPc = state.LastPc;
         try
         {
+            state.ThrowIfCancellationRequested(cancellationToken);
+            var varArgumentCount = function.GetVariableArgumentCount(argumentCount);
+            if (varArgumentCount != 0)
+            {
+                if (varArgumentCount < 0)
+                {
+                    state.Stack.SetTop(state.Stack.Count - varArgumentCount);
+                    argumentCount -= varArgumentCount;
+                    varArgumentCount = 0;
+                }
+                else
+                {
+                    LuaVirtualMachine.PrepareVariableArgument(
+                        state.Stack,
+                        argumentCount,
+                        varArgumentCount
+                    );
+                }
+
+                argumentCount -= varArgumentCount;
+            }
+
+            CallStackFrame frame = new()
+            {
+                Base = state.Stack.Count - argumentCount,
+                VariableArgumentCount = varArgumentCount,
+                Function = function,
+                ReturnBase = returnBase,
+            };
+            if (state.IsInHook)
+            {
+                frame.Flags |= CallStackFrameFlags.InHook;
+            }
+
+            state.PushCallStackFrame(frame);
+            LuaFunctionExecutionContext context = new()
+            {
+                State = state,
+                ArgumentCount = argumentCount,
+                ReturnFrameBase = returnBase,
+            };
             if (CallOrReturnHookMask.Value != 0 && !IsInHook)
             {
                 return await LuaVirtualMachine.ExecuteCallHook(context, cancellationToken);
@@ -590,9 +590,14 @@ public class LuaState : IDisposable
 
             return await function.Func(context, cancellationToken);
         }
+        catch
+        {
+            Stack.PopUntil(returnBase);
+            throw;
+        }
         finally
         {
-            PopCallStackFrameUntil(callStackTop - 1);
+            PopCallStackFrameUntil(callStackTop);
             LastCallerFunction = previousCallerFunction;
             LastPc = previousPc;
         }

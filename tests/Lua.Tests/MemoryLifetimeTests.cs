@@ -84,6 +84,44 @@ public class MemoryLifetimeTests
         GC.KeepAlive(state);
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public void FailedExecutionDoesNotRootDiscardedLocals(bool asynchronous)
+    {
+        using var state = LuaState.Create();
+        var reference = FailAndDiscard(state, asynchronous);
+        AssertCollected(reference);
+        Assert.That(state.Stack.Count, Is.Zero);
+        state.DoStringAsync("return 42").AsTask().GetAwaiter().GetResult();
+        Assert.That(state.Stack.Count, Is.Zero);
+        GC.KeepAlive(state);
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    static WeakReference FailAndDiscard(LuaState state, bool asynchronous)
+    {
+        var payload = new object();
+        state.Environment["payload"] = LuaValue.FromObject(payload);
+        state.Environment["fail"] = new LuaFunction(
+            async (context, _) =>
+            {
+                if (asynchronous)
+                    await Task.Yield();
+                throw new LuaRuntimeException(context.State, "failure");
+            }
+        );
+        try
+        {
+            state
+                .DoStringAsync("local p=payload; payload=nil; fail()")
+                .AsTask()
+                .GetAwaiter()
+                .GetResult();
+        }
+        catch (LuaRuntimeException) { }
+        return new WeakReference(payload);
+    }
+
     [TestCase("clear")]
     [TestCase("pop")]
     [TestCase("pop-range")]
