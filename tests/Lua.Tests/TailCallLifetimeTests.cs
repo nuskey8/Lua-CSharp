@@ -83,16 +83,22 @@ public class TailCallLifetimeTests(LuaStringMode mode)
     [TestCase("arguments")]
     [TestCase("closure")]
     [TestCase("completed-closure")]
+    [TestCase("callable-slot")]
+    [TestCase("callable-slot-hooks")]
+    [TestCase("callable-slot-native")]
+    [TestCase("callable-slot-native-hooks")]
     public async Task DiscardedTailCallerValuesCanBeCollectedWhileExecutionIsSuspended(string kind)
     {
-        using var state = CreateState();
+        using var state = CreateState(
+            kind is "callable-slot-hooks" or "callable-slot-native-hooks"
+        );
         var reference = InstallPayload(state);
         var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         state.Environment["pause"] = new LuaFunction(
             async (context, _) =>
             {
                 await gate.Task;
-                return context.Return();
+                return context.Return(42);
             }
         );
         var source = kind switch
@@ -112,6 +118,23 @@ public class TailCallLifetimeTests(LuaStringMode mode)
                 local f=make(payload)
                 payload=nil
                 return f()
+                """,
+            "callable-slot" or "callable-slot-hooks" => """
+                local function worker() pause();return 42 end
+                local function make(value)
+                    payload=nil
+                    return function() if value then return worker() end end
+                end
+                local result=make(payload)()
+                return result
+                """,
+            "callable-slot-native" or "callable-slot-native-hooks" => """
+                local function make(value)
+                    payload=nil
+                    return function() if value then return pause() end end
+                end
+                local result=make(payload)()
+                return result
                 """,
             _ => """
                 local function sink() return 42 end

@@ -37,7 +37,7 @@ class CoroutineCore(LuaState state, LuaFunction function, bool isProtectedMode)
     Traceback? traceback;
 
     public bool IsProtectedMode { get; private set; } = isProtectedMode;
-    public LuaFunction Function { get; private set; } = function;
+    public LuaFunction? Function { get; private set; } = function;
     public LuaState Thread { get; private set; } = state;
     public Traceback? Traceback => traceback;
 
@@ -155,8 +155,11 @@ class CoroutineCore(LuaState state, LuaFunction function, bool isProtectedMode)
                 if (isFirstCall)
                 {
                     Thread.Stack.PushRange(stack.AsSpan()[^argCount..]);
-                    // functionTask = Function.InvokeAsync(new() { Access = this.CurrentAccess, ArgumentCount = Stack.Count, ReturnFrameBase = 0 }, cancellationToken);
-                    functionTask = Thread.RunAsync(Function, Thread.Stack.Count, cancellationToken);
+                    functionTask = Thread.RunAsync(
+                        Function!,
+                        Thread.Stack.Count,
+                        cancellationToken
+                    );
                     Volatile.Write(ref isFirstCall, false);
                     if (!functionTask.IsCompleted)
                     {
@@ -180,6 +183,7 @@ class CoroutineCore(LuaState state, LuaFunction function, bool isProtectedMode)
                     stack.Push(true);
                     stack.PushRange(Thread.Stack.AsSpan());
                     Thread.Dispose();
+                    Function = null;
                     Volatile.Write(ref status, (byte)LuaThreadStatus.Dead);
                     return stack.Count - returnBase;
                 }
@@ -203,6 +207,7 @@ class CoroutineCore(LuaState state, LuaFunction function, bool isProtectedMode)
                 }
 
                 Thread.Dispose();
+                Function = null;
                 Volatile.Write(ref status, (byte)LuaThreadStatus.Dead);
                 if (!IsProtectedMode || ex is OperationCanceledException)
                     throw;
@@ -271,6 +276,7 @@ class CoroutineCore(LuaState state, LuaFunction function, bool isProtectedMode)
         {
             functionTask = default;
             Thread.Dispose();
+            Function = null;
             Volatile.Write(ref status, (byte)LuaThreadStatus.Dead);
         }
     }

@@ -34,13 +34,9 @@ public static partial class LuaVirtualMachine
         {
             Stack = state.Stack;
             State = state;
-            LuaClosure = (LuaClosure)frame.Function;
-            FrameBase = frame.Base;
+            Push(frame);
             InitialArgumentBase = frame.Base - frame.VariableArgumentCount;
-            VariableArgumentCount = frame.VariableArgumentCount;
-            CurrentReturnFrameBase = frame.ReturnBase;
             CancellationToken = cancellationToken;
-            Pc = -1;
             Instruction = default;
             PostOperation = PostOperationType.None;
             BaseCallStackCount = state.CallStackFrameCount;
@@ -204,6 +200,7 @@ public static partial class LuaVirtualMachine
             FrameBase = frame.Base;
             CurrentReturnFrameBase = frame.ReturnBase;
             VariableArgumentCount = frame.VariableArgumentCount;
+            Stack.PopUntil(FrameBase + LuaClosure.Proto.MaxStackSize);
         }
 
         public void PopOnTopCallStackFrames()
@@ -1669,10 +1666,14 @@ public static partial class LuaVirtualMachine
             newBase,
             isMetamethod
         );
-        newBase = context.FrameBase - context.VariableArgumentCount + variableArgumentCount;
+        var argumentBase = context.FrameBase - context.VariableArgumentCount;
+        newBase = argumentBase + variableArgumentCount;
         stack.PopUntil(newBase + argumentCount);
 
         var lastFrame = state.GetCurrentFrame();
+        // Ordinary calls reserve a callable/result slot immediately before their arguments.
+        if (lastFrame.ReturnBase == argumentBase - 1)
+            stack.Get(lastFrame.ReturnBase) = func;
         state.LastPc = context.Pc;
         state.LastCallerPrototype = context.Prototype;
         var newFrame = func.CreateNewTailCallFrame(
@@ -1685,6 +1686,8 @@ public static partial class LuaVirtualMachine
         newFrame.CallerInstructionIndex = lastFrame.CallerInstructionIndex;
         newFrame.Version = lastFrame.Version;
         state.ReplaceCallStackFrame(newFrame);
+        // Release the replaced closure before a hook or native tail callee can suspend.
+        context.LuaClosure = null!;
 
         if (state.CallOrReturnHookMask.Value != 0 && !context.State.IsInHook)
         {

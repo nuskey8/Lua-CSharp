@@ -93,7 +93,8 @@ public sealed class CoroutineLibrary
     )
     {
         var state = context.GetCsClosure()!.UpValues[0].Read<LuaState>();
-        if (!state.IsCoroutine)
+        var function = state.CoroutineFunction;
+        if (function is null)
         {
             return await state.ResumeAsync(context, cancellationToken);
         }
@@ -106,7 +107,7 @@ public sealed class CoroutineLibrary
                 Base = frameBase,
                 ReturnBase = context.ReturnFrameBase,
                 VariableArgumentCount = 0,
-                Function = state.CoroutineFunction!,
+                Function = function,
             }
         );
         try

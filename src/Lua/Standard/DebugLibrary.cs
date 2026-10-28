@@ -89,8 +89,8 @@ public sealed class DebugLibrary
                 var nextFrameBase = closure.Proto.Code[currentPc].OpCode
                     is OpCode.Call
                         or OpCode.TailCall
-                    ? nextFrame.Base - 1
-                    : nextFrame.Base;
+                    ? nextFrame.ReturnBase
+                    : nextFrame.Base - nextFrame.VariableArgumentCount;
                 if (index >= nextFrameBase - frameBase)
                 {
                     name = null;
@@ -121,7 +121,10 @@ public sealed class DebugLibrary
         }
         else
         {
-            var nextFrameBase = level != 0 ? callStack[^level].Base : state.Stack.Count;
+            var nextFrameBase =
+                level != 0
+                    ? callStack[^level].Base - callStack[^level].VariableArgumentCount
+                    : state.Stack.Count;
 
             if (index >= nextFrameBase - frameBase)
             {

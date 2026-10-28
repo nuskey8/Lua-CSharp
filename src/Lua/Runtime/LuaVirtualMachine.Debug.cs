@@ -150,6 +150,11 @@ public static partial class LuaVirtualMachine
         var argCount = context.ArgumentCount;
         var hook = context.State.Hook!;
         var stack = context.State.Stack;
+        {
+            ref readonly var frame = ref context.State.GetCurrentFrame();
+            if (frame.Function is LuaClosure closure)
+                stack.PopUntil(frame.Base + closure.Proto.MaxStackSize);
+        }
         if (context.State.IsCallHookEnabled)
         {
             var top = stack.Count;
@@ -185,16 +190,17 @@ public static partial class LuaVirtualMachine
         context.State.ThrowIfCancellationRequested(cancellationToken);
 
         {
-            var frame = context.State.GetCurrentFrame();
-            var task = frame.Function.Func(
-                new()
-                {
-                    State = context.State,
-                    ArgumentCount = argCount,
-                    ReturnFrameBase = frame.ReturnBase,
-                },
-                cancellationToken
-            );
+            var task = context
+                .State.GetCurrentFrame()
+                .Function.Func(
+                    new()
+                    {
+                        State = context.State,
+                        ArgumentCount = argCount,
+                        ReturnFrameBase = context.ReturnFrameBase,
+                    },
+                    cancellationToken
+                );
             var r = await task;
             if (isTailCall || !context.State.IsReturnHookEnabled)
             {
@@ -209,7 +215,7 @@ public static partial class LuaVirtualMachine
             var framePushed = false;
             try
             {
-                frame = context.State.CreateCallStackFrame(hook, 2, top, 0);
+                var frame = context.State.CreateCallStackFrame(hook, 2, top, 0);
                 context.State.PushCallStackFrame(frame);
                 framePushed = true;
                 LuaFunctionExecutionContext funcContext = new()

@@ -209,6 +209,7 @@ public class LuaState : IDisposable
     internal bool IsLuaDebugHook;
     internal byte HookMask;
 
+    /// <summary>The entry function, or null for non-coroutines and completed coroutines.</summary>
     public LuaFunction? CoroutineFunction => coroutine?.Function;
     public bool CanResume => GetStatus() == LuaThreadStatus.Suspended;
     public LuaStack Stack => CoreData!.Stack;

@@ -8,6 +8,105 @@ namespace Lua.Tests;
 [TestFixture(LuaStringMode.Bytes)]
 public class DebugLocalMetadataTests(LuaStringMode mode)
 {
+    [Test]
+    public async Task NativeCallerLocalLookupStopsBeforeLuaVarargs()
+    {
+        using var state = LuaState.Create(
+            mode == LuaStringMode.Bytes ? LuaPlatform.DefaultByteStrings : LuaPlatform.Default
+        );
+        state.OpenStandardLibraries();
+        var probe = (
+            await state.DoStringAsync(
+                """
+                return function(...)
+                    local name,value=debug.getlocal(2,2)
+                    local changed=debug.setlocal(2,2,99)
+                    local validName,validValue=debug.getlocal(2,1)
+                    return name,value,changed,validName,validValue,...
+                end
+                """
+            )
+        )[0].Read<LuaClosure>();
+        state.Environment["bridge"] = new LuaFunction(
+            async (context, token) =>
+            {
+                context.State.Stack.PushRange([10, 20, 30]);
+                var count = await context.State.RunAsync(probe, 3, token);
+                LuaValue[] values;
+                using (var results = context.State.ReadStack(count))
+                    values = results.AsSpan().ToArray();
+                return context.Return(values);
+            }
+        );
+        var result = await state.DoStringAsync("return bridge(42)");
+        Assert.That(
+            result,
+            Is.EqualTo(
+                new LuaValue[]
+                {
+                    LuaValue.Nil,
+                    LuaValue.Nil,
+                    LuaValue.Nil,
+                    "(*temporary)",
+                    42,
+                    10,
+                    20,
+                    30,
+                }
+            )
+        );
+        Assert.That(state.Stack.Count, Is.Zero);
+        Assert.That(state.CallStackFrameCount, Is.Zero);
+    }
+
+    [TestCase(false, false)]
+    [TestCase(true, false)]
+    [TestCase(false, true)]
+    [TestCase(true, true)]
+    public async Task CallerLocalLookupStopsBeforeCalleeArguments(bool callable, bool tailCall)
+    {
+        using var state = LuaState.Create(
+            mode == LuaStringMode.Bytes ? LuaPlatform.DefaultByteStrings : LuaPlatform.Default
+        );
+        state.OpenStandardLibraries();
+        var parameters = callable ? "self,..." : "...";
+        var forward = tailCall
+            ? "local original=probe;probe=function("
+                + parameters
+                + ") return original("
+                + parameters
+                + ") end"
+            : "";
+        var target = callable ? "setmetatable({}, {__call=probe})" : "probe";
+        var result = await state.DoStringAsync(
+            $$"""
+            local target
+            do
+                local function probe({{parameters}})
+                    local name,value=debug.getlocal(2,4)
+                    local changed=debug.setlocal(2,4,99)
+                    local validName,validValue=debug.getlocal(2,2)
+                    debug.setlocal(2,2,43)
+                    return name,value,changed,validName,validValue,...
+                end
+                {{forward}}
+                target={{target}}
+            end
+            local a=42
+            local name,value,changed,validName,validValue,x,y,z=target(10,20,30)
+            return name,value,changed,validName,validValue,x,y,z,a
+            """
+        );
+        Assert.That(
+            result,
+            Is.EqualTo(
+                new LuaValue[] { LuaValue.Nil, LuaValue.Nil, LuaValue.Nil, "a", 42, 10, 20, 30, 43 }
+            )
+        );
+        Assert.That(state.Stack.Count, Is.Zero);
+        Assert.That(state.CallStackFrameCount, Is.Zero);
+    }
+
     [TestCase(false)]
     [TestCase(true)]
     public async Task LineHooksHandleStrippedChunks(bool asynchronous)
