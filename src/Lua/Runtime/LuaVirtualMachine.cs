@@ -1050,7 +1050,9 @@ public static partial class LuaVirtualMachine
                         stack.EnsureCapacity(ra1);
                         stack.Get(ra1 - 1) = new LuaClosure(
                             context.State,
-                            context.Prototype.ChildPrototypes[instruction.Bx]
+                            context.Prototype.ChildPrototypes[instruction.Bx],
+                            context.LuaClosure,
+                            frameBase
                         );
                         stack.NotifyTop(ra1);
 

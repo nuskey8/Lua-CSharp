@@ -2,7 +2,6 @@ using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Lua.Internal;
 using Lua.Platforms;
-using Lua.Runtime;
 using Lua.Standard;
 
 namespace Lua;
@@ -14,7 +13,6 @@ sealed class LuaGlobalState
     FastStackCore<LuaState> stateStack;
     readonly LuaTable environment;
     readonly LuaTable registry = new();
-    readonly UpValue envUpValue;
 
     FastStackCore<LuaDebug.LuaDebugBuffer> debugBufferPool;
 
@@ -24,7 +22,6 @@ sealed class LuaGlobalState
     // Coroutines share this policy so Lua code cannot reset the limit by creating a new thread.
     internal int MaxCallDepth = 100_000;
 
-    internal UpValue EnvUpValue => envUpValue;
     internal ref FastStackCore<LuaState> ThreadStack => ref stateStack;
     internal ref FastStackCore<LuaDebug.LuaDebugBuffer> DebugBufferPool => ref debugBufferPool;
 
@@ -53,7 +50,6 @@ sealed class LuaGlobalState
     {
         mainState = new(this);
         environment = new();
-        envUpValue = UpValue.Closed(environment);
         registry[ModuleLibrary.LoadedKeyForRegistry] = new LuaTable(0, 8);
         registry[ModuleLibrary.PreloadKeyForRegistry] = new LuaTable(0, 8);
         Platform = platform;

@@ -420,18 +420,17 @@ public class LuaState : IDisposable
         for (int i = callStack.Length - 1; i >= 0; i--)
         {
             var function = callStack[i].Function;
-            if (function is not LuaClosure closure || closure.Proto.UpValues.Length == 0)
+            if (function is not LuaClosure closure)
             {
                 continue;
             }
 
-            if (closure.Proto.UpValues[0].Name != "_ENV")
+            var descriptions = closure.Proto.UpValues;
+            for (var index = 0; index < descriptions.Length; index++)
             {
-                continue;
+                if (descriptions[index].Name == "_ENV")
+                    return closure.UpValues[index].GetValue().Read<LuaTable>();
             }
-
-            var upValue = closure.UpValues[0];
-            return upValue.GetValue().Read<LuaTable>();
         }
 
         return Environment;
