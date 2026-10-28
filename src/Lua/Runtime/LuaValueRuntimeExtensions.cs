@@ -18,10 +18,11 @@ static class LuaRuntimeExtensions
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static int GetVariableArgumentCount(this LuaFunction function, int argumentCount)
+    public static int GetArgumentAdjustment(this LuaFunction function, int argumentCount)
     {
-        return function is LuaClosure { Proto.HasVariableArguments: true } luaClosure
-            ? argumentCount - luaClosure.Proto.ParameterCount
-            : 0;
+        if (function is not LuaClosure closure)
+            return 0;
+        var adjustment = argumentCount - closure.Proto.ParameterCount;
+        return adjustment <= 0 || closure.Proto.HasVariableArguments ? adjustment : 0;
     }
 }

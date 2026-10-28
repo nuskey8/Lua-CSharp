@@ -1,6 +1,8 @@
 using System.Buffers;
 using System.Text;
 using Lua.IO;
+using Lua.Platforms;
+using Lua.Standard;
 
 namespace Lua.Tests;
 
@@ -10,6 +12,48 @@ public class StreamLifetimeTests(LuaStringMode stringMode)
 {
     LuaStream CreateStream(string text) =>
         new(LuaFileOpenMode.Read, new MemoryStream(Encoding.UTF8.GetBytes(text)), stringMode);
+
+    [TestCase(SeekOrigin.Begin, -1)]
+    [TestCase(SeekOrigin.Current, -8)]
+    [TestCase(SeekOrigin.End, -8)]
+    public async Task FailedSeekPreservesUnreadBytes(SeekOrigin origin, long offset)
+    {
+        using var stream = CreateStream("abc\ndef");
+        Assert.That(await stream.ReadLineAsync(false, default), Is.EqualTo("abc"));
+        Assert.Throws<IOException>(() => stream.Seek(origin, offset));
+        Assert.That(await stream.ReadAllAsync(default), Is.EqualTo("def"));
+    }
+
+    [TestCase(SeekOrigin.Begin, 0, 0, "abc\ndef")]
+    [TestCase(SeekOrigin.Current, 0, 4, "def")]
+    [TestCase(SeekOrigin.End, -3, 4, "def")]
+    public async Task SuccessfulSeekUsesTheLogicalReadPosition(
+        SeekOrigin origin,
+        long offset,
+        long position,
+        string remaining
+    )
+    {
+        using var stream = CreateStream("abc\ndef");
+        Assert.That(await stream.ReadLineAsync(false, default), Is.EqualTo("abc"));
+        Assert.That(stream.Seek(origin, offset), Is.EqualTo(position));
+        Assert.That(await stream.ReadAllAsync(default), Is.EqualTo(remaining));
+    }
+
+    [Test]
+    public async Task LuaFileReadContinuesAfterFailedSeek()
+    {
+        using var state = LuaState.Create(
+            stringMode == LuaStringMode.Bytes ? LuaPlatform.DefaultByteStrings : LuaPlatform.Default
+        );
+        state.OpenStandardLibraries();
+        using var stream = CreateStream("abc\ndef");
+        state.Environment["file"] = new LuaValue(new FileHandle(stream));
+        var values = await state.DoStringAsync(
+            "local line=file:read('*l'); local pos=file:seek('set',-1); return line,pos,file:read('*a')"
+        );
+        Assert.That(values, Is.EqualTo(new LuaValue[] { "abc", LuaValue.Nil, "def" }));
+    }
 
     [TestCase(false, false)]
     [TestCase(true, false)]

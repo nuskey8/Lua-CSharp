@@ -6,23 +6,29 @@ namespace Lua.Tests;
 
 public class TableKeyLifetimeTests
 {
-    [TestCase("table")]
-    [TestCase("function")]
-    [TestCase("string")]
-    [TestCase("thread")]
-    [TestCase("userdata")]
-    [TestCase("object")]
-    public void DeletedReferenceKeyIsCollectible(string kind)
+    [TestCase("table", false)]
+    [TestCase("function", false)]
+    [TestCase("string", false)]
+    [TestCase("thread", false)]
+    [TestCase("userdata", false)]
+    [TestCase("object", false)]
+    [TestCase("table", true)]
+    [TestCase("function", true)]
+    [TestCase("string", true)]
+    [TestCase("thread", true)]
+    [TestCase("userdata", true)]
+    [TestCase("object", true)]
+    public void DeletedReferenceKeyIsCollectible(string kind, bool hostApi)
     {
         var table = new LuaTable();
-        var reference = DeleteKey(table, kind);
+        var reference = DeleteKey(table, kind, hostApi);
         Collect(reference);
         Assert.That(table.HashMapCount, Is.EqualTo(1));
         GC.KeepAlive(table);
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
-    static WeakReference DeleteKey(LuaTable table, string kind)
+    static WeakReference DeleteKey(LuaTable table, string kind, bool hostApi)
     {
         LuaValue key = kind switch
         {
@@ -35,7 +41,13 @@ public class TableKeyLifetimeTests
         };
         table["anchor"] = 1;
         table[key] = 42;
-        table[key] = LuaValue.Nil;
+        if (hostApi)
+        {
+            using var state = LuaState.Create();
+            state.SetTableAsync(table, key, LuaValue.Nil).GetAwaiter().GetResult();
+        }
+        else
+            table[key] = LuaValue.Nil;
         if (kind == "thread")
             key.Read<LuaState>().Dispose();
         return new WeakReference(key.UnsafeRead<object>());
@@ -180,6 +192,32 @@ public class TableKeyLifetimeTests
             table.Select(pair => pair.Value.Read<int>()).Order(),
             Is.EqualTo(new[] { 11, 12, 13, 14 })
         );
+    }
+
+    [Test]
+    public async Task HostDeletionPreservesCountsReinsertionAndIteration()
+    {
+        using var state = LuaState.Create();
+        var table = new LuaTable(0, 8);
+        LuaValue[] keys = [-1, false, "name", new LuaTable()];
+        foreach (var key in keys)
+        {
+            await state.SetTableAsync(table, key, 42);
+            await state.SetTableAsync(table, key, LuaValue.Nil);
+            await state.SetTableAsync(table, key, 99);
+        }
+        Assert.That(table.HashMapCount, Is.EqualTo(keys.Length));
+        LuaValue previous = LuaValue.Nil;
+        var removed = 0;
+        while (table.TryGetNext(previous, out var pair))
+        {
+            previous = pair.Key;
+            Assert.That(pair.Value, Is.EqualTo(new LuaValue(99)));
+            await state.SetTableAsync(table, previous, LuaValue.Nil);
+            removed++;
+        }
+        Assert.That(removed, Is.EqualTo(keys.Length));
+        Assert.That(table.HashMapCount, Is.Zero);
     }
 
     static void Collect(WeakReference reference)

@@ -3110,7 +3110,7 @@ public static partial class LuaVirtualMachine
             state.Stack.SetTop(newBase + argumentCount);
         }
 
-        var variableArgumentCount = function.GetVariableArgumentCount(argumentCount);
+        var variableArgumentCount = function.GetArgumentAdjustment(argumentCount);
 
         if (variableArgumentCount < 0)
         {
@@ -3136,7 +3136,7 @@ public static partial class LuaVirtualMachine
     {
         var argumentCount = (int)(state.Stack.Count - newBase);
 
-        var variableArgumentCount = function.GetVariableArgumentCount(argumentCount);
+        var variableArgumentCount = function.GetArgumentAdjustment(argumentCount);
 
         if (variableArgumentCount < 0)
         {
@@ -3194,10 +3194,16 @@ public static partial class LuaVirtualMachine
             newBase = currentBase;
         }
 
-        var variableArgumentCount = function.GetVariableArgumentCount(argumentCount);
+        var variableArgumentCount = function.GetArgumentAdjustment(argumentCount);
 
-        if (variableArgumentCount <= 0)
+        if (variableArgumentCount == 0)
+            return (argumentCount, 0);
+
+        if (variableArgumentCount < 0)
         {
+            stack.PopUntil(newBase + argumentCount);
+            argumentCount -= variableArgumentCount;
+            stack.SetTop(newBase + argumentCount);
             return (argumentCount, 0);
         }
 

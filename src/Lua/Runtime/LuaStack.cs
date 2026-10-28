@@ -75,6 +75,15 @@ public sealed class LuaStack(int initialSize = 256)
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal void PushRange(LuaValue first, ReadOnlySpan<LuaValue> values)
+    {
+        EnsureCapacity(top + 1 + values.Length);
+        values.CopyTo(array.AsSpan(top + 1));
+        array[top] = first;
+        top += 1 + values.Length;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public LuaValue Pop()
     {
         if (top == 0)

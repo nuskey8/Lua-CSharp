@@ -199,8 +199,9 @@ public sealed class LuaStream(LuaFileOpenMode mode, Stream innerStream, LuaStrin
             offset -= reader.Remain;
         }
 
+        var position = innerStream.Seek(offset, origin);
         reader?.Clear();
-        return innerStream.Seek(offset, origin);
+        return position;
     }
 
     public void Dispose()

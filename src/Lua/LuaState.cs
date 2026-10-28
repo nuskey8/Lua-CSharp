@@ -289,7 +289,7 @@ public class LuaState : IDisposable
     )
     {
         var state = this;
-        var varArgumentCount = function.GetVariableArgumentCount(argumentCount);
+        var varArgumentCount = function.GetArgumentAdjustment(argumentCount);
         if (varArgumentCount != 0)
         {
             if (varArgumentCount < 0)
@@ -543,7 +543,7 @@ public class LuaState : IDisposable
         try
         {
             state.ThrowIfCancellationRequested(cancellationToken);
-            var varArgumentCount = function.GetVariableArgumentCount(argumentCount);
+            var varArgumentCount = function.GetArgumentAdjustment(argumentCount);
             if (varArgumentCount != 0)
             {
                 if (varArgumentCount < 0)
