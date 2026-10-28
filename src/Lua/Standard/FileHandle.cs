@@ -128,7 +128,16 @@ public sealed class FileHandle : ILuaUserData
         if (stream == null || !stream.IsOpen)
             throw new ObjectDisposedException(nameof(FileHandle));
 
-        await stream.CloseAsync(cancellationToken);
+        try
+        {
+            await stream.CloseAsync(cancellationToken);
+        }
+        catch
+        {
+            if (stream is { IsOpen: false })
+                stream = null!;
+            throw;
+        }
         stream = null!;
     }
 

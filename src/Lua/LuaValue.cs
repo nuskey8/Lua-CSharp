@@ -613,7 +613,7 @@ public readonly struct LuaValue : IEquatable<LuaValue>
             LuaValueType.Nil => 0,
             LuaValueType.Boolean or LuaValueType.Number => value.GetHashCode(),
             LuaValueType.String => Unsafe.As<string>(referenceValue)!.GetHashCode(),
-            _ => referenceValue!.GetHashCode(),
+            _ => RuntimeHelpers.GetHashCode(referenceValue!),
         };
     }
 

@@ -8,6 +8,7 @@ namespace Lua.Standard;
 public sealed class DebugLibrary
 {
     public static readonly DebugLibrary Instance = new();
+    static readonly ConditionalWeakTable<UpValue, object> upValueIds = new();
 
     public DebugLibrary()
     {
@@ -434,7 +435,8 @@ public sealed class DebugLibrary
             return new(context.Return(LuaValue.Nil));
         }
 
-        return new(context.Return(LuaValue.FromObject(upValues[n1 - 1])));
+        var identity = upValueIds.GetValue(upValues[n1 - 1], static _ => new object());
+        return new(context.Return(LuaValue.FromObject(identity)));
     }
 
     public ValueTask<int> UpValueJoin(
