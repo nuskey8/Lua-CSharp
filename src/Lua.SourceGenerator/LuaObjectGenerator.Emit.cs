@@ -236,10 +236,7 @@ partial class LuaObjectGenerator
 
             metamethodSet.Add(LuaObjectMetamethod.NewIndex);
 
-            if (!TryEmitMetatable(builder, metamethodSet, context))
-            {
-                return false;
-            }
+            EmitMetatable(builder, metamethodSet);
 
             // implicit operator
             builder.AppendLine(
@@ -1342,11 +1339,7 @@ partial class LuaObjectGenerator
         }
     }
 
-    static bool TryEmitMetatable(
-        CodeBuilder builder,
-        IEnumerable<LuaObjectMetamethod> metamethods,
-        in SourceProductionContext context
-    )
+    static void EmitMetatable(CodeBuilder builder, IEnumerable<LuaObjectMetamethod> metamethods)
     {
         builder.AppendLine("global::Lua.LuaTable? global::Lua.ILuaUserData.Metatable");
         using (builder.BeginBlockScope())
@@ -1415,7 +1408,5 @@ partial class LuaObjectGenerator
             "static readonly global::Lua.LuaTable __metatable = __CreateMetatable();"
         );
         builder.AppendLine();
-
-        return true;
     }
 }
