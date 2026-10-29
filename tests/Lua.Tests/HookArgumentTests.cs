@@ -18,12 +18,17 @@ public class HookArgumentTests(LuaStringMode mode)
         return state;
     }
 
-    [Test]
-    [Combinatorial]
-    public async Task LuaHooksReceiveFixedAndVariableArguments(
-        [Values(0, 1, 2, 3)] int fixedParameters,
-        [Values("c", "r", "l", "")] string mask
-    )
+    [TestCase(0, "c")]
+    [TestCase(1, "c")]
+    [TestCase(2, "c")]
+    [TestCase(3, "c")]
+    [TestCase(0, "r")]
+    [TestCase(3, "r")]
+    [TestCase(0, "l")]
+    [TestCase(3, "l")]
+    [TestCase(0, "")]
+    [TestCase(3, "")]
+    public async Task LuaHooksReceiveFixedAndVariableArguments(int fixedParameters, string mask)
     {
         using var state = CreateState();
         var calls = new List<LuaValue[]>();

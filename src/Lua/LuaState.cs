@@ -301,6 +301,7 @@ public class LuaState : IDisposable
         return CoreData == null ? default : CoreData!.CallStack.AsSpan();
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal CallStackFrame CreateCallStackFrame(
         LuaFunction function,
         int argumentCount,
@@ -581,39 +582,8 @@ public class LuaState : IDisposable
         try
         {
             state.ThrowIfCancellationRequested(cancellationToken);
-            var varArgumentCount = function.GetArgumentAdjustment(argumentCount);
-            if (varArgumentCount != 0)
-            {
-                if (varArgumentCount < 0)
-                {
-                    state.Stack.SetTop(state.Stack.Count - varArgumentCount);
-                    argumentCount -= varArgumentCount;
-                    varArgumentCount = 0;
-                }
-                else
-                {
-                    LuaVirtualMachine.PrepareVariableArgument(
-                        state.Stack,
-                        argumentCount,
-                        varArgumentCount
-                    );
-                }
-
-                argumentCount -= varArgumentCount;
-            }
-
-            CallStackFrame frame = new()
-            {
-                Base = state.Stack.Count - argumentCount,
-                VariableArgumentCount = varArgumentCount,
-                Function = function,
-                ReturnBase = returnBase,
-            };
-            if (state.IsInHook)
-            {
-                frame.Flags |= CallStackFrameFlags.InHook;
-            }
-
+            var frame = state.CreateCallStackFrame(function, argumentCount, returnBase, 0);
+            argumentCount = state.Stack.Count - frame.Base;
             state.PushCallStackFrame(frame);
             LuaFunctionExecutionContext context = new()
             {

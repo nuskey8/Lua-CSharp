@@ -37,8 +37,7 @@ public static partial class LuaVirtualMachine
 
                 var stack = context.State.Stack;
                 var top = stack.Count;
-                stack.Push("count");
-                stack.Push(LuaValue.Nil);
+                stack.PushRange("count", LuaValue.Nil);
                 context.State.IsInHook = true;
                 try
                 {
@@ -84,8 +83,7 @@ public static partial class LuaVirtualMachine
                     var hook = context.State.Hook!;
                     var stack = context.State.Stack;
                     var top = stack.Count;
-                    stack.Push("line");
-                    stack.Push(line);
+                    stack.PushRange("line", line);
                     context.State.IsInHook = true;
                     try
                     {
@@ -148,7 +146,6 @@ public static partial class LuaVirtualMachine
     )
     {
         var argCount = context.ArgumentCount;
-        var hook = context.State.Hook!;
         var stack = context.State.Stack;
         {
             ref readonly var frame = ref context.State.GetCurrentFrame();
@@ -157,34 +154,12 @@ public static partial class LuaVirtualMachine
         }
         if (context.State.IsCallHookEnabled)
         {
-            var top = stack.Count;
-            stack.Push(isTailCall ? "tail call" : "call");
-
-            stack.Push(LuaValue.Nil);
-            context.State.IsInHook = true;
-            var framePushed = false;
-            try
-            {
-                var frame = context.State.CreateCallStackFrame(hook, 2, top, 0);
-                context.State.PushCallStackFrame(frame);
-                framePushed = true;
-                LuaFunctionExecutionContext funcContext = new()
-                {
-                    State = context.State,
-                    ArgumentCount = stack.Count - frame.Base,
-                    ReturnFrameBase = frame.ReturnBase,
-                };
-                await hook.Func(funcContext, cancellationToken);
-            }
-            finally
-            {
-                context.State.IsInHook = false;
-                // A failed push leaves the caller's frame on top; do not pop it.
-                if (framePushed)
-                {
-                    context.State.PopCallStackFrameWithStackPop();
-                }
-            }
+            await ExecuteCallOrReturnHook(
+                context.State,
+                isTailCall ? "tail call" : "call",
+                0,
+                cancellationToken
+            );
         }
 
         context.State.ThrowIfCancellationRequested(cancellationToken);
@@ -212,7 +187,7 @@ public static partial class LuaVirtualMachine
             }
 
             context.State.ThrowIfCancellationRequested(cancellationToken);
-            await ExecuteReturnHook(context.State, 0, cancellationToken);
+            await ExecuteCallOrReturnHook(context.State, "return", 0, cancellationToken);
             return r;
         }
     }
@@ -222,7 +197,12 @@ public static partial class LuaVirtualMachine
     {
         // Return hooks inspect the callee before its registers are reclaimed.
         context.PostOperation = PostOperationType.Return;
-        var task = ExecuteReturnHook(context.State, context.Pc, context.CancellationToken);
+        var task = ExecuteCallOrReturnHook(
+            context.State,
+            "return",
+            context.Pc,
+            context.CancellationToken
+        );
         if (!task.IsCompleted)
         {
             context.Task = task;
@@ -234,8 +214,9 @@ public static partial class LuaVirtualMachine
     }
 
     [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder<>))]
-    static async ValueTask<int> ExecuteReturnHook(
+    static async ValueTask<int> ExecuteCallOrReturnHook(
         LuaState state,
+        string eventName,
         int pc,
         CancellationToken cancellationToken
     )
@@ -243,8 +224,7 @@ public static partial class LuaVirtualMachine
         var hook = state.Hook!;
         var stack = state.Stack;
         var top = stack.Count;
-        stack.Push("return");
-        stack.Push(LuaValue.Nil);
+        stack.PushRange(eventName, LuaValue.Nil);
         state.IsInHook = true;
         var framePushed = false;
         try
