@@ -123,6 +123,24 @@ public class LuaState : IDisposable
         return new(2);
     }
 
+    internal ValueTask<int> ResumeWrappedAsync(
+        LuaFunctionExecutionContext context,
+        CancellationToken cancellationToken
+    ) =>
+        coroutine != null
+            ? coroutine.ResumeAsyncCore(
+                context.State.Stack,
+                context.ArgumentCount,
+                context.ReturnFrameBase,
+                context.State,
+                cancellationToken,
+                includeStatus: false
+            )
+            : ResumeAsync(context, cancellationToken);
+
+    internal CancellationToken GetCancellationOrigin(CancellationToken token) =>
+        coroutine == null ? token : coroutine.GetCancellationOrigin(token);
+
     public ValueTask<int> YieldAsync(
         LuaFunctionExecutionContext context,
         CancellationToken cancellationToken = default
@@ -187,6 +205,7 @@ public class LuaState : IDisposable
     }
 
     FastListCore<UpValue> openUpValues;
+    WeakReference<LuaState>? suspendedReference;
     internal int CallCount;
     internal LuaGlobalState GlobalState { get; }
     ThreadCoreData? CoreData;
@@ -200,7 +219,7 @@ public class LuaState : IDisposable
 
     internal ILuaTracebackBuildable? CurrentException;
     internal readonly ReversedStack<CallStackFrame> ExceptionTrace = new();
-    internal LuaFunction? LastCallerFunction;
+    internal Prototype? LastCallerPrototype;
 
     internal ref FastListCore<UpValue> OpenUpValues => ref openUpValues;
     public bool IsRunning => CallStackFrameCount != 0;
@@ -209,6 +228,7 @@ public class LuaState : IDisposable
     internal bool IsLuaDebugHook;
     internal byte HookMask;
 
+    /// <summary>The entry function, or null for non-coroutines and completed coroutines.</summary>
     public LuaFunction? CoroutineFunction => coroutine?.Function;
     public bool CanResume => GetStatus() == LuaThreadStatus.Suspended;
     public LuaStack Stack => CoreData!.Stack;
@@ -281,6 +301,7 @@ public class LuaState : IDisposable
         return CoreData == null ? default : CoreData!.CallStack.AsSpan();
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal CallStackFrame CreateCallStackFrame(
         LuaFunction function,
         int argumentCount,
@@ -289,7 +310,7 @@ public class LuaState : IDisposable
     )
     {
         var state = this;
-        var varArgumentCount = function.GetVariableArgumentCount(argumentCount);
+        var varArgumentCount = function.GetArgumentAdjustment(argumentCount);
         if (varArgumentCount != 0)
         {
             if (varArgumentCount < 0)
@@ -306,6 +327,8 @@ public class LuaState : IDisposable
                     varArgumentCount
                 );
             }
+
+            argumentCount -= varArgumentCount;
         }
 
         CallStackFrame frame = new()
@@ -368,6 +391,7 @@ public class LuaState : IDisposable
         if (CurrentException != null)
         {
             ExceptionTrace.Push(popFrame);
+            CompleteExceptionTrace(callStack.Count);
         }
 
         coreData.Stack.PopUntil(popFrame.ReturnBase);
@@ -382,6 +406,7 @@ public class LuaState : IDisposable
         if (CurrentException != null)
         {
             ExceptionTrace.Push(popFrame);
+            CompleteExceptionTrace(callStack.Count);
         }
 
         {
@@ -398,6 +423,7 @@ public class LuaState : IDisposable
         if (CurrentException != null)
         {
             ExceptionTrace.Push(popFrame);
+            CompleteExceptionTrace(callStack.Count);
         }
     }
 
@@ -409,9 +435,22 @@ public class LuaState : IDisposable
         if (CurrentException != null)
         {
             ExceptionTrace.Push(callStack.AsSpan()[top..]);
+            CompleteExceptionTrace(top);
         }
 
         callStack.PopUntil(top);
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    void CompleteExceptionTrace(int remainingFrameCount)
+    {
+        // Nested calls must keep collecting frames until the outermost call unwinds.
+        if (remainingFrameCount != 0)
+            return;
+
+        CurrentException!.BuildOrGet();
+        CurrentException = null;
+        ExceptionTrace.Clear();
     }
 
     public LuaTable GetCurrentEnvironment()
@@ -420,18 +459,17 @@ public class LuaState : IDisposable
         for (int i = callStack.Length - 1; i >= 0; i--)
         {
             var function = callStack[i].Function;
-            if (function is not LuaClosure closure || closure.Proto.UpValues.Length == 0)
+            if (function is not LuaClosure closure)
             {
                 continue;
             }
 
-            if (closure.Proto.UpValues[0].Name != "_ENV")
+            var descriptions = closure.Proto.UpValues;
+            for (var index = 0; index < descriptions.Length; index++)
             {
-                continue;
+                if (descriptions[index].Name == "_ENV")
+                    return closure.UpValues[index].GetValue().Read<LuaTable>();
             }
-
-            var upValue = closure.UpValues[0];
-            return upValue.GetValue().Read<LuaTable>();
         }
 
         return Environment;
@@ -537,51 +575,22 @@ public class LuaState : IDisposable
             throw new ArgumentNullException(nameof(function));
         }
 
-        this.ThrowIfCancellationRequested(cancellationToken);
         var state = this;
-        var varArgumentCount = function.GetVariableArgumentCount(argumentCount);
-        if (varArgumentCount != 0)
-        {
-            if (varArgumentCount < 0)
-            {
-                state.Stack.SetTop(state.Stack.Count - varArgumentCount);
-                argumentCount -= varArgumentCount;
-                varArgumentCount = 0;
-            }
-            else
-            {
-                LuaVirtualMachine.PrepareVariableArgument(
-                    state.Stack,
-                    argumentCount,
-                    varArgumentCount
-                );
-            }
-
-            argumentCount -= varArgumentCount;
-        }
-
-        CallStackFrame frame = new()
-        {
-            Base = state.Stack.Count - argumentCount,
-            VariableArgumentCount = varArgumentCount,
-            Function = function,
-            ReturnBase = returnBase,
-        };
-        if (state.IsInHook)
-        {
-            frame.Flags |= CallStackFrameFlags.InHook;
-        }
-
-        state.PushCallStackFrame(frame);
-        LuaFunctionExecutionContext context = new()
-        {
-            State = state,
-            ArgumentCount = argumentCount,
-            ReturnFrameBase = returnBase,
-        };
         var callStackTop = state.CallStackFrameCount;
+        var previousCallerPrototype = state.LastCallerPrototype;
+        var previousPc = state.LastPc;
         try
         {
+            state.ThrowIfCancellationRequested(cancellationToken);
+            var frame = state.CreateCallStackFrame(function, argumentCount, returnBase, 0);
+            argumentCount = state.Stack.Count - frame.Base;
+            state.PushCallStackFrame(frame);
+            LuaFunctionExecutionContext context = new()
+            {
+                State = state,
+                ArgumentCount = argumentCount,
+                ReturnFrameBase = returnBase,
+            };
             if (CallOrReturnHookMask.Value != 0 && !IsInHook)
             {
                 return await LuaVirtualMachine.ExecuteCallHook(context, cancellationToken);
@@ -589,9 +598,16 @@ public class LuaState : IDisposable
 
             return await function.Func(context, cancellationToken);
         }
+        catch
+        {
+            Stack.PopUntil(returnBase);
+            throw;
+        }
         finally
         {
-            PopCallStackFrameUntil(callStackTop - 1);
+            PopCallStackFrameUntil(callStackTop);
+            LastCallerPrototype = previousCallerPrototype;
+            LastPc = previousPc;
         }
     }
 
@@ -723,10 +739,12 @@ public class LuaState : IDisposable
 
     internal UpValue GetOrAddUpValue(int registerIndex)
     {
-        foreach (var upValue in openUpValues.AsSpan())
+        foreach (ref var upValue in openUpValues.AsSpan())
         {
             if (upValue.RegisterIndex == registerIndex)
             {
+                if (upValue.IsClosed)
+                    upValue = UpValue.Open(this, registerIndex);
                 return upValue;
             }
         }
@@ -749,6 +767,35 @@ public class LuaState : IDisposable
                 i--;
             }
         }
+    }
+
+    internal void SuspendUpValues()
+    {
+        if (openUpValues.Length == 0)
+            return;
+
+        var reference = suspendedReference ??= new(this);
+        foreach (var upValue in openUpValues.AsSpan())
+            upValue.Suspend(reference);
+    }
+
+    internal void ResumeUpValues()
+    {
+        for (var i = 0; i < openUpValues.Length; i++)
+        {
+            if (!openUpValues[i].Resume(this))
+                openUpValues.RemoveAtSwapBack(i--);
+        }
+    }
+
+    internal ref LuaValue GetLocalReference(int registerIndex)
+    {
+        foreach (var upValue in openUpValues.AsSpan())
+        {
+            if (upValue.RegisterIndex == registerIndex && !upValue.IsClosed)
+                return ref upValue.GetValueRef();
+        }
+        return ref Stack.Get(registerIndex);
     }
 
     public void Dispose()

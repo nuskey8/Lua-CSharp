@@ -1,7 +1,35 @@
+using Lua.Runtime;
+
 namespace Lua.Tests;
 
 public class LuaValueTests
 {
+    [Test]
+    public void FunctionConversionsCheckTheStoredRuntimeType()
+    {
+        var function = new LuaFunction((context, _) => new(context.Return()));
+        LuaValue value = function;
+        Assert.That(value.Read<LuaFunction>(), Is.SameAs(function));
+        Assert.That(value.TryRead<LuaClosure>(out var luaClosure), Is.False);
+        Assert.That(luaClosure, Is.Null);
+        Assert.That(value.TryRead<CSharpClosure>(out var csClosure), Is.False);
+        Assert.That(csClosure, Is.Null);
+        Assert.Throws<InvalidOperationException>(() => value.Read<LuaClosure>());
+
+        using var state = LuaState.Create();
+        var closure = state.Load("return 42", "conversion");
+        value = closure;
+        Assert.That(value.Read<LuaFunction>(), Is.SameAs(closure));
+        Assert.That(value.Read<LuaClosure>(), Is.SameAs(closure));
+        Assert.That(value.TryRead<CSharpClosure>(out _), Is.False);
+
+        var managed = new CSharpClosure("managed", [], (context, _) => new(context.Return()));
+        value = managed;
+        Assert.That(value.Read<LuaFunction>(), Is.SameAs(managed));
+        Assert.That(value.Read<CSharpClosure>(), Is.SameAs(managed));
+        Assert.That(value.TryRead<LuaClosure>(out _), Is.False);
+    }
+
     [Test]
     public void TryRead_LuaValue_ReturnsOriginalValue()
     {

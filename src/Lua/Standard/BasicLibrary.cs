@@ -383,18 +383,13 @@ public sealed class BasicLibrary
                     throw new LuaCanceledException(context.State, cancellationToken, ex);
                 case LuaRuntimeException luaEx:
                 {
-                    if (
+                    LuaValue error =
                         luaEx.InnerException == null
                         && luaEx.ErrorObject.Type != LuaValueType.String
-                    )
-                    {
-                        return context.Return(false, luaEx.ErrorObject);
-                    }
-
-                    using PooledList<char> builder = new();
-                    var message = luaEx.MinimalMessage(context.State.Platform);
+                            ? luaEx.ErrorObject
+                            : luaEx.MinimalMessage(context.State.Platform);
                     luaEx.Forget();
-                    return context.Return(false, message);
+                    return context.Return(false, error);
                 }
                 default:
                     return context.Return(false, context.State.Platform.GetErrorMessage(ex));

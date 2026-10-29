@@ -65,6 +65,7 @@ class PrototypeBuilder : IPoolNode<PrototypeBuilder>
 
     internal void Release()
     {
+        Source = string.Empty;
         ConstantsList.Clear();
         CodeList.Clear();
         PrototypeList.Clear();

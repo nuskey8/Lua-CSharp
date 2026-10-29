@@ -1,55 +1,60 @@
 using System.Runtime.CompilerServices;
-using Lua.CodeAnalysis;
-using Lua.Internal;
 
 namespace Lua.Runtime;
 
 public sealed class LuaClosure : LuaFunction
 {
-    FastListCore<UpValue> upValues;
+    readonly UpValue[] upValues;
 
-    public LuaClosure(LuaState state, Prototype proto, LuaTable? environment = null)
+    LuaClosure(Prototype proto)
         : base(
             proto.ChunkName,
             static (context, ct) => LuaVirtualMachine.ExecuteClosureAsync(context.State, ct)
         )
     {
         Proto = proto;
-        if (environment != null)
-        {
-            upValues.Add(UpValue.Closed(environment));
+        upValues = proto.UpValues.IsEmpty ? [] : new UpValue[proto.UpValues.Length];
+    }
+
+    /// <summary>
+    /// Creates a loaded chunk with closed upvalues initialized to nil.
+    /// An explicit environment initializes the first upvalue; otherwise the global
+    /// environment initializes it only when the chunk has a single upvalue.
+    /// </summary>
+    public LuaClosure(LuaState state, Prototype proto, LuaTable? environment = null)
+        : this(proto)
+    {
+        if (proto.UpValues.IsEmpty)
             return;
-        }
 
-        if (state.CallStackFrameCount == 0)
+        var firstUpValue = LuaValue.Nil;
+        if (environment != null || upValues.Length == 1)
+            firstUpValue = environment ?? state.Environment;
+        upValues[0] = UpValue.Closed(firstUpValue);
+        for (var i = 1; i < proto.UpValues.Length; i++)
+            upValues[i] = UpValue.Closed(LuaValue.Nil);
+    }
+
+    internal LuaClosure(LuaState state, Prototype proto, LuaClosure parent, int frameBase)
+        : this(proto)
+    {
+        var descriptions = proto.UpValues;
+        for (var i = 0; i < descriptions.Length; i++)
         {
-            upValues.Add(state.GlobalState.EnvUpValue);
-            return;
-        }
-
-        var baseIndex = state.GetCallStackFrames()[^1].Base;
-
-        // add upvalues
-        for (var i = 0; i < proto.UpValues.Length; i++)
-        {
-            var description = proto.UpValues[i];
-            var upValue = GetUpValueFromDescription(
-                state.GlobalState,
-                state,
-                description,
-                baseIndex
-            );
-            upValues.Add(upValue);
+            var description = descriptions[i];
+            upValues[i] = description.IsLocal
+                ? state.GetOrAddUpValue(frameBase + description.Index)
+                : parent.upValues[description.Index];
         }
     }
 
     public Prototype Proto { get; }
 
-    public ReadOnlySpan<UpValue> UpValues => upValues.AsSpan();
+    public ReadOnlySpan<UpValue> UpValues => upValues;
 
     internal Span<UpValue> GetUpValuesSpan()
     {
-        return upValues.AsSpan();
+        return upValues;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -72,42 +77,7 @@ public sealed class LuaClosure : LuaFunction
 
     internal void SetEnvironment(LuaValue environment)
     {
-        if (Proto.UpValues.Length == 0 || Proto.UpValues[0].Name != "_ENV")
-        {
-            return;
-        }
-
-        if (upValues.Length == 0)
-        {
-            upValues.Add(UpValue.Closed(environment));
-            return;
-        }
-
-        upValues[0] = UpValue.Closed(environment);
-    }
-
-    static UpValue GetUpValueFromDescription(
-        LuaGlobalState globalState,
-        LuaState state,
-        UpValueDesc description,
-        int baseIndex = 0
-    )
-    {
-        if (description.IsLocal)
-        {
-            if (description is { Index: 0, Name: "_ENV" })
-            {
-                return globalState.EnvUpValue;
-            }
-
-            return state.GetOrAddUpValue(baseIndex + description.Index);
-        }
-
-        if (state.GetCurrentFrame().Function is LuaClosure parentClosure)
-        {
-            return parentClosure.UpValues[description.Index];
-        }
-
-        throw new();
+        if (upValues.Length != 0)
+            upValues[0].SetValue(environment);
     }
 }

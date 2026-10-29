@@ -1,6 +1,5 @@
 ﻿using System.Buffers;
 using System.Buffers.Binary;
-using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -77,6 +76,7 @@ unsafe struct Header
             || PointerSize is not (4 or 8)
             || InstructionSize != 4
             || NumberSize != 8
+            || Endianness > 1
         )
         {
             goto ErrIncompatible;
@@ -303,6 +303,7 @@ unsafe ref struct UndumpState(
     int pointerSize;
     readonly ReadOnlySpan<char> name = name;
 
+    [DoesNotReturn]
     void Throw(string why)
     {
         throw new LuaUndumpException($"{name.ToString()}: {why} precompiled chunk");
@@ -341,16 +342,10 @@ unsafe ref struct UndumpState(
 
     bool ReadBool()
     {
-        if (0 < Unread.Length)
-        {
-            var b = Unread[0];
-            Unread = Unread[1..];
-            return b != 0;
-        }
-
-        ThrowTooShort();
-
-        return false;
+        var value = ReadByte();
+        if (value > 1)
+            Throw("invalid boolean in");
+        return value != 0;
     }
 
     int ReadInt()
@@ -365,6 +360,16 @@ unsafe ref struct UndumpState(
         }
 
         return i;
+    }
+
+    // Check serialized lengths against the available input before allocating.
+    // Dividing avoids overflow when a corrupt count is close to int.MaxValue.
+    int ReadCount(int minimumElementSize)
+    {
+        var count = ReadInt();
+        if ((uint)count > (uint)(Unread.Length / minimumElementSize))
+            Throw("invalid length in");
+        return count;
     }
 
     long ReadLong()
@@ -397,41 +402,42 @@ unsafe ref struct UndumpState(
         h.Validate(name);
         otherEndian = BitConverter.IsLittleEndian ^ (h.Endianness == 1);
         pointerSize = h.PointerSize;
-        return UndumpFunction();
+        return UndumpFunction(0);
     }
 
-    Prototype UndumpFunction()
+    Prototype UndumpFunction(int depth)
     {
+        if (depth >= Constants.MaxCallCount || !RuntimeHelpers.TryEnsureSufficientExecutionStack())
+            Throw("excessive nesting in");
         var lineDefined = ReadInt(); // 4
         var lastLineDefined = ReadInt(); // 4
         var parameterCount = ReadByte(); // 1
         var maxStackSize = ReadByte(); // 1
-        var isVarArg = ReadByte() == 1; // 1
-        var codeLength = ReadInt();
+        var isVarArg = ReadBool(); // 1
+        var codeLength = ReadCount(sizeof(int));
         var code = new Instruction[codeLength];
         ReadInToIntSpan(MemoryMarshal.Cast<Instruction, int>(code));
         var constants = ReadConstants();
-        var prototypes = ReadPrototypes();
+        var prototypes = ReadPrototypes(depth);
         var upValues = ReadUpValues();
 
         // Debug
         var source = ReadString();
-        var lineInfoLength = ReadInt();
+        var lineInfoLength = ReadCount(sizeof(int));
+        if (lineInfoLength != 0 && lineInfoLength != codeLength)
+            Throw("invalid line info in");
         var lineInfo = new int[lineInfoLength];
         ReadInToIntSpan(lineInfo.AsSpan());
         var localVariables = ReadLocalVariables();
         var upValueCount = ReadInt();
-        Debug.Assert(
-            upValueCount == upValues.Length,
-            $"upvalue count mismatch: {upValueCount} != {upValues.Length}"
-        );
-        foreach (ref var desc in upValues.AsSpan())
+        if (upValueCount != 0 && upValueCount != upValues.Length)
+            Throw("invalid upvalue name count in");
+        for (var i = 0; i < upValueCount; i++)
         {
-            var name = ReadString();
-            desc.Name = name;
+            upValues[i].Name = ReadString();
         }
 
-        return new(
+        var prototype = new Prototype(
             source,
             lineDefined,
             lastLineDefined,
@@ -445,44 +451,49 @@ unsafe ref struct UndumpState(
             localVariables,
             upValues
         );
+        new BytecodeVerifier(prototype, name).Verify();
+        return prototype;
     }
 
     void ReadInToIntSpan(Span<int> toWrite)
     {
-        for (var i = 0; i < toWrite.Length; i++)
+        Read(MemoryMarshal.AsBytes(toWrite));
+        if (otherEndian)
         {
-            toWrite[i] = ReadInt();
+            foreach (ref var value in toWrite)
+                value = BinaryPrimitives.ReverseEndianness(value);
         }
     }
 
     string ReadString()
     {
-        var len = pointerSize == 4 ? ReadInt() : (int)ReadLong();
-        if (len == 0)
+        var serializedLength = pointerSize == 4 ? ReadInt() : ReadLong();
+        if (serializedLength == 0)
         {
             return "";
         }
 
-        len--;
-        var arrayPooled = ArrayPool<byte>.Shared.Rent(len);
+        if (serializedLength < 0 || serializedLength > Unread.Length)
+            Throw("invalid string length in");
+        var len = (int)serializedLength;
+        if (Unread[len - 1] != 0)
+            Throw("unterminated string in");
+        var bytes = Unread[..(len - 1)];
+        Unread = Unread[len..];
         char[]? charArrayPooled = null;
         try
         {
-            var span = arrayPooled.AsSpan(0, len);
-            Read(span);
-
-            var l = ReadByte();
-            Debug.Assert(l == 0);
+            // UTF-8 produces no more UTF-16 code units than input bytes. Decode
+            // directly from the chunk instead of copying to a second pooled array.
             var chars =
                 len <= 128
-                    ? stackalloc char[len * 2]
-                    : (charArrayPooled = ArrayPool<char>.Shared.Rent(len * 2));
-            var count = Encoding.UTF8.GetChars(span, chars);
+                    ? stackalloc char[len]
+                    : (charArrayPooled = ArrayPool<char>.Shared.Rent(len));
+            var count = Encoding.UTF8.GetChars(bytes, chars);
             return internPool.Intern(chars[..count]);
         }
         finally
         {
-            ArrayPool<byte>.Shared.Return(arrayPooled);
             if (charArrayPooled != null)
             {
                 ArrayPool<char>.Shared.Return(charArrayPooled);
@@ -492,7 +503,7 @@ unsafe ref struct UndumpState(
 
     LuaValue[] ReadConstants()
     {
-        var count = ReadInt();
+        var count = ReadCount(1);
         var constants = new LuaValue[count];
         for (var i = 0; i < count; i++)
         {
@@ -502,7 +513,7 @@ unsafe ref struct UndumpState(
                 case LuaValueType.Nil:
                     break;
                 case LuaValueType.Boolean:
-                    constants[i] = ReadByte() == 1;
+                    constants[i] = ReadBool();
                     break;
                 case LuaValueType.Number:
                     constants[i] = ReadDouble();
@@ -510,19 +521,24 @@ unsafe ref struct UndumpState(
                 case LuaValueType.String:
                     constants[i] = ReadString();
                     break;
+                default:
+                    Throw("invalid constant type in");
+                    break;
             }
         }
 
         return constants;
     }
 
-    Prototype[] ReadPrototypes()
+    Prototype[] ReadPrototypes(int depth)
     {
-        var count = ReadInt();
+        // Two line numbers, three flags, seven section counts, and the source length.
+        const int fixedFunctionSize = 2 * sizeof(int) + 3 + 7 * sizeof(int);
+        var count = ReadCount(fixedFunctionSize + pointerSize);
         var prototypes = count != 0 ? new Prototype[count] : [];
         for (var i = 0; i < count; i++)
         {
-            prototypes[i] = UndumpFunction();
+            prototypes[i] = UndumpFunction(depth + 1);
         }
 
         return prototypes;
@@ -530,7 +546,7 @@ unsafe ref struct UndumpState(
 
     LocalVariable[] ReadLocalVariables()
     {
-        var count = ReadInt();
+        var count = ReadCount(pointerSize + 2 * sizeof(int));
         var localVariables = new LocalVariable[count];
         for (var i = 0; i < count; i++)
         {
@@ -550,14 +566,20 @@ unsafe ref struct UndumpState(
 
     UpValueDesc[] ReadUpValues()
     {
-        var count = ReadInt();
-        Debug.Assert(count < 100, $" too many upvalues :{count}");
+        var count = ReadCount(2);
+        if (count > Constants.MaxUpValue)
+            Throw("too many upvalues in");
         var upValues = new UpValueDesc[count];
         for (var i = 0; i < count; i++)
         {
             var isLocal = ReadBool();
             var index = ReadByte();
-            upValues[i] = new() { IsLocal = isLocal, Index = index };
+            upValues[i] = new()
+            {
+                IsLocal = isLocal,
+                Index = index,
+                Name = "",
+            };
         }
 
         return upValues;

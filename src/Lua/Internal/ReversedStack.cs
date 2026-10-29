@@ -1,4 +1,6 @@
-﻿namespace Lua.Internal;
+﻿using System.Runtime.CompilerServices;
+
+namespace Lua.Internal;
 
 sealed class ReversedStack<T>(int capacity = 16)
 {
@@ -42,7 +44,9 @@ sealed class ReversedStack<T>(int capacity = 16)
             throw new InvalidOperationException("Cannot pop an empty stack");
         }
 
-        return buffer[tail++];
+        var element = buffer[tail];
+        buffer[tail++] = default!;
+        return element;
     }
 
     public void Pop(int count)
@@ -57,6 +61,8 @@ sealed class ReversedStack<T>(int capacity = 16)
             throw new InvalidOperationException("Cannot pop more elements than exist in the stack");
         }
 
+        if (RuntimeHelpers.IsReferenceOrContainsReferences<T>())
+            buffer.AsSpan(tail, count).Clear();
         tail += count;
     }
 
@@ -68,11 +74,14 @@ sealed class ReversedStack<T>(int capacity = 16)
             return;
         }
 
-        element = buffer[tail++];
+        element = buffer[tail];
+        buffer[tail++] = default!;
     }
 
     public void Clear()
     {
+        if (RuntimeHelpers.IsReferenceOrContainsReferences<T>())
+            AsSpan().Clear();
         tail = buffer.Length;
     }
 
@@ -111,8 +120,9 @@ sealed class ReversedStack<T>(int capacity = 16)
             }
 
             var newBuffer = new T[newCapacity];
-            AsSpan().CopyTo(newBuffer.AsSpan(newCapacity - buffer.Length));
-            tail = newCapacity - (buffer.Length - tail);
+            var newTail = newCapacity - Length;
+            AsSpan().CopyTo(newBuffer.AsSpan(newTail));
+            tail = newTail;
             buffer = newBuffer;
         }
     }

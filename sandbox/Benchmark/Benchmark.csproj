@@ -15,6 +15,12 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Lua\Lua.csproj" />
+    <ProjectReference Include="..\..\src\Lua.Annotations\Lua.Annotations.csproj" />
+    <ProjectReference
+      Include="..\..\src\Lua.SourceGenerator\Lua.SourceGenerator.csproj"
+      OutputItemType="Analyzer"
+      ReferenceOutputAssembly="false"
+    />
   </ItemGroup>
 
   <ItemGroup>

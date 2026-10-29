@@ -489,10 +489,10 @@ public static class LuaStateExtensions
 
         if (table.TryReadTable(out var luaTable))
         {
-            ref var valueRef = ref luaTable.FindValue(key);
+            ref var valueRef = ref luaTable.FindValueForWrite(key);
             if (!Unsafe.IsNullRef(ref valueRef) && valueRef.Type != LuaValueType.Nil)
             {
-                valueRef = value;
+                luaTable.SetExistingValue(key, ref valueRef, value);
                 return default;
             }
         }
@@ -552,8 +552,7 @@ public static class LuaStateExtensions
     )
     {
         var funcIndex = state.Stack.Count;
-        state.Stack.Push(function);
-        state.Stack.PushRange(arguments);
+        state.Stack.PushRange(function, arguments);
         return Impl(state, funcIndex, cancellationToken);
 
         [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder<>))]
@@ -563,10 +562,15 @@ public static class LuaStateExtensions
             CancellationToken cancellationToken
         )
         {
-            await LuaVirtualMachine.Call(state, funcIndex, funcIndex, cancellationToken);
-            var count = state.Stack.Count - funcIndex;
-            using var results = state.ReadStack(count);
-            return results.AsSpan().ToArray();
+            try
+            {
+                await LuaVirtualMachine.Call(state, funcIndex, funcIndex, cancellationToken);
+                return state.Stack.AsSpan()[funcIndex..].ToArray();
+            }
+            finally
+            {
+                state.Stack.PopUntil(funcIndex);
+            }
         }
     }
 }

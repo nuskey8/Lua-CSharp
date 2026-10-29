@@ -136,9 +136,9 @@ public sealed class ModuleLibrary
     {
         var package = state.GlobalState.Environment["package"].Read<LuaTable>();
         var searchers = package["searchers"].Read<LuaTable>();
-        for (var i = 0; i < searchers.GetArraySpan().Length; i++)
+        for (var i = 0; i < searchers.GetArrayReadOnlySpan().Length; i++)
         {
-            var searcher = searchers.GetArraySpan()[i];
+            var searcher = searchers.GetArrayReadOnlySpan()[i];
             if (searcher.Type == LuaValueType.Nil)
             {
                 continue;

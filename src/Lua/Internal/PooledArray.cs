@@ -42,7 +42,7 @@ public struct PooledArray<T>(int sizeHint) : IDisposable
     public void Dispose()
     {
         ThrowIfDisposed();
-        ArrayPool<T>.Shared.Return(array!);
+        ArrayPool<T>.Shared.Return(array!, RuntimeHelpers.IsReferenceOrContainsReferences<T>());
         array = null;
     }
 

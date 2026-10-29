@@ -1,4 +1,5 @@
 using System.Buffers;
+using System.Runtime.CompilerServices;
 using System.Text;
 using Lua.Internal;
 
@@ -39,6 +40,11 @@ public sealed class LuaStream(LuaFileOpenMode mode, Stream innerStream, LuaStrin
     public ValueTask ReadBytesAsync(IBufferWriter<byte> writer, CancellationToken cancellationToken)
     {
         mode.ThrowIfNotReadable();
+        if (reader != null)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            reader.CopyBufferedBytes(writer);
+        }
         while (true)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -53,10 +59,13 @@ public sealed class LuaStream(LuaFileOpenMode mode, Stream innerStream, LuaStrin
         }
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public ValueTask<int> ReadByteAsync(CancellationToken cancellationToken)
     {
         mode.ThrowIfNotReadable();
-        return new(innerStream.ReadByte());
+        if (reader == null)
+            return new(innerStream.ReadByte());
+        return new(reader.ReadByte(innerStream));
     }
 
     public ValueTask<string?> ReadAsync(int count, CancellationToken cancellationToken)
@@ -76,16 +85,7 @@ public sealed class LuaStream(LuaFileOpenMode mode, Stream innerStream, LuaStrin
         mode.ThrowIfNotReadable();
         reader ??= new(stringMode);
 
-        // Use the Utf8Reader's ReadNumber method which handles positioning correctly
-        var numberStr = reader.ReadNumber(innerStream);
-        if (numberStr == null)
-        {
-            return new((double?)null);
-        }
-
-        // Parse using the shared utility
-        var result = NumberReaderHelper.ParseNumber(numberStr.AsSpan());
-        return new(result);
+        return new(reader.ReadNumber(innerStream));
     }
 
     public ValueTask WriteAsync(ReadOnlyMemory<char> buffer, CancellationToken cancellationToken)
@@ -190,8 +190,9 @@ public sealed class LuaStream(LuaFileOpenMode mode, Stream innerStream, LuaStrin
             offset -= reader.Remain;
         }
 
+        var position = innerStream.Seek(offset, origin);
         reader?.Clear();
-        return innerStream.Seek(offset, origin);
+        return position;
     }
 
     public void Dispose()
@@ -209,12 +210,17 @@ public sealed class LuaStream(LuaFileOpenMode mode, Stream innerStream, LuaStrin
             {
                 innerStream.Flush();
             }
-
-            innerStream.Dispose();
         }
         finally
         {
-            reader?.Dispose();
+            try
+            {
+                innerStream.Dispose();
+            }
+            finally
+            {
+                reader?.Dispose();
+            }
         }
     }
 }

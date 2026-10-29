@@ -153,10 +153,15 @@ public readonly struct LuaValue : IEquatable<LuaValue>
                     break;
                 }
             case LuaValueType.Function:
-                if (t == typeof(LuaFunction) || t.IsSubclassOf(typeof(LuaFunction)))
+                if (t == typeof(LuaFunction))
                 {
                     var v = referenceValue!;
                     result = Unsafe.As<object, T>(ref v);
+                    return true;
+                }
+                else if (t.IsSubclassOf(typeof(LuaFunction)) && referenceValue is T function)
+                {
+                    result = function;
                     return true;
                 }
                 else if (t == typeof(object))
@@ -606,9 +611,11 @@ public readonly struct LuaValue : IEquatable<LuaValue>
         return Type switch
         {
             LuaValueType.Nil => 0,
-            LuaValueType.Boolean or LuaValueType.Number => value.GetHashCode(),
+            LuaValueType.Boolean => value.GetHashCode(),
+            // Double's hash leaves low bits constant for many integer keys.
+            LuaValueType.Number => HashCode.Combine(value),
             LuaValueType.String => Unsafe.As<string>(referenceValue)!.GetHashCode(),
-            _ => referenceValue!.GetHashCode(),
+            _ => RuntimeHelpers.GetHashCode(referenceValue!),
         };
     }
 
