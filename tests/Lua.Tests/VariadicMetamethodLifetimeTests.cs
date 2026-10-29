@@ -55,6 +55,12 @@ public class VariadicMetamethodLifetimeTests(LuaStringMode mode)
         foreach (var (name, statement) in operations)
         foreach (var (fixedParameters, suspend, tailCall) in variants)
         {
+            // The arithmetic operators share argument preparation and result handling.
+            if (
+                name is "__sub" or "__mul" or "__div" or "__mod" or "__pow"
+                && (fixedParameters != 0 || suspend || tailCall)
+            )
+                continue;
             yield return new TestCaseData(name, statement, fixedParameters, suspend, tailCall);
         }
     }

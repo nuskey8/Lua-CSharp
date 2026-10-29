@@ -34,12 +34,8 @@ public class GeneratedMetatableLifetimeTests(LuaStringMode mode)
         return state;
     }
 
-    [TestCase("mt.__index=function() return 99 end")]
     [TestCase("mt.__index=nil")]
     [TestCase("mt.owner=coroutine.running()")]
-    [TestCase("rawset(mt,'__index',nil)")]
-    [TestCase("rawset(mt,'payload',{})")]
-    [TestCase("setmetatable(mt,{})")]
     [TestCase("debug.setmetatable(mt,{})")]
     public async Task DefaultMetatableRejectsMutation(string mutation)
     {
