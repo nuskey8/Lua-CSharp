@@ -41,9 +41,7 @@ public sealed class OperatingSystemLibrary
         CancellationToken cancellationToken
     )
     {
-        var format = context.HasArgument(0)
-            ? context.GetArgument<string>(0).AsSpan()
-            : "%c".AsSpan();
+        var format = context.HasArgument(0) ? context.GetStringArgument(0).AsSpan() : "%c".AsSpan();
         if (format.IsEmpty)
             return new(context.Return(""));
 
@@ -155,7 +153,7 @@ public sealed class OperatingSystemLibrary
         CancellationToken cancellationToken
     )
     {
-        var variable = context.GetArgument<string>(0);
+        var variable = context.GetStringArgument(0);
         var platform = context.State.Platform;
         var value = platform.OsEnvironment.GetEnvironmentVariable(platform.DecodeText(variable));
         return new(context.Return(value is null ? LuaValue.Nil : platform.EncodeText(value)));
@@ -166,7 +164,7 @@ public sealed class OperatingSystemLibrary
         CancellationToken cancellationToken
     )
     {
-        var fileName = context.GetArgument<string>(0);
+        var fileName = context.GetStringArgument(0);
         try
         {
             await context.GlobalState.Platform.FileSystem.Remove(
@@ -190,8 +188,8 @@ public sealed class OperatingSystemLibrary
         CancellationToken cancellationToken
     )
     {
-        var oldName = context.GetArgument<string>(0);
-        var newName = context.GetArgument<string>(1);
+        var oldName = context.GetStringArgument(0);
+        var newName = context.GetStringArgument(1);
         try
         {
             await context.GlobalState.Platform.FileSystem.Rename(
@@ -218,7 +216,7 @@ public sealed class OperatingSystemLibrary
     {
         // os.setlocale is not supported besides the standard "C" POSIX locale
         // Any locale besides "C" will return nil
-        var locale = context.GetArgument<string>(0);
+        var locale = context.GetStringArgument(0);
         if (locale == "C")
         {
             return new(context.Return(locale));

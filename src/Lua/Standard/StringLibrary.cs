@@ -42,7 +42,7 @@ public sealed class StringLibrary
         CancellationToken cancellationToken
     )
     {
-        var s = context.GetArgument<string>(0);
+        var s = context.GetStringArgument(0);
         var i = context.HasArgument(1) ? ReadStringIndex(context, 1) : 1;
         var j = context.HasArgument(2) ? ReadStringIndex(context, 2) : i;
 
@@ -112,7 +112,7 @@ public sealed class StringLibrary
         CancellationToken cancellationToken
     )
     {
-        var format = context.GetArgument<string>(0);
+        var format = context.GetStringArgument(0);
         var stack = context.State.Stack;
         // TODO: pooling StringBuilder
         StringBuilder builder = new(format.Length * 2);
@@ -463,8 +463,8 @@ public sealed class StringLibrary
         CancellationToken cancellationToken
     )
     {
-        var s = context.GetArgument<string>(0);
-        var pattern = context.GetArgument<string>(1);
+        var s = context.GetStringArgument(0);
+        var pattern = context.GetStringArgument(1);
 
         return new(
             context.Return(
@@ -588,8 +588,8 @@ public sealed class StringLibrary
         CancellationToken cancellationToken
     )
     {
-        var s = context.GetArgument<string>(0);
-        var pattern = context.GetArgument<string>(1);
+        var s = context.GetStringArgument(0);
+        var pattern = context.GetStringArgument(1);
         var repl = context.GetArgument(2);
         var n_arg = context.HasArgument(3) ? context.GetArgument<double>(3) : s.Length + 1;
 
@@ -783,7 +783,7 @@ public sealed class StringLibrary
         CancellationToken cancellationToken
     )
     {
-        var s = context.GetArgument<string>(0);
+        var s = context.GetStringArgument(0);
         return new(context.Return(s.Length));
     }
 
@@ -792,7 +792,7 @@ public sealed class StringLibrary
         CancellationToken cancellationToken
     )
     {
-        var s = context.GetArgument<string>(0);
+        var s = context.GetStringArgument(0);
         return new(
             context.Return(
                 context.State.Platform.StringMode == LuaStringMode.Bytes
@@ -812,8 +812,8 @@ public sealed class StringLibrary
 
     public ValueTask<int> FindAux(LuaFunctionExecutionContext context, bool find)
     {
-        var s = context.GetArgument<string>(0);
-        var pattern = context.GetArgument<string>(1);
+        var s = context.GetStringArgument(0);
+        var pattern = context.GetStringArgument(1);
         var init = context.HasArgument(2) ? ReadStringIndex(context, 2) : 1;
         var offset = Math.Max(1, StringHelper.RelativePosition(init, s.Length)) - 1;
 
@@ -918,9 +918,9 @@ public sealed class StringLibrary
         CancellationToken cancellationToken
     )
     {
-        var s = context.GetArgument<string>(0);
+        var s = context.GetStringArgument(0);
         var n_arg = context.GetArgument<double>(1);
-        var sep = context.HasArgument(2) ? context.GetArgument<string>(2) : null;
+        var sep = context.HasArgument(2) ? context.GetStringArgument(2) : null;
 
         if (!MathEx.IsFinite(n_arg))
         {
@@ -982,7 +982,7 @@ public sealed class StringLibrary
         CancellationToken cancellationToken
     )
     {
-        var s = context.GetArgument<string>(0);
+        var s = context.GetStringArgument(0);
         var result =
             s.Length <= 1
                 ? s
@@ -1003,7 +1003,7 @@ public sealed class StringLibrary
         CancellationToken cancellationToken
     )
     {
-        var s = context.GetArgument<string>(0);
+        var s = context.GetStringArgument(0);
         var i = ReadStringIndex(context, 1);
         var j = context.HasArgument(2) ? ReadStringIndex(context, 2) : -1;
 
@@ -1016,7 +1016,7 @@ public sealed class StringLibrary
         CancellationToken cancellationToken
     )
     {
-        var s = context.GetArgument<string>(0);
+        var s = context.GetStringArgument(0);
         return new(
             context.Return(
                 context.State.Platform.StringMode == LuaStringMode.Bytes

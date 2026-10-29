@@ -24,7 +24,7 @@ public sealed class ModuleLibrary
         CancellationToken cancellationToken
     )
     {
-        var arg0 = context.GetArgument<string>(0);
+        var arg0 = context.GetStringArgument(0);
         var loaded = context.GlobalState.LoadedModules;
 
         if (!loaded.TryGetValue(arg0, out var loadedTable))
@@ -74,10 +74,10 @@ public sealed class ModuleLibrary
         CancellationToken cancellationToken
     )
     {
-        var name = context.GetArgument<string>(0);
-        var path = context.GetArgument<string>(1);
-        var separator = context.GetArgument<string>(2);
-        var dirSeparator = context.GetArgument<string>(3);
+        var name = context.GetStringArgument(0);
+        var path = context.GetStringArgument(1);
+        var separator = context.GetStringArgument(2);
+        var dirSeparator = context.GetStringArgument(3);
         var fileName = SearchPath(context.State, name, path, separator, dirSeparator);
         return new(context.Return(fileName ?? LuaValue.Nil));
     }
@@ -170,7 +170,7 @@ public sealed class ModuleLibrary
         CancellationToken cancellationToken
     )
     {
-        var name = context.GetArgument<string>(0);
+        var name = context.GetStringArgument(0);
         var preload = context.GlobalState.PreloadModules[name];
         if (preload == LuaValue.Nil)
         {
@@ -185,7 +185,7 @@ public sealed class ModuleLibrary
         CancellationToken cancellationToken
     )
     {
-        var name = context.GetArgument<string>(0);
+        var name = context.GetStringArgument(0);
         var fileName = await FindFile(
             context.State,
             name,

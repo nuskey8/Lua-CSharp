@@ -10,27 +10,16 @@ internal static class NumberReaderHelper
     /// Returns the length of the number portion, or 0 if no valid number is found.
     /// </summary>
     /// <param name="span">The span to scan</param>
-    /// <param name="skipWhitespace">Whether to skip leading whitespace</param>
     /// <returns>The length of the valid number portion</returns>
-    public static int ScanNumberLength(ReadOnlySpan<char> span, bool skipWhitespace = true)
+    public static int ScanNumberLength(ReadOnlySpan<char> span)
     {
         var position = 0;
-
-        // Skip leading whitespace
-        if (skipWhitespace)
-        {
-            while (position < span.Length && char.IsWhiteSpace(span[position]))
-            {
-                position++;
-            }
-        }
 
         if (position >= span.Length)
         {
             return 0;
         }
 
-        var numberStart = position;
         var hasStarted = false;
         var isHex = false;
         var hasDecimal = false;
@@ -129,7 +118,7 @@ internal static class NumberReaderHelper
         }
 
         // Return the length of the number portion
-        return position - numberStart;
+        return position;
     }
 
     public static bool TryParseToDouble(ReadOnlySpan<char> span, out double result)

@@ -141,7 +141,7 @@ public static class OpenLibsExtensions
             "index",
             (context, cancellationToken) =>
             {
-                context.GetArgument<string>(0);
+                context.GetStringArgument(0);
                 var key = context.GetArgument(1);
                 return new(context.Return(@string[key]));
             }

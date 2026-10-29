@@ -64,7 +64,7 @@ public readonly struct LuaValue : IEquatable<LuaValue>
                 }
                 else if (t == typeof(int))
                 {
-                    if (!MathEx.IsInteger(value))
+                    if (!MathEx.IsInteger(value) || value < int.MinValue || value > int.MaxValue)
                     {
                         break;
                     }
@@ -75,7 +75,12 @@ public readonly struct LuaValue : IEquatable<LuaValue>
                 }
                 else if (t == typeof(long))
                 {
-                    if (!MathEx.IsInteger(value))
+                    // The upper bound is exclusive: long.MaxValue rounds to 2^63 as a double.
+                    if (
+                        !MathEx.IsInteger(value)
+                        || value < long.MinValue
+                        || value >= 9223372036854775808d
+                    )
                     {
                         break;
                     }
@@ -86,23 +91,23 @@ public readonly struct LuaValue : IEquatable<LuaValue>
                 }
                 else if (t == typeof(uint))
                 {
-                    if (!MathEx.IsInteger(value))
+                    if (!MathEx.IsInteger(value) || value < 0 || value > uint.MaxValue)
                     {
                         break;
                     }
 
-                    var v = checked((uint)value);
+                    var v = (uint)value;
                     result = Unsafe.As<uint, T>(ref v);
                     return true;
                 }
                 else if (t == typeof(ulong))
                 {
-                    if (!MathEx.IsInteger(value))
+                    if (!MathEx.IsInteger(value) || value < 0 || value >= 18446744073709551616d)
                     {
                         break;
                     }
 
-                    var v = checked((ulong)value);
+                    var v = (ulong)value;
                     result = Unsafe.As<ulong, T>(ref v);
                     return true;
                 }
@@ -124,7 +129,7 @@ public readonly struct LuaValue : IEquatable<LuaValue>
                 }
                 else if (t == typeof(object))
                 {
-                    result = (T)(object)value;
+                    result = (T)(object)(value != 0);
                     return true;
                 }
                 else
