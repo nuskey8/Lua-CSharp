@@ -14,10 +14,14 @@ class CoroutineCore(LuaState state, LuaFunction function, bool isProtectedMode)
         public ReadOnlySpan<LuaValue> Results => stack.AsSpan()[^argCount..];
     }
 
-    readonly struct ResumeContext(LuaStack? stack, int argCount)
+    readonly struct ResumeContext(LuaStack stack, int argCount)
     {
-        public ReadOnlySpan<LuaValue> Results => stack!.AsSpan()[^argCount..];
+        readonly int resultBase = stack.Count - argCount;
+
+        public ReadOnlySpan<LuaValue> Results => stack.GetBuffer().Slice(resultBase, argCount);
         public bool IsDead => stack == null;
+
+        public void ClearResults() => stack.PopUntil(resultBase);
     }
 
     internal byte status = (byte)LuaThreadStatus.Suspended;
@@ -152,76 +156,95 @@ class CoroutineCore(LuaState state, LuaFunction function, bool isProtectedMode)
 
             try
             {
-                if (isFirstCall)
+                ResumeContext result = default;
+                try
                 {
-                    Thread.Stack.PushRange(stack.AsSpan()[^argCount..]);
-                    functionTask = Thread.RunAsync(
-                        Function!,
-                        Thread.Stack.Count,
-                        cancellationToken
-                    );
-                    Volatile.Write(ref isFirstCall, false);
-                    if (!functionTask.IsCompleted)
+                    if (isFirstCall)
                     {
-                        // UnsafeOnCompleted: OnCompleted would capture SyncContext and deadlock on WebGL.
-                        functionTask.GetAwaiter().UnsafeOnCompleted(OnFunctionCompleted);
+                        Thread.Stack.PushRange(stack.AsSpan()[^argCount..]);
+                        functionTask = Thread.RunAsync(
+                            Function!,
+                            Thread.Stack.Count,
+                            cancellationToken
+                        );
+                        Volatile.Write(ref isFirstCall, false);
+                        if (!functionTask.IsCompleted)
+                        {
+                            // UnsafeOnCompleted: OnCompleted would capture SyncContext and deadlock on WebGL.
+                            functionTask.GetAwaiter().UnsafeOnCompleted(OnFunctionCompleted);
+                        }
+                    }
+                    else
+                    {
+                        if (Interlocked.CompareExchange(ref yieldCompleted, 1, 0) == 0)
+                            yield.SetResult(new(stack, argCount));
+                    }
+
+                    if (functionTask.IsCompleted || (result = await resumeTask).IsDead)
+                    {
+                        _ = functionTask.Result;
+                        functionTask = default;
+                        resumeCancellationToken = default;
                     }
                 }
-                else
+                catch (Exception ex)
                 {
-                    if (Interlocked.CompareExchange(ref yieldCompleted, 1, 0) == 0)
-                        yield.SetResult(new(stack, argCount));
-                }
-
-                ResumeContext result0;
-                if (functionTask.IsCompleted || (result0 = await resumeTask).IsDead)
-                {
-                    _ = functionTask.Result;
                     functionTask = default;
                     resumeCancellationToken = default;
-                    stack.PopUntil(returnBase);
-                    stack.Push(true);
-                    stack.PushRange(Thread.Stack.AsSpan());
+                    if (ex is ILuaTracebackBuildable tracebackBuildable)
+                    {
+                        traceback = tracebackBuildable.BuildOrGet();
+                    }
+
                     Thread.Dispose();
                     Function = null;
                     Volatile.Write(ref status, (byte)LuaThreadStatus.Dead);
-                    return stack.Count - returnBase;
-                }
-                else
-                {
-                    var results = result0.Results;
+                    if (!IsProtectedMode || ex is OperationCanceledException)
+                        throw;
+
                     stack.PopUntil(returnBase);
-                    stack.Push(true);
-                    stack.PushRange(results);
-                    Volatile.Write(ref status, (byte)LuaThreadStatus.Suspended);
+                    stack.Push(false);
+                    // Wrapped C# exceptions carry a message rather than a Lua error object.
+                    // Keep error(nil) intact when the exception originated in Lua.
+                    stack.Push(
+                        ex is LuaRuntimeException { InnerException: null } luaEx
+                            ? luaEx.ErrorObject
+                            : ex.Message
+                    );
+                    return 2;
+                }
+
+                try
+                {
+                    var results = result.IsDead ? Thread.Stack.AsSpan() : result.Results;
+                    stack.PopUntil(returnBase);
+                    stack.PushRange(true, results);
                     return results.Length + 1;
                 }
-            }
-            catch (Exception ex)
-            {
-                functionTask = default;
-                resumeCancellationToken = default;
-                if (ex is ILuaTracebackBuildable tracebackBuildable)
+                catch (LuaStackOverflowException)
                 {
-                    traceback = tracebackBuildable.BuildOrGet();
+                    const string message = "too many results to resume";
+                    if (!IsProtectedMode)
+                        throw new LuaRuntimeException(baseThread, message);
+
+                    stack.Push(false);
+                    stack.Push(message);
+                    return 2;
                 }
-
-                Thread.Dispose();
-                Function = null;
-                Volatile.Write(ref status, (byte)LuaThreadStatus.Dead);
-                if (!IsProtectedMode || ex is OperationCanceledException)
-                    throw;
-
-                stack.PopUntil(returnBase);
-                stack.Push(false);
-                // Wrapped C# exceptions carry a message rather than a Lua error object.
-                // Keep error(nil) intact when the exception originated in Lua.
-                stack.Push(
-                    ex is LuaRuntimeException { InnerException: null } luaEx
-                        ? luaEx.ErrorObject
-                        : ex.Message
-                );
-                return 2;
+                finally
+                {
+                    if (result.IsDead)
+                    {
+                        Thread.Dispose();
+                        Function = null;
+                        Volatile.Write(ref status, (byte)LuaThreadStatus.Dead);
+                    }
+                    else
+                    {
+                        result.ClearResults();
+                        Volatile.Write(ref status, (byte)LuaThreadStatus.Suspended);
+                    }
+                }
             }
             finally
             {
