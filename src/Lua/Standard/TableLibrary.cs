@@ -78,7 +78,7 @@ public sealed class TableLibrary
     )
     {
         var arg0 = context.GetArgument<LuaTable>(0);
-        var arg1 = context.HasArgument(1) ? context.GetArgument<string>(1) : "";
+        var arg1 = context.HasArgument(1) ? context.GetStringArgument(1) : "";
         var arg2 = context.HasArgument(2) ? ToInteger(context.GetArgument<double>(2)) : 1;
         var arg3 = context.HasArgument(3)
             ? ToInteger(context.GetArgument<double>(3))

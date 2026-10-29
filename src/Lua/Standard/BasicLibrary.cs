@@ -109,7 +109,7 @@ public sealed class BasicLibrary
     {
         if (context.HasArgument(0))
         {
-            var option = context.GetArgument<string>(0);
+            var option = context.GetStringArgument(0);
             if (!KnownCollectGarbageOptions.Contains(option))
             {
                 throw new LuaRuntimeException(
@@ -129,7 +129,7 @@ public sealed class BasicLibrary
         CancellationToken cancellationToken
     )
     {
-        var arg0 = context.GetArgument<string>(0);
+        var arg0 = context.GetStringArgument(0);
         context.State.Stack.PopUntil(context.ReturnFrameBase);
         var closure = await context.State.LoadFileAsync(
             context.State.Platform.DecodeText(arg0),
@@ -217,8 +217,8 @@ public sealed class BasicLibrary
         CancellationToken cancellationToken
     )
     {
-        var arg0 = context.GetArgument<string>(0);
-        var mode = context.HasArgument(1) ? context.GetArgument<string>(1) : "bt";
+        var arg0 = context.GetStringArgument(0);
+        var mode = context.HasArgument(1) ? context.GetStringArgument(1) : "bt";
         var hasEnvironment = context.ArgumentCount > 2;
         var environment = hasEnvironment ? context.GetArgument(2) : LuaValue.Nil;
 
@@ -251,9 +251,9 @@ public sealed class BasicLibrary
     {
         var arg0 = context.GetArgument(0);
 
-        var name = context.HasArgument(1) ? context.GetArgument<string>(1) : null;
+        var name = context.HasArgument(1) ? context.GetStringArgument(1) : null;
 
-        var mode = context.HasArgument(2) ? context.GetArgument<string>(2) : "bt";
+        var mode = context.HasArgument(2) ? context.GetStringArgument(2) : "bt";
 
         var hasEnvironment = context.ArgumentCount > 3;
         var environment = hasEnvironment ? context.GetArgument(3) : LuaValue.Nil;

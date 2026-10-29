@@ -67,6 +67,23 @@ public readonly record struct LuaFunctionExecutionContext
         return ReadArgument<T>(index, in Arguments[index]);
     }
 
+    // Lua library strings accept numbers; typed C# arguments remain strict.
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal string GetStringArgument(int index)
+    {
+        var argument = GetArgument(index);
+        if (argument.TryReadString(out var text))
+            return text;
+        if (argument.Type == LuaValueType.Number)
+        {
+            text = argument.ToLuaString(State.Platform.NumberFormat);
+            State.Stack.Get(FrameBase + index) = text;
+            return text;
+        }
+        ThrowArgumentError<string>(index, argument);
+        return null!;
+    }
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal T GetArgumentOrDefault<T>(int index, T defaultValue = default!)
     {
@@ -110,7 +127,10 @@ public readonly record struct LuaFunctionExecutionContext
     void ThrowArgumentError<T>(int index, in LuaValue arg)
     {
         var t = typeof(T);
-        if ((t == typeof(int) || t == typeof(long)) && arg.TryReadNumber(out _))
+        if (
+            (t == typeof(int) || t == typeof(long) || t == typeof(uint) || t == typeof(ulong))
+            && arg.TryReadNumber(out _)
+        )
         {
             LuaRuntimeException.BadArgumentNumberIsNotInteger(State, index + 1);
         }

@@ -112,18 +112,6 @@ public class CharMemoryStream(ReadOnlyMemory<char> contents) : ILuaStream
         }
 
         var remaining = contents[Position..].Span;
-        var startPos = Position;
-
-        // Use the shared utility to scan for a number
-        var numberLength = NumberReaderHelper.ScanNumberLength(remaining, true);
-
-        if (numberLength == 0)
-        {
-            Position = contents.Length;
-            return new((double?)null);
-        }
-
-        // Find where the actual number starts (after whitespace)
         var whitespaceLength = 0;
         while (
             whitespaceLength < remaining.Length && char.IsWhiteSpace(remaining[whitespaceLength])
@@ -132,12 +120,10 @@ public class CharMemoryStream(ReadOnlyMemory<char> contents) : ILuaStream
             whitespaceLength++;
         }
 
-        var numberSpan = remaining.Slice(whitespaceLength, numberLength);
-        Position = startPos + whitespaceLength + numberLength;
-
-        // Parse using shared utility
-        var result = NumberReaderHelper.ParseNumber(numberSpan);
-        return new(result);
+        remaining = remaining[whitespaceLength..];
+        var numberLength = NumberReaderHelper.ScanNumberLength(remaining);
+        Position += whitespaceLength + numberLength;
+        return new(NumberReaderHelper.ParseNumber(remaining[..numberLength]));
     }
 
     public ValueTask WriteAsync(ReadOnlyMemory<char> content, CancellationToken cancellationToken)
@@ -200,6 +186,7 @@ public sealed class StringStream(string content) : CharMemoryStream(content.AsMe
         cancellationToken.ThrowIfCancellationRequested();
         if (Position == 0)
         {
+            Position = content.Length;
             return new(content);
         }
 

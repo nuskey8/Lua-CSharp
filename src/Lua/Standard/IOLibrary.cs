@@ -149,7 +149,7 @@ public sealed class IOLibrary
         }
         else
         {
-            var fileName = context.GetArgument<string>(0);
+            var fileName = context.GetStringArgument(0);
             LuaValue[] formats =
                 context.ArgumentCount > 1
                     ? context.Arguments[1..context.ArgumentCount].ToArray()
@@ -207,8 +207,8 @@ public sealed class IOLibrary
         CancellationToken cancellationToken
     )
     {
-        var fileName = context.GetArgument<string>(0);
-        var mode = context.HasArgument(1) ? context.GetArgument<string>(1) : "r";
+        var fileName = context.GetStringArgument(0);
+        var mode = context.HasArgument(1) ? context.GetStringArgument(1) : "r";
         context.Return();
         try
         {
