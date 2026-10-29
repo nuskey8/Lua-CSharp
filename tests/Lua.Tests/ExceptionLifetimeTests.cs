@@ -30,23 +30,25 @@ public class ExceptionLifetimeTests(LuaStringMode mode)
     [MethodImpl(MethodImplOptions.NoInlining)]
     static WeakReference FailExecution(LuaState state, bool asynchronous, bool readMessage)
     {
+        var suspension = new ManualSuspension();
         var payload = new object();
         state.Environment["payload"] = LuaValue.FromObject(payload);
         state.Environment["pause"] = new LuaFunction(
             async (context, _) =>
             {
                 if (asynchronous)
-                    await Task.Yield();
+                    await suspension;
                 return context.Return();
             }
         );
         try
         {
-            state
+            var operation = state
                 .DoStringAsync("local value=payload;payload=nil;pause();error(value)")
-                .AsTask()
-                .GetAwaiter()
-                .GetResult();
+                .AsTask();
+            if (asynchronous)
+                suspension.Resume();
+            operation.GetAwaiter().GetResult();
             Assert.Fail("Expected a Lua error.");
         }
         catch (LuaRuntimeException exception)
@@ -68,22 +70,22 @@ public class ExceptionLifetimeTests(LuaStringMode mode)
     [MethodImpl(MethodImplOptions.NoInlining)]
     static WeakReference FailDirectCall(LuaState state, bool asynchronous)
     {
+        var suspension = new ManualSuspension();
         var payload = new object();
         var function = new LuaFunction(
             async (context, _) =>
             {
                 if (asynchronous)
-                    await Task.Yield();
+                    await suspension;
                 throw new LuaRuntimeException(context.State, context.GetArgument(0));
             }
         );
         try
         {
-            state
-                .CallAsync(function, [LuaValue.FromObject(payload)])
-                .AsTask()
-                .GetAwaiter()
-                .GetResult();
+            var operation = state.CallAsync(function, [LuaValue.FromObject(payload)]).AsTask();
+            if (asynchronous)
+                suspension.Resume();
+            operation.GetAwaiter().GetResult();
             Assert.Fail("Expected a Lua error.");
         }
         catch (LuaRuntimeException) { }
@@ -101,6 +103,7 @@ public class ExceptionLifetimeTests(LuaStringMode mode)
     [MethodImpl(MethodImplOptions.NoInlining)]
     static WeakReference FailMetamethod(LuaState state, bool asynchronous)
     {
+        var suspension = new ManualSuspension();
         var payload = new object();
         var table = new LuaTable
         {
@@ -110,7 +113,7 @@ public class ExceptionLifetimeTests(LuaStringMode mode)
                     async (context, _) =>
                     {
                         if (asynchronous)
-                            await Task.Yield();
+                            await suspension;
                         GC.KeepAlive(payload);
                         throw new LuaRuntimeException(context.State, "failure");
                     }
@@ -119,7 +122,10 @@ public class ExceptionLifetimeTests(LuaStringMode mode)
         };
         try
         {
-            state.AddAsync(table, 1).AsTask().GetAwaiter().GetResult();
+            var operation = state.AddAsync(table, 1).AsTask();
+            if (asynchronous)
+                suspension.Resume();
+            operation.GetAwaiter().GetResult();
             Assert.Fail("Expected a Lua error.");
         }
         catch (LuaRuntimeException) { }
