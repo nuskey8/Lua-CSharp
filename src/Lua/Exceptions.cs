@@ -182,26 +182,24 @@ public class LuaRuntimeException : Exception, ILuaTracebackBuildable
     public LuaRuntimeException(LuaState? state, Exception innerException)
         : base(innerException.Message, innerException)
     {
-        if (state != null)
+        if (state is { IsRunning: true })
         {
             state.CurrentException?.BuildOrGet();
             state.ExceptionTrace.Clear();
             state.CurrentException = this;
+            State = state;
         }
-
-        State = state;
     }
 
     public LuaRuntimeException(LuaState? state, LuaValue errorObject, int level = 1)
     {
-        if (state != null)
+        if (state is { IsRunning: true })
         {
             state.CurrentException?.BuildOrGet();
             state.ExceptionTrace.Clear();
             state.CurrentException = this;
+            State = state;
         }
-
-        State = state;
 
         ErrorObject = errorObject;
         this.level = level;
@@ -637,10 +635,13 @@ public sealed class LuaCanceledException : OperationCanceledException, ILuaTrace
             cancellationToken
         )
     {
-        state.CurrentException?.BuildOrGet();
-        state.ExceptionTrace.Clear();
-        state.CurrentException = this;
-        State = state;
+        if (state.IsRunning)
+        {
+            state.CurrentException?.BuildOrGet();
+            state.ExceptionTrace.Clear();
+            state.CurrentException = this;
+            State = state;
+        }
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]

@@ -154,6 +154,103 @@ public class ExceptionLifetimeTests(LuaStringMode mode)
         return new WeakReference(payload);
     }
 
+    [TestCase("call")]
+    [TestCase("unary")]
+    [TestCase("binary")]
+    public void CancellationBeforeFirstFrameDoesNotRootExceptionOrTokenSource(string operation)
+    {
+        using var state = CreateState();
+        var (exception, source) = CancelBeforeFirstFrame(state, operation);
+        AssertReleased(state, exception);
+        Assert.That(source.IsAlive, Is.False);
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    static (WeakReference Exception, WeakReference Source) CancelBeforeFirstFrame(
+        LuaState state,
+        string operation
+    )
+    {
+        using var source = new CancellationTokenSource();
+        source.Cancel();
+        var function = new LuaFunction((_, _) => throw new AssertionException("Unexpected call."));
+        var table = new LuaTable
+        {
+            Metatable = new LuaTable { ["__add"] = function, ["__unm"] = function },
+        };
+        try
+        {
+            switch (operation)
+            {
+                case "call":
+                    state.CallAsync(function, [], source.Token).AsTask().GetAwaiter().GetResult();
+                    break;
+                case "unary":
+                    state.UnmAsync(table, source.Token).AsTask().GetAwaiter().GetResult();
+                    break;
+                case "binary":
+                    state.AddAsync(table, table, source.Token).AsTask().GetAwaiter().GetResult();
+                    break;
+            }
+        }
+        catch (LuaCanceledException exception)
+        {
+            Assert.That(exception.CancellationToken, Is.EqualTo(source.Token));
+            Assert.That(exception.LuaTraceback, Is.Null);
+            return (new(exception), new(source));
+        }
+        throw new AssertionException("Expected cancellation.");
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void ErrorsCreatedWithoutCallFramesDoNotRootPayloads(bool wrapped)
+    {
+        using var state = CreateState();
+        AssertReleased(state, CreateIdleError(state, wrapped));
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    static WeakReference CreateIdleError(LuaState state, bool wrapped)
+    {
+        var payload = new object();
+        if (wrapped)
+        {
+            var inner = new InvalidOperationException("failure");
+            inner.Data["payload"] = payload;
+            GC.KeepAlive(new LuaRuntimeException(state, inner));
+        }
+        else
+            GC.KeepAlive(new LuaRuntimeException(state, LuaValue.FromObject(payload)));
+        return new(payload);
+    }
+
+    [Test]
+    public async Task CancellationBeforeNestedCallPreservesCallerTraceback()
+    {
+        using var state = CreateState();
+        using var source = new CancellationTokenSource();
+        source.Cancel();
+        state.Environment["cancel"] = new LuaFunction(
+            async (context, _) =>
+            {
+                await context.State.CallAsync(
+                    new LuaFunction((_, _) => throw new AssertionException("Unexpected call.")),
+                    [],
+                    source.Token
+                );
+                return context.Return();
+            }
+        );
+        var exception = Assert.ThrowsAsync<LuaCanceledException>(async () =>
+            await state.DoStringAsync("cancel()", "cancel-caller")
+        )!;
+        await state.DoStringAsync("return 42");
+        Assert.That(exception.CancellationToken, Is.EqualTo(source.Token));
+        Assert.That(exception.LuaTraceback!.StackFrames.Length, Is.EqualTo(2));
+        Assert.That(exception.LuaTraceback.ToString(), Does.Contain("cancel-caller"));
+    }
+
     [Test]
     public void EarlyTracebackReadDoesNotRootLaterUnwoundClosures()
     {

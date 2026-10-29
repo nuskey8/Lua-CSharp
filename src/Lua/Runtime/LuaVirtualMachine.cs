@@ -1260,26 +1260,35 @@ public static partial class LuaVirtualMachine
         var stack = state.Stack;
         if ((uint)total > (uint)stack.Count)
             throw new ArgumentOutOfRangeException(nameof(total));
-        if (total == 0)
+        var returnBase = stack.Count - total;
+        try
         {
-            stack.Push("");
-            return "";
+            if (total == 0)
+            {
+                stack.Push("");
+                return "";
+            }
+            while ((total = ConcatStrings(stack, total)) > 1)
+            {
+                var top = stack.Count;
+                var value = await ExecuteBinaryOperationMetaMethod(
+                    state,
+                    stack.Get(top - 2),
+                    stack.Get(top - 1),
+                    OpCode.Concat,
+                    ct
+                );
+                stack.Get(top - 2) = value;
+                stack.PopUntil(top - 1);
+                total--;
+            }
+            return stack.AsSpan()[^1];
         }
-        while ((total = ConcatStrings(stack, total)) > 1)
+        catch
         {
-            var top = stack.Count;
-            var value = await ExecuteBinaryOperationMetaMethod(
-                state,
-                stack.Get(top - 2),
-                stack.Get(top - 1),
-                OpCode.Concat,
-                ct
-            );
-            stack.Get(top - 2) = value;
-            stack.PopUntil(top - 1);
-            total--;
+            stack.PopUntil(returnBase);
+            throw;
         }
-        return stack.AsSpan()[^1];
     }
 
     // Reduce the primitive suffix synchronously. A remaining pair needs __concat.
