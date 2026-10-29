@@ -13,6 +13,29 @@ public class StreamLifetimeTests(LuaStringMode stringMode)
     LuaStream CreateStream(string text) =>
         new(LuaFileOpenMode.Read, new MemoryStream(Encoding.UTF8.GetBytes(text)), stringMode);
 
+    [TestCase(3, false)]
+    [TestCase(3, true)]
+    [TestCase(1023, false)]
+    [TestCase(1023, true)]
+    [TestCase(2048, false)]
+    [TestCase(2048, true)]
+    public async Task BufferedLinesPreserveEndingsAndFinalLine(int length, bool keepEol)
+    {
+        var line = new string('x', length);
+        using var stream = CreateStream(line + "\r\n\nlast é");
+        var ending = stringMode == LuaStringMode.Bytes ? "\r" : "";
+        Assert.That(
+            await stream.ReadLineAsync(keepEol, default),
+            Is.EqualTo(line + (keepEol ? "\r\n" : ending))
+        );
+        Assert.That(await stream.ReadLineAsync(keepEol, default), Is.EqualTo(keepEol ? "\n" : ""));
+        Assert.That(
+            await stream.ReadLineAsync(keepEol, default),
+            Is.EqualTo(stringMode == LuaStringMode.Bytes ? "last \u00c3\u00a9" : "last é")
+        );
+        Assert.That(await stream.ReadLineAsync(keepEol, default), Is.Null);
+    }
+
     [TestCase(SeekOrigin.Begin, -1)]
     [TestCase(SeekOrigin.Current, -8)]
     [TestCase(SeekOrigin.End, -8)]

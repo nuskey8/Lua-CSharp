@@ -26,129 +26,75 @@ sealed class Utf8Reader
 
     public long Remain => bufLen - bufPos;
 
+    bool ReadTextBuffer(Stream stream)
+    {
+        bufLen = stream.Read(buffer, 0, buffer.Length);
+        bufPos = !byteStrings && buffer.AsSpan(0, bufLen).StartsWith(BomUtility.BomUtf8) ? 3 : 0;
+        return bufPos < bufLen;
+    }
+
     public string? ReadLine(Stream stream, bool keepEol = false)
     {
-        var resultBuffer = ArrayPool<byte>.Shared.Rent(1024);
-        var lineLen = 0;
-        try
+        using PooledList<byte> result = new();
+        while (true)
         {
-            while (true)
+            if (bufPos >= bufLen && !ReadTextBuffer(stream))
+                break;
+
+            var span = buffer.AsSpan(bufPos, bufLen - bufPos);
+            // Raw Lua byte streams end a line at LF; CR remains part of the data.
+            var end = byteStrings
+                ? span.IndexOf((byte)'\n')
+                : span.IndexOfAny((byte)'\r', (byte)'\n');
+            if (end < 0)
             {
-                if (bufPos >= bufLen)
+                result.AddRange(span);
+                bufPos = bufLen;
+                continue;
+            }
+
+            var count = end + (keepEol ? 1 : 0);
+            bufPos += end + 1;
+            if (span[end] == '\r')
+            {
+                if (bufPos == bufLen)
                 {
-                    bufLen = stream.Read(buffer, 0, buffer.Length);
-                    bufPos =
-                        !byteStrings && buffer.AsSpan(0, bufLen).StartsWith(BomUtility.BomUtf8)
-                            ? 3
-                            : 0;
-                    if (bufLen <= bufPos)
+                    // Preserve the segment before looking for LF in the next buffer.
+                    result.AddRange(span[..count]);
+                    if (PeekByte(stream) == '\n')
                     {
-                        break; // EOF
+                        bufPos++;
+                        if (keepEol)
+                            result.Add((byte)'\n');
                     }
+                    return encoding.GetString(result.AsSpan());
                 }
-
-                Span<byte> span = new(buffer, bufPos, bufLen - bufPos);
-                // Raw Lua byte streams end a line at LF; CR remains part of the data.
-                var idx = byteStrings
-                    ? span.IndexOf((byte)'\n')
-                    : span.IndexOfAny((byte)'\r', (byte)'\n');
-
-                if (idx >= 0)
+                if (buffer[bufPos] == '\n')
                 {
-                    // Add the line content (before the newline)
-                    AppendToBuffer(ref resultBuffer, span[..idx], ref lineLen);
-
-                    var nl = span[idx];
-                    var eolStart = bufPos + idx;
-                    bufPos += idx + 1;
-
-                    // Handle CRLF - check if we have \r\n
-                    var isCRLF = false;
-                    if (nl == (byte)'\r' && bufPos < bufLen && buffer[bufPos] == (byte)'\n')
-                    {
-                        isCRLF = true;
-                        bufPos++; // Skip the \n as well
-                    }
-
-                    // Add end-of-line characters if keepEol is true
+                    bufPos++;
                     if (keepEol)
-                    {
-                        if (isCRLF)
-                        {
-                            // Add \r\n
-                            AppendToBuffer(ref resultBuffer, "\r\n"u8, ref lineLen);
-                        }
-                        else
-                        {
-                            // Add just the single newline character (\r or \n)
-                            AppendToBuffer(
-                                ref resultBuffer,
-                                nl == '\r' ? "\r"u8 : "\n"u8,
-                                ref lineLen
-                            );
-                        }
-                    }
-
-                    return encoding.GetString(resultBuffer, 0, lineLen);
-                }
-                else
-                {
-                    // No newline found → add all to line buffer
-                    AppendToBuffer(ref resultBuffer, span, ref lineLen);
-                    bufPos = bufLen;
+                        count++;
                 }
             }
-
-            if (lineLen == 0)
-            {
-                return null;
-            }
-
-            return encoding.GetString(resultBuffer, 0, lineLen);
+            if (result.Count == 0)
+                return encoding.GetString(span[..count]);
+            result.AddRange(span[..count]);
+            return encoding.GetString(result.AsSpan());
         }
-        finally
-        {
-            ArrayPool<byte>.Shared.Return(resultBuffer);
-        }
+        return result.Count == 0 ? null : encoding.GetString(result.AsSpan());
     }
 
     public string ReadToEnd(Stream stream)
     {
-        var resultBuffer = ArrayPool<byte>.Shared.Rent(1024);
-        var len = 0;
-        try
+        using PooledList<byte> result = new();
+        while (true)
         {
-            while (true)
-            {
-                if (bufPos >= bufLen)
-                {
-                    bufLen = stream.Read(buffer, 0, buffer.Length);
-                    bufPos =
-                        !byteStrings && buffer.AsSpan(0, bufLen).StartsWith(BomUtility.BomUtf8)
-                            ? 3
-                            : 0;
-                    if (bufLen <= bufPos)
-                    {
-                        break; // EOF
-                    }
-                }
-
-                Span<byte> span = new(buffer, bufPos, bufLen - bufPos);
-                AppendToBuffer(ref resultBuffer, span, ref len);
-                bufPos = bufLen;
-            }
-
-            if (len == 0)
-            {
-                return "";
-            }
-
-            return encoding.GetString(resultBuffer, 0, len);
+            if (bufPos >= bufLen && !ReadTextBuffer(stream))
+                break;
+            result.AddRange(buffer.AsSpan(bufPos, bufLen - bufPos));
+            bufPos = bufLen;
         }
-        finally
-        {
-            ArrayPool<byte>.Shared.Return(resultBuffer);
-        }
+        return encoding.GetString(result.AsSpan());
     }
 
     public int ReadByte(Stream stream)
@@ -189,18 +135,8 @@ sealed class Utf8Reader
         {
             while (len < charCount)
             {
-                if (bufPos >= bufLen)
-                {
-                    bufLen = stream.Read(buffer, 0, buffer.Length);
-                    bufPos =
-                        !byteStrings && buffer.AsSpan(0, bufLen).StartsWith(BomUtility.BomUtf8)
-                            ? 3
-                            : 0;
-                    if (bufLen <= bufPos)
-                    {
-                        break; // EOF
-                    }
-                }
+                if (bufPos >= bufLen && !ReadTextBuffer(stream))
+                    break;
 
                 ReadOnlySpan<byte> byteSpan = new(buffer, bufPos, bufLen - bufPos);
                 Span<char> charSpan = new(resultBuffer, len, charCount - len);
@@ -248,21 +184,6 @@ sealed class Utf8Reader
         {
             ArrayPool<char>.Shared.Return(resultBuffer);
         }
-    }
-
-    static void AppendToBuffer(ref byte[] buffer, ReadOnlySpan<byte> segment, ref int length)
-    {
-        if (length + segment.Length > buffer.Length)
-        {
-            var newSize = Math.Max(buffer.Length * 2, length + segment.Length);
-            var newBuffer = ArrayPool<byte>.Shared.Rent(newSize);
-            Array.Copy(buffer, newBuffer, length);
-            ArrayPool<byte>.Shared.Return(buffer);
-            buffer = newBuffer;
-        }
-
-        segment.CopyTo(buffer.AsSpan(length));
-        length += segment.Length;
     }
 
     static bool IsAsciiSpace(char c) => c == ' ' || (c >= '\t' && c <= '\r');
