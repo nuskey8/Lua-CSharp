@@ -639,12 +639,17 @@ partial class LuaObjectGenerator
                     );
                 }
 
+                var boundMethodIndex = 0;
                 foreach (
                     var methodMetadata in typeMetadata.Methods.Where(x => x.HasMemberAttribute)
                 )
                 {
+                    var function =
+                        methodMetadata.IsStatic || !typeMetadata.BindInstanceMethods
+                            ? $"__function_{methodMetadata.LuaMemberName}"
+                            : $"userData.__GetBoundMethod({boundMethodIndex++}, \"{methodMetadata.LuaMemberName}\", __function_{methodMetadata.LuaMemberName})";
                     builder.AppendLine(
-                        @$"if (stringKey == ""{methodMetadata.LuaMemberName}"") return new global::System.Threading.Tasks.ValueTask<int>(context.Return(new global::Lua.LuaValue(__function_{methodMetadata.LuaMemberName})));"
+                        @$"if (stringKey == ""{methodMetadata.LuaMemberName}"") return new global::System.Threading.Tasks.ValueTask<int>(context.Return(new global::Lua.LuaValue({function})));"
                     );
                 }
 
@@ -976,6 +981,13 @@ partial class LuaObjectGenerator
     )
     {
         builder.AppendLine();
+        var boundMethodCount = typeMetadata.BindInstanceMethods
+            ? typeMetadata.Methods.Count(x => x.HasMemberAttribute && !x.IsStatic)
+            : 0;
+        if (boundMethodCount > 0)
+        {
+            EmitBoundMethodCache(typeMetadata, boundMethodCount, builder);
+        }
 
         foreach (var methodMetadata in typeMetadata.Methods)
         {
@@ -991,7 +1003,8 @@ partial class LuaObjectGenerator
                     methodMetadata,
                     builder,
                     references,
-                    compilation
+                    compilation,
+                    bindTarget: typeMetadata.BindInstanceMethods && !methodMetadata.IsStatic
                 );
             }
 
@@ -1012,7 +1025,10 @@ partial class LuaObjectGenerator
                     continue;
                 }
 
-                if (functionName == null)
+                if (
+                    functionName == null
+                    || (typeMetadata.BindInstanceMethods && !methodMetadata.IsStatic)
+                )
                 {
                     if (
                         methodMetadata.Metamethod
@@ -1047,6 +1063,60 @@ partial class LuaObjectGenerator
         return true;
     }
 
+    static void EmitBoundMethodCache(
+        TypeMetadata typeMetadata,
+        int methodCount,
+        CodeBuilder builder
+    )
+    {
+        var closureType = $"global::Lua.Runtime.BoundClosure<{typeMetadata.FullTypeName}>";
+        if (typeMetadata.Symbol.IsRecord)
+        {
+            builder.AppendLine(
+                $"static readonly global::System.Runtime.CompilerServices.ConditionalWeakTable<{typeMetadata.FullTypeName}, {closureType}?[]> __boundMethods = new();"
+            );
+        }
+        else
+        {
+            builder.AppendLine($"{closureType}?[]? __boundMethods;");
+        }
+
+        builder.AppendLine(
+            $"{closureType} __GetBoundMethod(int index, string name, global::System.Func<global::Lua.LuaFunctionExecutionContext, global::System.Threading.CancellationToken, global::System.Threading.Tasks.ValueTask<int>> func)"
+        );
+        using (builder.BeginBlockScope())
+        {
+            if (typeMetadata.Symbol.IsRecord)
+            {
+                builder.AppendLine(
+                    $"var methods = __boundMethods.GetValue(this, static _ => new {closureType}?[{methodCount}]);"
+                );
+            }
+            else
+            {
+                builder.AppendLine(
+                    "var methods = global::System.Threading.Volatile.Read(ref __boundMethods);"
+                );
+                builder.AppendLine("if (methods == null)");
+                using (builder.BeginBlockScope())
+                {
+                    builder.AppendLine($"methods = new {closureType}?[{methodCount}];");
+                    builder.AppendLine(
+                        "methods = global::System.Threading.Interlocked.CompareExchange(ref __boundMethods, methods, null) ?? methods;"
+                    );
+                }
+            }
+            builder.AppendLine(
+                "var function = global::System.Threading.Volatile.Read(ref methods[index]);"
+            );
+            builder.AppendLine("if (function != null) return function;");
+            builder.AppendLine($"function = new {closureType}(name, this, func);");
+            builder.AppendLine(
+                "return global::System.Threading.Interlocked.CompareExchange(ref methods[index], function, null) ?? function;"
+            );
+        }
+    }
+
     static void EmitMethodFunction(
         string functionName,
         string chunkName,
@@ -1054,19 +1124,43 @@ partial class LuaObjectGenerator
         MethodMetadata methodMetadata,
         CodeBuilder builder,
         SymbolReferences references,
-        Compilation compilation
+        Compilation compilation,
+        bool bindTarget = false
     )
     {
-        builder.AppendLine(
-            $@"static readonly global::Lua.LuaFunction {functionName} = new global::Lua.LuaFunction(""{chunkName}"", {(methodMetadata.IsAsync ? "async" : "")} (context, ct) =>"
-        );
+        if (bindTarget)
+        {
+            builder.AppendLine(
+                $"static readonly global::System.Func<global::Lua.LuaFunctionExecutionContext, global::System.Threading.CancellationToken, global::System.Threading.Tasks.ValueTask<int>> {functionName} = static {(methodMetadata.IsAsync ? "async" : "")} (context, ct) =>"
+            );
+        }
+        else
+        {
+            builder.AppendLine(
+                $@"static readonly global::Lua.LuaFunction {functionName} = new global::Lua.LuaFunction(""{chunkName}"", {(methodMetadata.IsAsync ? "async" : "")} (context, ct) =>"
+            );
+        }
 
         using (builder.BeginBlockScope())
         {
-            EmitMethodFunctionBody(typeMetadata, methodMetadata, builder, references, compilation);
+            if (bindTarget)
+            {
+                builder.AppendLine(
+                    $"var userData = ((global::Lua.Runtime.BoundClosure<{typeMetadata.FullTypeName}>)context.State.GetCurrentFrame().Function).Target;"
+                );
+            }
+            EmitMethodFunctionBody(
+                typeMetadata,
+                methodMetadata,
+                builder,
+                references,
+                compilation,
+                existingUserDataVariable: bindTarget ? "userData" : null,
+                boundTarget: bindTarget
+            );
         }
 
-        builder.AppendLine(");");
+        builder.AppendLine(bindTarget ? ";" : ");");
         builder.AppendLine();
     }
 
@@ -1077,7 +1171,8 @@ partial class LuaObjectGenerator
         SymbolReferences references,
         Compilation compilation,
         IReadOnlyDictionary<int, string>? preloadedArguments = null,
-        string? existingUserDataVariable = null
+        string? existingUserDataVariable = null,
+        bool boundTarget = false
     )
     {
         var index = 0;
@@ -1086,7 +1181,7 @@ partial class LuaObjectGenerator
         var extraReturnValues = new List<string>();
         var userDataVariable = existingUserDataVariable ?? "userData";
 
-        if (!methodMetadata.IsStatic)
+        if (!methodMetadata.IsStatic && !boundTarget)
         {
             if (existingUserDataVariable == null)
             {

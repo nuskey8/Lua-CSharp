@@ -254,6 +254,13 @@ return add(1, 2)
 > [!TIP]  
 > Defining functions with `LuaFunction` can be somewhat verbose. When adding multiple functions, it is recommended to use the Source Generator with the `[LuaObject]` attribute. For more details, see the [LuaObject](#luaobject) section.
 
+### Binding a C# Target
+
+`Lua.Runtime.BoundClosure<T>` retains a typed target for custom bindings and generators.
+Inside a static callback, cast `context.State.GetCurrentFrame().Function` to
+`BoundClosure<T>` and read its `Target`. The target is separate from Lua arguments
+and upvalues.
+
 ## Low-Level API
 
 In addition to normal function calls, it is possible to directly call Lua's low-level API.
@@ -452,6 +459,22 @@ The types of fields/properties with the `[LuaMember]` attribute, as well as the 
 Return types such as `void`, `Task/Task<T>`, `ValueTask/ValueTask<T>`, `UniTask/UniTask<T>`, and `Awaitable/Awaitable<T>` are also supported.
 
 If the type is not supported, the Source Generator will output a compile-time error.
+
+### Bound instance methods
+
+Set `[LuaObject(BindInstanceMethods = true)]` to bind instance methods to their
+object and call them with dot notation. For the `LuaVector3` example above:
+
+```lua
+local v2 = v1.normalized()
+local normalize = v1.normalized
+local v3 = normalize()
+```
+
+Bound methods are cached per object and read all supplied arguments as method
+parameters. The option defaults to `false`, which uses explicit receivers
+(`obj:Method(...)` or `obj.Method(obj, ...)`). Static methods and metamethods keep
+their existing calling conventions.
 
 ### Variable-length arguments
 

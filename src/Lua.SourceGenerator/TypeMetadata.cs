@@ -10,6 +10,7 @@ class TypeMetadata
     public INamedTypeSymbol Symbol { get; }
     public string TypeName { get; }
     public string FullTypeName { get; }
+    public bool BindInstanceMethods { get; }
     public PropertyMetadata[] Properties { get; }
     public MethodMetadata[] Methods { get; }
 
@@ -24,6 +25,11 @@ class TypeMetadata
 
         TypeName = symbol.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
         FullTypeName = symbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+        BindInstanceMethods =
+            symbol
+                .GetAttribute(references.LuaObjectAttribute)
+                ?.NamedArguments.Any(x => x.Key == "BindInstanceMethods" && x.Value.Value is true)
+            == true;
 
         var properties = new List<PropertyMetadata>();
         var methods = new List<MethodMetadata>();

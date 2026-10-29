@@ -451,6 +451,15 @@ print(v2.x, v2.y, v2.z)
 
 利用可能でない型に対してはSource Generatorがコンパイルエラーを出力します。
 
+### インスタンスメソッドのバインド
+
+`[LuaObject(BindInstanceMethods = true)]`を指定すると、インスタンスメソッドを
+`obj.Method(...)`で呼び出せます。`local method = obj.Method; method(...)`のように
+取り出した関数も元のオブジェクトを保持し、オブジェクトごとにキャッシュされます。
+このモードでは、渡した引数はすべてメソッドの引数として扱われます。
+staticメソッドとメタメソッドの呼び出し規約は変わりません。
+既定値は`false`で、従来の`obj:Method(...)`または`obj.Method(obj, ...)`を使用します。
+
 ### LuaMetamethod
 
 `[LuaMetamethod]`属性を追加することで、C#のメソッドをLua側で使用されるメタメソッドとして設定することが可能です。

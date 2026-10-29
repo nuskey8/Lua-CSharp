@@ -11,6 +11,10 @@ public sealed class LuaObjectAttribute : Attribute
     }
 
     public string? Name { get; }
+
+    /// <summary>Gets or sets whether instance methods are bound to their owning object.</summary>
+    /// <remarks>When true, instance methods use dot notation without an explicit receiver.</remarks>
+    public bool BindInstanceMethods { get; set; }
 }
 
 [AttributeUsage(AttributeTargets.Method | AttributeTargets.Field | AttributeTargets.Property)]
