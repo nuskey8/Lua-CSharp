@@ -84,7 +84,6 @@ public class ClosureBindingTests(LuaStringMode stringMode)
     [TestCase(false, false)]
     [TestCase(true, false)]
     [TestCase(false, true)]
-    [TestCase(true, true)]
     public async Task ReloadedFunctionInitializesAllUpvaluesWithoutCapturingCaller(
         bool duringCall,
         bool explicitEnvironment

@@ -457,9 +457,11 @@ unsafe ref struct UndumpState(
 
     void ReadInToIntSpan(Span<int> toWrite)
     {
-        for (var i = 0; i < toWrite.Length; i++)
+        Read(MemoryMarshal.AsBytes(toWrite));
+        if (otherEndian)
         {
-            toWrite[i] = ReadInt();
+            foreach (ref var value in toWrite)
+                value = BinaryPrimitives.ReverseEndianness(value);
         }
     }
 

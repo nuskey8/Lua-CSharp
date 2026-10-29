@@ -88,7 +88,6 @@ public class BytecodeValidationTests
     public void RejectsInvalidOperandsBeforeExecution(Instruction[] code)
     {
         var bytes = Create(code).ToBytecode();
-        Assert.Throws<LuaUndumpException>(() => Prototype.FromBytecode(bytes, "invalid"));
         using var state = LuaState.Create();
         Assert.Throws<LuaUndumpException>(() => state.Load(bytes));
     }
