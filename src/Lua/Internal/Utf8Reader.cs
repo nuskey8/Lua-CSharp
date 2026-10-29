@@ -194,7 +194,7 @@ sealed class Utf8Reader
         bufLen = 0;
     }
 
-    public string? ReadNumber(Stream stream)
+    public double? ReadNumber(Stream stream)
     {
         var resultBuffer = ArrayPool<char>.Shared.Rent(64); // Numbers shouldn't be too long
         var len = 0;
@@ -331,7 +331,7 @@ sealed class Utf8Reader
                 }
             }
 
-            return len == 0 ? null : resultBuffer.AsSpan(0, len).ToString();
+            return len == 0 ? null : NumberReaderHelper.ParseNumber(resultBuffer.AsSpan(0, len));
         }
         finally
         {

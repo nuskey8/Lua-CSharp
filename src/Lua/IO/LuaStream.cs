@@ -85,16 +85,7 @@ public sealed class LuaStream(LuaFileOpenMode mode, Stream innerStream, LuaStrin
         mode.ThrowIfNotReadable();
         reader ??= new(stringMode);
 
-        // Use the Utf8Reader's ReadNumber method which handles positioning correctly
-        var numberStr = reader.ReadNumber(innerStream);
-        if (numberStr == null)
-        {
-            return new((double?)null);
-        }
-
-        // Parse using the shared utility
-        var result = NumberReaderHelper.ParseNumber(numberStr.AsSpan());
-        return new(result);
+        return new(reader.ReadNumber(innerStream));
     }
 
     public ValueTask WriteAsync(ReadOnlyMemory<char> buffer, CancellationToken cancellationToken)
