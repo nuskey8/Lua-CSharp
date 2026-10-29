@@ -2973,7 +2973,7 @@ public static partial class LuaVirtualMachine
                 context.Pc++;
             }
 
-            stack.PopUntil(newFrame.Base - newFrame.VariableArgumentCount + 1);
+            stack.PopUntil(newFrame.Base - newFrame.VariableArgumentCount);
             context.State.PopCallStackFrame();
 
             return true;
