@@ -122,6 +122,7 @@ public static partial class LuaVirtualMachine
             FrameBase = lastFrame.Base;
             VariableArgumentCount = lastFrame.VariableArgumentCount;
 
+            var argumentBase = frame.Base - frame.VariableArgumentCount;
             var opCode = callInstruction.OpCode;
             if (opCode is OpCode.Eq or OpCode.Lt or OpCode.Le)
             {
@@ -136,7 +137,7 @@ public static partial class LuaVirtualMachine
                     Pc++;
                 }
 
-                State.PopCallStackFrameWithStackPop();
+                State.PopCallStackFrameWithStackPop(argumentBase);
                 return true;
             }
 
@@ -163,15 +164,13 @@ public static partial class LuaVirtualMachine
                     State.PopCallStackFrameWithStackPop(target + 2);
                     return true;
                 case OpCode.SetTable or OpCode.SetTabUp:
-                    target = frame.Base;
+                    target = argumentBase;
                     targetCount = 0;
                     break;
                 // Other opcodes has one result
                 default:
                     Stack.Get(target) = result.Length == 0 ? LuaValue.Nil : result[0];
-                    State.PopCallStackFrameWithStackPop(
-                        Math.Max(target + 1, CurrentReturnFrameBase)
-                    );
+                    State.PopCallStackFrameWithStackPop(Math.Max(target + 1, argumentBase));
                     return true;
             }
 
@@ -1714,6 +1713,7 @@ public static partial class LuaVirtualMachine
 
         newFrame.CallerInstructionIndex = lastFrame.CallerInstructionIndex;
         newFrame.Version = lastFrame.Version;
+        newFrame.Flags |= lastFrame.Flags & CallStackFrameFlags.ReversedLe;
         state.ReplaceCallStackFrame(newFrame);
         // Release the replaced closure before a hook or native tail callee can suspend.
         context.LuaClosure = null!;
