@@ -245,7 +245,7 @@ public sealed class FileHandle : ILuaUserData
         {
             var file = context.GetArgument<FileHandle>(0);
             var whence = context.HasArgument(1) ? context.GetStringArgument(1) : "cur";
-            var offset = context.HasArgument(2) ? context.GetArgument<int>(2) : 0;
+            var offset = context.HasArgument(2) ? context.GetArgument<long>(2) : 0;
 
             if (whence is not ("set" or "cur" or "end"))
             {
@@ -257,7 +257,7 @@ public sealed class FileHandle : ILuaUserData
 
             try
             {
-                return new(context.Return(file.Seek(whence, (long)offset)));
+                return new(context.Return(file.Seek(whence, offset)));
             }
             catch (IOException ex)
             {
