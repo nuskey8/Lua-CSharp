@@ -221,6 +221,111 @@ public class CoroutineTransferTests(LuaStringMode mode)
         Assert.That(reference!.IsAlive, Is.False);
     }
 
+    [Test]
+    public async Task CancellationWaitsForYieldedResultTransfer(
+        [Values] bool protectedMode,
+        [Values] bool cancelResume,
+        [Values] bool oversized
+    )
+    {
+        using var state = CreateState();
+        using var cancellation = new CancellationTokenSource();
+        var count = oversized ? OversizedResultCount : 1;
+        using var thread = state.CreateCoroutine(
+            new LuaFunction(
+                async (context, token) =>
+                {
+                    context.GetReturnBuffer(count).Fill(42);
+                    var pending = context.State.YieldAsync(
+                        context with
+                        {
+                            ArgumentCount = count,
+                        },
+                        cancelResume ? token : cancellation.Token
+                    );
+                    // The first resume has not returned from RunAsync to copy the published yield.
+                    cancellation.Cancel();
+                    Assert.That(pending.IsCompleted, Is.False);
+                    Assert.That(context.State.Stack.Count, Is.EqualTo(count));
+                    Assert.That(context.State.Stack[count - 1], Is.EqualTo(new LuaValue(42)));
+                    return await pending;
+                }
+            ),
+            protectedMode
+        );
+        var results = new LuaStack();
+        var resumeToken = cancelResume ? cancellation.Token : default;
+        if (oversized)
+        {
+            await AssertTransferError(thread, results, protectedMode, resumeToken);
+        }
+        else
+        {
+            Assert.That(await thread.ResumeAsync(results, resumeToken), Is.EqualTo(2));
+            Assert.That(results.AsSpan().ToArray(), Is.EqualTo(new LuaValue[] { true, 42 }));
+        }
+        Assert.That(() => thread.GetStatus(), Is.EqualTo(LuaThreadStatus.Dead).After(1000, 10));
+        Assert.That(thread.CoroutineFunction, Is.Null);
+        Assert.That(thread.GetStackValues().Length, Is.Zero);
+        Assert.That(thread.CallStackFrameCount, Is.Zero);
+    }
+
+    [Test]
+    public async Task OversizedInitialArgumentsPreserveTheEntryForRetry(
+        [Values] bool protectedMode,
+        [Values] bool asynchronous
+    )
+    {
+        using var state = CreateState();
+        using var cancellation = new CancellationTokenSource();
+        var entered = false;
+        var entry = new LuaFunction(
+            async (context, _) =>
+            {
+                entered = true;
+                if (asynchronous)
+                    await Task.Yield();
+                return context.Return(context.GetArgument(0));
+            }
+        );
+        using var thread = state.CreateCoroutine(entry, protectedMode);
+        var arguments = new LuaStack(OversizedResultCount + 1);
+        arguments.NotifyTop(OversizedResultCount + 1);
+        if (protectedMode)
+        {
+            Assert.That(await thread.ResumeAsync(arguments, cancellation.Token), Is.EqualTo(2));
+            Assert.That(
+                arguments.AsSpan().ToArray(),
+                Is.EqualTo(new LuaValue[] { false, "too many arguments to resume" })
+            );
+        }
+        else
+        {
+            var error = Assert.ThrowsAsync<LuaRuntimeException>(async () =>
+                await thread.ResumeAsync(arguments, cancellation.Token)
+            )!;
+            Assert.That(error.Message, Does.Contain("too many arguments to resume"));
+            Assert.That(arguments.Count, Is.EqualTo(OversizedResultCount + 1));
+        }
+        Assert.That(entered, Is.False);
+        Assert.That(thread.GetStatus(), Is.EqualTo(LuaThreadStatus.Suspended));
+        Assert.That(thread.CanResume, Is.True);
+        Assert.That(thread.CoroutineFunction, Is.SameAs(entry));
+        Assert.That(thread.GetStackValues().Length, Is.Zero);
+        Assert.That(thread.CallStackFrameCount, Is.Zero);
+        cancellation.Cancel();
+
+        var retry = new LuaStack();
+        retry.Push(42);
+        Assert.That(await thread.ResumeAsync(retry), Is.EqualTo(2));
+        Assert.That(retry.AsSpan().ToArray(), Is.EqualTo(new LuaValue[] { true, 42 }));
+        Assert.That(entered, Is.True);
+        Assert.That(thread.GetStatus(), Is.EqualTo(LuaThreadStatus.Dead));
+        Assert.That(thread.CoroutineFunction, Is.Null);
+        Assert.That(thread.GetStackValues().Length, Is.Zero);
+        Assert.That(thread.CallStackFrameCount, Is.Zero);
+    }
+
     static async Task AssertTransferError(
         LuaState thread,
         LuaStack results,

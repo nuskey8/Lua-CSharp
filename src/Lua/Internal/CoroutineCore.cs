@@ -34,6 +34,7 @@ class CoroutineCore(LuaState state, LuaFunction function, bool isProtectedMode)
     const int ResumeWaiting = 1;
     const int ResumeYielded = 2;
     const int ResumeCompleted = 3;
+    const int ResumeCancelPending = 4;
     int resumePhase;
 
     ManualResetValueTaskSourceCore<ResumeContext> resume;
@@ -187,6 +188,19 @@ class CoroutineCore(LuaState state, LuaFunction function, bool isProtectedMode)
                         resumeCancellationToken = default;
                     }
                 }
+                catch (LuaStackOverflowException) when (isFirstCall)
+                {
+                    resumeCancellationToken = default;
+                    Volatile.Write(ref status, (byte)LuaThreadStatus.Suspended);
+                    const string message = "too many arguments to resume";
+                    if (!IsProtectedMode)
+                        throw new LuaRuntimeException(baseThread, message);
+
+                    stack.PopUntil(returnBase);
+                    stack.Push(false);
+                    stack.Push(message);
+                    return 2;
+                }
                 catch (Exception ex)
                 {
                     functionTask = default;
@@ -250,6 +264,15 @@ class CoroutineCore(LuaState state, LuaFunction function, bool isProtectedMode)
             {
                 resume.Reset();
                 var phase = Interlocked.CompareExchange(ref resumePhase, ResumeIdle, ResumeYielded);
+                if (phase == ResumeCancelPending)
+                {
+                    CancelYield();
+                    phase = Interlocked.CompareExchange(
+                        ref resumePhase,
+                        ResumeIdle,
+                        ResumeCancelPending
+                    );
+                }
                 if (phase == ResumeCompleted)
                     CompleteSuspendedFunction();
                 else if (phase == ResumeWaiting)
@@ -278,6 +301,12 @@ class CoroutineCore(LuaState state, LuaFunction function, bool isProtectedMode)
 
     void CancelYield()
     {
+        // Cancellation must not unwind the stack while the resumer owns its yielded range.
+        if (
+            Interlocked.CompareExchange(ref resumePhase, ResumeCancelPending, ResumeYielded)
+            == ResumeYielded
+        )
+            return;
         if (Interlocked.CompareExchange(ref yieldCompleted, 1, 0) == 0)
             yield.SetException(new OperationCanceledException());
     }
