@@ -148,13 +148,14 @@ public static class HexConverter
         double value,
         int precision,
         bool alternateForm,
-        bool upperCase
+        bool upperCase,
+        LuaNumberFormat numberFormat
     )
     {
         string text;
         if (double.IsNaN(value) || double.IsInfinity(value))
         {
-            text = value.ToString(CultureInfo.InvariantCulture);
+            return NumberFormatter.FormatSpecial(value, numberFormat, upperCase);
         }
         else
         {

@@ -1,4 +1,3 @@
-using System.Globalization;
 using Lua.Internal;
 using Lua.IO;
 
@@ -71,7 +70,12 @@ static class IOHelper
                 {
                     using PooledArray<char> fileBuffer = new(64);
                     var span = fileBuffer.AsSpan();
-                    d.TryFormat(span, out var charsWritten, provider: CultureInfo.InvariantCulture);
+                    NumberFormatter.TryFormat(
+                        d,
+                        span,
+                        out var charsWritten,
+                        context.State.Platform.NumberFormat
+                    );
                     await file.WriteAsync(
                         fileBuffer.UnderlyingArray.AsMemory(0, charsWritten),
                         cancellationToken

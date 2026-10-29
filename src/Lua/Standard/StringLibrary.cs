@@ -220,7 +220,8 @@ public sealed class StringLibrary
                             a,
                             precision,
                             alternateForm,
-                            specifier == 'A'
+                            specifier == 'A',
+                            context.State.Platform.NumberFormat
                         );
                         if (BitConverter.DoubleToInt64Bits(a) >= 0)
                         {
@@ -274,7 +275,13 @@ public sealed class StringLibrary
                                 LuaValueType.Number,
                                 parameter.Type
                             );
-                        formattedValue = FormatFloat(f, specifier, precision, alternateForm);
+                        formattedValue = FormatFloat(
+                            f,
+                            specifier,
+                            precision,
+                            alternateForm,
+                            context.State.Platform.NumberFormat
+                        );
                         if (double.IsNaN(f) || double.IsInfinity(f))
                             zeroPadding = false;
                         if (BitConverter.DoubleToInt64Bits(f) >= 0)
@@ -302,7 +309,9 @@ public sealed class StringLibrary
                         {
                             case LuaValueType.String:
                             case LuaValueType.Number:
-                                formattedValue = StringHelper.Quote(parameter.ToString());
+                                formattedValue = StringHelper.Quote(
+                                    parameter.ToLuaString(context.State.Platform.NumberFormat)
+                                );
                                 break;
                             default:
                                 LuaRuntimeException.BadArgument(
@@ -609,7 +618,7 @@ public sealed class StringLibrary
         var replacementText =
             repl.Type == LuaValueType.String ? repl.UnsafeReadString()
             : repl.Type == LuaValueType.Number
-                ? repl.UnsafeReadDouble().ToString(default, CultureInfo.InvariantCulture)
+                ? repl.ToLuaString(context.State.Platform.NumberFormat)
             : null;
         var replacedBuilder =
             replacementText != null && replacementText.IndexOf('%') >= 0
@@ -707,7 +716,7 @@ public sealed class StringLibrary
                 }
                 else if (result.TryRead<double>(out var rd))
                 {
-                    AppendNumber(builder, rd);
+                    AppendNumber(builder, rd, context.State.Platform.NumberFormat);
                 }
                 else if (!result.ToBoolean())
                 {
@@ -1032,19 +1041,24 @@ public sealed class StringLibrary
 #endif
     }
 
-    static void AppendNumber(StringBuilder builder, double value)
+    static void AppendNumber(StringBuilder builder, double value, LuaNumberFormat format)
     {
         Span<char> buffer = stackalloc char[32];
-        value.TryFormat(buffer, out var written, default, CultureInfo.InvariantCulture);
+        NumberFormatter.TryFormat(value, buffer, out var written, format);
         builder.Append(buffer[..written]);
     }
 
-    static string FormatFloat(double value, char specifier, int precision, bool alternateForm)
+    static string FormatFloat(
+        double value,
+        char specifier,
+        int precision,
+        bool alternateForm,
+        LuaNumberFormat numberFormat
+    )
     {
         if (double.IsNaN(value) || double.IsInfinity(value))
         {
-            var special = value.ToString(CultureInfo.InvariantCulture);
-            return specifier is 'E' or 'G' ? special.ToUpperInvariant() : special;
+            return NumberFormatter.FormatSpecial(value, numberFormat, specifier is 'E' or 'G');
         }
         var general = specifier is 'g' or 'G';
         precision =

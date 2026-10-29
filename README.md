@@ -606,6 +606,24 @@ var state = LuaState.Create(platform);
 
 These are used for `require`, `print`, `dofile`, and the `os` module.
 
+### Number formatting
+
+`LuaPlatform.NumberFormat` defaults to `LuaNumberFormat.DotNet`, preserving invariant .NET numeric text. Select `LuaNumberFormat.Lua` for Lua 5.2's default C-locale `%.14g` conversion: 14 significant digits, lowercase exponents, signed zero, and signed `inf`/`nan`.
+
+```cs
+using Lua.Platforms;
+
+using var state = LuaState.Create(LuaPlatform.Default with
+{
+    NumberFormat = LuaNumberFormat.Lua
+});
+await state.DoStringAsync("print(1/3)"); // 0.33333333333333
+```
+
+The option applies to `tostring` (including numeric `__tostring` results), `%s`/`%q`, concatenation, `table.concat`, numeric `gsub` replacements, explicit-base `tonumber` numeric inputs, and numeric file/standard output. Coroutines inherit it, independently of `StringMode`. Explicit floating-point formats such as `%.17g` keep their requested precision; the option selects their infinity/NaN spellings.
+
+Lua 5.2 delegates formatting to the C runtime, so exact special-value text varies between systems. `Lua` uses portable signed `nan` rather than Windows CRT suffixes such as `nan(ind)` or `nan(snan)`. Arithmetic, NaN bits, parsing of numeric strings, and public C# `LuaValue.ToString()` are unchanged. Formatting to 14 digits can lose round-trip precision; for example, `tonumber(1e14,10)` returns `nil` in `Lua` mode because the intermediate text is `1e+14`.
+
 ## Exception Handling
 
 Lua script runtime exceptions throw exceptions that inherit from `LuaException`. You can catch these to handle errors during execution.
