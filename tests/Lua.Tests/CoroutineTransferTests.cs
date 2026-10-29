@@ -225,7 +225,8 @@ public class CoroutineTransferTests(LuaStringMode mode)
     public async Task CancellationWaitsForYieldedResultTransfer(
         [Values] bool protectedMode,
         [Values] bool cancelResume,
-        [Values] bool oversized
+        [Values] bool oversized,
+        [Values] bool waitAsync
     )
     {
         using var state = CreateState();
@@ -246,9 +247,10 @@ public class CoroutineTransferTests(LuaStringMode mode)
                     // The first resume has not returned from RunAsync to copy the published yield.
                     cancellation.Cancel();
                     Assert.That(pending.IsCompleted, Is.False);
+                    Assert.That(token.IsCancellationRequested, Is.False);
                     Assert.That(context.State.Stack.Count, Is.EqualTo(count));
                     Assert.That(context.State.Stack[count - 1], Is.EqualTo(new LuaValue(42)));
-                    return await pending;
+                    return waitAsync ? await pending.AsTask().WaitAsync(token) : await pending;
                 }
             ),
             protectedMode
@@ -412,6 +414,124 @@ public class CoroutineTransferTests(LuaStringMode mode)
         Assert.That(thread.CoroutineFunction, Is.Null);
         Assert.That(thread.CallStackFrameCount, Is.Zero);
         Assert.That(thread.GetStackValues().Length, Is.Zero);
+    }
+
+    [Test]
+    public async Task WrappedPacketsPreserveTheirCountAndValues(
+        [Values(0, 1, 3, 2048)] int count,
+        [Values] bool asynchronous
+    )
+    {
+        using var state = CreateState();
+        state.Environment["count"] = count;
+        state.Environment["many"] = new LuaFunction(
+            async (context, _) =>
+            {
+                if (asynchronous)
+                    await Task.Yield();
+                return ReturnPacket(context, count);
+            }
+        );
+        var result = await state.DoStringAsync(
+            """
+            local run=coroutine.wrap(function()
+                co=coroutine.running()
+                coroutine.yield(many())
+                return many()
+            end)
+            for attempt=1,2 do
+                local packet=table.pack(run())
+                assert(packet.n==count)
+                for i=1,count do
+                    local expected
+                    if i==1 then expected=false
+                    elseif (i-1)%3~=1 then expected=i-1 end
+                    assert(packet[i]==expected)
+                end
+            end
+            return coroutine.status(co)
+            """
+        );
+        Assert.That(result, Is.EqualTo(new LuaValue[] { "dead" }));
+        Assert.That(state.Stack.Count, Is.Zero);
+        Assert.That(state.CallStackFrameCount, Is.Zero);
+    }
+
+    [Test]
+    public void CompletedCoroutinesReleaseCancellationSources()
+    {
+        using var state = CreateState();
+        var references = CompleteCancellableCoroutine(state);
+        Collect();
+        Assert.That(references.All(reference => !reference.IsAlive), Is.True);
+        GC.KeepAlive(state);
+    }
+
+    [Test]
+    public void AnOwnedTokenDoesNotRootAnAbandonedCoroutine()
+    {
+        using var state = CreateState();
+        var (reference, token) = SuspendWithOwnedToken(state);
+        Collect();
+        Assert.That(reference.IsAlive, Is.False);
+        GC.KeepAlive(token);
+        GC.KeepAlive(state);
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    static (WeakReference, CancellationToken) SuspendWithOwnedToken(LuaState state)
+    {
+        CancellationToken received = default;
+        var thread = state.CreateCoroutine(
+            new LuaFunction(
+                async (context, token) =>
+                {
+                    received = token;
+                    await context.State.YieldAsync(context, token);
+                    await context.State.YieldAsync(context, token);
+                    return context.Return();
+                }
+            )
+        );
+        var output = new LuaStack();
+        thread.ResumeAsync(output).GetAwaiter().GetResult();
+        output.Clear();
+        thread.ResumeAsync(output, received).GetAwaiter().GetResult();
+        return (new(thread), received);
+    }
+
+    static int ReturnPacket(LuaFunctionExecutionContext context, int count)
+    {
+        var buffer = context.GetReturnBuffer(count);
+        for (var i = 0; i < count; i++)
+            buffer[i] =
+                i == 0 ? new LuaValue(false)
+                : i % 3 == 1 ? LuaValue.Nil
+                : i;
+        return count;
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    static WeakReference[] CompleteCancellableCoroutine(LuaState state)
+    {
+        var lifetime = new CancellationTokenSource();
+        var resumed = new CancellationTokenSource();
+        using var thread = state.CreateCoroutine(
+            new LuaFunction(
+                static async (context, token) =>
+                {
+                    await context.State.YieldAsync(context, token);
+                    return context.Return(42);
+                }
+            )
+        );
+        var output = new LuaStack();
+        thread.ResumeAsync(output, lifetime.Token).GetAwaiter().GetResult();
+        output.Clear();
+        thread.ResumeAsync(output, resumed.Token).GetAwaiter().GetResult();
+        state.Environment["completed"] = thread;
+        Assert.That(output.AsSpan().ToArray(), Is.EqualTo(new LuaValue[] { true, 42 }));
+        return [new(lifetime), new(resumed)];
     }
 
     static async Task AssertTransferError(

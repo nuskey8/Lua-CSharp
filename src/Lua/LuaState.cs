@@ -123,6 +123,24 @@ public class LuaState : IDisposable
         return new(2);
     }
 
+    internal ValueTask<int> ResumeWrappedAsync(
+        LuaFunctionExecutionContext context,
+        CancellationToken cancellationToken
+    ) =>
+        coroutine != null
+            ? coroutine.ResumeAsyncCore(
+                context.State.Stack,
+                context.ArgumentCount,
+                context.ReturnFrameBase,
+                context.State,
+                cancellationToken,
+                includeStatus: false
+            )
+            : ResumeAsync(context, cancellationToken);
+
+    internal CancellationToken GetCancellationOrigin(CancellationToken token) =>
+        coroutine == null ? token : coroutine.GetCancellationOrigin(token);
+
     public ValueTask<int> YieldAsync(
         LuaFunctionExecutionContext context,
         CancellationToken cancellationToken = default

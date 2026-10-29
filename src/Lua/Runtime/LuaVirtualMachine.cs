@@ -321,10 +321,13 @@ public static partial class LuaVirtualMachine
                         && PostOperation != PostOperationType.Return
                     )
                     {
-                        Exception newException =
-                            e is OperationCanceledException
-                                ? new LuaCanceledException(State, CancellationToken, e)
-                                : new LuaRuntimeException(State, e);
+                        Exception newException = e is OperationCanceledException cancelled
+                            ? new LuaCanceledException(
+                                State,
+                                State.GetCancellationOrigin(cancelled.CancellationToken),
+                                e
+                            )
+                            : new LuaRuntimeException(State, e);
                         PopOnTopCallStackFrames();
                         throw newException;
                     }
@@ -1126,10 +1129,13 @@ public static partial class LuaVirtualMachine
                 && context.PostOperation != PostOperationType.Return
             )
             {
-                Exception newException =
-                    e is OperationCanceledException
-                        ? new LuaCanceledException(context.State, context.CancellationToken, e)
-                        : new LuaRuntimeException(context.State, e);
+                Exception newException = e is OperationCanceledException cancelled
+                    ? new LuaCanceledException(
+                        context.State,
+                        context.State.GetCancellationOrigin(cancelled.CancellationToken),
+                        e
+                    )
+                    : new LuaRuntimeException(context.State, e);
                 context.PopOnTopCallStackFrames();
                 throw newException;
             }
@@ -1390,31 +1396,7 @@ public static partial class LuaVirtualMachine
         {
             var stack = context.Stack;
             var newBase = stack.Count;
-            var callable = metamethod;
-            if (!metamethod.TryReadFunction(out var func))
-            {
-                if (
-                    metamethod.TryGetMetamethod(
-                        context.GlobalState,
-                        Metamethods.Call,
-                        out metamethod
-                    ) && metamethod.TryReadFunction(out func)
-                )
-                {
-                    stack.Push(callable);
-                }
-                else
-                {
-                    LuaRuntimeException.AttemptInvalidOperation(
-                        GetstateWithCurrentPc(context),
-                        "call",
-                        metamethod
-                    );
-                }
-            }
-
-            stack.Push(vb);
-            stack.Push(vc);
+            var func = PrepareOperationMetamethod(context.State, metamethod, vb, vc, context);
             var (argCount, varArgCount) = PrepareForFunctionCall(context.State, func, newBase);
             newBase += varArgCount;
 
@@ -2497,31 +2479,7 @@ public static partial class LuaVirtualMachine
         {
             var stack = context.Stack;
             var newBase = stack.Count;
-            var callable = metamethod;
-            if (!metamethod.TryReadFunction(out var func))
-            {
-                if (
-                    metamethod.TryGetMetamethod(
-                        context.GlobalState,
-                        Metamethods.Call,
-                        out metamethod
-                    ) && metamethod.TryReadFunction(out func)
-                )
-                {
-                    stack.Push(callable);
-                }
-                else
-                {
-                    LuaRuntimeException.AttemptInvalidOperation(
-                        GetstateWithCurrentPc(context),
-                        "call",
-                        metamethod
-                    );
-                }
-            }
-
-            stack.Push(vb);
-            stack.Push(vc);
+            var func = PrepareOperationMetamethod(context.State, metamethod, vb, vc, context);
             var (argCount, variableArgumentCount) = PrepareForFunctionCall(
                 context.State,
                 func,
@@ -2631,31 +2589,7 @@ public static partial class LuaVirtualMachine
         if (vb.TryGetMetamethod(context.GlobalState, name, out var metamethod))
         {
             var newBase = stack.Count;
-            var callable = metamethod;
-            if (!metamethod.TryReadFunction(out var func))
-            {
-                if (
-                    metamethod.TryGetMetamethod(
-                        context.GlobalState,
-                        Metamethods.Call,
-                        out metamethod
-                    ) && metamethod.TryReadFunction(out func)
-                )
-                {
-                    stack.Push(callable);
-                }
-                else
-                {
-                    LuaRuntimeException.AttemptInvalidOperation(
-                        GetstateWithCurrentPc(context),
-                        "call",
-                        metamethod
-                    );
-                }
-            }
-
-            stack.Push(vb);
-            stack.Push(vb);
+            var func = PrepareOperationMetamethod(context.State, metamethod, vb, vb, context);
             var (argCount, variableArgumentCount) = PrepareForFunctionCall(
                 context.State,
                 func,
@@ -2760,6 +2694,36 @@ public static partial class LuaVirtualMachine
         }
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    static LuaFunction PrepareOperationMetamethod(
+        LuaState state,
+        LuaValue metamethod,
+        LuaValue left,
+        LuaValue right,
+        VirtualMachineExecutionContext? context = null
+    )
+    {
+        var stack = state.Stack;
+        var callable = metamethod;
+        if (!metamethod.TryReadFunction(out var function))
+        {
+            if (
+                !metamethod.TryGetMetamethod(state.GlobalState, Metamethods.Call, out metamethod)
+                || !metamethod.TryReadFunction(out function)
+            )
+                LuaRuntimeException.AttemptInvalidOperation(
+                    context == null ? state : GetstateWithCurrentPc(context),
+                    "call",
+                    metamethod
+                );
+            stack.PushRange(callable, left, right);
+        }
+        else
+            stack.PushRange(left, right);
+
+        return function;
+    }
+
     static ValueTask<LuaValue> InvokeOperationMetamethod(
         LuaState state,
         LuaValue metamethod,
@@ -2768,21 +2732,8 @@ public static partial class LuaVirtualMachine
         CancellationToken cancellationToken
     )
     {
-        var stack = state.Stack;
-        var top = stack.Count;
-        var callable = metamethod;
-        if (!metamethod.TryReadFunction(out var function))
-        {
-            if (
-                !metamethod.TryGetMetamethod(state.GlobalState, Metamethods.Call, out metamethod)
-                || !metamethod.TryReadFunction(out function)
-            )
-                LuaRuntimeException.AttemptInvalidOperation(state, "call", metamethod);
-            stack.PushRange(callable, left, right);
-        }
-        else
-            stack.PushRange(left, right);
-
+        var top = state.Stack.Count;
+        var function = PrepareOperationMetamethod(state, metamethod, left, right);
         return InvokeOperationMetamethod(state, function, top, cancellationToken);
     }
 
@@ -2878,31 +2829,7 @@ public static partial class LuaVirtualMachine
         {
             var stack = context.Stack;
             var newBase = stack.Count;
-            var callable = metamethod;
-            if (!metamethod.TryReadFunction(out var func))
-            {
-                if (
-                    metamethod.TryGetMetamethod(
-                        context.GlobalState,
-                        Metamethods.Call,
-                        out metamethod
-                    ) && metamethod.TryReadFunction(out func)
-                )
-                {
-                    stack.Push(callable);
-                }
-                else
-                {
-                    LuaRuntimeException.AttemptInvalidOperation(
-                        GetstateWithCurrentPc(context),
-                        "call",
-                        metamethod
-                    );
-                }
-            }
-
-            stack.Push(vb);
-            stack.Push(vc);
+            var func = PrepareOperationMetamethod(context.State, metamethod, vb, vc, context);
             var (argCount, varArgCount) = PrepareForFunctionCall(context.State, func, newBase);
             newBase += varArgCount;
             var newFrame = func.CreateNewFrame(context, newBase, newBase, varArgCount);

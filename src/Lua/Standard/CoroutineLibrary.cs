@@ -1,5 +1,3 @@
-using System.Runtime.CompilerServices;
-using Lua.Internal.CompilerServices;
 using Lua.Runtime;
 
 namespace Lua.Standard;
@@ -86,23 +84,13 @@ public sealed class CoroutineLibrary
         return new(context.Return(new CSharpClosure("wrap", [state], WrapResume)));
     }
 
-    [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder<>))]
-    static async ValueTask<int> WrapResume(
+    static ValueTask<int> WrapResume(
         LuaFunctionExecutionContext context,
         CancellationToken cancellationToken
     )
     {
         var state = context.GetCsClosure()!.UpValues[0].Read<LuaState>();
-        if (!state.IsCoroutine)
-        {
-            return await state.ResumeAsync(context, cancellationToken);
-        }
-
-        await state.ResumeAsync(context, cancellationToken);
-        var result = context.GetReturnBuffer(context.State.Stack.Count - context.ReturnFrameBase);
-        result[1..].CopyTo(result);
-        context.State.Stack.Pop();
-        return result.Length - 1;
+        return state.ResumeWrappedAsync(context, cancellationToken);
     }
 
     public ValueTask<int> Yield(

@@ -30,6 +30,7 @@ else
             typeof(CompilationComparison),
             typeof(StartupComparison),
             typeof(GeneratedUserDataBenchmark),
+            typeof(CoroutineTransferBenchmark),
         ])
         .Run(args);
 
