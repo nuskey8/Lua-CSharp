@@ -28,7 +28,13 @@ class CoroutineCore(LuaState state, LuaFunction function, bool isProtectedMode)
     bool isFirstCall = true;
     ValueTask<int> functionTask;
     CancellationToken resumeCancellationToken;
-    int yieldCompleted;
+    const int YieldWaiting = 0;
+    const int YieldCompleted = 1;
+    const int YieldPreparing = 2;
+    const int YieldCancelPending = 3;
+    int yieldPhase;
+    LuaStack? yieldStack;
+    int yieldReturnBase;
 
     const int ResumeIdle = 0;
     const int ResumeWaiting = 1;
@@ -158,11 +164,13 @@ class CoroutineCore(LuaState state, LuaFunction function, bool isProtectedMode)
             try
             {
                 ResumeContext result = default;
+                var transferringArguments = true;
                 try
                 {
                     if (isFirstCall)
                     {
                         Thread.Stack.PushRange(stack.AsSpan()[^argCount..]);
+                        transferringArguments = false;
                         functionTask = Thread.RunAsync(
                             Function!,
                             Thread.Stack.Count,
@@ -175,12 +183,19 @@ class CoroutineCore(LuaState state, LuaFunction function, bool isProtectedMode)
                             functionTask.GetAwaiter().UnsafeOnCompleted(OnFunctionCompleted);
                         }
                     }
-                    else
+                    else if (TryPrepareYield(argCount))
                     {
-                        if (Interlocked.CompareExchange(ref yieldCompleted, 1, 0) == 0)
+                        transferringArguments = false;
+                        if (
+                            Interlocked.Exchange(ref yieldPhase, YieldCompleted)
+                            == YieldCancelPending
+                        )
+                            yield.SetException(new OperationCanceledException());
+                        else
                             yield.SetResult(new(stack, argCount));
                     }
 
+                    transferringArguments = false;
                     if (functionTask.IsCompleted || (result = await resumeTask).IsDead)
                     {
                         _ = functionTask.Result;
@@ -188,7 +203,7 @@ class CoroutineCore(LuaState state, LuaFunction function, bool isProtectedMode)
                         resumeCancellationToken = default;
                     }
                 }
-                catch (LuaStackOverflowException) when (isFirstCall)
+                catch (LuaStackOverflowException) when (transferringArguments)
                 {
                     resumeCancellationToken = default;
                     Volatile.Write(ref status, (byte)LuaThreadStatus.Suspended);
@@ -307,8 +322,39 @@ class CoroutineCore(LuaState state, LuaFunction function, bool isProtectedMode)
             == ResumeYielded
         )
             return;
-        if (Interlocked.CompareExchange(ref yieldCompleted, 1, 0) == 0)
-            yield.SetException(new OperationCanceledException());
+        while (true)
+        {
+            var phase = Volatile.Read(ref yieldPhase);
+            if (phase is not (YieldWaiting or YieldPreparing))
+                return;
+            var next = phase == YieldPreparing ? YieldCancelPending : YieldCompleted;
+            if (Interlocked.CompareExchange(ref yieldPhase, next, phase) != phase)
+                continue;
+            if (next == YieldCompleted)
+                yield.SetException(new OperationCanceledException());
+            return;
+        }
+    }
+
+    bool TryPrepareYield(int argCount)
+    {
+        if (
+            Interlocked.CompareExchange(ref yieldPhase, YieldPreparing, YieldWaiting)
+            != YieldWaiting
+        )
+            return false;
+        try
+        {
+            // Reserve capacity before waking the body; cancellation waits for this preparation.
+            yieldStack!.EnsureCapacity(yieldReturnBase + argCount);
+            return true;
+        }
+        catch
+        {
+            if (Interlocked.Exchange(ref yieldPhase, YieldWaiting) == YieldCancelPending)
+                CancelYield();
+            throw;
+        }
     }
 
     void CompleteSuspendedFunction()
@@ -380,6 +426,8 @@ class CoroutineCore(LuaState state, LuaFunction function, bool isProtectedMode)
         {
             cancellationToken.ThrowIfCancellationRequested();
             Thread.SuspendUpValues();
+            yieldStack = stack;
+            yieldReturnBase = returnBase;
             // Yielded values remain owned by the resumer until its copy completes.
             Volatile.Write(ref resumePhase, ResumeYielded);
             resume.SetResult(new(stack, argCount));
@@ -399,8 +447,9 @@ class CoroutineCore(LuaState state, LuaFunction function, bool isProtectedMode)
         {
             registration.Dispose();
             linkedSource?.Dispose();
+            yieldStack = null;
             yield.Reset();
-            Volatile.Write(ref yieldCompleted, 0);
+            Volatile.Write(ref yieldPhase, YieldWaiting);
         }
     }
 }

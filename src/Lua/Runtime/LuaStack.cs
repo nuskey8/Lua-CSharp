@@ -75,6 +75,25 @@ public sealed class LuaStack(int initialSize = 256)
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal void PushRange(LuaValue first, LuaValue second)
+    {
+        EnsureCapacity(top + 2);
+        array[top] = first;
+        array[top + 1] = second;
+        top += 2;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal void PushRange(LuaValue first, LuaValue second, LuaValue third)
+    {
+        EnsureCapacity(top + 3);
+        array[top] = first;
+        array[top + 1] = second;
+        array[top + 2] = third;
+        top += 3;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal void PushRange(LuaValue first, ReadOnlySpan<LuaValue> values)
     {
         EnsureCapacity(top + 1 + values.Length);
