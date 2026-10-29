@@ -49,16 +49,12 @@ public class CoroutineLifetimeTests
             new LuaFunction(
                 async (context, token) =>
                 {
-                    context.State.Stack.Push(1);
-                    await context.State.YieldAsync(context with { ArgumentCount = 1 }, token);
-                    context.State.Stack.Push(2);
-                    return await context.State.YieldAsync(
-                        context with
-                        {
-                            ArgumentCount = 1,
-                        },
-                        token
-                    );
+                    for (var value = 1; value <= 3; value++)
+                    {
+                        context.State.Stack.Push(value);
+                        await context.State.YieldAsync(context with { ArgumentCount = 1 }, token);
+                    }
+                    return context.Return();
                 }
             ),
             protectedMode
@@ -76,8 +72,12 @@ public class CoroutineLifetimeTests
         }
         else
         {
-            await thread.ResumeAsync(stack, source.Token);
-            Assert.That(stack.AsSpan().ToArray(), Is.EqualTo(new LuaValue[] { true, 2 }));
+            for (var value = 2; value <= 3; value++)
+            {
+                stack.Clear();
+                await thread.ResumeAsync(stack, source.Token);
+                Assert.That(stack.AsSpan().ToArray(), Is.EqualTo(new LuaValue[] { true, value }));
+            }
             source.Cancel();
         }
         Assert.That(() => thread.GetStatus(), Is.EqualTo(LuaThreadStatus.Dead).After(1000, 10));
@@ -85,15 +85,17 @@ public class CoroutineLifetimeTests
         Assert.That(thread.GetStackValues().Length, Is.Zero);
     }
 
-    [TestCase(false)]
-    [TestCase(true)]
-    public async Task EitherDistinctCancellationTokenCanCancelSuspendedYield(bool cancelResume)
+    [TestCase(false, false)]
+    [TestCase(true, false)]
+    [TestCase(true, true)]
+    public async Task ResumeAndYieldTokensCanCancelSuspendedYield(bool cancelResume, bool sameToken)
     {
         using var state = LuaState.Create();
         using var resumeSource = new CancellationTokenSource();
         using var yieldSource = new CancellationTokenSource();
+        var yieldToken = sameToken ? resumeSource.Token : yieldSource.Token;
         using var thread = state.CreateCoroutine(
-            new LuaFunction((context, _) => context.State.YieldAsync(context, yieldSource.Token))
+            new LuaFunction((context, _) => context.State.YieldAsync(context, yieldToken))
         );
         var stack = new LuaStack();
         stack.Push(42);

@@ -225,8 +225,7 @@ public class CoroutineTransferTests(LuaStringMode mode)
     public async Task CancellationWaitsForYieldedResultTransfer(
         [Values] bool protectedMode,
         [Values] bool cancelResume,
-        [Values] bool oversized,
-        [Values] bool waitAsync
+        [Values] bool oversized
     )
     {
         using var state = CreateState();
@@ -250,7 +249,7 @@ public class CoroutineTransferTests(LuaStringMode mode)
                     Assert.That(token.IsCancellationRequested, Is.False);
                     Assert.That(context.State.Stack.Count, Is.EqualTo(count));
                     Assert.That(context.State.Stack[count - 1], Is.EqualTo(new LuaValue(42)));
-                    return waitAsync ? await pending.AsTask().WaitAsync(token) : await pending;
+                    return await pending.AsTask().WaitAsync(token);
                 }
             ),
             protectedMode

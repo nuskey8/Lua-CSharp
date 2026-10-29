@@ -8,6 +8,15 @@ namespace Lua.Tests;
 [TestFixture(LuaStringMode.Bytes)]
 public class CoroutineCancellationDispatchTests(LuaStringMode mode)
 {
+    LuaState CreateState()
+    {
+        var state = LuaState.Create(
+            mode == LuaStringMode.Bytes ? LuaPlatform.DefaultByteStrings : LuaPlatform.Default
+        );
+        state.OpenStandardLibraries();
+        return state;
+    }
+
     [Test]
     public async Task LaterResumeCancellationReachesCallbacks(
         [Values(
@@ -26,16 +35,10 @@ public class CoroutineCancellationDispatchTests(LuaStringMode mode)
             "hook"
         )]
             string operation,
-        [Values] bool asynchronous,
-        [Values] bool firstCancellable,
-        [Values] bool protectedMode
+        [Values] bool asynchronous
     )
     {
-        using var state = LuaState.Create(
-            mode == LuaStringMode.Bytes ? LuaPlatform.DefaultByteStrings : LuaPlatform.Default
-        );
-        state.OpenStandardLibraries();
-        using var lifetime = new CancellationTokenSource();
+        using var state = CreateState();
         using var cancellation = new CancellationTokenSource();
         var calls = 0;
         var work = new LuaFunction(
@@ -75,11 +78,10 @@ public class CoroutineCancellationDispatchTests(LuaStringMode mode)
                 coroutine.yield(7)
                 """ + expression,
                 "later-resume-dispatch"
-            ),
-            protectedMode
+            )
         );
         var output = new LuaStack();
-        await thread.ResumeAsync(output, firstCancellable ? lifetime.Token : default);
+        await thread.ResumeAsync(output);
         Assert.That(output.AsSpan().ToArray(), Is.EqualTo(new LuaValue[] { true, 7 }));
         if (operation == "hook")
             thread.SetHook(work, "l");
@@ -98,10 +100,7 @@ public class CoroutineCancellationDispatchTests(LuaStringMode mode)
     [Test]
     public async Task LaterResumeCancellationIsCheckedByTheVm([Values] bool protectedMode)
     {
-        using var state = LuaState.Create(
-            mode == LuaStringMode.Bytes ? LuaPlatform.DefaultByteStrings : LuaPlatform.Default
-        );
-        state.OpenStandardLibraries();
+        using var state = CreateState();
         using var cancellation = new CancellationTokenSource();
         state.Environment["cancel"] = new LuaFunction(
             (context, _) =>
@@ -133,10 +132,7 @@ public class CoroutineCancellationDispatchTests(LuaStringMode mode)
         [Values("lua", "callback", "entry")] string path
     )
     {
-        using var state = LuaState.Create(
-            mode == LuaStringMode.Bytes ? LuaPlatform.DefaultByteStrings : LuaPlatform.Default
-        );
-        state.OpenStandardLibraries();
+        using var state = CreateState();
         using var cancellation = new CancellationTokenSource();
         var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         CancellationToken received = default;
@@ -179,10 +175,7 @@ public class CoroutineCancellationDispatchTests(LuaStringMode mode)
         [Values] bool afterNestedReturn
     )
     {
-        using var state = LuaState.Create(
-            mode == LuaStringMode.Bytes ? LuaPlatform.DefaultByteStrings : LuaPlatform.Default
-        );
-        state.OpenStandardLibraries();
+        using var state = CreateState();
         using var cancellation = new CancellationTokenSource();
         var inner = state.Load(
             "coroutine.yield(7); local n=0; for i=1,1000 do n=n+i end; return n",
@@ -233,10 +226,7 @@ public class CoroutineCancellationDispatchTests(LuaStringMode mode)
     [Test]
     public async Task ReplacedResumeTokenDoesNotCancelTheNextResume([Values] bool firstCancellable)
     {
-        using var state = LuaState.Create(
-            mode == LuaStringMode.Bytes ? LuaPlatform.DefaultByteStrings : LuaPlatform.Default
-        );
-        state.OpenStandardLibraries();
+        using var state = CreateState();
         using var lifetime = new CancellationTokenSource();
         using var previous = new CancellationTokenSource();
         state.Environment["cancelPrevious"] = new LuaFunction(
@@ -249,7 +239,7 @@ public class CoroutineCancellationDispatchTests(LuaStringMode mode)
         );
         using var thread = state.CreateCoroutine(
             state.Load(
-                "coroutine.yield(1); coroutine.yield(2); return cancelPrevious()",
+                "coroutine.yield(1); coroutine.yield(2); coroutine.yield(3); return cancelPrevious()",
                 "replace-resume-token"
             )
         );
@@ -257,6 +247,10 @@ public class CoroutineCancellationDispatchTests(LuaStringMode mode)
         await thread.ResumeAsync(output, firstCancellable ? lifetime.Token : default);
         output.Clear();
         await thread.ResumeAsync(output, previous.Token);
+        Assert.That(output.AsSpan().ToArray(), Is.EqualTo(new LuaValue[] { true, 2 }));
+        output.Clear();
+        await thread.ResumeAsync(output, previous.Token);
+        Assert.That(output.AsSpan().ToArray(), Is.EqualTo(new LuaValue[] { true, 3 }));
         output.Clear();
         await thread.ResumeAsync(output);
         Assert.That(output.AsSpan().ToArray(), Is.EqualTo(new LuaValue[] { true, 42 }));

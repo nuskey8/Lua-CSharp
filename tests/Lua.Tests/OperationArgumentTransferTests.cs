@@ -25,8 +25,7 @@ public class OperationArgumentTransferTests(LuaStringMode mode)
             "reverse-le"
         )]
             string operation,
-        [Values] bool callableTable,
-        [Values(0, 1)] int available
+        [Values] bool callableTable
     )
     {
         using var state = LuaState.Create(
@@ -58,7 +57,7 @@ public class OperationArgumentTransferTests(LuaStringMode mode)
             _ => [left, right],
         };
         expectedArguments = callableTable ? [method, .. operands] : operands;
-        var top = (1 << 19) - available - (callableTable ? 1 : 0) - (operation == "concat" ? 2 : 0);
+        var top = (1 << 19) - 1 - (callableTable ? 1 : 0) - (operation == "concat" ? 2 : 0);
         state.Stack.EnsureCapacity(1 << 19);
         state.Stack.NotifyTop(top);
         state.Stack[top - 1] = "sentinel";

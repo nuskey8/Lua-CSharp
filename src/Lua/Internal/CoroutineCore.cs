@@ -110,18 +110,6 @@ class CoroutineCore(LuaState state, LuaFunction function, bool isProtectedMode)
         }
         try
         {
-            var currentStatus = (LuaThreadStatus)Volatile.Read(ref status);
-            if (currentStatus != LuaThreadStatus.Suspended)
-                return ResumeError(
-                    stack,
-                    returnBase,
-                    baseThread,
-                    currentStatus == LuaThreadStatus.Dead
-                        ? "cannot resume dead coroutine"
-                        : "cannot resume non-suspended coroutine",
-                    includeStatus
-                );
-
             var phase = Interlocked.CompareExchange(ref handoff, Preparing, Suspended);
             if (phase != Suspended)
                 return ResumeError(
@@ -341,8 +329,7 @@ class CoroutineCore(LuaState state, LuaFunction function, bool isProtectedMode)
             var phase = Volatile.Read(ref handoff);
             var next = phase switch
             {
-                Preparing or Copying => phase | CancelPending,
-                Running => Running | CancelPending,
+                Preparing or Running or Copying => phase | CancelPending,
                 Suspended => Copying | CancelPending,
                 _ => phase,
             };
@@ -373,7 +360,7 @@ class CoroutineCore(LuaState state, LuaFunction function, bool isProtectedMode)
         }
     }
 
-    CancellationScope EnsureCancellation() => cancellation ??= new(this, executionSource!);
+    CancellationScope EnsureCancellation() => cancellation ??= new(this);
 
     void SetResumeToken(CancellationToken token)
     {
@@ -395,49 +382,48 @@ class CoroutineCore(LuaState state, LuaFunction function, bool isProtectedMode)
         Volatile.Write(ref status, (byte)LuaThreadStatus.Dead);
     }
 
-    sealed class CancellationScope : IDisposable
+    sealed class CancellationScope(CoroutineCore owner) : IDisposable
     {
-        readonly CoroutineCore owner;
         CancellationToken lifetimeToken;
         CancellationToken resumeToken;
         internal CancellationToken YieldToken;
         CancellationTokenRegistration lifetimeRegistration;
         CancellationTokenRegistration resumeRegistration;
 
-        internal CancellationScope(CoroutineCore owner, CancellationTokenSource source)
-        {
-            this.owner = owner;
-            Token = source.Token;
-        }
-
-        internal CancellationToken Token { get; }
-
         internal CancellationToken GetOrigin(CancellationToken token) =>
-            token != Token && token.IsCancellationRequested ? token
+            token != owner.executionToken && token.IsCancellationRequested ? token
             : lifetimeToken.IsCancellationRequested ? lifetimeToken
             : resumeToken.IsCancellationRequested ? resumeToken
             : YieldToken.IsCancellationRequested ? YieldToken
             : token;
 
-        internal void Cancel() => owner.RequestCancellation();
-
         internal void SetResumeToken(CancellationToken token, bool first)
         {
+            if (token == resumeToken)
+                return;
             resumeRegistration.Dispose();
             resumeRegistration = default;
             resumeToken = token;
             if (first)
             {
                 lifetimeToken = token;
-                if (token.CanBeCanceled)
-                    lifetimeRegistration = Register(token);
+                lifetimeRegistration = Register(token);
             }
-            else if (token.CanBeCanceled && token != lifetimeToken && token != Token)
+            else if (token != lifetimeToken && token != owner.executionToken)
                 resumeRegistration = Register(token);
         }
 
-        internal CancellationTokenRegistration Register(CancellationToken token) =>
-            token.UnsafeRegister(static value => ((CancellationScope)value!).Cancel(), this);
+        CancellationTokenRegistration Register(CancellationToken token) =>
+            token.UnsafeRegister(
+                static value => ((CoroutineCore)value!).RequestCancellation(),
+                owner
+            );
+
+        internal CancellationTokenRegistration RegisterYieldToken(CancellationToken token)
+        {
+            YieldToken = token;
+            return token == lifetimeToken ? default : Register(token);
+        }
 
         public void Dispose()
         {
@@ -469,8 +455,6 @@ class CoroutineCore(LuaState state, LuaFunction function, bool isProtectedMode)
                 );
         }
         cancellationToken.ThrowIfCancellationRequested();
-        if (cancellationToken.CanBeCanceled && cancellationToken != executionToken)
-            EnsureCancellation();
         Thread.ThrowIfCancellationRequested(executionToken);
         CancellationTokenRegistration registration = default;
         var published = false;
@@ -481,10 +465,8 @@ class CoroutineCore(LuaState state, LuaFunction function, bool isProtectedMode)
             Thread.SuspendUpValues();
             yieldStack = stack;
             yieldReturnBase = returnBase;
-            if (cancellation != null)
-                cancellation.YieldToken = cancellationToken;
             if (cancellationToken.CanBeCanceled && cancellationToken != executionToken)
-                registration = cancellation!.Register(cancellationToken);
+                registration = EnsureCancellation().RegisterYieldToken(cancellationToken);
             published = true;
             resume.SetResult(new(stack, argCount));
             var result = await new ValueTask<YieldContext>(this, yield.Version);
