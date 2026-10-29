@@ -8,6 +8,7 @@ namespace Lua.Standard;
 public sealed class DebugLibrary
 {
     public static readonly DebugLibrary Instance = new();
+    static readonly ConditionalWeakTable<UpValue, object> upValueIds = new();
 
     public DebugLibrary()
     {
@@ -69,7 +70,7 @@ public sealed class DebugLibrary
             if (frameVariableArgumentCount > 0 && index < frameVariableArgumentCount)
             {
                 name = "(*vararg)";
-                return ref state.Stack.Get(frame.Base - frameVariableArgumentCount + index);
+                return ref state.GetLocalReference(frame.Base - frameVariableArgumentCount + index);
             }
 
             name = null;
@@ -89,9 +90,9 @@ public sealed class DebugLibrary
                 var nextFrameBase = closure.Proto.Code[currentPc].OpCode
                     is OpCode.Call
                         or OpCode.TailCall
-                    ? nextFrame.Base - 1
-                    : nextFrame.Base;
-                if (nextFrameBase - 1 < frameBase + index)
+                    ? nextFrame.ReturnBase
+                    : nextFrame.Base - nextFrame.VariableArgumentCount;
+                if (index >= nextFrameBase - frameBase)
                 {
                     name = null;
                     return ref Unsafe.NullRef<LuaValue>();
@@ -115,15 +116,18 @@ public sealed class DebugLibrary
                 if (localId == 0)
                 {
                     name = l.Name;
-                    return ref state.Stack.Get(frameBase + index);
+                    return ref state.GetLocalReference(frameBase + index);
                 }
             }
         }
         else
         {
-            var nextFrameBase = level != 0 ? callStack[^level].Base : state.Stack.Count;
+            var nextFrameBase =
+                level != 0
+                    ? callStack[^level].Base - callStack[^level].VariableArgumentCount
+                    : state.Stack.Count;
 
-            if (nextFrameBase - 1 < frameBase + index)
+            if (index >= nextFrameBase - frameBase)
             {
                 name = null;
                 return ref Unsafe.NullRef<LuaValue>();
@@ -131,7 +135,7 @@ public sealed class DebugLibrary
         }
 
         name = "(*temporary)";
-        return ref state.Stack.Get(frameBase + index);
+        return ref state.GetLocalReference(frameBase + index);
     }
 
     public ValueTask<int> GetLocal(
@@ -143,10 +147,11 @@ public sealed class DebugLibrary
         {
             if (function is LuaClosure closure)
             {
-                var paramCount = closure.Proto.ParameterCount;
+                var locals = closure.Proto.LocalVariables;
+                var paramCount = Math.Min(closure.Proto.ParameterCount, locals.Length);
                 if (0 <= index && index < paramCount)
                 {
-                    return closure.Proto.LocalVariables[index].Name;
+                    return locals[index].Name;
                 }
             }
 
@@ -430,7 +435,8 @@ public sealed class DebugLibrary
             return new(context.Return(LuaValue.Nil));
         }
 
-        return new(context.Return(LuaValue.FromObject(upValues[n1 - 1])));
+        var identity = upValueIds.GetValue(upValues[n1 - 1], static _ => new object());
+        return new(context.Return(LuaValue.FromObject(identity)));
     }
 
     public ValueTask<int> UpValueJoin(

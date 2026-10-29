@@ -4,6 +4,19 @@ namespace Lua.Tests;
 
 public class InstructionTests
 {
+    [TestCase(0)]
+    [TestCase(17)]
+    [TestCase(Instruction.MaxArgBx)]
+    public void ClosureFactoryEncodesUnsignedPrototypeIndex(int prototypeIndex)
+    {
+        var instruction = Instruction.Closure(3, prototypeIndex);
+        Assert.That(
+            instruction.Value,
+            Is.EqualTo(Instruction.CreateABx(OpCode.Closure, 3, prototypeIndex))
+        );
+        Assert.That(instruction.Bx, Is.EqualTo(prototypeIndex));
+    }
+
     [Test]
     public void Test()
     {

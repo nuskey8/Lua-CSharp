@@ -99,7 +99,7 @@ public sealed class IOLibrary
                 LuaFileOpenMode.Read,
                 cancellationToken
             );
-            FileHandle handle = new(stream);
+            FileHandle handle = new(stream, context.GlobalState.FileHandleMetatable);
             registry["_IO_input"] = new(handle);
             return context.Return(new LuaValue(handle));
         }
@@ -267,7 +267,7 @@ public sealed class IOLibrary
                 LuaFileOpenMode.Write,
                 cancellationToken
             );
-            FileHandle handle = new(stream);
+            FileHandle handle = new(stream, context.GlobalState.FileHandleMetatable);
             io["_IO_output"] = new(handle);
             return context.Return(new LuaValue(handle));
         }
@@ -331,7 +331,8 @@ public sealed class IOLibrary
                 new FileHandle(
                     await context.GlobalState.Platform.FileSystem.OpenTempFileStream(
                         cancellationToken
-                    )
+                    ),
+                    context.GlobalState.FileHandleMetatable
                 )
             )
         );

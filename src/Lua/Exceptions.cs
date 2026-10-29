@@ -182,26 +182,24 @@ public class LuaRuntimeException : Exception, ILuaTracebackBuildable
     public LuaRuntimeException(LuaState? state, Exception innerException)
         : base(innerException.Message, innerException)
     {
-        if (state != null)
+        if (state is { IsRunning: true })
         {
             state.CurrentException?.BuildOrGet();
             state.ExceptionTrace.Clear();
             state.CurrentException = this;
+            State = state;
         }
-
-        State = state;
     }
 
     public LuaRuntimeException(LuaState? state, LuaValue errorObject, int level = 1)
     {
-        if (state != null)
+        if (state is { IsRunning: true })
         {
             state.CurrentException?.BuildOrGet();
             state.ExceptionTrace.Clear();
             state.CurrentException = this;
+            State = state;
         }
-
-        State = state;
 
         ErrorObject = errorObject;
         this.level = level;
@@ -328,7 +326,7 @@ public class LuaRuntimeException : Exception, ILuaTracebackBuildable
         var proto = closure.Proto;
 
         var upValue = proto.UpValues[reg];
-        var luaValue = closure.UpValues[upValue.Index].GetValue();
+        var luaValue = closure.UpValues[reg].GetValue();
         var name = upValue.Name;
 
         throw new LuaRuntimeException(
@@ -341,25 +339,28 @@ public class LuaRuntimeException : Exception, ILuaTracebackBuildable
     {
         var current = state.GetCurrentFrame();
         var pc = current.CallerInstructionIndex;
-        LuaFunction callerFunction;
+        Prototype? callerPrototype;
         if (current.IsTailCall)
         {
             pc = state.LastPc;
-            callerFunction = state.LastCallerFunction!;
+            callerPrototype = state.LastCallerPrototype;
         }
         else
         {
-            var caller = state.GetCallStackFrames()[^2];
-            callerFunction = caller.Function;
+            var frames = state.GetCallStackFrames();
+            if (frames.Length < 2)
+                return ("function", current.Function.Name);
+            var caller = frames[^2];
+            callerPrototype = (caller.Function as LuaClosure)?.Proto;
         }
 
-        if (callerFunction is not LuaClosure callerClosure)
+        if (callerPrototype is null)
         {
             return ("function", current.Function.Name);
         }
 
         return (
-            LuaDebug.GetFuncName(callerClosure.Proto, pc, out var name) ?? "",
+            LuaDebug.GetFuncName(callerPrototype, pc, out var name) ?? "",
             name ?? current.Function.Name
         );
     }
@@ -487,7 +488,12 @@ public class LuaRuntimeException : Exception, ILuaTracebackBuildable
 
     internal void Forget()
     {
-        State?.ExceptionTrace.Clear();
+        var state = State ?? luaTraceback?.State;
+        if (state != null && ReferenceEquals(state.CurrentException, this))
+        {
+            state.CurrentException = null;
+            state.ExceptionTrace.Clear();
+        }
         State = null;
     }
 
@@ -629,10 +635,13 @@ public sealed class LuaCanceledException : OperationCanceledException, ILuaTrace
             cancellationToken
         )
     {
-        state.CurrentException?.BuildOrGet();
-        state.ExceptionTrace.Clear();
-        state.CurrentException = this;
-        State = state;
+        if (state.IsRunning)
+        {
+            state.CurrentException?.BuildOrGet();
+            state.ExceptionTrace.Clear();
+            state.CurrentException = this;
+            State = state;
+        }
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]

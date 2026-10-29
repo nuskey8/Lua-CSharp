@@ -25,6 +25,8 @@ measure Unicode encoding or arbitrary binary strings.
 | `InterpreterComparison` | Execute a retained compiled chunk and read one numeric result | Numeric loops, Lua calls/varargs, table access/sort, metamethods, math, strings, patterns, coroutines, host callbacks, n-body |
 | `CompilationComparison` | Compile source in an existing state; no execution | Small loop, n-body, control flow, identifiers, plain strings, escaped strings |
 | `StartupComparison` | Create a state, open libraries, dispose where supported | One lifecycle per engine |
+| `GeneratedUserDataBenchmark` | Execute 1,000 generated C# member accesses or comparisons; report time per operation | Property reads/writes, method calls, comparisons, with default and explicitly replaced metatables |
+| `CoroutineTransferBenchmark` | Transfer 64 yielded packets; report time per transfer | `resume` and `wrap`, 1–4,096 results per packet, with and without cancellation |
 
 Only the engine being measured is initialized for a benchmark. Execution
 excludes source compilation and state setup. Scripts rebuild their mutable
@@ -52,6 +54,8 @@ equivalent deterministic disposal API.
 dotnet bin/Release/net10.0/Benchmark.dll --filter '*InterpreterComparison*host-calls*'
 dotnet bin/Release/net10.0/Benchmark.dll --filter '*CompilationComparison*'
 dotnet bin/Release/net10.0/Benchmark.dll --filter '*StartupComparison*'
+dotnet bin/Release/net10.0/Benchmark.dll --filter '*GeneratedUserDataBenchmark*'
+dotnet bin/Release/net10.0/Benchmark.dll --filter '*CoroutineTransferBenchmark*'
 dotnet bin/Release/net10.0/Benchmark.dll --legacy --filter '*GSubBenchmark*'
 ```
 

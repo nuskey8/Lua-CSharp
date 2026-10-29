@@ -52,9 +52,10 @@ public static class OpenLibsExtensions
 
         var registry = globalState.Registry;
         var standardIO = globalState.Platform.StandardIO;
-        LuaValue stdin = new(new FileHandle(standardIO.Input));
-        LuaValue stdout = new(new FileHandle(standardIO.Output));
-        LuaValue stderr = new(new FileHandle(standardIO.Error));
+        var metatable = globalState.FileHandleMetatable;
+        LuaValue stdin = new(new FileHandle(standardIO.Input, metatable));
+        LuaValue stdout = new(new FileHandle(standardIO.Output, metatable));
+        LuaValue stderr = new(new FileHandle(standardIO.Error, metatable));
         registry["_IO_input"] = stdin;
         registry["_IO_output"] = stdout;
         io["stdin"] = stdin;

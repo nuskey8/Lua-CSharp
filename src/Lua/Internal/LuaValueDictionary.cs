@@ -22,6 +22,9 @@ sealed class LuaValueDictionary
 
     int _nilCount;
 
+    [ThreadStatic]
+    static FastStackCore<WeakReference<object>> deletedKeyPool;
+
     public LuaValueDictionary(int capacity)
     {
         if (capacity < 0)
@@ -69,6 +72,17 @@ sealed class LuaValueDictionary
             _count = 0;
             _freeList = -1;
             _freeCount = 0;
+            if (_nilCount != 0)
+            {
+                for (var i = 0; i < count; i++)
+                {
+                    if (
+                        _entries[i].keyType == LuaValueType.Nil
+                        && _entries[i].keyObject is WeakReference<object> deleted
+                    )
+                        ReturnDeletedKey(deleted);
+                }
+            }
             Array.Clear(_entries, 0, count);
             _nilCount = 0;
         }
@@ -126,18 +140,7 @@ sealed class LuaValueDictionary
                     }
 
                     entry = ref Unsafe.Add(ref entriesRef, i);
-                    if (
-                        entry.hashCode == hashCode
-                        && entry.keyType == key.Type
-                        && key.Type switch
-                        {
-                            LuaValueType.String => Unsafe.As<string>(entry.keyObject)
-                                == key.UnsafeReadString(),
-                            LuaValueType.Number or LuaValueType.Boolean => entry.keyNumber
-                                == key.UnsafeReadDouble(),
-                            _ => entry.keyObject == key.UnsafeReadObject(),
-                        }
-                    )
+                    if (entry.hashCode == hashCode && entry.KeyEquals(key))
                     {
                         index = i;
                         goto ReturnFound;
@@ -189,7 +192,8 @@ sealed class LuaValueDictionary
     {
         if (value.Type is LuaValueType.Nil)
         {
-            _nilCount++;
+            Delete(key);
+            return;
         }
 
         if (_buckets == null)
@@ -213,18 +217,7 @@ sealed class LuaValueDictionary
             while ((uint)i < (uint)entries.Length)
             {
                 entry = ref entries[i];
-                if (
-                    entry.hashCode == hashCode
-                    && entry.keyType == key.Type
-                    && key.Type switch
-                    {
-                        LuaValueType.Number or LuaValueType.Boolean => entry.keyNumber
-                            == key.UnsafeReadDouble(),
-                        LuaValueType.String => Unsafe.As<string>(entry.keyObject)
-                            == key.UnsafeReadString(),
-                        _ => entry.keyObject == key.UnsafeReadObject(),
-                    }
-                )
+                if (entry.hashCode == hashCode && entry.KeyEquals(key))
                 {
                     if (entry.value.Type is LuaValueType.Nil)
                     {
@@ -260,15 +253,13 @@ sealed class LuaValueDictionary
         }
         else
         {
-            var count = _count;
-            if (count == entries.Length)
+            if (_count == entries.Length)
             {
                 Resize();
                 bucket = ref GetBucket(hashCode);
             }
 
-            index = count;
-            _count = count + 1;
+            index = _count++;
             entries = _entries;
         }
 
@@ -287,7 +278,8 @@ sealed class LuaValueDictionary
 
     void Resize()
     {
-        Resize(_entries!.Length * 2);
+        var size = _entries!.Length;
+        Resize(_count - _nilCount <= size / 2 ? size : size * 2);
     }
 
     void Resize(int newSize)
@@ -296,25 +288,61 @@ sealed class LuaValueDictionary
         Debug.Assert(_entries != null, "_entries should be non-null");
         Debug.Assert(newSize >= _entries.Length);
 
-        var entries = new Entry[newSize];
+        var reuse = newSize == _entries.Length;
+        var entries = reuse ? _entries : new Entry[newSize];
+        var buckets = reuse ? _buckets! : new int[newSize];
+        if (reuse)
+            Array.Clear(buckets, 0, buckets.Length);
 
-        var count = _count;
-        Array.Copy(_entries, entries, count);
-
-        // Assign member variables after both arrays allocated to guard against corruption from OOM if second fails
-        _buckets = new int[newSize];
-
-        for (var i = 0; i < count; i++)
+        var count = 0;
+        for (var i = 0; i < _count; i++)
         {
-            if (entries[i].next >= -1)
+            ref var entry = ref _entries[i];
+            if (entry.next >= -1 && entry.value.Type != LuaValueType.Nil)
             {
-                ref var bucket = ref GetBucket(entries[i].hashCode);
-                entries[i].next = bucket - 1; // Value in _buckets is 1-based
-                bucket = i + 1;
+                entries[count] = entry;
+                ref var bucket = ref buckets[entry.hashCode & (newSize - 1)];
+                entries[count].next = bucket - 1;
+                bucket = ++count;
             }
+            else if (
+                entry.keyType == LuaValueType.Nil
+                && entry.keyObject is WeakReference<object> deleted
+            )
+                ReturnDeletedKey(deleted);
         }
 
+        if (reuse)
+            Array.Clear(entries, count, _count - count);
+        _buckets = buckets;
         _entries = entries;
+        _count = count;
+        _nilCount = 0;
+        _freeCount = 0;
+        _freeList = -1;
+    }
+
+    void Delete(LuaValue key)
+    {
+        ref var value = ref FindValue(key, out var index);
+        if (Unsafe.IsNullRef(ref value) || value.Type == LuaValueType.Nil)
+            return;
+
+        if (_nilCount + 1 == Count)
+        {
+            Clear();
+            return;
+        }
+
+        ref var entry = ref _entries![index];
+        if (entry.keyObject is { } keyObject)
+        {
+            // Retain the position for next(t, key) without keeping a deleted key alive.
+            entry.keyObject = CreateDeletedKey(keyObject);
+            entry.keyType = LuaValueType.Nil;
+        }
+        entry.value = default;
+        _nilCount++;
     }
 
     public bool Remove(LuaValue key)
@@ -338,18 +366,7 @@ sealed class LuaValueDictionary
             {
                 ref var entry = ref entries[i];
 
-                if (
-                    entry.hashCode == hashCode
-                    && entry.keyType == key.Type
-                    && key.Type switch
-                    {
-                        LuaValueType.Number or LuaValueType.Boolean => entry.keyNumber
-                            == key.UnsafeReadDouble(),
-                        LuaValueType.String => Unsafe.As<string>(entry.keyObject)
-                            == key.UnsafeReadString(),
-                        _ => entry.keyObject == key.UnsafeReadObject(),
-                    }
-                )
+                if (entry.hashCode == hashCode && entry.KeyEquals(key))
                 {
                     if (last < 0)
                     {
@@ -413,8 +430,8 @@ sealed class LuaValueDictionary
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool TryGetNext(LuaValue key, out KeyValuePair<LuaValue, LuaValue> pair)
     {
-        ref var valRef = ref FindValue(key, out var index);
-        if (!Unsafe.IsNullRef(ref valRef))
+        var index = FindIterationIndex(key);
+        if (index >= 0)
         {
             var entries = _entries!;
             while (++index < _count)
@@ -432,6 +449,33 @@ sealed class LuaValueDictionary
         return false;
     }
 
+    int FindIterationIndex(LuaValue key)
+    {
+        if (_buckets == null)
+            return -1;
+        var hashCode = (uint)key.GetHashCode();
+        var entries = _entries!;
+        for (var i = GetBucket(hashCode) - 1; i >= 0; i = entries[i].next)
+        {
+            ref var entry = ref entries[i];
+            if (entry.hashCode != hashCode)
+                continue;
+            if (entry.KeyEquals(key))
+                return i;
+            if (
+                entry.keyType == LuaValueType.Nil
+                && ((WeakReference<object>)entry.keyObject!).TryGetTarget(out var target)
+                && (
+                    key.Type == LuaValueType.String
+                        ? target is string text && text == key.UnsafeReadString()
+                        : target == key.UnsafeReadObject()
+                )
+            )
+                return i;
+        }
+        return -1;
+    }
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     ref int GetBucket(uint hashCode)
     {
@@ -439,8 +483,33 @@ sealed class LuaValueDictionary
         return ref buckets[hashCode & (buckets.Length - 1)];
     }
 
+    static WeakReference<object> CreateDeletedKey(object target)
+    {
+        if (!deletedKeyPool.TryPop(out var key))
+            return new(target);
+        key.SetTarget(target);
+        return key;
+    }
+
+    static void ReturnDeletedKey(WeakReference<object> key)
+    {
+        key.SetTarget(null!);
+        if (deletedKeyPool.Count < 64)
+            deletedKeyPool.Push(key);
+    }
+
     struct Entry
     {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public readonly bool KeyEquals(LuaValue key) =>
+            keyType == key.Type
+            && keyType switch
+            {
+                LuaValueType.Number or LuaValueType.Boolean => keyNumber == key.UnsafeReadDouble(),
+                LuaValueType.String => Unsafe.As<string>(keyObject) == key.UnsafeReadString(),
+                _ => keyObject == key.UnsafeReadObject(),
+            };
+
         public uint hashCode;
         public LuaValueType keyType;
         public object? keyObject;

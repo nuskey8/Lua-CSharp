@@ -236,10 +236,7 @@ partial class LuaObjectGenerator
 
             metamethodSet.Add(LuaObjectMetamethod.NewIndex);
 
-            if (!TryEmitMetatable(builder, metamethodSet, context))
-            {
-                return false;
-            }
+            EmitMetatable(builder, metamethodSet);
 
             // implicit operator
             builder.AppendLine(
@@ -1342,62 +1339,74 @@ partial class LuaObjectGenerator
         }
     }
 
-    static bool TryEmitMetatable(
-        CodeBuilder builder,
-        IEnumerable<LuaObjectMetamethod> metamethods,
-        in SourceProductionContext context
-    )
+    static void EmitMetatable(CodeBuilder builder, IEnumerable<LuaObjectMetamethod> metamethods)
     {
         builder.AppendLine("global::Lua.LuaTable? global::Lua.ILuaUserData.Metatable");
-        using (builder.BeginBlockScope())
-        {
-            builder.AppendLine("get => Metatable;");
-            builder.AppendLine("set => Metatable = value;");
-        }
-        builder.AppendLine("static global::Lua.LuaTable? Metatable");
         using (builder.BeginBlockScope())
         {
             builder.AppendLine("get");
             using (builder.BeginBlockScope())
             {
                 builder.AppendLine(
-                    "var metatable = global::System.Threading.Volatile.Read(ref __metatable);"
-                );
-                builder.AppendLine("if (metatable != null) return metatable;");
-                builder.AppendLine();
-                builder.AppendLine("metatable = new();");
-                foreach (var metamethod in metamethods)
-                {
-                    var metaMethodName = metamethod.ToString();
-                    var lowerName = metaMethodName.ToLower();
-                    builder.AppendLine(
-                        $"metatable[global::Lua.Runtime.Metamethods.{metaMethodName}] = __metamethod_{lowerName};"
-                    );
-                }
-
-                builder.AppendLine(
-                    "// Publish only a complete table. Concurrent readers share the winning instance,"
+                    "var overrides = global::System.Threading.Volatile.Read(ref __metatableOverrides);"
                 );
                 builder.AppendLine(
-                    "// including a custom metatable installed while initialization was in progress."
-                );
-                builder.AppendLine(
-                    "return global::System.Threading.Interlocked.CompareExchange(ref __metatable, metatable, null) ?? metatable;"
+                    "return overrides != null && overrides.TryGetValue(this, out var entry) ? entry.Value : __metatable;"
                 );
             }
-
             builder.AppendLine("set");
             using (builder.BeginBlockScope())
             {
                 builder.AppendLine(
-                    "global::System.Threading.Volatile.Write(ref __metatable, value);"
+                    "__GetMetatableOverrides().GetValue(this, _ => new __MetatableOverride(value)).Value = value;"
                 );
             }
         }
 
-        builder.AppendLine("static global::Lua.LuaTable? __metatable;");
-        builder.AppendLine();
+        builder.AppendLine("static global::Lua.LuaTable __CreateMetatable()");
+        using (builder.BeginBlockScope())
+        {
+            builder.AppendLine("var metatable = new global::Lua.LuaTable();");
+            foreach (var metamethod in metamethods)
+            {
+                var metaMethodName = metamethod.ToString();
+                var lowerName = metaMethodName.ToLower();
+                builder.AppendLine(
+                    $"metatable[global::Lua.Runtime.Metamethods.{metaMethodName}] = __metamethod_{lowerName};"
+                );
+            }
+            builder.AppendLine("metatable.Freeze();");
+            builder.AppendLine("return metatable;");
+        }
 
-        return true;
+        builder.AppendLine("sealed class __MetatableOverride");
+        using (builder.BeginBlockScope())
+        {
+            builder.AppendLine("public volatile global::Lua.LuaTable? Value;");
+            builder.AppendLine(
+                "public __MetatableOverride(global::Lua.LuaTable? value) => Value = value;"
+            );
+        }
+        builder.AppendLine(
+            "static global::System.Runtime.CompilerServices.ConditionalWeakTable<object, __MetatableOverride>? __metatableOverrides;"
+        );
+        builder.AppendLine(
+            "static global::System.Runtime.CompilerServices.ConditionalWeakTable<object, __MetatableOverride> __GetMetatableOverrides()"
+        );
+        using (builder.BeginBlockScope())
+        {
+            builder.AppendLine(
+                "var overrides = global::System.Threading.Volatile.Read(ref __metatableOverrides);"
+            );
+            builder.AppendLine("if (overrides != null) return overrides;");
+            builder.AppendLine("overrides = new();");
+            builder.AppendLine(
+                "return global::System.Threading.Interlocked.CompareExchange(ref __metatableOverrides, overrides, null) ?? overrides;"
+            );
+        }
+        builder.AppendLine(
+            "static readonly global::Lua.LuaTable __metatable = __CreateMetatable();"
+        );
+        builder.AppendLine();
     }
 }

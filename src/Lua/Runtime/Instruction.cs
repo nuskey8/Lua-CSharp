@@ -992,13 +992,13 @@ func createAx(op opCode, a int) instruction { return instruction(op)<<posOp | in
     /// <summary>
     /// R(A) := closure(KPROTO[Bx])
     /// </summary>
-    public static Instruction Closure(byte a, int sBx)
+    public static Instruction Closure(byte a, int bx)
     {
         return new()
         {
             OpCode = OpCode.Closure,
             A = a,
-            SBx = sBx,
+            Bx = bx,
         };
     }
 
