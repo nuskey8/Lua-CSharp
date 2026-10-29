@@ -1874,8 +1874,7 @@ public static partial class LuaVirtualMachine
             c = context.Prototype.Code[context.Pc].Ax;
         }
 
-        table.EnsureArrayCapacity(((c - 1) * 50) + count);
-        stack.GetBuffer().Slice(RA + 1, count).CopyTo(table.GetArraySpan()[((c - 1) * 50)..]);
+        table.SetArrayValues((c - 1) * 50, stack.GetBuffer().Slice(RA + 1, count));
         stack.PopUntil(RA + 1);
     }
 

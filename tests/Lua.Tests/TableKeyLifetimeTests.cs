@@ -177,20 +177,21 @@ public class TableKeyLifetimeTests
         state.Environment["t"] = table;
         await state.DoStringAsync(
             """
-            local keys={-1,false,'name',{}}
-            for i=1,4 do
+            local keys={-1,0,1e30,0.5,false,'name',{}}
+            for i=1,#keys do
                 local k=keys[i]
                 t[k]=i
                 t[k]=nil
                 t[k]=nil
                 t[k]=i+10
             end
+            t[-0.0]=t[0]
             """
         );
-        Assert.That(table.HashMapCount, Is.EqualTo(4));
+        Assert.That(table.HashMapCount, Is.EqualTo(7));
         Assert.That(
             table.Select(pair => pair.Value.Read<int>()).Order(),
-            Is.EqualTo(new[] { 11, 12, 13, 14 })
+            Is.EqualTo(new[] { 11, 12, 13, 14, 15, 16, 17 })
         );
     }
 

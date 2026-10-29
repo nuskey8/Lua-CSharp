@@ -140,18 +140,7 @@ sealed class LuaValueDictionary
                     }
 
                     entry = ref Unsafe.Add(ref entriesRef, i);
-                    if (
-                        entry.hashCode == hashCode
-                        && entry.keyType == key.Type
-                        && key.Type switch
-                        {
-                            LuaValueType.String => Unsafe.As<string>(entry.keyObject)
-                                == key.UnsafeReadString(),
-                            LuaValueType.Number or LuaValueType.Boolean => entry.keyNumber
-                                == key.UnsafeReadDouble(),
-                            _ => entry.keyObject == key.UnsafeReadObject(),
-                        }
-                    )
+                    if (entry.hashCode == hashCode && entry.KeyEquals(key))
                     {
                         index = i;
                         goto ReturnFound;
@@ -228,18 +217,7 @@ sealed class LuaValueDictionary
             while ((uint)i < (uint)entries.Length)
             {
                 entry = ref entries[i];
-                if (
-                    entry.hashCode == hashCode
-                    && entry.keyType == key.Type
-                    && key.Type switch
-                    {
-                        LuaValueType.Number or LuaValueType.Boolean => entry.keyNumber
-                            == key.UnsafeReadDouble(),
-                        LuaValueType.String => Unsafe.As<string>(entry.keyObject)
-                            == key.UnsafeReadString(),
-                        _ => entry.keyObject == key.UnsafeReadObject(),
-                    }
-                )
+                if (entry.hashCode == hashCode && entry.KeyEquals(key))
                 {
                     if (entry.value.Type is LuaValueType.Nil)
                     {
@@ -388,18 +366,7 @@ sealed class LuaValueDictionary
             {
                 ref var entry = ref entries[i];
 
-                if (
-                    entry.hashCode == hashCode
-                    && entry.keyType == key.Type
-                    && key.Type switch
-                    {
-                        LuaValueType.Number or LuaValueType.Boolean => entry.keyNumber
-                            == key.UnsafeReadDouble(),
-                        LuaValueType.String => Unsafe.As<string>(entry.keyObject)
-                            == key.UnsafeReadString(),
-                        _ => entry.keyObject == key.UnsafeReadObject(),
-                    }
-                )
+                if (entry.hashCode == hashCode && entry.KeyEquals(key))
                 {
                     if (last < 0)
                     {
@@ -493,7 +460,7 @@ sealed class LuaValueDictionary
             ref var entry = ref entries[i];
             if (entry.hashCode != hashCode)
                 continue;
-            if (new LuaValue(entry.keyType, entry.keyNumber, entry.keyObject).EqualsForDict(key))
+            if (entry.KeyEquals(key))
                 return i;
             if (
                 entry.keyType == LuaValueType.Nil
@@ -533,6 +500,16 @@ sealed class LuaValueDictionary
 
     struct Entry
     {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public readonly bool KeyEquals(LuaValue key) =>
+            keyType == key.Type
+            && keyType switch
+            {
+                LuaValueType.Number or LuaValueType.Boolean => keyNumber == key.UnsafeReadDouble(),
+                LuaValueType.String => Unsafe.As<string>(keyObject) == key.UnsafeReadString(),
+                _ => keyObject == key.UnsafeReadObject(),
+            };
+
         public uint hashCode;
         public LuaValueType keyType;
         public object? keyObject;

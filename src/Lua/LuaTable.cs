@@ -187,6 +187,7 @@ public sealed class LuaTable : IEnumerable<KeyValuePair<LuaValue, LuaValue>>
         return dictionary.TryGetValue(key, out value) && value.Type is not LuaValueType.Nil;
     }
 
+    // Callers use SetExistingValue so nil writes update length and hash metadata.
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal ref LuaValue FindValueForWrite(LuaValue key)
     {
@@ -196,32 +197,12 @@ public sealed class LuaTable : IEnumerable<KeyValuePair<LuaValue, LuaValue>>
             ThrowIndexIsNil();
         }
 
-        if (TryGetInteger(key, out var index))
-        {
-            if (index > 0 && index <= array.Length)
-            {
-                hasWritableArrayReferences = true;
-                return ref array[index - 1];
-            }
-        }
-
+        if (TryGetInteger(key, out var index) && index > 0 && index <= array.Length)
+            return ref array[index - 1];
         return ref dictionary.FindValue(key, out _);
     }
 
-    public bool ContainsKey(LuaValue key)
-    {
-        if (key.Type is LuaValueType.Nil)
-        {
-            return false;
-        }
-
-        if (TryGetInteger(key, out var index) && index > 0 && index <= array.Length)
-        {
-            return array[index - 1].Type != LuaValueType.Nil;
-        }
-
-        return dictionary.TryGetValue(key, out var value) && value.Type is not LuaValueType.Nil;
-    }
+    public bool ContainsKey(LuaValue key) => TryGetValue(key, out _);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal void SetExistingValue(LuaValue key, ref LuaValue existing, LuaValue value)
@@ -442,7 +423,15 @@ public sealed class LuaTable : IEnumerable<KeyValuePair<LuaValue, LuaValue>>
 
     public ReadOnlySpan<LuaValue> GetArrayReadOnlySpan() => array;
 
-    internal void EnsureArrayCapacity(int newCapacity)
+    internal void SetArrayValues(int start, ReadOnlySpan<LuaValue> values)
+    {
+        ThrowIfReadOnly();
+        EnsureArrayCapacity(start + values.Length);
+        values.CopyTo(array.AsSpan(start));
+        knownArrayPrefixLength = Math.Min(knownArrayPrefixLength, start);
+    }
+
+    void EnsureArrayCapacity(int newCapacity)
     {
         newCapacity = Math.Min(Math.Max(array.Length, newCapacity), MaxArraySize);
         while (
@@ -458,7 +447,6 @@ public sealed class LuaTable : IEnumerable<KeyValuePair<LuaValue, LuaValue>>
             return;
         }
 
-        ThrowIfReadOnly();
         var prevLength = array.Length;
         var newLength = newCapacity <= 8 ? 8 : MathEx.NextPowerOfTwo(newCapacity);
 

@@ -611,7 +611,9 @@ public readonly struct LuaValue : IEquatable<LuaValue>
         return Type switch
         {
             LuaValueType.Nil => 0,
-            LuaValueType.Boolean or LuaValueType.Number => value.GetHashCode(),
+            LuaValueType.Boolean => value.GetHashCode(),
+            // Double's hash leaves low bits constant for many integer keys.
+            LuaValueType.Number => HashCode.Combine(value),
             LuaValueType.String => Unsafe.As<string>(referenceValue)!.GetHashCode(),
             _ => RuntimeHelpers.GetHashCode(referenceValue!),
         };

@@ -253,11 +253,22 @@ public class TableTests
             assert(#t == 0)
             t[1] = 1
             assert(#t == 2)
+            local literal={1,2,3}
+            assert(#literal==3)
+            literal[2]=nil
+            assert(#literal==1)
+            literal[2]=2
+            assert(#literal==3)
+            local proxy=setmetatable({}, {__newindex=literal})
+            proxy[1]=nil
+            assert(#literal==0)
             t[2] = nil
             return #t
             """
         );
         Assert.That(results[0].Read<int>(), Is.EqualTo(1));
         Assert.That(table.ArrayLength, Is.EqualTo(1));
+        await state.SetTableAsync(table, 1, LuaValue.Nil);
+        Assert.That(table.ArrayLength, Is.Zero);
     }
 }
