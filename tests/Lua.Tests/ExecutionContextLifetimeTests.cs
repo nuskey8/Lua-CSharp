@@ -11,29 +11,22 @@ public class ExecutionContextLifetimeTests
     public void CompletedExecutionDoesNotRootDisposedState(bool asynchronous, bool failure)
     {
         var reference = RunAndDispose(asynchronous, failure);
-        // A completed async continuation may still be unwinding on another thread.
-        Assert.That(
-            () =>
-            {
-                GC.Collect();
-                GC.WaitForPendingFinalizers();
-                GC.Collect();
-                return reference.IsAlive;
-            },
-            Is.False.After(1000, 10),
-            "A pooled VM context retained its Lua state."
-        );
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        GC.Collect();
+        Assert.That(reference.IsAlive, Is.False, "A pooled VM context retained its Lua state.");
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
     static WeakReference RunAndDispose(bool asynchronous, bool failure)
     {
         using var state = LuaState.Create();
+        var suspension = new ManualSuspension();
         state.Environment["callback"] = new LuaFunction(
             async (context, _) =>
             {
                 if (asynchronous)
-                    await Task.Yield();
+                    await suspension;
                 if (failure)
                     throw new LuaRuntimeException(context.State, "failure");
                 return context.Return(42);
@@ -41,7 +34,10 @@ public class ExecutionContextLifetimeTests
         );
         try
         {
-            state.DoStringAsync("return callback()").AsTask().GetAwaiter().GetResult();
+            var operation = state.DoStringAsync("return callback()").AsTask();
+            if (asynchronous)
+                suspension.Resume();
+            operation.GetAwaiter().GetResult();
             Assert.That(failure, Is.False);
         }
         catch (LuaRuntimeException) when (failure) { }
