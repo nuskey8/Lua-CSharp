@@ -61,6 +61,7 @@ public sealed class LuaTable : IEnumerable<KeyValuePair<LuaValue, LuaValue>>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         set
         {
+            ThrowIfReadOnly();
             if (key.Type is LuaValueType.Nil)
             {
                 ThrowIndexIsNil();
@@ -139,7 +140,30 @@ public sealed class LuaTable : IEnumerable<KeyValuePair<LuaValue, LuaValue>>
     public LuaTable? Metatable
     {
         get => metatable;
-        set => metatable = value;
+        set
+        {
+            ThrowIfReadOnly();
+            metatable = value;
+        }
+    }
+
+    /// <summary>Whether this table's entries and metatable can no longer be changed.</summary>
+    public bool IsReadOnly { get; private set; }
+
+    /// <summary>
+    /// Permanently prevents changes to this table's entries and metatable.
+    /// Referenced tables and userdata are not frozen.
+    /// </summary>
+    public void Freeze()
+    {
+        if (hasWritableArrayReferences)
+        {
+            // Detach writable views obtained before freezing.
+            array = (LuaValue[])array.Clone();
+            knownArrayPrefixLength = 0;
+            hasWritableArrayReferences = false;
+        }
+        IsReadOnly = true;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -164,8 +188,9 @@ public sealed class LuaTable : IEnumerable<KeyValuePair<LuaValue, LuaValue>>
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal ref LuaValue FindValue(LuaValue key)
+    internal ref LuaValue FindValueForWrite(LuaValue key)
     {
+        ThrowIfReadOnly();
         if (key.Type is LuaValueType.Nil)
         {
             ThrowIndexIsNil();
@@ -209,6 +234,7 @@ public sealed class LuaTable : IEnumerable<KeyValuePair<LuaValue, LuaValue>>
 
     public LuaValue RemoveAt(int index)
     {
+        ThrowIfReadOnly();
         var arrayIndex = index - 1;
         var value = array[arrayIndex];
 
@@ -225,6 +251,7 @@ public sealed class LuaTable : IEnumerable<KeyValuePair<LuaValue, LuaValue>>
 
     public void Insert(int index, LuaValue value)
     {
+        ThrowIfReadOnly();
         var luaArrayLength = ArrayLength;
         if (index <= 0 || index > luaArrayLength + 1)
         {
@@ -280,6 +307,7 @@ public sealed class LuaTable : IEnumerable<KeyValuePair<LuaValue, LuaValue>>
     {
         if (i > 0 && j > 0 && i <= array.Length && j <= array.Length)
         {
+            ThrowIfReadOnly();
             (array[i - 1], array[j - 1]) = (array[j - 1], array[i - 1]);
             if (array[i - 1].Type is LuaValueType.Nil)
             {
@@ -305,6 +333,7 @@ public sealed class LuaTable : IEnumerable<KeyValuePair<LuaValue, LuaValue>>
             return false;
         }
 
+        ThrowIfReadOnly();
         if (length + 1 >= array.Length)
         {
             EnsureArrayCapacity(length + 1);
@@ -330,6 +359,7 @@ public sealed class LuaTable : IEnumerable<KeyValuePair<LuaValue, LuaValue>>
             return false;
         }
 
+        ThrowIfReadOnly();
         var arrayIndex = index - 1;
         value = array[arrayIndex];
         array.AsSpan(index, length - index).CopyTo(array.AsSpan(arrayIndex));
@@ -389,6 +419,7 @@ public sealed class LuaTable : IEnumerable<KeyValuePair<LuaValue, LuaValue>>
 
     public void Clear()
     {
+        ThrowIfReadOnly();
         array.AsSpan().Clear();
         dictionary.Clear();
         knownArrayPrefixLength = 0;
@@ -397,15 +428,19 @@ public sealed class LuaTable : IEnumerable<KeyValuePair<LuaValue, LuaValue>>
 
     public Memory<LuaValue> GetArrayMemory()
     {
+        ThrowIfReadOnly();
         hasWritableArrayReferences = true;
         return array.AsMemory();
     }
 
     public Span<LuaValue> GetArraySpan()
     {
+        ThrowIfReadOnly();
         hasWritableArrayReferences = true;
         return array.AsSpan();
     }
+
+    public ReadOnlySpan<LuaValue> GetArrayReadOnlySpan() => array;
 
     internal void EnsureArrayCapacity(int newCapacity)
     {
@@ -423,6 +458,7 @@ public sealed class LuaTable : IEnumerable<KeyValuePair<LuaValue, LuaValue>>
             return;
         }
 
+        ThrowIfReadOnly();
         var prevLength = array.Length;
         var newLength = newCapacity <= 8 ? 8 : MathEx.NextPowerOfTwo(newCapacity);
 
@@ -477,6 +513,20 @@ public sealed class LuaTable : IEnumerable<KeyValuePair<LuaValue, LuaValue>>
     static void ThrowIndexIsNaN()
     {
         throw new ArgumentException("the table index is NaN");
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void ThrowIfReadOnly()
+    {
+        if (IsReadOnly)
+        {
+            ThrowReadOnly();
+        }
+    }
+
+    static void ThrowReadOnly()
+    {
+        throw new InvalidOperationException("attempt to modify a read-only table");
     }
 
     public LuaTableEnumerator GetEnumerator()

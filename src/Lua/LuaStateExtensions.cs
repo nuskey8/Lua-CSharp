@@ -489,7 +489,7 @@ public static class LuaStateExtensions
 
         if (table.TryReadTable(out var luaTable))
         {
-            ref var valueRef = ref luaTable.FindValue(key);
+            ref var valueRef = ref luaTable.FindValueForWrite(key);
             if (!Unsafe.IsNullRef(ref valueRef) && valueRef.Type != LuaValueType.Nil)
             {
                 luaTable.SetExistingValue(key, ref valueRef, value);

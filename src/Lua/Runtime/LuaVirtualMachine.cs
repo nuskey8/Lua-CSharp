@@ -551,7 +551,7 @@ public static partial class LuaVirtualMachine
 
                         if (table.TryReadTable(out luaTable))
                         {
-                            ref var valueRef = ref luaTable.FindValue(vb);
+                            ref var valueRef = ref luaTable.FindValueForWrite(vb);
                             if (
                                 !Unsafe.IsNullRef(ref valueRef)
                                 && valueRef.Type != LuaValueType.Nil
@@ -2232,7 +2232,7 @@ public static partial class LuaVirtualMachine
             {
                 ref var valueRef = ref skip
                     ? ref Unsafe.NullRef<LuaValue>()
-                    : ref luaTable.FindValue(key);
+                    : ref luaTable.FindValueForWrite(key);
                 skip = false;
                 if (!Unsafe.IsNullRef(ref valueRef) && valueRef.Type != LuaValueType.Nil)
                 {
@@ -2383,7 +2383,7 @@ public static partial class LuaVirtualMachine
             {
                 ref var valueRef = ref skip
                     ? ref Unsafe.NullRef<LuaValue>()
-                    : ref luaTable.FindValue(key);
+                    : ref luaTable.FindValueForWrite(key);
                 skip = false;
                 if (!Unsafe.IsNullRef(ref valueRef) && valueRef.Type != LuaValueType.Nil)
                 {

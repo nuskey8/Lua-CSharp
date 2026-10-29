@@ -34,6 +34,25 @@ public class GeneratedMetatableLifetimeTests(LuaStringMode mode)
         return state;
     }
 
+    [TestCase("mt.__index=function() return 99 end")]
+    [TestCase("mt.__index=nil")]
+    [TestCase("mt.owner=coroutine.running()")]
+    [TestCase("rawset(mt,'__index',nil)")]
+    [TestCase("rawset(mt,'payload',{})")]
+    [TestCase("setmetatable(mt,{})")]
+    [TestCase("debug.setmetatable(mt,{})")]
+    public async Task DefaultMetatableRejectsMutation(string mutation)
+    {
+        using var state = CreateState();
+        state.Environment["obj"] = new GeneratedMetatableTestObject { Value = 7 };
+        var result = await state.DoStringAsync(
+            "local mt=getmetatable(obj);local ok,err=pcall(function() "
+                + mutation
+                + " end);return ok,type(err),obj:Read()"
+        );
+        Assert.That(result, Is.EqualTo(new LuaValue[] { false, "string", 7 }));
+    }
+
     [TestCase(false)]
     [TestCase(true)]
     public void DiscardedMetatablesDoNotRootStatesOrPayloads(bool replacement)
@@ -69,7 +88,12 @@ public class GeneratedMetatableLifetimeTests(LuaStringMode mode)
             .DoStringAsync(
                 replacement
                     ? "debug.setmetatable(obj,{owner=coroutine.running(),payload=payload});obj=nil;payload=nil"
-                    : "local mt=getmetatable(obj);mt.owner=coroutine.running();mt.payload=payload;obj=nil;payload=nil"
+                    : """
+                    local mt=getmetatable(obj)
+                    assert(not pcall(function() mt.owner=coroutine.running() end))
+                    assert(not pcall(function() rawset(mt,'payload',payload) end))
+                    obj=nil;payload=nil
+                    """
             )
             .AsTask()
             .GetAwaiter()
@@ -78,15 +102,18 @@ public class GeneratedMetatableLifetimeTests(LuaStringMode mode)
     }
 
     [Test]
-    public async Task IndependentStatesHaveIndependentDefaults()
+    public async Task IndependentStatesShareFrozenDefaults()
     {
         using var first = CreateState();
         using var second = CreateState();
         first.Environment["obj"] = new GeneratedMetatableTestObject();
         second.Environment["obj"] = new GeneratedMetatableTestObject();
-        await first.DoStringAsync("getmetatable(obj).tag=42");
-        var result = await second.DoStringAsync("return getmetatable(obj).tag");
-        Assert.That(result, Is.EqualTo(new LuaValue[] { LuaValue.Nil }));
+        var firstTable = (await first.DoStringAsync("return getmetatable(obj)"))[0]
+            .Read<LuaTable>();
+        var secondTable = (await second.DoStringAsync("return getmetatable(obj)"))[0]
+            .Read<LuaTable>();
+        Assert.That(firstTable, Is.SameAs(secondTable));
+        Assert.That(firstTable.IsReadOnly, Is.True);
     }
 
     [Test]
@@ -99,7 +126,6 @@ public class GeneratedMetatableLifetimeTests(LuaStringMode mode)
             """
             local shared=getmetatable(first)
             assert(shared==getmetatable(second))
-            shared.tag=42
             local co=coroutine.create(function()
                 return getmetatable(second)==shared,second:Read()
             end)
@@ -107,14 +133,17 @@ public class GeneratedMetatableLifetimeTests(LuaStringMode mode)
             local replacement={__index=function() return 99 end}
             debug.setmetatable(first,replacement)
             local isolated=getmetatable(first)==replacement and getmetatable(second)==shared
+            replacement.tag=42
+            rawset(replacement,'__index',function() return replacement.tag end)
             local changed=first.Value
             debug.setmetatable(first,nil)
             local removed=getmetatable(first)==nil
             debug.setmetatable(first,shared)
-            return ok,same,value,isolated,changed,removed,first:Read(),getmetatable(second).tag
+            first.Value=9
+            return ok,same,value,isolated,changed,removed,first:Read(),second.Value
             """
         );
-        Assert.That(result, Is.EqualTo(new LuaValue[] { true, true, 8, true, 99, true, 7, 42 }));
+        Assert.That(result, Is.EqualTo(new LuaValue[] { true, true, 8, true, 42, true, 9, 8 }));
     }
 
     [Test]

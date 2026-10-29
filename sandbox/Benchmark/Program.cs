@@ -29,6 +29,7 @@ else
             typeof(InterpreterComparison),
             typeof(CompilationComparison),
             typeof(StartupComparison),
+            typeof(GeneratedUserDataBenchmark),
         ])
         .Run(args);
 

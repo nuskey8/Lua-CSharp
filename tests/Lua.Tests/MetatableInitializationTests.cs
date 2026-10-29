@@ -29,7 +29,7 @@ public partial class ConcurrentMetatableTestObject
 public class MetatableInitializationTests
 {
     [Test]
-    public async Task ParallelStatesInitializeCompleteIndependentMetatables()
+    public async Task ParallelStatesShareCompleteFrozenMetatable()
     {
         const int workerCount = 8;
         using var barrier = new Barrier(workerCount);
@@ -53,6 +53,7 @@ public class MetatableInitializationTests
                             Is.EqualTo(new LuaValue[] { 42, 42, 42, 84, "42" })
                         );
                         var metatable = results[5].Read<LuaTable>();
+                        Assert.That(metatable.IsReadOnly, Is.True);
                         foreach (
                             var key in new[]
                             {
@@ -74,18 +75,19 @@ public class MetatableInitializationTests
             )
             .ToArray();
         var tables = await Task.WhenAll(workers);
-        Assert.That(tables.Distinct().Count(), Is.EqualTo(workerCount));
+        Assert.That(tables.Distinct().Count(), Is.EqualTo(1));
     }
 
     [Test]
     public async Task HostReplacementAndRemovalAffectOnlyOneUserData()
     {
         using var state = LuaState.Create();
+        state.OpenStandardLibraries();
         var obj = new ConcurrentMetatableTestObject { Value = 7 };
         ILuaUserData first = obj;
         ILuaUserData second = new ConcurrentMetatableTestObject();
         var original = first.Metatable!;
-        Assert.That(second.Metatable, Is.Not.SameAs(original));
+        Assert.That(second.Metatable, Is.SameAs(original));
         var replacement = new LuaTable();
         replacement[Metamethods.Index] = new LuaFunction((context, ct) => new(context.Return(99)));
         first.Metatable = replacement;
@@ -94,7 +96,10 @@ public class MetatableInitializationTests
         Assert.That((await state.DoStringAsync("return obj.Value"))[0].Read<int>(), Is.EqualTo(99));
         first.Metatable = null;
         Assert.That(first.Metatable, Is.Null);
-        Assert.That(first.GetMetatable(state), Is.Null);
+        Assert.That(
+            (await state.DoStringAsync("return debug.getmetatable(obj)"))[0],
+            Is.EqualTo(LuaValue.Nil)
+        );
         first.Metatable = original;
         Assert.That((await state.DoStringAsync("return obj:Read()"))[0].Read<int>(), Is.EqualTo(7));
     }

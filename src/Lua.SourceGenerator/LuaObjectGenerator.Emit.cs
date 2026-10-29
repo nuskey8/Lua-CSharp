@@ -1351,9 +1351,16 @@ partial class LuaObjectGenerator
         builder.AppendLine("global::Lua.LuaTable? global::Lua.ILuaUserData.Metatable");
         using (builder.BeginBlockScope())
         {
-            builder.AppendLine(
-                "get => __GetMetatableOverrides().GetValue(this, static _ => new __MetatableOverride(__CreateMetatable())).Value;"
-            );
+            builder.AppendLine("get");
+            using (builder.BeginBlockScope())
+            {
+                builder.AppendLine(
+                    "var overrides = global::System.Threading.Volatile.Read(ref __metatableOverrides);"
+                );
+                builder.AppendLine(
+                    "return overrides != null && overrides.TryGetValue(this, out var entry) ? entry.Value : __metatable;"
+                );
+            }
             builder.AppendLine("set");
             using (builder.BeginBlockScope())
             {
@@ -1363,25 +1370,6 @@ partial class LuaObjectGenerator
             }
         }
 
-        builder.AppendLine(
-            "global::Lua.LuaTable? global::Lua.ILuaUserData.GetMetatable(global::Lua.LuaState state)"
-        );
-        using (builder.BeginBlockScope())
-        {
-            builder.AppendLine(
-                "var overrides = global::System.Threading.Volatile.Read(ref __metatableOverrides);"
-            );
-            builder.AppendLine(
-                "if (overrides != null && overrides.TryGetValue(this, out var entry)) return entry.Value;"
-            );
-            builder.AppendLine("var mainThread = state.MainThread;");
-            builder.AppendLine(
-                "if (__metatables.TryGetValue(mainThread, out var metatable)) return metatable;"
-            );
-            builder.AppendLine(
-                "return __metatables.GetValue(mainThread, static _ => __CreateMetatable());"
-            );
-        }
         builder.AppendLine("static global::Lua.LuaTable __CreateMetatable()");
         using (builder.BeginBlockScope())
         {
@@ -1394,6 +1382,7 @@ partial class LuaObjectGenerator
                     $"metatable[global::Lua.Runtime.Metamethods.{metaMethodName}] = __metamethod_{lowerName};"
                 );
             }
+            builder.AppendLine("metatable.Freeze();");
             builder.AppendLine("return metatable;");
         }
 
@@ -1423,7 +1412,7 @@ partial class LuaObjectGenerator
             );
         }
         builder.AppendLine(
-            "static readonly global::System.Runtime.CompilerServices.ConditionalWeakTable<global::Lua.LuaState, global::Lua.LuaTable> __metatables = new();"
+            "static readonly global::Lua.LuaTable __metatable = __CreateMetatable();"
         );
         builder.AppendLine();
 

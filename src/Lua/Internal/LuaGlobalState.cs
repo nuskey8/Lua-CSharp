@@ -69,7 +69,7 @@ sealed class LuaGlobalState
             LuaValueType.Number => numberMetatable,
             LuaValueType.Function => functionMetatable,
             LuaValueType.Thread => stateMetatable,
-            LuaValueType.UserData => value.UnsafeRead<ILuaUserData>().GetMetatable(mainState),
+            LuaValueType.UserData => value.UnsafeRead<ILuaUserData>().Metatable,
             LuaValueType.Table => value.UnsafeRead<LuaTable>().Metatable,
             _ => null,
         };
