@@ -30,6 +30,14 @@ public record LuaPlatform(
     public LuaStringMode StringMode { get; init; }
 
     /// <summary>
+    /// Controls numeric text produced by Lua execution, including implicit conversions and I/O.
+    /// Defaults to <see cref="LuaNumberFormat.DotNet"/>. Explicit floating-point formats retain
+    /// their requested precision; this option selects their infinity and NaN spellings.
+    /// Does not change <see cref="LuaValue.ToString()"/>, arithmetic or parsing of numeric strings.
+    /// </summary>
+    public LuaNumberFormat NumberFormat { get; init; }
+
+    /// <summary>
     /// Converts .NET text to this platform's Lua string representation.
     /// Returns the text unchanged in UTF-16 mode or encodes it as UTF-8 in byte mode.
     /// </summary>

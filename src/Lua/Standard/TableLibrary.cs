@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Runtime.CompilerServices;
 using Lua.Internal;
 using Lua.Internal.CompilerServices;
@@ -103,12 +102,11 @@ public sealed class TableLibrary
             {
                 var number = value.UnsafeReadDouble();
                 if (
-                    MathEx.IsFinite(number)
-                    && number.TryFormat(
+                    NumberFormatter.TryFormat(
+                        number,
                         numberBuffer,
                         out var written,
-                        default,
-                        provider: CultureInfo.InvariantCulture
+                        context.State.Platform.NumberFormat
                     )
                 )
                 {
@@ -116,7 +114,7 @@ public sealed class TableLibrary
                 }
                 else
                 {
-                    builder.AddRange(value.ToString());
+                    builder.AddRange(value.ToLuaString(context.State.Platform.NumberFormat));
                 }
             }
             else

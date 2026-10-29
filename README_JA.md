@@ -556,6 +556,14 @@ var state = LuaState.Create(platform);
 
 これらは`require`, `print`, `dofile`や`os`モジュールなどで使用されます。
 
+### 数値の書式
+
+`LuaPlatform.NumberFormat`の既定値は`LuaNumberFormat.DotNet`で、従来のカルチャ非依存の.NET書式を使用します。`LuaPlatform.Default with { NumberFormat = LuaNumberFormat.Lua }`を`LuaState.Create`に渡すと、Lua 5.2のCロケールの既定値`%.14g`に合わせ、有効数字14桁、小文字の指数、符号付きのゼロと`inf`/`nan`を使用します。
+
+`tostring`、数値を返す`__tostring`、`%s`/`%q`、連結、`table.concat`、`gsub`の数値置換、基数を指定した`tonumber`の数値引数、数値のファイル・標準出力に適用されます。コルーチンにも継承され、`StringMode`とは独立しています。`%.17g`などの明示的な浮動小数点書式の精度は維持され、特殊値の表記だけが切り替わります。
+
+Lua 5.2の実際の出力はCランタイムに依存します。`Lua`ではWindows固有の`nan(ind)`や`nan(snan)`を付けず、符号付きの`nan`に統一します。演算、NaNのビット列、数値文字列の解析、C#の`LuaValue.ToString()`は変わりません。14桁への変換で精度が失われる場合があり、例えば`Lua`モードの`tonumber(1e14,10)`は途中の文字列が`1e+14`となるため`nil`を返します。
+
 ## 例外処理
 
 Luaスクリプトの実行時例外は`LuaRuntimeException`を継承した例外をスローします。これをcatchすることでエラー時の処理を行うことができます。

@@ -1208,7 +1208,7 @@ public static partial class LuaVirtualMachine
         var c = instruction.C;
         stack.SetTop(context.FrameBase + c + 1);
         var a = instruction.A;
-        var total = ConcatStrings(stack, c - b + 1);
+        var total = ConcatStrings(stack, c - b + 1, context.State.Platform.NumberFormat);
         if (total == 1)
         {
             stack.Get(context.FrameBase + a) = stack.AsSpan()[^1];
@@ -1248,7 +1248,7 @@ public static partial class LuaVirtualMachine
             );
             stack.PopUntil(top - 1);
             total--;
-        } while ((total = ConcatStrings(stack, total)) > 1);
+        } while ((total = ConcatStrings(stack, total, context.State.Platform.NumberFormat)) > 1);
 
         stack.Get(target) = stack.AsSpan()[^1];
 
@@ -1273,7 +1273,7 @@ public static partial class LuaVirtualMachine
                 stack.Push("");
                 return "";
             }
-            while ((total = ConcatStrings(stack, total)) > 1)
+            while ((total = ConcatStrings(stack, total, state.Platform.NumberFormat)) > 1)
             {
                 var top = stack.Count;
                 var value = await ExecuteBinaryOperationMetaMethod(
@@ -1297,9 +1297,9 @@ public static partial class LuaVirtualMachine
     }
 
     // Reduce the primitive suffix synchronously. A remaining pair needs __concat.
-    static int ConcatStrings(LuaStack stack, int total)
+    static int ConcatStrings(LuaStack stack, int total, LuaNumberFormat numberFormat)
     {
-        static bool ToString(ref LuaValue v)
+        static bool ToString(ref LuaValue v, LuaNumberFormat numberFormat)
         {
             if (v.Type == LuaValueType.String)
             {
@@ -1308,7 +1308,7 @@ public static partial class LuaVirtualMachine
 
             if (v.Type == LuaValueType.Number)
             {
-                v = v.ToString();
+                v = v.ToLuaString(numberFormat);
                 return true;
             }
 
@@ -1321,13 +1321,16 @@ public static partial class LuaVirtualMachine
             var n = 2;
             ref var lhs = ref stack.Get(top - 2);
             ref var rhs = ref stack.Get(top - 1);
-            if (!(lhs.Type is LuaValueType.String or LuaValueType.Number) || !ToString(ref rhs))
+            if (
+                !(lhs.Type is LuaValueType.String or LuaValueType.Number)
+                || !ToString(ref rhs, numberFormat)
+            )
             {
                 return total;
             }
             else if (rhs.UnsafeReadString().Length == 0)
             {
-                ToString(ref lhs);
+                ToString(ref lhs, numberFormat);
             }
             else if (lhs.TryReadString(out var str) && str.Length == 0)
             {
@@ -1341,7 +1344,7 @@ public static partial class LuaVirtualMachine
                 for (; i < total; i++)
                 {
                     ref var v = ref stack.Get(top - i - 1);
-                    if (!ToString(ref v))
+                    if (!ToString(ref v, numberFormat))
                     {
                         break;
                     }
