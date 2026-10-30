@@ -392,6 +392,14 @@ public static class LuaStateExtensions
         LuaValue x,
         LuaValue y,
         CancellationToken cancellationToken = default
+    ) => LessThanCoreAsync(state, x, y, cancellationToken, isHostCall: true);
+
+    internal static ValueTask<bool> LessThanCoreAsync(
+        this LuaState state,
+        LuaValue x,
+        LuaValue y,
+        CancellationToken cancellationToken,
+        bool isHostCall = false
     )
     {
         if (x.TryReadNumber(out var numX) && y.TryReadNumber(out var numY))
@@ -410,7 +418,8 @@ public static class LuaStateExtensions
             x,
             y,
             OpCode.Lt,
-            cancellationToken
+            cancellationToken,
+            isHostCall
         );
     }
 
@@ -437,7 +446,8 @@ public static class LuaStateExtensions
             x,
             y,
             OpCode.Le,
-            cancellationToken
+            cancellationToken,
+            isHostCall: true
         );
     }
 
@@ -458,7 +468,8 @@ public static class LuaStateExtensions
             x,
             y,
             OpCode.Eq,
-            cancellationToken
+            cancellationToken,
+            isHostCall: true
         );
     }
 
@@ -482,7 +493,8 @@ public static class LuaStateExtensions
             state,
             table,
             key,
-            cancellationToken
+            cancellationToken,
+            isHostCall: true
         );
     }
 
@@ -492,6 +504,15 @@ public static class LuaStateExtensions
         LuaValue key,
         LuaValue value,
         CancellationToken cancellationToken = default
+    ) => SetTableCoreAsync(state, table, key, value, cancellationToken, isHostCall: true);
+
+    internal static ValueTask SetTableCoreAsync(
+        this LuaState state,
+        LuaValue table,
+        LuaValue key,
+        LuaValue value,
+        CancellationToken cancellationToken,
+        bool isHostCall = false
     )
     {
         if (key.TryReadNumber(out var numB))
@@ -517,7 +538,8 @@ public static class LuaStateExtensions
             table,
             key,
             value,
-            cancellationToken
+            cancellationToken,
+            isHostCall
         );
     }
 

@@ -82,7 +82,7 @@ public sealed class ModuleLibrary
                     cancellationToken
                 );
                 if (count > 0 && state.Stack.Get(context.ReturnFrameBase).Type != LuaValueType.Nil)
-                    await state.SetTableAsync(
+                    await state.SetTableCoreAsync(
                         loaded,
                         arg0,
                         state.Stack.Get(context.ReturnFrameBase),
@@ -98,7 +98,7 @@ public sealed class ModuleLibrary
                 if (loadedTable.Type == LuaValueType.Nil)
                 {
                     loadedTable = true;
-                    await state.SetTableAsync(loaded, arg0, loadedTable, cancellationToken);
+                    await state.SetTableCoreAsync(loaded, arg0, loadedTable, cancellationToken);
                 }
             }
             return context.Return(loadedTable);
@@ -124,7 +124,13 @@ public sealed class ModuleLibrary
         CancellationToken cancellationToken
     )
     {
-        var p = await state.GetTableAsync(package, pName, cancellationToken);
+        if (!package.TryReadTable(out var table) || !table.TryGetValue(pName, out var p))
+            p = await LuaVirtualMachine.ExecuteGetTableSlowPath(
+                state,
+                package,
+                pName,
+                cancellationToken
+            );
         if (p.Type is not (LuaValueType.String or LuaValueType.Number))
         {
             throw new LuaRuntimeException(state, $"package.{pName} must be a string");

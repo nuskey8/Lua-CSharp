@@ -422,7 +422,7 @@ public sealed class TableLibrary
     {
         if (comparer == null)
         {
-            return state.LessThanAsync(left, right, cancellationToken);
+            return state.LessThanCoreAsync(left, right, cancellationToken);
         }
 
         var stack = state.Stack;
