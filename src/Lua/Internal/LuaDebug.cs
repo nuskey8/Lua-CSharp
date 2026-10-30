@@ -244,7 +244,10 @@ readonly struct LuaDebug : IDisposable
                     }
                     case 'u':
                     {
-                        UpValueCount = closure is null ? 0 : closure.UpValues.Length;
+                        UpValueCount =
+                            closure is not null ? closure.UpValues.Length
+                            : function is CSharpClosure csClosure ? csClosure.UpValues.Length
+                            : 0;
                         if (closure is null)
                         {
                             IsVarArg = true;

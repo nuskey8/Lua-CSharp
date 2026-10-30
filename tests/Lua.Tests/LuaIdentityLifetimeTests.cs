@@ -1,5 +1,6 @@
 using System.Runtime.CompilerServices;
 using Lua.Platforms;
+using Lua.Runtime;
 using Lua.Standard;
 
 namespace Lua.Tests;
@@ -150,6 +151,63 @@ public class LuaIdentityLifetimeTests(LuaStringMode mode)
             """
         );
         Assert.That(result, Is.EqualTo(new LuaValue[] { true, true, true, true, 3, 3, 3 }));
+    }
+
+    [Test]
+    public async Task ManagedClosureUpValuesHaveStableSlotIdentitiesAndMetadata()
+    {
+        using var state = CreateState();
+        state.Environment["first"] = new CSharpClosure(
+            "first",
+            [42, 42],
+            static (context, _) => new(context.Return())
+        );
+        state.Environment["second"] = new CSharpClosure(
+            "second",
+            [42],
+            static (context, _) => new(context.Return())
+        );
+        await state.DoStringAsync(
+            """
+            assert(debug.getinfo(first,'u').nups==2 and debug.getinfo(second,'u').nups==1)
+            assert(debug.getinfo(require,'u').nups==1)
+            local id=debug.upvalueid(first,1)
+            assert(type(id)=='userdata' and id==debug.upvalueid(first,1))
+            assert(id~=debug.upvalueid(first,2) and id~=debug.upvalueid(second,1))
+            assert(debug.setupvalue(first,1,43)=='')
+            assert(id==debug.upvalueid(first,1))
+            local name,value=debug.getupvalue(first,1)
+            assert(name=='' and value==43)
+            assert(debug.upvalueid(require,1)~=debug.upvalueid(package.searchers[2],1))
+            """
+        );
+    }
+
+    [Test]
+    public void ManagedUpValueIdsDoNotKeepDiscardedCapturesAlive()
+    {
+        using var state = CreateState();
+        var payload = SaveManagedCaptureId(state);
+        Collect();
+        Assert.That(payload.IsAlive, Is.False);
+        Assert.That(state.Environment["identity"].Type, Is.EqualTo(LuaValueType.LightUserData));
+        GC.KeepAlive(state);
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    static WeakReference SaveManagedCaptureId(LuaState state)
+    {
+        var payload = new object();
+        state.Environment["capture"] = new CSharpClosure(
+            "capture",
+            [LuaValue.FromObject(payload)],
+            static (context, _) => new(context.Return())
+        );
+        state
+            .DoStringAsync("identity=debug.upvalueid(capture,1);capture=nil")
+            .GetAwaiter()
+            .GetResult();
+        return new WeakReference(payload);
     }
 
     static LuaValue KeyValue(MutableKey key, bool fullUserData) =>

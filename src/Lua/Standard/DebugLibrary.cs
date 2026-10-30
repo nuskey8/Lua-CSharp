@@ -9,6 +9,7 @@ public sealed class DebugLibrary
 {
     public static readonly DebugLibrary Instance = new();
     static readonly ConditionalWeakTable<UpValue, object> upValueIds = new();
+    static readonly ConditionalWeakTable<LuaValue[], object[]> csUpValueIds = new();
 
     public DebugLibrary()
     {
@@ -429,6 +430,20 @@ public sealed class DebugLibrary
 
         if (f1 is not LuaClosure closure)
         {
+            if (f1 is CSharpClosure csClosure && n1 > 0 && n1 <= csClosure.UpValues.Length)
+            {
+                var identities = csUpValueIds.GetValue(
+                    csClosure.UpValues,
+                    static values =>
+                    {
+                        var result = new object[values.Length];
+                        for (var i = 0; i < result.Length; i++)
+                            result[i] = new object();
+                        return result;
+                    }
+                );
+                return new(context.Return(LuaValue.FromObject(identities[n1 - 1])));
+            }
             return new(context.Return(LuaValue.Nil));
         }
 
