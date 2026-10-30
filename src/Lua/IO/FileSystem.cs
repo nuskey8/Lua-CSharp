@@ -139,14 +139,18 @@ public sealed class FileSystem(string? baseDirectory, LuaStringMode stringMode) 
         return Path.GetTempFileName();
     }
 
+    internal static FileStream CreateTemporaryFile() =>
+        new(
+            Path.Combine(Path.GetTempPath(), Path.GetRandomFileName()),
+            FileMode.CreateNew,
+            FileAccess.ReadWrite,
+            FileShare.None,
+            4096,
+            FileOptions.DeleteOnClose
+        );
+
     public ValueTask<ILuaStream> OpenTempFileStream(CancellationToken cancellationToken)
     {
-        return new(
-            new LuaStream(
-                LuaFileOpenMode.WriteUpdate,
-                File.Open(Path.GetTempFileName(), FileMode.Open, FileAccess.ReadWrite),
-                stringMode
-            )
-        );
+        return new(new LuaStream(LuaFileOpenMode.WriteUpdate, CreateTemporaryFile(), stringMode));
     }
 }
