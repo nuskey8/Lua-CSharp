@@ -44,9 +44,12 @@ public class ProtectedCallTests(LuaStringMode stringMode)
             assert(ok and a==12 and b==34)
             local ok,e=xpcall(function() error('failure') end,nil)
             assert(not ok and e=='error in error handling')
-            local handler=setmetatable({}, {__call=function(self,e) return e end})
+            local hits=0
+            local handler=setmetatable({}, {__call=function(self,e) hits=hits+1;return e end})
+            local ok,value=xpcall(function() return 42 end,handler)
+            assert(ok and value==42)
             local ok,e=xpcall(function() error(42) end,handler)
-            assert(not ok and e==42)
+            assert(not ok and e=='error in error handling' and hits==0)
             """
         );
     }
@@ -93,6 +96,16 @@ public class ProtectedCallTests(LuaStringMode stringMode)
     [TestCase(true, "sort")]
     [TestCase(false, "gsub")]
     [TestCase(true, "gsub")]
+    [TestCase(false, "table.concat")]
+    [TestCase(true, "table.concat")]
+    [TestCase(false, "table.insert")]
+    [TestCase(true, "table.insert")]
+    [TestCase(false, "table.remove")]
+    [TestCase(true, "table.remove")]
+    [TestCase(false, "table.sort")]
+    [TestCase(true, "table.sort")]
+    [TestCase(false, "table.unpack")]
+    [TestCase(true, "table.unpack")]
     public async Task HandlerCanInspectFailingFramesAndLocals(bool asynchronous, string call)
     {
         using var state = CreateState();
@@ -122,6 +135,10 @@ public class ProtectedCallTests(LuaStringMode stringMode)
                     if call=='searcher' or call=='loader' then require('test')
                     elseif call=='sort' then table.sort({2,1},namedFailure)
                     elseif call=='gsub' then string.gsub('a','.',namedFailure)
+                    elseif call:sub(1,6)=='table.' then
+                        local t=setmetatable({},{__len=namedFailure})
+                        if call=='table.insert' then table.insert(t,42)
+                        else table[call:sub(7)](t) end
                     else namedFailure() end
                 end,function(e)
                     local trace=debug.traceback(e)

@@ -201,12 +201,20 @@ public sealed class BasicLibrary
             stack.Push(metamethod);
             stack.Push(arg0);
 
-            await LuaVirtualMachine.Call(
-                context.State,
-                top,
-                context.ReturnFrameBase,
-                cancellationToken
-            );
+            context.State.NonYieldableCallCount++;
+            try
+            {
+                await LuaVirtualMachine.Call(
+                    context.State,
+                    top,
+                    context.ReturnFrameBase,
+                    cancellationToken
+                );
+            }
+            finally
+            {
+                context.State.NonYieldableCallCount--;
+            }
             stack.SetTop(context.ReturnFrameBase + 3);
             return 3;
         }
@@ -405,12 +413,20 @@ public sealed class BasicLibrary
             stack.Push(metamethod);
             stack.Push(arg0);
 
-            await LuaVirtualMachine.Call(
-                context.State,
-                top,
-                context.ReturnFrameBase,
-                cancellationToken
-            );
+            context.State.NonYieldableCallCount++;
+            try
+            {
+                await LuaVirtualMachine.Call(
+                    context.State,
+                    top,
+                    context.ReturnFrameBase,
+                    cancellationToken
+                );
+            }
+            finally
+            {
+                context.State.NonYieldableCallCount--;
+            }
             stack.SetTop(context.ReturnFrameBase + 3);
             return 3;
         }

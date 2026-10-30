@@ -359,7 +359,8 @@ public static class LuaStateExtensions
             state,
             value,
             OpCode.Unm,
-            cancellationToken
+            cancellationToken,
+            isHostCall: true
         );
     }
 
@@ -383,7 +384,8 @@ public static class LuaStateExtensions
             state,
             value,
             OpCode.Len,
-            cancellationToken
+            cancellationToken,
+            isHostCall: true
         );
     }
 

@@ -2704,7 +2704,8 @@ public static partial class LuaVirtualMachine
         LuaState state,
         LuaValue vb,
         OpCode opCode,
-        CancellationToken cancellationToken
+        CancellationToken cancellationToken,
+        bool isHostCall
     )
     {
         try
@@ -2721,7 +2722,7 @@ public static partial class LuaVirtualMachine
                     vb,
                     vb,
                     cancellationToken,
-                    isHostCall: true
+                    isHostCall
                 );
             }
 

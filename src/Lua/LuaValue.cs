@@ -788,6 +788,7 @@ public readonly struct LuaValue : IEquatable<LuaValue>
         {
             var stack = state.Stack;
             var top = stack.Count;
+            state.NonYieldableCallCount++;
             try
             {
                 stack.Push(metamethod);
@@ -806,6 +807,10 @@ public readonly struct LuaValue : IEquatable<LuaValue>
             {
                 stack.PopUntil(top);
                 throw;
+            }
+            finally
+            {
+                state.NonYieldableCallCount--;
             }
         }
     }

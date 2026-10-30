@@ -420,41 +420,54 @@ public sealed class DebugLibrary
         return new(context.Return(context.GlobalState.Registry));
     }
 
+    static LuaFunction CheckUpValue(
+        in LuaFunctionExecutionContext context,
+        int functionIndex,
+        int upValueIndex,
+        out int index
+    )
+    {
+        index = context.GetIntegerArgument(upValueIndex);
+        var function = context.GetArgument<LuaFunction>(functionIndex);
+        var count = function switch
+        {
+            LuaClosure closure => closure.GetUpValuesSpan().Length,
+            CSharpClosure closure => closure.UpValues.Length,
+            _ => 0,
+        };
+        if (index <= 0 || index > count)
+            context.ThrowBadArgument(upValueIndex + 1, "invalid upvalue index");
+        return function;
+    }
+
     public ValueTask<int> UpValueId(
         LuaFunctionExecutionContext context,
         CancellationToken cancellationToken
     )
     {
-        var n1 = context.GetIntegerArgument(1);
-        var f1 = context.GetArgument<LuaFunction>(0);
+        var function = CheckUpValue(context, 0, 1, out var index);
 
-        if (f1 is not LuaClosure closure)
+        if (function is LuaClosure closure)
         {
-            if (f1 is CSharpClosure csClosure && n1 > 0 && n1 <= csClosure.UpValues.Length)
+            var identity = upValueIds.GetValue(
+                closure.GetUpValuesSpan()[index - 1],
+                static _ => new object()
+            );
+            return new(context.Return(LuaValue.FromObject(identity)));
+        }
+
+        var csClosure = (CSharpClosure)function;
+        var identities = csUpValueIds.GetValue(
+            csClosure.UpValues,
+            static values =>
             {
-                var identities = csUpValueIds.GetValue(
-                    csClosure.UpValues,
-                    static values =>
-                    {
-                        var result = new object[values.Length];
-                        for (var i = 0; i < result.Length; i++)
-                            result[i] = new object();
-                        return result;
-                    }
-                );
-                return new(context.Return(LuaValue.FromObject(identities[n1 - 1])));
+                var result = new object[values.Length];
+                for (var i = 0; i < result.Length; i++)
+                    result[i] = new object();
+                return result;
             }
-            return new(context.Return(LuaValue.Nil));
-        }
-
-        var upValues = closure.GetUpValuesSpan();
-        if (n1 <= 0 || n1 > upValues.Length)
-        {
-            return new(context.Return(LuaValue.Nil));
-        }
-
-        var identity = upValueIds.GetValue(upValues[n1 - 1], static _ => new object());
-        return new(context.Return(LuaValue.FromObject(identity)));
+        );
+        return new(context.Return(LuaValue.FromObject(identities[index - 1])));
     }
 
     public ValueTask<int> UpValueJoin(
@@ -462,28 +475,16 @@ public sealed class DebugLibrary
         CancellationToken cancellationToken
     )
     {
-        var n2 = context.GetIntegerArgument(3);
-        var f2 = context.GetArgument<LuaFunction>(2);
-        var n1 = context.GetIntegerArgument(1);
-        var f1 = context.GetArgument<LuaFunction>(0);
+        var f1 = CheckUpValue(context, 0, 1, out var n1);
+        var f2 = CheckUpValue(context, 2, 3, out var n2);
 
-        if (f1 is not LuaClosure closure1 || f2 is not LuaClosure closure2)
-        {
-            return new(context.Return(LuaValue.Nil));
-        }
+        if (f1 is not LuaClosure)
+            context.ThrowBadArgument(1, "Lua function expected");
+        if (f2 is not LuaClosure)
+            context.ThrowBadArgument(3, "Lua function expected");
 
-        var upValues1 = closure1.GetUpValuesSpan();
-        var upValues2 = closure2.GetUpValuesSpan();
-        if (n1 <= 0 || n1 > upValues1.Length)
-        {
-            context.ThrowBadArgument(2, "invalid upvalue index");
-        }
-
-        if (n2 <= 0 || n2 > upValues2.Length)
-        {
-            context.ThrowBadArgument(4, "invalid upvalue index");
-        }
-
+        var upValues1 = ((LuaClosure)f1).GetUpValuesSpan();
+        var upValues2 = ((LuaClosure)f2).GetUpValuesSpan();
         upValues1[n1 - 1] = upValues2[n2 - 1];
         return new(context.Return());
     }

@@ -184,6 +184,35 @@ public class LuaIdentityLifetimeTests(LuaStringMode mode)
     }
 
     [Test]
+    public async Task UpValueIdentityAndJoinRejectInvalidArguments()
+    {
+        using var state = CreateState();
+        await state.DoStringAsync(
+            """
+            local value=42
+            local function f() return value end
+            local function checkError(argument,reason,func,...)
+                local ok,e=pcall(func,...)
+                assert(not ok and e:find('bad argument #'..argument,1,true) and e:find(reason,1,true),e)
+            end
+            for _,func in ipairs({f,require,print}) do
+                local count=debug.getinfo(func,'u').nups
+                for _,index in ipairs({-1,0,count+1}) do
+                    checkError(2,"invalid upvalue index",debug.upvalueid,func,index)
+                end
+            end
+            checkError(1,"Lua function expected",debug.upvaluejoin,require,1,f,1)
+            checkError(3,"Lua function expected",debug.upvaluejoin,f,1,require,1)
+            checkError(2,"invalid upvalue index",debug.upvaluejoin,require,0,f,1)
+            checkError(4,"invalid upvalue index",debug.upvaluejoin,require,1,f,0)
+            checkError(2,"invalid upvalue index",debug.upvaluejoin,f,0,f,1)
+            checkError(4,"invalid upvalue index",debug.upvaluejoin,f,1,f,0)
+            assert(f()==42)
+            """
+        );
+    }
+
+    [Test]
     public void ManagedUpValueIdsDoNotKeepDiscardedCapturesAlive()
     {
         using var state = CreateState();

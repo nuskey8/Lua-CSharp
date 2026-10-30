@@ -689,6 +689,12 @@ public class LuaState : IDisposable
         else
             error = Platform.GetErrorMessage(exception);
 
+        if (handler.Type != LuaValueType.Function)
+        {
+            Stack.Get(handlerIndex) = "error in error handling";
+            return exception;
+        }
+
         var top = Stack.Count;
         NonYieldableCallCount++;
         try

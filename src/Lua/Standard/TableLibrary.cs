@@ -52,12 +52,22 @@ public sealed class TableLibrary
             return table.ArrayLength;
         }
 
-        var result = await LuaVirtualMachine.ExecuteUnaryOperationMetaMethod(
-            state,
-            value,
-            OpCode.Len,
-            cancellationToken
-        );
+        LuaValue result;
+        state.NonYieldableCallCount++;
+        try
+        {
+            result = await LuaVirtualMachine.ExecuteUnaryOperationMetaMethod(
+                state,
+                value,
+                OpCode.Len,
+                cancellationToken,
+                isHostCall: false
+            );
+        }
+        finally
+        {
+            state.NonYieldableCallCount--;
+        }
         if (!result.TryReadDouble(out var length))
         {
             throw new LuaRuntimeException(state, "object length is not a number");
@@ -248,7 +258,22 @@ public sealed class TableLibrary
         // A __len result can extend beyond the backing array; use raw table keys.
         if (length > 1)
         {
-            await AuxSortAsync(context.State, table, 0, length - 1, comparer, cancellationToken);
+            context.State.NonYieldableCallCount++;
+            try
+            {
+                await AuxSortAsync(
+                    context.State,
+                    table,
+                    0,
+                    length - 1,
+                    comparer,
+                    cancellationToken
+                );
+            }
+            finally
+            {
+                context.State.NonYieldableCallCount--;
+            }
         }
         return context.Return();
     }
