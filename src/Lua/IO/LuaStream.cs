@@ -185,13 +185,14 @@ public sealed class LuaStream(LuaFileOpenMode mode, Stream innerStream, LuaStrin
 
     public long Seek(SeekOrigin origin, long offset)
     {
+        var keepPendingCharacter = origin == SeekOrigin.Current && offset == 0;
         if (reader != null && origin == SeekOrigin.Current)
         {
             offset -= reader.Remain;
         }
 
         var position = innerStream.Seek(offset, origin);
-        reader?.Clear();
+        reader?.Clear(position == 0, keepPendingCharacter);
         return position;
     }
 
