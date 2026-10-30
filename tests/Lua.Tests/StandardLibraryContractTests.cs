@@ -31,6 +31,94 @@ public class StandardLibraryContractTests(LuaStringMode stringMode)
         );
     }
 
+    [TestCase(-1)]
+    [TestCase(0)]
+    [TestCase(1)]
+    [TestCase(2)]
+    [TestCase(10000)]
+    public async Task ErrorCoercesNumbersOnlyAtPositiveLevels(int level)
+    {
+        using var state = CreateState();
+        state.Environment["level"] = level;
+        await state.DoStringAsync(
+            """
+            local function fail() error(42,level) end
+            local function check(value)
+                if level>0 then
+                    assert(type(value)=='string' and value:sub(-2)=='42')
+                else
+                    assert(type(value)=='number' and value==42)
+                end
+                return value
+            end
+            local ok,value=pcall(fail)
+            assert(not ok)
+            check(value)
+            ok,value=xpcall(fail,check)
+            assert(not ok)
+            check(value)
+            local object={}
+            ok,value=pcall(error,object,level)
+            assert(not ok and value==object)
+            """
+        );
+    }
+
+    [Test]
+    public async Task IPairsIteratorTruncatesItsControlAndReturnsOneNilAtExhaustion()
+    {
+        using var state = CreateState();
+        await state.DoStringAsync(
+            """
+            local it,t=ipairs({'first','second'})
+            local key,value=it(t,'0.9')
+            assert(key==1 and value=='first')
+            assert(select('#',it(t,1))==2)
+            assert(select('#',it(t,2))==1 and it(t,2)==nil)
+            """
+        );
+    }
+
+    [TestCase("file:lines()")]
+    [TestCase("file:lines('*L')")]
+    [TestCase("file:lines(100)")]
+    [TestCase("io.lines()")]
+    [TestCase("io.lines(nil, '*n', '*l')")]
+    [TestCase("file:lines('*n', '*l')")]
+    public async Task LineIteratorsReturnNoValuesWhenTheFirstReadFails(string expression)
+    {
+        using var state = CreateState();
+        using var stream = ILuaStream.CreateFromString("12 word\n");
+        state.Environment["file"] = new LuaValue(new FileHandle(stream));
+        await state.DoStringAsync(
+            $$"""
+            io.input(file)
+            local it={{expression}}
+            assert(it()~=nil)
+            assert(select('#',it())==0)
+            assert(select('#',it())==0)
+            assert(io.type(file)=='file')
+            assert(select('#',file:read())==1 and file:read()==nil)
+            """
+        );
+    }
+
+    [Test]
+    public async Task LineIteratorsKeepPartialResultsWhenALaterReadFails()
+    {
+        using var state = CreateState();
+        using var stream = ILuaStream.CreateFromString("12");
+        state.Environment["file"] = new LuaValue(new FileHandle(stream));
+        await state.DoStringAsync(
+            """
+            local it=file:lines('*n','*n')
+            local values=table.pack(it())
+            assert(values.n==2 and values[1]==12 and values[2]==nil)
+            assert(select('#',it())==0)
+            """
+        );
+    }
+
     [Test]
     public async Task AssertCoercesNumericMessagesButRejectsTables()
     {

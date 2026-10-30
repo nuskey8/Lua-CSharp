@@ -9,6 +9,23 @@ namespace Lua.Tests;
 [TestFixture(LuaStringMode.Bytes)]
 public class ModuleContractTests(LuaStringMode stringMode)
 {
+    [Test]
+    public async Task PackageConfigContainsFiveNewlineTerminatedMarkers()
+    {
+        using var state = CreateState();
+        state.Environment["separator"] = Path.DirectorySeparatorChar.ToString();
+        await state.DoStringAsync(
+            """
+            assert(package.config==separator..'\n;\n?\n!\n-\n')
+            local markers={}
+            for marker in package.config:gmatch('([^\n]*)\n') do
+                markers[#markers+1]=marker
+            end
+            assert(#markers==5 and markers[5]=='-')
+            """
+        );
+    }
+
     [TestCase(false)]
     [TestCase(true)]
     public async Task StandardLibrariesAreRegisteredForRequire(bool reopen)

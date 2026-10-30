@@ -51,23 +51,12 @@ public sealed class OperatingSystemLibrary
             format = format[1..];
         }
 
-        DateTime now;
-        if (context.HasArgument(1))
-        {
-            var time = context.GetArgument<double>(1);
-            now = DateTimeHelper.FromUnixTime(time);
-            if (!useUtc)
-            {
-                now = now.ToLocalTime();
-            }
-        }
-        else
-        {
-            var provider = context.GlobalState.Platform.TimeProvider;
-            now = useUtc ? provider.GetUtcNow().DateTime : provider.GetLocalNow().DateTime;
-        }
-
-        var isDst = !useUtc && now.IsDaylightSavingTime();
+        var provider = context.GlobalState.Platform.TimeProvider;
+        var zone = useUtc ? TimeZoneInfo.Utc : provider.LocalTimeZone;
+        var now = context.HasArgument(1)
+            ? new DateTimeOffset(DateTimeHelper.FromUnixTime(context.GetArgument<double>(1)))
+            : provider.GetUtcNow();
+        now = TimeZoneInfo.ConvertTime(now, zone);
 
         if (format is "*t")
         {
@@ -81,14 +70,14 @@ public sealed class OperatingSystemLibrary
                 ["sec"] = now.Second,
                 ["wday"] = (int)now.DayOfWeek + 1,
                 ["yday"] = now.DayOfYear,
-                ["isdst"] = isDst,
+                ["isdst"] = zone.IsDaylightSavingTime(now),
             };
 
             return new(context.Return(table));
         }
         else
         {
-            return new(context.Return(DateTimeHelper.StrFTime(context.State, format, now)));
+            return new(context.Return(DateTimeHelper.StrFTime(context.State, format, now, zone)));
         }
     }
 
@@ -134,13 +123,9 @@ public sealed class OperatingSystemLibrary
             {
                 exitCode = b ? 0 : 1;
             }
-            else if (code.TryRead<int>(out var d))
-            {
-                exitCode = d;
-            }
             else
             {
-                LuaRuntimeException.BadArgument(context.State, 1, LuaValueType.Nil, code.Type);
+                exitCode = context.GetIntegerArgument(0);
             }
         }
 
@@ -234,7 +219,14 @@ public sealed class OperatingSystemLibrary
         {
             var table = context.GetArgument<LuaTable>(0);
             var date = DateTimeHelper.ParseTimeTable(context.State, table);
-            return new(context.Return(DateTimeHelper.GetUnixTimeFromLocalTime(date)));
+            return new(
+                context.Return(
+                    DateTimeHelper.GetUnixTimeFromLocalTime(
+                        date,
+                        context.State.Platform.TimeProvider.LocalTimeZone
+                    )
+                )
+            );
         }
         else
         {

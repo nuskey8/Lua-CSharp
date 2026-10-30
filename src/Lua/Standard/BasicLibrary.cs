@@ -62,7 +62,7 @@ public sealed class BasicLibrary
             (context, cancellationToken) =>
             {
                 var table = context.GetArgument<LuaTable>(0);
-                var i = context.GetArgument<double>(1);
+                var i = Math.Truncate(context.GetArgument<double>(1));
 
                 i++;
                 if (table.TryGetValue(i, out var value))
@@ -71,7 +71,7 @@ public sealed class BasicLibrary
                 }
                 else
                 {
-                    return new(context.Return(LuaValue.Nil, LuaValue.Nil));
+                    return new(context.Return(LuaValue.Nil));
                 }
             }
         );
@@ -154,6 +154,8 @@ public sealed class BasicLibrary
     {
         var value = context.ArgumentCount == 0 ? LuaValue.Nil : context.Arguments[0];
         var level = context.HasArgument(1) ? context.GetIntegerArgument(1) : 1;
+        if (level > 0 && value.Type == LuaValueType.Number)
+            value = value.ToLuaString(context.State.Platform.NumberFormat);
 
         throw new LuaRuntimeException(context.State, value, level);
     }

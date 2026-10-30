@@ -372,19 +372,23 @@ public sealed class DebugLibrary
         var state = GetLuaThread(context, out var argOffset);
 
         var message = context.GetArgumentOrDefault(argOffset);
-        var level =
-            context.HasArgument(argOffset + 1) ? context.GetIntegerArgument(argOffset + 1)
-            : argOffset == 0 ? 1
-            : 0;
-
         if (message.Type is not (LuaValueType.Nil or LuaValueType.String or LuaValueType.Number))
         {
             return new(context.Return(message));
         }
 
+        var level =
+            context.HasArgument(argOffset + 1) ? context.GetIntegerArgument(argOffset + 1)
+            : state == context.State ? 1
+            : 0;
+
         if (level < 0)
         {
-            return new(context.Return(LuaValue.Nil));
+            return new(
+                context.Return(
+                    Runtime.Traceback.CreateTracebackMessage(context.GlobalState, [], message)
+                )
+            );
         }
 
         if (state is { IsCoroutine: true, LuaTraceback: { } traceback })
@@ -402,15 +406,13 @@ public sealed class DebugLibrary
         }
 
         var callStack = state.GetCallStackFrames();
-        var skipCount = Math.Min(Math.Max(level - 1, 0), callStack.Length);
-        var frames = callStack[..^skipCount];
         return new(
             context.Return(
                 Runtime.Traceback.CreateTracebackMessage(
                     context.GlobalState,
-                    frames,
+                    callStack,
                     message,
-                    level == 1 ? 1 : 0
+                    level
                 )
             )
         );

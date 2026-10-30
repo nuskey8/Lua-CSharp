@@ -142,7 +142,7 @@ static class IOHelper
                             stack.Push(number ?? LuaValue.Nil);
                             if (number == null)
                             {
-                                return i + 1;
+                                goto ReadFailed;
                             }
                             break;
                         case "*a":
@@ -155,7 +155,7 @@ static class IOHelper
                             stack.Push(line ?? LuaValue.Nil);
                             if (line == null)
                             {
-                                return i + 1;
+                                goto ReadFailed;
                             }
                             break;
                         case "L":
@@ -164,7 +164,7 @@ static class IOHelper
                             stack.Push(text == null ? LuaValue.Nil : text);
                             if (text == null)
                             {
-                                return i + 1;
+                                goto ReadFailed;
                             }
                             break;
                         default:
@@ -190,7 +190,7 @@ static class IOHelper
                     if (ret == null)
                     {
                         stack.Push(default);
-                        return i + 1;
+                        goto ReadFailed;
                     }
                     else
                     {
@@ -209,6 +209,14 @@ static class IOHelper
             }
 
             return formats.Length;
+
+            ReadFailed:
+            if (throwError && stack.Get(top).Type == LuaValueType.Nil)
+            {
+                stack.PopUntil(top);
+                return 0;
+            }
+            return stack.Count - top;
         }
         catch (IOException ex)
         {

@@ -180,7 +180,6 @@ public sealed class IOLibrary
                         var upValues = context.GetCsClosure()!.UpValues;
                         var file = upValues[0].Read<FileHandle>();
                         var formats = upValues.AsMemory(1);
-                        var stack = context.State.Stack;
                         context.Return();
                         var resultCount = await IOHelper.ReadAsync(
                             context.State,
@@ -191,10 +190,7 @@ public sealed class IOLibrary
                             true,
                             cancellationToken
                         );
-                        if (
-                            resultCount > 0
-                            && stack.Get(context.ReturnFrameBase).Type is LuaValueType.Nil
-                        )
+                        if (resultCount == 0)
                         {
                             await file.Close(cancellationToken);
                         }

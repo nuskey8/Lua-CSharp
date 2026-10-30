@@ -249,7 +249,14 @@ public sealed class FileHandle : ILuaUserData
         {
             var file = context.GetArgument<FileHandle>(0);
             var whence = context.HasArgument(1) ? context.GetStringArgument(1) : "cur";
-            var offset = context.HasArgument(2) ? context.GetArgument<long>(2) : 0;
+            var number = context.HasArgument(2) ? context.GetArgument<double>(2) : 0;
+            if (
+                number < long.MinValue
+                || number >= 9223372036854775808d
+                || number != Math.Truncate(number)
+            )
+                LuaRuntimeException.BadArgumentNumberIsNotInteger(context.State, 3);
+            var offset = (long)number;
 
             if (whence is not ("set" or "cur" or "end"))
             {

@@ -19,7 +19,7 @@ Install with `state.OpenDebugLibrary()`. Thread-aware functions accept an option
 | [`debug.setmetatable(value, mt)`](https://www.lua.org/manual/5.2/manual.html#pdf-debug.setmetatable) | Replaces/removes the actual metatable, bypassing `__metatable` protection; returns the value. | Host-frozen tables still reject changing their metatable because `LuaTable.Freeze()` protects managed storage. **Limitation:** light-userdata object tokens have no case in the managed metatable dispatcher, so setting their metatable has no effect. |
 | [`debug.setupvalue(f, index, value)`](https://www.lua.org/manual/5.2/manual.html#pdf-debug.setupvalue) | Writes an upvalue and returns its name, or no values for an invalid slot. | Can update managed closure capture slots; their names are empty. Stripped Lua names are also empty, consistently with `getupvalue` and C Lua 5.2.4. |
 | [`debug.setuservalue(u, value)`](https://www.lua.org/manual/5.2/manual.html#pdf-debug.setuservalue) | Writes the first user-value slot and returns the userdata. | **Difference/limitation:** any Lua value is accepted, rather than Lua 5.2's table/nil restriction. Userdata exposing no `UserValues` storage returns nil. This reflects the host-defined `Span<LuaValue>` storage API. |
-| [`debug.traceback([thread,] [message [, level]])`](https://www.lua.org/manual/5.2/manual.html#pdf-debug.traceback) | Builds a traceback; non-string/non-number messages pass through unchanged after level validation. | Formats managed/C# frames and Lua source metadata rather than reproducing C Lua's exact trace text. See [traceback details](#traceback-details) for argument and formatting limitations. |
+| [`debug.traceback([thread,] [message [, level]])`](https://www.lua.org/manual/5.2/manual.html#pdf-debug.traceback) | Builds a traceback; non-string/non-number messages pass through unchanged without inspecting the level. | Formats managed/C# frames and Lua source metadata rather than reproducing C Lua's exact trace text. See [traceback details](#traceback-details). |
 | [`debug.upvalueid(f, index)`](https://www.lua.org/manual/5.2/manual.html#pdf-debug.upvalueid) | Returns an identity token for an upvalue slot; joined Lua slots share an identity. | Uses weakly associated managed identity objects instead of a native address. Retaining the token does not retain the captured payload; this fits managed GC without exposing movable CLR storage addresses. |
 | [`debug.upvaluejoin(f1, n1, f2, n2)`](https://www.lua.org/manual/5.2/manual.html#pdf-debug.upvaluejoin) | Makes one Lua closure's slot share another Lua closure's upvalue. | Restricted to Lua closures, as in Lua 5.2. Managed capture arrays can be inspected/updated but are not joined by this API. |
 
@@ -33,9 +33,6 @@ Stripped bytecode has no line/local names to recover. Source/line fields and loc
 
 ## Traceback details
 
-The current formatter and argument handling have these limitations:
+The default level is 1 for the current thread, including when that thread is supplied explicitly, and 0 for a different thread. Explicit levels skip that many frames. Negative levels and levels beyond the stack return only the message and traceback heading, as in C Lua 5.2.
 
-- Explicit negative levels return nil rather than a traceback string.
-- Supplying the current thread explicitly defaults to level 0 instead of C Lua's current-thread level 1.
-- Numeric messages use the managed value's `ToString`, independently of `NumberFormat`.
-- The level is validated before passing through a non-string/non-number message. For example, `debug.traceback({}, 'bad')` errors; C Lua returns the table without inspecting the level.
+Numeric messages follow `NumberFormat`. Other non-string/non-number messages are returned unchanged; for example, `debug.traceback({}, 'bad')` returns the table without validating the level. A thread in the first argument position selects the target thread; to pass a thread as the message, supply the target thread first.

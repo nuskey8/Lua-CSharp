@@ -30,6 +30,36 @@ public class IOTests : IDisposable
         return Path.Combine(testDirectory, filename);
     }
 
+    [TestCase("12", "'*n','*n'")]
+    [TestCase("word", "'*n'")]
+    [TestCase("", "'*l'")]
+    public async Task FilenameLinesReturnsNoValuesAndClosesAtTheFirstFailedRead(
+        string content,
+        string formats
+    )
+    {
+        var path = GetTestFilePath("iterator.txt");
+        await File.WriteAllTextAsync(path, content);
+        using var state = LuaState.Create();
+        state.OpenStandardLibraries();
+        state.Environment["path"] = path;
+        state.Environment["hasResult"] = content == "12";
+        await state.DoStringAsync(
+            $$"""
+            local it=io.lines(path,{{formats}})
+            local _,file=debug.getupvalue(it,1)
+            assert(io.type(file)=='file')
+            if hasResult then
+                local values=table.pack(it())
+                assert(values.n==2 and values[1]==12 and values[2]==nil)
+                assert(io.type(file)=='file')
+            end
+            assert(select('#',it())==0)
+            assert(io.type(file)=='closed file')
+            """
+        );
+    }
+
     [Test]
     public async Task TextStream_Write_And_Read_Text()
     {

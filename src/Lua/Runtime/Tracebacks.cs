@@ -154,7 +154,7 @@ public class Traceback(LuaState state, ReadOnlySpan<CallStackFrame> stackFrames)
         using var list = new PooledList<char>(64);
         if (message.Type is not LuaValueType.Nil)
         {
-            list.AddRange(message.ToString());
+            list.AddRange(message.ToLuaString(globalState.Platform.NumberFormat));
             list.AddRange("\n");
         }
 

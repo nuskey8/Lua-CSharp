@@ -32,11 +32,9 @@ static class DateTimeHelper
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static double GetUnixTimeFromLocalTime(DateTime dateTime)
+    public static double GetUnixTimeFromLocalTime(DateTime dateTime, TimeZoneInfo zone)
     {
-        return new DateTimeOffset(
-            DateTime.SpecifyKind(dateTime, DateTimeKind.Local)
-        ).ToUnixTimeSeconds();
+        return new DateTimeOffset(dateTime, zone.GetUtcOffset(dateTime)).ToUnixTimeSeconds();
     }
 
     public static DateTime ParseTimeTable(LuaState state, LuaTable table)
@@ -79,9 +77,14 @@ static class DateTimeHelper
         return new(year, month, day, hour, min, sec);
     }
 
-    public static string StrFTime(LuaState state, ReadOnlySpan<char> format, DateTime d)
+    public static string StrFTime(
+        LuaState state,
+        ReadOnlySpan<char> format,
+        DateTimeOffset time,
+        TimeZoneInfo zone
+    )
     {
-        // reference: http://www.cplusplus.com/reference/ctime/strftime/
+        var d = time.DateTime;
 
         [MethodImpl(MethodImplOptions.NoInlining)]
         static void ThrowInvalidConversionSpecifier(LuaState state, ReadOnlySpan<char> format)
@@ -101,33 +104,29 @@ static class DateTimeHelper
                 'A' => "dddd",
                 'b' => "MMM",
                 'B' => "MMMM",
-                'c' => "f",
                 'd' => "dd",
                 'D' => "MM/dd/yy",
                 'F' => "yyyy-MM-dd",
-                'g' => "yy",
-                'G' => "yyyy",
                 'h' => "MMM",
                 'H' => "HH",
                 'I' => "hh",
                 'm' => "MM",
                 'M' => "mm",
                 'p' => "tt",
-                'r' => "h:mm:ss tt",
+                'r' => "hh:mm:ss tt",
                 'R' => "HH:mm",
                 'S' => "ss",
                 'T' => "HH:mm:ss",
                 'y' => "yy",
                 'Y' => "yyyy",
-                'x' => "d",
-                'X' => "T",
-                'z' => "zzz",
-                'Z' => "zzz",
+                'x' => "MM/dd/yy",
+                'X' => "HH:mm:ss",
                 _ => null,
             };
         }
 
         ValueStringBuilder builder = new();
+        Span<char> formatBuffer = stackalloc char[32];
 
         var isEscapeSequence = false;
 
@@ -158,7 +157,10 @@ static class DateTimeHelper
 
             if (c is 'O' or 'E')
             {
-                ThrowInvalidConversionSpecifier(state, format);
+                var conversions = c == 'E' ? "cCxXyY" : "deHImMSuUVwWy";
+                if (++i >= format.Length || conversions.IndexOf(format[i]) < 0)
+                    ThrowInvalidConversionSpecifier(state, format);
+                c = format[i];
             }
 
             isEscapeSequence = false;
@@ -166,11 +168,24 @@ static class DateTimeHelper
             var pattern = STANDARD_PATTERNS(c);
             if (pattern != null)
             {
-                builder.Append(d.ToString(pattern, CultureInfo.InvariantCulture));
+                d.TryFormat(formatBuffer, out var written, pattern, CultureInfo.InvariantCulture);
+                builder.Append(formatBuffer[..written]);
             }
             else
                 switch (c)
                 {
+                    case 'c':
+                        d.TryFormat(
+                            formatBuffer,
+                            out var written,
+                            "ddd MMM dd HH:mm:ss yyyy",
+                            CultureInfo.InvariantCulture
+                        );
+                        // C-locale %c space-pads a single-digit day.
+                        if (d.Day < 10)
+                            formatBuffer[8] = ' ';
+                        builder.Append(formatBuffer[..written]);
+                        break;
                     case 'e':
                     {
                         var s = d.ToString("%d", CultureInfo.InvariantCulture);
@@ -184,8 +199,7 @@ static class DateTimeHelper
                         builder.Append('\t');
                         break;
                     case 'C':
-                        // TODO: reduce allocation
-                        builder.Append((d.Year / 100).ToString(CultureInfo.InvariantCulture));
+                        builder.Append((d.Year / 100).ToString("00", CultureInfo.InvariantCulture));
                         break;
                     case 'j':
                         builder.Append(d.DayOfYear.ToString("000", CultureInfo.InvariantCulture));
@@ -208,12 +222,45 @@ static class DateTimeHelper
                         break;
                     }
                     case 'U':
-                    // ISO 8601 week number (00-53)
-                    case 'V':
-                    // Week number with the first Monday as the first day of week one (00-53)
                     case 'W':
-                        // Week number with the first Sunday as the first day of week one (00-53)
-                        builder.Append("??");
+                    {
+                        var firstDay = c == 'U' ? 0 : 1;
+                        var weekDay = ((int)d.DayOfWeek + 7 - firstDay) % 7;
+                        var week = (d.DayOfYear + 6 - weekDay) / 7;
+                        builder.Append(week.ToString("00", CultureInfo.InvariantCulture));
+                        break;
+                    }
+                    case 'V':
+                        builder.Append(
+                            ISOWeek.GetWeekOfYear(d).ToString("00", CultureInfo.InvariantCulture)
+                        );
+                        break;
+                    case 'g':
+                    case 'G':
+                    {
+                        var year = ISOWeek.GetYear(d);
+                        builder.Append(
+                            (c == 'g' ? year % 100 : year).ToString(
+                                c == 'g' ? "00" : "0000",
+                                CultureInfo.InvariantCulture
+                            )
+                        );
+                        break;
+                    }
+                    case 'z':
+                        builder.Append(time.Offset < TimeSpan.Zero ? '-' : '+');
+                        var offset = time.Offset.Duration();
+                        builder.Append(offset.Hours.ToString("00", CultureInfo.InvariantCulture));
+                        builder.Append(offset.Minutes.ToString("00", CultureInfo.InvariantCulture));
+                        break;
+                    case 'Z':
+                        builder.Append(
+                            state.Platform.EncodeText(
+                                zone == TimeZoneInfo.Utc ? "UTC"
+                                : zone.IsDaylightSavingTime(time) ? zone.DaylightName
+                                : zone.StandardName
+                            )
+                        );
                         break;
                     default:
                         ThrowInvalidConversionSpecifier(state, format);
