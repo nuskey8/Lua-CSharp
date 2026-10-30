@@ -89,15 +89,16 @@ public sealed class IOLibrary
         var arg = context.Arguments[0];
         if (arg.TryRead<FileHandle>(out var file))
         {
+            if (!file.IsOpen)
+                throw new LuaRuntimeException(context.State, "attempt to use a closed file");
             registry["_IO_input"] = new(file);
             return context.Return(new LuaValue(file));
         }
         else
         {
+            var fileName = context.GetStringArgument(0);
             var stream = await context.GlobalState.Platform.FileSystem.Open(
-                context.State.Platform.DecodeText(
-                    arg.ToLuaString(context.State.Platform.NumberFormat)
-                ),
+                context.State.Platform.DecodeText(fileName),
                 LuaFileOpenMode.Read,
                 cancellationToken
             );
@@ -249,6 +250,8 @@ public sealed class IOLibrary
         var arg = context.Arguments[0];
         if (arg.TryRead<FileHandle>(out var file))
         {
+            if (!file.IsOpen)
+                throw new LuaRuntimeException(context.State, "attempt to use a closed file");
             if (!ReferenceEquals(previousOutput, file) && previousOutput is { IsOpen: true })
             {
                 await previousOutput.FlushAsync(cancellationToken);
@@ -259,15 +262,14 @@ public sealed class IOLibrary
         }
         else
         {
+            var fileName = context.GetStringArgument(0);
             if (previousOutput is { IsOpen: true })
             {
                 await previousOutput.FlushAsync(cancellationToken);
             }
 
             var stream = await context.GlobalState.Platform.FileSystem.Open(
-                context.State.Platform.DecodeText(
-                    arg.ToLuaString(context.State.Platform.NumberFormat)
-                ),
+                context.State.Platform.DecodeText(fileName),
                 LuaFileOpenMode.Write,
                 cancellationToken
             );
