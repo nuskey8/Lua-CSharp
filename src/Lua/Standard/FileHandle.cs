@@ -190,6 +190,8 @@ public sealed class FileHandle : ILuaUserData
         (context, cancellationToken) =>
         {
             var file = context.GetArgument<FileHandle>(0);
+            if (!file.IsOpen)
+                throw new LuaRuntimeException(context.State, "attempt to use a closed file");
             var upValues = new LuaValue[context.ArgumentCount];
             upValues[0] = new(file);
             context.Arguments[1..].CopyTo(upValues.AsSpan(1));

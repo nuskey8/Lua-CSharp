@@ -30,7 +30,7 @@ static class IOHelper
             state.Stack.Push(new(new FileHandle(stream, state.GlobalState.FileHandleMetatable)));
             return 1;
         }
-        catch (IOException ex)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             if (throwError)
             {

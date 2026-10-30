@@ -33,9 +33,10 @@ public sealed class IOLibrary
         CancellationToken cancellationToken
     )
     {
-        var file = context.HasArgument(0)
-            ? context.GetArgument<FileHandle>(0)
-            : context.GlobalState.Registry["_IO_output"].Read<FileHandle>();
+        var file =
+            context.ArgumentCount > 0
+                ? context.GetArgument<FileHandle>(0)
+                : context.GlobalState.Registry["_IO_output"].Read<FileHandle>();
 
         try
         {
@@ -116,6 +117,8 @@ public sealed class IOLibrary
         if (context.ArgumentCount == 0 || context.Arguments[0].Type is LuaValueType.Nil)
         {
             var file = context.GlobalState.Registry["_IO_input"].Read<FileHandle>();
+            if (!file.IsOpen)
+                throw new LuaRuntimeException(context.State, "attempt to use a closed file");
             LuaValue[] upValues = new LuaValue[
                 context.ArgumentCount == 0 ? 1 : context.ArgumentCount
             ];
@@ -203,7 +206,7 @@ public sealed class IOLibrary
         }
     }
 
-    public async ValueTask<int> Open(
+    public ValueTask<int> Open(
         LuaFunctionExecutionContext context,
         CancellationToken cancellationToken
     )
@@ -211,25 +214,7 @@ public sealed class IOLibrary
         var fileName = context.GetStringArgument(0);
         var mode = context.HasArgument(1) ? context.GetStringArgument(1) : "r";
         context.Return();
-        try
-        {
-            var resultCount = await IOHelper.Open(
-                context.State,
-                fileName,
-                mode,
-                true,
-                cancellationToken
-            );
-            return resultCount;
-        }
-        catch (IOException ex)
-        {
-            return context.Return(
-                LuaValue.Nil,
-                context.GlobalState.Platform.EncodeText(ex.Message),
-                ex.HResult
-            );
-        }
+        return IOHelper.Open(context.State, fileName, mode, false, cancellationToken);
     }
 
     public async ValueTask<int> Output(

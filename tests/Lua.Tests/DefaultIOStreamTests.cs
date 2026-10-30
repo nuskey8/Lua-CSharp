@@ -9,7 +9,7 @@ namespace Lua.Tests;
 [TestFixture(LuaStringMode.Bytes)]
 public class DefaultIOStreamTests(LuaStringMode mode)
 {
-    LuaState Create(RecordingFileSystem files, FlushStream output)
+    LuaState Create(ILuaFileSystem files, FlushStream output)
     {
         var platform =
             mode == LuaStringMode.Bytes ? LuaPlatform.DefaultByteStrings : LuaPlatform.Default;
@@ -85,6 +85,89 @@ public class DefaultIOStreamTests(LuaStringMode mode)
             """
         );
         Assert.That(files.Paths, Is.EqualTo(new[] { "123" }));
+    }
+
+    [Test]
+    public async Task CloseDistinguishesAnOmittedArgumentFromNil()
+    {
+        using var output = new FlushStream();
+        using var state = Create(new RecordingFileSystem(), output);
+        using var stream = new LuaStream(LuaFileOpenMode.Write, new MemoryStream(), mode);
+        state.Environment["file"] = new LuaValue(new FileHandle(stream));
+        await state.DoStringAsync(
+            """
+            local original=io.output()
+            io.output(file)
+            local ok,e=pcall(io.close,nil)
+            assert(not ok and type(e)=='string')
+            assert(io.type(file)=='file' and io.output()==file)
+            assert(io.close())
+            assert(io.type(file)=='closed file')
+            io.output(original)
+            """
+        );
+    }
+
+    [TestCase("file:lines()")]
+    [TestCase("io.lines()")]
+    [TestCase("io.lines(nil,'*l')")]
+    public async Task LineIteratorFactoriesRejectClosedFiles(string expression)
+    {
+        using var output = new FlushStream();
+        using var state = Create(new RecordingFileSystem(), output);
+        using var stream = ILuaStream.CreateFromString("line\n");
+        state.Environment["file"] = new LuaValue(new FileHandle(stream));
+        await state.DoStringAsync(
+            $$"""
+            local original=io.input()
+            io.input(file)
+            local iterator=file:lines()
+            assert(iterator()=='line')
+            file:close()
+            local ok,e=pcall(function() return {{expression}} end)
+            assert(not ok and e:find('closed file',1,true))
+            io.input(original)
+            """
+        );
+    }
+
+    [Test]
+    public async Task AccessDeniedIsReturnedByOpenButRaisedByLines()
+    {
+        var files = new DeniedFileSystem();
+        using var output = new FlushStream();
+        using var state = Create(files, output);
+        var result = await state.DoStringAsync(
+            """
+            local file,message,code=io.open('denied','r')
+            local ok,e=pcall(io.lines,'denied')
+            return file,message,code,ok,type(e)
+            """
+        );
+        Assert.That(
+            result,
+            Is.EqualTo(
+                new LuaValue[]
+                {
+                    LuaValue.Nil,
+                    "access denied",
+                    files.Error.HResult,
+                    false,
+                    "string",
+                }
+            )
+        );
+    }
+
+    sealed class DeniedFileSystem : NotImplementedExceptionFileSystemBase
+    {
+        public UnauthorizedAccessException Error { get; } = new("access denied");
+
+        public override ValueTask<ILuaStream> Open(
+            string path,
+            LuaFileOpenMode mode,
+            CancellationToken token
+        ) => throw Error;
     }
 
     sealed class RecordingFileSystem : NotImplementedExceptionFileSystemBase
