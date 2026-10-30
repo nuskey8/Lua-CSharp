@@ -434,7 +434,7 @@ unsafe ref struct UndumpState(
         var upValues = ReadUpValues();
 
         // Debug
-        var source = ReadString();
+        var source = ReadString("=?");
         var lineInfoLength = ReadCount(sizeof(int));
         if (lineInfoLength != 0 && lineInfoLength != codeLength)
             Throw("invalid line info in");
@@ -480,12 +480,12 @@ unsafe ref struct UndumpState(
         }
     }
 
-    string ReadString()
+    string ReadString(string nullValue = "")
     {
         var serializedLength = pointerSize == 4 ? ReadInt() : ReadLong();
         if (serializedLength == 0)
         {
-            return "";
+            return nullValue;
         }
 
         if (serializedLength < 0 || serializedLength > Unread.Length)
