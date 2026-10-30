@@ -1,6 +1,7 @@
 using System.Runtime.CompilerServices;
 using System.Text;
 using Lua.Internal.CompilerServices;
+using Lua.Runtime;
 
 namespace Lua.Standard;
 
@@ -161,7 +162,7 @@ public sealed class ModuleLibrary
             var top = state.Stack.Count;
             state.Stack.Push(loader);
             state.Stack.Push(name);
-            var resultCount = await state.CallAsync(top, top, cancellationToken);
+            var resultCount = await LuaVirtualMachine.Call(state, top, top, cancellationToken);
             if (0 < resultCount)
             {
                 var result = state.Stack.Get(top);

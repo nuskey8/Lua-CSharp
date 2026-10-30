@@ -146,7 +146,7 @@ public class LuaState : IDisposable
         CancellationToken cancellationToken = default
     )
     {
-        if (isInErrorHandler)
+        if (NonYieldableCallCount != 0)
             throw new LuaRuntimeException(this, "attempt to yield across a C-call boundary");
         if (coroutine is not null)
         {
@@ -164,7 +164,7 @@ public class LuaState : IDisposable
 
     public ValueTask<int> YieldAsync(LuaStack stack, CancellationToken cancellationToken = default)
     {
-        if (isInErrorHandler)
+        if (NonYieldableCallCount != 0)
             throw new LuaRuntimeException(this, "attempt to yield across a C-call boundary");
         if (coroutine is not null)
         {
@@ -223,7 +223,7 @@ public class LuaState : IDisposable
 
     internal ILuaTracebackBuildable? CurrentException;
     internal int ErrorHandlerIndex;
-    bool isInErrorHandler;
+    internal int NonYieldableCallCount;
     internal readonly ReversedStack<CallStackFrame> ExceptionTrace = new();
     internal Prototype? LastCallerPrototype;
 
@@ -604,13 +604,6 @@ public class LuaState : IDisposable
 
             return await function.Func(context, cancellationToken);
         }
-        catch (Exception exception)
-            when (ErrorHandlerIndex != 0 && exception is not OperationCanceledException)
-        {
-            var handled = await HandleErrorAsync(exception, cancellationToken);
-            Stack.PopUntil(returnBase);
-            throw handled;
-        }
         catch
         {
             Stack.PopUntil(returnBase);
@@ -652,8 +645,7 @@ public class LuaState : IDisposable
             error = Platform.GetErrorMessage(exception);
 
         var top = Stack.Count;
-        var previousInHandler = isInErrorHandler;
-        isInErrorHandler = true;
+        NonYieldableCallCount++;
         try
         {
             Stack.PushRange(handler, error);
@@ -670,7 +662,7 @@ public class LuaState : IDisposable
         }
         finally
         {
-            isInErrorHandler = previousInHandler;
+            NonYieldableCallCount--;
             Stack.PopUntil(top);
         }
         Stack.Get(handlerIndex) = error;

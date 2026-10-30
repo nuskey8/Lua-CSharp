@@ -65,6 +65,81 @@ public class LoadReaderTests(LuaStringMode stringMode)
         Assert.That(state.CallStackFrameCount, Is.Zero);
     }
 
+    [TestCase("return 42", "b", "text", false)]
+    [TestCase("return 42", "b", "text", true)]
+    [TestCase("\u001bLua", "t", "binary", false)]
+    [TestCase("\u001bLua", "t", "binary", true)]
+    [TestCase("", "b", "text", false)]
+    [TestCase(null, "b", "text", false)]
+    public async Task ReaderChecksModeBeforeRequestingAnotherPiece(
+        string? piece,
+        string mode,
+        string kind,
+        bool asynchronous
+    )
+    {
+        using var state = CreateState();
+        var suspension = new ManualSuspension();
+        var calls = 0;
+        state.Environment["reader"] = new LuaFunction(
+            async (context, _) =>
+            {
+                if (++calls > 1)
+                    throw new InvalidOperationException("reader must not be called again");
+                if (asynchronous)
+                    await suspension;
+                return context.Return(piece == null ? LuaValue.Nil : piece);
+            }
+        );
+        state.Environment["mode"] = mode;
+        var operation = state.DoStringAsync("return load(reader,nil,mode)").AsTask();
+        if (asynchronous)
+            suspension.Resume();
+        var result = await operation;
+        Assert.That(result, Has.Length.EqualTo(2));
+        Assert.That(result[0], Is.EqualTo(LuaValue.Nil));
+        Assert.That(result[1].Read<string>(), Does.Contain($"attempt to load a {kind} chunk"));
+        Assert.That(calls, Is.EqualTo(1));
+        Assert.That(state.Stack.Count, Is.Zero);
+        Assert.That(state.CallStackFrameCount, Is.Zero);
+        Assert.That(state.NonYieldableCallCount, Is.Zero);
+    }
+
+    [TestCase(0, false)]
+    [TestCase(1, false)]
+    [TestCase(1, true)]
+    public async Task ReaderCannotYieldAndRestoresYieldability(int piecesBeforeYield, bool nested)
+    {
+        using var state = CreateState();
+        state.Environment["piecesBeforeYield"] = piecesBeforeYield;
+        state.Environment["nested"] = nested;
+        await state.DoStringAsync(
+            """
+            local co=coroutine.create(function()
+                local calls=0
+                local f,e=load(function()
+                    calls=calls+1
+                    if calls<=piecesBeforeYield then return 'return 42' end
+                    if nested then
+                        local inner,message=load(function() coroutine.yield('inner reader') end)
+                        assert(inner==nil and message:find('attempt to yield across a C-call boundary',1,true))
+                    end
+                    coroutine.yield('reader')
+                end)
+                assert(f==nil and e:find('attempt to yield across a C-call boundary',1,true))
+                coroutine.yield('after load')
+                return 'done'
+            end)
+            local ok,value=coroutine.resume(co)
+            assert(ok and value=='after load' and coroutine.status(co)=='suspended')
+            ok,value=coroutine.resume(co)
+            assert(ok and value=='done' and coroutine.status(co)=='dead')
+            """
+        );
+        Assert.That(state.Stack.Count, Is.Zero);
+        Assert.That(state.CallStackFrameCount, Is.Zero);
+    }
+
     [Test]
     public async Task ReaderCanSuspendAndCancellationIsNotConvertedToALoadError()
     {
@@ -83,6 +158,7 @@ public class LoadReaderTests(LuaStringMode stringMode)
         var operation = state.DoStringAsync("return assert(load(reader))()").AsTask();
         suspension.Resume();
         Assert.That(await operation, Is.EqualTo(new LuaValue[] { 42 }));
+        Assert.That(state.NonYieldableCallCount, Is.Zero);
         using var source = new CancellationTokenSource();
         state.Environment["reader"] = new LuaFunction(
             (context, token) =>
@@ -95,6 +171,9 @@ public class LoadReaderTests(LuaStringMode stringMode)
         Assert.ThrowsAsync<LuaCanceledException>(async () =>
             await state.DoStringAsync("return load(reader)", cancellationToken: source.Token)
         );
+        Assert.That(state.NonYieldableCallCount, Is.Zero);
+        Assert.That(state.Stack.Count, Is.Zero);
+        Assert.That(state.CallStackFrameCount, Is.Zero);
     }
 
     [TestCase(false)]

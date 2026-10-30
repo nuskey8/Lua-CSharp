@@ -83,6 +83,50 @@ public class StandardLibraryContractTests(LuaStringMode stringMode)
         );
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task PrintResolvesTostringThroughTheGlobalMetatable(bool asynchronous)
+    {
+        using var state = CreateState();
+        var suspension = new ManualSuspension();
+        state.Environment["pause"] = new LuaFunction(
+            async (context, _) =>
+            {
+                if (asynchronous)
+                    await suspension;
+                return context.Return();
+            }
+        );
+        var output = new List<string>();
+        state.Platform = state.Platform with
+        {
+            StandardIO = new TestStandardIO(stringMode)
+            {
+                Output = new BufferedOutputStream(value => output.Add(value.ToString())),
+            },
+        };
+        var operation = state
+            .DoStringAsync(
+                """
+                local calls=0
+                _G.tostring=nil
+                setmetatable(_G,{__index=function(t,key)
+                    pause()
+                    assert(key=='tostring')
+                    calls=calls+1
+                    return function(value) return value*2 end
+                end})
+                print(1,2)
+                assert(calls==1)
+                """
+            )
+            .AsTask();
+        if (asynchronous)
+            suspension.Resume();
+        await operation;
+        Assert.That(output, Is.EqualTo(new[] { "2\t4\n" }));
+    }
+
     [Test]
     public async Task FileLinesRetainsEveryReadFormat()
     {

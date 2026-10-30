@@ -546,7 +546,7 @@ public static class LuaStateExtensions
         CancellationToken cancellationToken = default
     )
     {
-        return LuaVirtualMachine.Call(state, funcIndex, funcIndex, cancellationToken);
+        return state.CallAsync(funcIndex, funcIndex, cancellationToken);
     }
 
     public static ValueTask<int> CallAsync(
@@ -556,7 +556,35 @@ public static class LuaStateExtensions
         CancellationToken cancellationToken = default
     )
     {
-        return LuaVirtualMachine.Call(state, funcIndex, returnBase, cancellationToken);
+        if (state.ErrorHandlerIndex == 0)
+            return LuaVirtualMachine.Call(state, funcIndex, returnBase, cancellationToken);
+        return Impl(state, funcIndex, returnBase, cancellationToken);
+
+        [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder<>))]
+        static async ValueTask<int> Impl(
+            LuaState state,
+            int funcIndex,
+            int returnBase,
+            CancellationToken cancellationToken
+        )
+        {
+            // Host callers can catch the error before it propagates back into Lua.
+            var previousHandler = state.ErrorHandlerIndex;
+            state.ErrorHandlerIndex = 0;
+            try
+            {
+                return await LuaVirtualMachine.Call(
+                    state,
+                    funcIndex,
+                    returnBase,
+                    cancellationToken
+                );
+            }
+            finally
+            {
+                state.ErrorHandlerIndex = previousHandler;
+            }
+        }
     }
 
     public static ValueTask<LuaValue[]> CallAsync(
@@ -577,6 +605,8 @@ public static class LuaStateExtensions
             CancellationToken cancellationToken
         )
         {
+            var previousHandler = state.ErrorHandlerIndex;
+            state.ErrorHandlerIndex = 0;
             try
             {
                 await LuaVirtualMachine.Call(state, funcIndex, funcIndex, cancellationToken);
@@ -584,6 +614,7 @@ public static class LuaStateExtensions
             }
             finally
             {
+                state.ErrorHandlerIndex = previousHandler;
                 state.Stack.PopUntil(funcIndex);
             }
         }

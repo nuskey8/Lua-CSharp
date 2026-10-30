@@ -280,25 +280,37 @@ public sealed class BasicLibrary
                 using var source = new PooledList<char>(256);
                 var stack = context.State.Stack;
                 var top = stack.Count;
-                while (true)
+                context.State.NonYieldableCallCount++;
+                try
                 {
-                    var count = await context.State.RunAsync(function, 0, top, cancellationToken);
-                    var piece = count == 0 ? LuaValue.Nil : stack.Get(top);
-                    if (piece.Type == LuaValueType.Nil)
+                    while (true)
                     {
-                        stack.PopUntil(top);
-                        break;
-                    }
-                    if (piece.Type is not (LuaValueType.String or LuaValueType.Number))
-                        throw new LuaRuntimeException(
-                            context.State,
-                            "reader function must return a string"
+                        var count = await context.State.RunAsync(
+                            function,
+                            0,
+                            top,
+                            cancellationToken
                         );
-                    var text = piece.ToLuaString(context.State.Platform.NumberFormat);
-                    stack.PopUntil(top);
-                    if (text.Length == 0)
-                        break;
-                    source.AddRange(text);
+                        var piece = count == 0 ? LuaValue.Nil : stack.Get(top);
+                        stack.PopUntil(top);
+                        if (piece.Type == LuaValueType.Nil)
+                            break;
+                        if (piece.Type is not (LuaValueType.String or LuaValueType.Number))
+                            throw new LuaRuntimeException(
+                                context.State,
+                                "reader function must return a string"
+                            );
+                        var text = piece.ToLuaString(context.State.Platform.NumberFormat);
+                        if (text.Length == 0)
+                            break;
+                        if (source.Count == 0)
+                            CheckLoadMode(text[0] == '\e', mode);
+                        source.AddRange(text);
+                    }
+                }
+                finally
+                {
+                    context.State.NonYieldableCallCount--;
                 }
                 closure = LoadSource(context.State, source.AsSpan(), name ?? "=(load)", mode);
             }
@@ -326,6 +338,14 @@ public sealed class BasicLibrary
         }
     }
 
+    static void CheckLoadMode(bool binary, string mode)
+    {
+        if (!mode.Contains(binary ? 'b' : 't'))
+            throw new Exception(
+                $"attempt to load a {(binary ? "binary" : "text")} chunk (mode is '{mode}')"
+            );
+    }
+
     static LuaClosure LoadSource(
         LuaState state,
         ReadOnlySpan<char> source,
@@ -333,16 +353,13 @@ public sealed class BasicLibrary
         string mode
     )
     {
+        CheckLoadMode(!source.IsEmpty && source[0] == '\e', mode);
         if (!source.IsEmpty && source[0] == '\e')
         {
-            if (!mode.Contains('b'))
-                throw new Exception("attempt to load a binary chunk (mode is 't')");
             using PooledArray<byte> bytes = new(source.Length);
             LuaByteEncoding.Instance.GetBytes(source, bytes.AsSpan());
             return new(state, Parser.Undump(bytes.AsSpan(), name, state.Platform.StringMode));
         }
-        if (!mode.Contains('t'))
-            throw new Exception("attempt to load a text chunk (mode is 'b')");
         return state.LoadCore(source, name);
     }
 
@@ -459,8 +476,15 @@ public sealed class BasicLibrary
     )
     {
         var stdout = context.GlobalState.Platform.StandardIO.Output;
-        var toString = context.State.Environment["tostring"];
         var argumentBase = context.FrameBase;
+        var environment = context.State.Environment;
+        if (!environment.TryGetValue("tostring", out var toString))
+            toString = await LuaVirtualMachine.ExecuteGetTableSlowPath(
+                context.State,
+                environment,
+                "tostring",
+                cancellationToken
+            );
 
         for (var i = 0; i < context.ArgumentCount; i++)
         {
