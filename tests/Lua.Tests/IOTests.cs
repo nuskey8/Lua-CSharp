@@ -428,27 +428,24 @@ public class IOTests : IDisposable
     [Test]
     public async Task FileSystem_TempFile_Works()
     {
-        string? tempPath = null;
+        using var tempStream = await fileSystem.OpenTempFileStream(CancellationToken.None);
+        await tempStream.WriteAsync("temp content".AsMemory(), CancellationToken.None);
+        tempStream.Seek(SeekOrigin.Begin, 0);
+        var content = await tempStream.ReadAllAsync(CancellationToken.None);
+        Assert.That(content, Is.EqualTo("temp content"));
+    }
 
-        try
-        {
-            using (var tempStream = await fileSystem.OpenTempFileStream(CancellationToken.None))
-            {
-                await tempStream.WriteAsync("temp content".AsMemory(), CancellationToken.None);
-
-                // Seek and read
-                tempStream.Seek(SeekOrigin.Begin, 0);
-                var content = await tempStream.ReadAllAsync(CancellationToken.None);
-                Assert.That(content, Is.EqualTo("temp content"));
-            }
-        }
-        finally
-        {
-            if (tempPath != null && File.Exists(tempPath))
-            {
-                File.Delete(tempPath);
-            }
-        }
+    [Test]
+    public async Task TemporaryFilesAreDeletedOnClose()
+    {
+        using var file = FileSystem.CreateTemporaryFile();
+        var path = file.Name;
+        using ILuaStream stream = new LuaStream(LuaFileOpenMode.WriteUpdate, file);
+        await stream.WriteAsync("temporary", default);
+        stream.Seek(SeekOrigin.Begin, 0);
+        Assert.That(await stream.ReadAllAsync(default), Is.EqualTo("temporary"));
+        await stream.CloseAsync(default);
+        Assert.That(File.Exists(path), Is.False);
     }
 
     [Test]

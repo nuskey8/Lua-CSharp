@@ -74,13 +74,16 @@ public class MemoryLifetimeTests
         GC.KeepAlive(state);
     }
 
-    [TestCase(false)]
-    [TestCase(true)]
-    public void HandledErrorDoesNotRootPayloadWhileStateIsIdle(bool text)
+    [Test]
+    [Combinatorial]
+    public void HandledErrorDoesNotRootPayloadWhileStateIsIdle(
+        [Values(false, true)] bool text,
+        [Values(false, true)] bool messageHandler
+    )
     {
         using var state = LuaState.Create();
         state.OpenStandardLibraries();
-        AssertCollected(HandleError(state, text));
+        AssertCollected(HandleError(state, text, messageHandler));
         GC.KeepAlive(state);
     }
 
@@ -202,13 +205,15 @@ public class MemoryLifetimeTests
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
-    static WeakReference HandleError(LuaState state, bool text = false)
+    static WeakReference HandleError(LuaState state, bool text = false, bool messageHandler = false)
     {
         object payload = text ? new string('x', 65536) : new object();
         state.Environment["payload"] = LuaValue.FromObject(payload);
         state
             .DoStringAsync(
-                "local p=payload; payload=nil; local ok=pcall(function() error(p) end); return ok"
+                messageHandler
+                    ? "local p=payload;payload=nil;local ok=xpcall(function() error(p) end,function(e) return e,p end);return ok"
+                    : "local p=payload;payload=nil;local ok=pcall(function() error(p) end);return ok"
             )
             .AsTask()
             .GetAwaiter()

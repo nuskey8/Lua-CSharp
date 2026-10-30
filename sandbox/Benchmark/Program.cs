@@ -16,6 +16,7 @@ if (args.Contains("--verify"))
         $"NuLua Lua52 assembly: {typeof(NuLua.Lua52.Lua52State).Assembly.GetName().Version}"
     );
     InterpreterComparison.Verify();
+    await BytecodeInteropVerification.VerifyAsync();
     return;
 }
 

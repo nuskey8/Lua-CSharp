@@ -5,6 +5,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 using Lua.Internal;
+using Lua.IO;
 using Lua.Runtime;
 
 namespace Lua.CodeAnalysis.Compilation;
@@ -96,8 +97,14 @@ unsafe struct Header
     }
 }
 
-unsafe ref struct DumpState(IBufferWriter<byte> writer, bool reversedEndian)
+unsafe ref struct DumpState(
+    IBufferWriter<byte> writer,
+    bool reversedEndian,
+    LuaStringMode stringMode
+)
 {
+    readonly Encoding encoding =
+        stringMode == LuaStringMode.Bytes ? LuaByteEncoding.Instance : Encoding.UTF8;
     public readonly IBufferWriter<byte> Writer = writer;
     Span<byte> unWritten;
 
@@ -142,8 +149,8 @@ unsafe ref struct DumpState(IBufferWriter<byte> writer, bool reversedEndian)
         WriteInt(prototype.LineDefined); // 4
         WriteInt(prototype.LastLineDefined); // 4
         WriteByte((byte)prototype.ParameterCount); // 1
-        WriteByte((byte)prototype.MaxStackSize); // 1
         WriteByte((byte)(prototype.HasVariableArguments ? 1 : 0)); // 1
+        WriteByte((byte)prototype.MaxStackSize); // 1
         WriteIntSpanWithLength(MemoryMarshal.Cast<Instruction, int>(prototype.Code)); // 4
         WriteConstants(prototype.Constants); // 4
         WritePrototypes(prototype.ChildPrototypes); // 4
@@ -215,12 +222,8 @@ unsafe ref struct DumpState(IBufferWriter<byte> writer, bool reversedEndian)
 
     void WriteString(string v)
     {
-        var bytes = Encoding.UTF8.GetBytes(v);
-        var len = bytes.Length;
-        if (bytes.Length != 0)
-        {
-            len++;
-        }
+        var bytes = encoding.GetBytes(v);
+        var len = bytes.Length + 1;
 
         if (sizeof(IntPtr) == 8)
         {
@@ -231,11 +234,8 @@ unsafe ref struct DumpState(IBufferWriter<byte> writer, bool reversedEndian)
             WriteInt(len);
         }
 
-        if (len != 0)
-        {
-            Write(bytes);
-            WriteByte(0);
-        }
+        Write(bytes);
+        WriteByte(0);
     }
 
     void WriteConstants(ReadOnlySpan<LuaValue> constants)
@@ -243,20 +243,29 @@ unsafe ref struct DumpState(IBufferWriter<byte> writer, bool reversedEndian)
         WriteInt(constants.Length);
         foreach (var c in constants)
         {
-            WriteByte((byte)c.Type);
+            // Lua bytecode tags differ from LuaValueType for strings.
             switch (c.Type)
             {
                 case LuaValueType.Nil:
+                    WriteByte(0);
                     break;
                 case LuaValueType.Boolean:
+                    WriteByte(1);
                     WriteBool(c.UnsafeReadDouble() != 0);
                     break;
                 case LuaValueType.Number:
+                    WriteByte(3);
                     WriteDouble(c.UnsafeReadDouble());
                     break;
                 case LuaValueType.String:
+                    WriteByte(4);
                     WriteString(c.UnsafeRead<string>());
                     break;
+                default:
+                    throw new ArgumentException(
+                        "Unsupported bytecode constant type",
+                        nameof(constants)
+                    );
             }
         }
     }
@@ -295,9 +304,12 @@ unsafe ref struct DumpState(IBufferWriter<byte> writer, bool reversedEndian)
 unsafe ref struct UndumpState(
     ReadOnlySpan<byte> span,
     ReadOnlySpan<char> name,
-    StringInternPool internPool
+    StringInternPool internPool,
+    LuaStringMode stringMode
 )
 {
+    readonly Encoding encoding =
+        stringMode == LuaStringMode.Bytes ? LuaByteEncoding.Instance : Encoding.UTF8;
     public ReadOnlySpan<byte> Unread = span;
     bool otherEndian;
     int pointerSize;
@@ -412,8 +424,8 @@ unsafe ref struct UndumpState(
         var lineDefined = ReadInt(); // 4
         var lastLineDefined = ReadInt(); // 4
         var parameterCount = ReadByte(); // 1
-        var maxStackSize = ReadByte(); // 1
         var isVarArg = ReadBool(); // 1
+        var maxStackSize = ReadByte(); // 1
         var codeLength = ReadCount(sizeof(int));
         var code = new Instruction[codeLength];
         ReadInToIntSpan(MemoryMarshal.Cast<Instruction, int>(code));
@@ -422,7 +434,7 @@ unsafe ref struct UndumpState(
         var upValues = ReadUpValues();
 
         // Debug
-        var source = ReadString();
+        var source = ReadString("=?");
         var lineInfoLength = ReadCount(sizeof(int));
         if (lineInfoLength != 0 && lineInfoLength != codeLength)
             Throw("invalid line info in");
@@ -450,7 +462,10 @@ unsafe ref struct UndumpState(
             lineInfo,
             localVariables,
             upValues
-        );
+        )
+        {
+            StringMode = stringMode,
+        };
         new BytecodeVerifier(prototype, name).Verify();
         return prototype;
     }
@@ -465,12 +480,12 @@ unsafe ref struct UndumpState(
         }
     }
 
-    string ReadString()
+    string ReadString(string nullValue = "")
     {
         var serializedLength = pointerSize == 4 ? ReadInt() : ReadLong();
         if (serializedLength == 0)
         {
-            return "";
+            return nullValue;
         }
 
         if (serializedLength < 0 || serializedLength > Unread.Length)
@@ -489,7 +504,7 @@ unsafe ref struct UndumpState(
                 len <= 128
                     ? stackalloc char[len]
                     : (charArrayPooled = ArrayPool<char>.Shared.Rent(len));
-            var count = Encoding.UTF8.GetChars(bytes, chars);
+            var count = encoding.GetChars(bytes, chars);
             return internPool.Intern(chars[..count]);
         }
         finally
@@ -507,18 +522,18 @@ unsafe ref struct UndumpState(
         var constants = new LuaValue[count];
         for (var i = 0; i < count; i++)
         {
-            var type = (LuaValueType)ReadByte();
+            var type = ReadByte();
             switch (type)
             {
-                case LuaValueType.Nil:
+                case 0:
                     break;
-                case LuaValueType.Boolean:
+                case 1:
                     constants[i] = ReadBool();
                     break;
-                case LuaValueType.Number:
+                case 3:
                     constants[i] = ReadDouble();
                     break;
-                case LuaValueType.String:
+                case 4:
                     constants[i] = ReadString();
                     break;
                 default:

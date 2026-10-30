@@ -166,7 +166,12 @@ class CoroutineCore(LuaState state, LuaFunction function, bool isProtectedMode)
                     if (cancelled)
                         executionSource!.Cancel();
                     isFirstCall = false;
-                    functionTask = Thread.RunAsync(Function!, Thread.Stack.Count, executionToken);
+                    functionTask = Thread.RunCoreAsync(
+                        Function!,
+                        Thread.Stack.Count,
+                        0,
+                        executionToken
+                    );
                     if (functionTask.IsCompleted)
                         OnFunctionCompleted();
                     else

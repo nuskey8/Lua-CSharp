@@ -95,7 +95,12 @@ public sealed class StringLibrary
         CancellationToken cancellationToken
     )
     {
-        throw new NotSupportedException("stirng.dump is not supported");
+        var function = context.GetArgument<LuaFunction>(0);
+        if (function is not LuaClosure closure)
+            throw new LuaRuntimeException(context.State, "unable to dump given function");
+        using var writer = new ArrayPoolBufferWriter<byte>();
+        closure.Proto.WriteBytecode(writer);
+        return new(context.Return(LuaByteString.FromBytes(writer.WrittenSpan)));
     }
 
     public ValueTask<int> Find(
@@ -611,171 +616,180 @@ public sealed class StringLibrary
         if (n == 0)
             return context.Return(s, 0);
 
-        MatchState matchState = new(context.State, s, pattern);
-        var captures = matchState.Captures;
-
-        StringBuilder builder = new();
-        var replacementText =
-            repl.Type == LuaValueType.String ? repl.UnsafeReadString()
-            : repl.Type == LuaValueType.Number
-                ? repl.ToLuaString(context.State.Platform.NumberFormat)
-            : null;
-        var replacedBuilder =
-            replacementText != null && replacementText.IndexOf('%') >= 0
-                ? new StringBuilder(replacementText.Length)
-                : null;
-        var lastIndex = 0;
-        var replaceCount = 0;
-
-        // Check for anchor at start
-        var anchor = pattern.Length > 0 && pattern[0] == '^';
-        var sIdx = 0;
-
-        // Include the end position so patterns can match an empty string there.
-        while (sIdx <= s.Length && replaceCount < n)
+        context.State.NonYieldableCallCount++;
+        try
         {
-            // Reset match state for each attempt
-            matchState.Level = 0;
-            Debug.Assert(matchState.MatchDepth == MatchState.MaxCalls);
+            MatchState matchState = new(context.State, s, pattern);
+            var captures = matchState.Captures;
 
-            // Always start pattern from beginning (0 or 1 if anchored)
-            var pIdx = anchor ? 1 : 0;
-            var res = matchState.Match(sIdx, pIdx);
+            StringBuilder builder = new();
+            var replacementText =
+                repl.Type == LuaValueType.String ? repl.UnsafeReadString()
+                : repl.Type == LuaValueType.Number
+                    ? repl.ToLuaString(context.State.Platform.NumberFormat)
+                : null;
+            var replacedBuilder =
+                replacementText != null && replacementText.IndexOf('%') >= 0
+                    ? new StringBuilder(replacementText.Length)
+                    : null;
+            var lastIndex = 0;
+            var replaceCount = 0;
 
-            if (res >= 0)
+            // Check for anchor at start
+            var anchor = pattern.Length > 0 && pattern[0] == '^';
+            var sIdx = 0;
+
+            // Include the end position so patterns can match an empty string there.
+            while (sIdx <= s.Length && replaceCount < n)
             {
-                // Found a match
-                builder.Append(s.AsSpan()[lastIndex..sIdx]);
+                // Reset match state for each attempt
+                matchState.Level = 0;
+                Debug.Assert(matchState.MatchDepth == MatchState.MaxCalls);
 
-                // If no captures were made, create one for the whole match
-                if (matchState.Level == 0)
-                {
-                    captures[0].Init = sIdx;
-                    captures[0].Len = res - sIdx;
-                    matchState.Level = 1;
-                }
+                // Always start pattern from beginning (0 or 1 if anchored)
+                var pIdx = anchor ? 1 : 0;
+                var res = matchState.Match(sIdx, pIdx);
 
-                LuaValue result;
-                if (replacementText != null)
+                if (res >= 0)
                 {
-                    if (replacedBuilder == null)
+                    // Found a match
+                    builder.Append(s.AsSpan()[lastIndex..sIdx]);
+
+                    // If no captures were made, create one for the whole match
+                    if (matchState.Level == 0)
                     {
-                        result = replacementText;
+                        captures[0].Init = sIdx;
+                        captures[0].Len = res - sIdx;
+                        matchState.Level = 1;
+                    }
+
+                    LuaValue result;
+                    if (replacementText != null)
+                    {
+                        if (replacedBuilder == null)
+                        {
+                            result = replacementText;
+                        }
+                        else
+                        {
+                            // String replacement
+                            replacedBuilder.Clear();
+                            AppendReplacement(
+                                replacedBuilder,
+                                replacementText,
+                                s,
+                                sIdx,
+                                res,
+                                matchState
+                            );
+                            result = replacedBuilder.ToString();
+                        }
+                    }
+                    else if (repl.TryRead<LuaTable>(out var table))
+                    {
+                        var key = matchState.GetCapture(0);
+
+                        if (!table.TryGetValue(key, out result) && table.Metatable != null)
+                        {
+                            result = await LuaVirtualMachine.ExecuteGetTableSlowPath(
+                                context.State,
+                                table,
+                                key,
+                                cancellationToken
+                            );
+                        }
                     }
                     else
                     {
-                        // String replacement
-                        replacedBuilder.Clear();
-                        AppendReplacement(
-                            replacedBuilder,
-                            replacementText,
-                            s,
-                            sIdx,
-                            res,
-                            matchState
-                        );
-                        result = replacedBuilder.ToString();
-                    }
-                }
-                else if (repl.TryRead<LuaTable>(out var table))
-                {
-                    var key = matchState.GetCapture(0);
+                        var func = repl.UnsafeRead<LuaFunction>();
+                        // Function call with captures as arguments
+                        var stack = context.State.Stack;
 
-                    if (!table.TryGetValue(key, out result) && table.Metatable != null)
-                    {
-                        result = await LuaVirtualMachine.ExecuteGetTableSlowPath(
-                            context.State,
-                            table,
-                            key,
+                        for (var k = 0; k < matchState.Level; k++)
+                        {
+                            stack.Push(matchState.GetCapture(k));
+                        }
+                        var retCount = await context.State.RunCoreAsync(
+                            func,
+                            matchState.Level,
+                            stack.Count - matchState.Level,
                             cancellationToken
                         );
+                        using var results = context.State.ReadStack(retCount);
+                        result = results.Count > 0 ? results[0] : LuaValue.Nil;
+                    }
+                    // Handle replacement result
+                    if (result.TryRead<string>(out var rs))
+                    {
+                        builder.Append(rs);
+                    }
+                    else if (result.TryRead<double>(out var rd))
+                    {
+                        AppendNumber(builder, rd, context.State.Platform.NumberFormat);
+                    }
+                    else if (!result.ToBoolean())
+                    {
+                        // False or nil means don't replace
+                        builder.Append(s.AsSpan(sIdx, res - sIdx));
+                    }
+                    else
+                    {
+                        throw new LuaRuntimeException(
+                            context.State,
+                            $"invalid replacement value (a {result.TypeToString()})"
+                        );
+                    }
+
+                    replaceCount++;
+                    lastIndex = res;
+
+                    // If empty match, advance by 1 to avoid infinite loop
+                    if (res == sIdx)
+                    {
+                        if (sIdx < s.Length)
+                        {
+                            builder.Append(s[sIdx]);
+                            lastIndex = sIdx + 1;
+                        }
+
+                        sIdx++;
+                    }
+                    else
+                    {
+                        sIdx = res;
+                    }
+
+                    // Anchored patterns only match once at the start of the string
+                    if (anchor)
+                    {
+                        break;
                     }
                 }
                 else
                 {
-                    var func = repl.UnsafeRead<LuaFunction>();
-                    // Function call with captures as arguments
-                    var stack = context.State.Stack;
-
-                    for (var k = 0; k < matchState.Level; k++)
+                    // No match at this position
+                    if (anchor)
                     {
-                        stack.Push(matchState.GetCapture(k));
-                    }
-                    var retCount = await context.State.RunAsync(
-                        func,
-                        matchState.Level,
-                        cancellationToken
-                    );
-                    using var results = context.State.ReadStack(retCount);
-                    result = results.Count > 0 ? results[0] : LuaValue.Nil;
-                }
-                // Handle replacement result
-                if (result.TryRead<string>(out var rs))
-                {
-                    builder.Append(rs);
-                }
-                else if (result.TryRead<double>(out var rd))
-                {
-                    AppendNumber(builder, rd, context.State.Platform.NumberFormat);
-                }
-                else if (!result.ToBoolean())
-                {
-                    // False or nil means don't replace
-                    builder.Append(s.AsSpan(sIdx, res - sIdx));
-                }
-                else
-                {
-                    throw new LuaRuntimeException(
-                        context.State,
-                        $"invalid replacement value (a {result.TypeToString()})"
-                    );
-                }
-
-                replaceCount++;
-                lastIndex = res;
-
-                // If empty match, advance by 1 to avoid infinite loop
-                if (res == sIdx)
-                {
-                    if (sIdx < s.Length)
-                    {
-                        builder.Append(s[sIdx]);
-                        lastIndex = sIdx + 1;
+                        // Anchored pattern only tries at start
+                        break;
                     }
 
                     sIdx++;
                 }
-                else
-                {
-                    sIdx = res;
-                }
-
-                // Anchored patterns only match once at the start of the string
-                if (anchor)
-                {
-                    break;
-                }
             }
-            else
+
+            // Append remaining part of string
+            if (lastIndex < s.Length)
             {
-                // No match at this position
-                if (anchor)
-                {
-                    // Anchored pattern only tries at start
-                    break;
-                }
-
-                sIdx++;
+                builder.Append(s.AsSpan()[lastIndex..]);
             }
-        }
 
-        // Append remaining part of string
-        if (lastIndex < s.Length)
+            return context.Return(builder.ToString(), replaceCount);
+        }
+        finally
         {
-            builder.Append(s.AsSpan()[lastIndex..]);
+            context.State.NonYieldableCallCount--;
         }
-
-        return context.Return(builder.ToString(), replaceCount);
     }
 
     public ValueTask<int> Len(

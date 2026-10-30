@@ -773,6 +773,10 @@ Paths and names passed to `ILuaFileSystem`, `ILuaFileLoader` and `ILuaModuleLoad
 
 Files, temporary files and redirected standard I/O preserve bytes, including a BOM read as data. Raw line reads stop at LF and retain CR; `*L` also retains the LF. Invalid UTF-8 is replaced when decoding with `DecodeUtf8`, so keep binary data in byte strings or byte arrays. Passing unconverted .NET characters above U+00FF to raw output writes `?` for those characters.
 
+Lua's `load` accepts source strings and reader functions, including readers that return a binary chunk in pieces. `string.dump` serializes a Lua function's prototype; it does not preserve captured upvalue values. The resulting string holds raw bytes in both string modes. Use byte-mode streams when writing it from Lua, or `LuaByteString.ToBytes` when writing it from C#. UTF-16 streams encode text as UTF-8 and cannot preserve arbitrary binary strings.
+
+`Prototype.StringMode` records its string representation, so `ToBytecode` and `WriteBytecode` preserve byte-mode constants. `Prototype.FromBytecode(bytes, name, stringMode)` selects the representation when loading without a state; `LuaState.Load` uses the state's mode. Bytecode uses the Lua 5.2 function-header layout. Regenerate older Lua-CSharp chunks that used a different field order.
+
 ### Garbage Collection
 
 Since Lua-CSharp is implemented in C#, it relies on .NET's garbage collector. As a result, memory management behavior differs from regular Lua.

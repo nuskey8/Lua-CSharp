@@ -33,23 +33,18 @@ public class Traceback(LuaState state, ReadOnlySpan<CallStackFrame> stackFrames)
             if (!frame.IsTailCall && lastFunc is LuaClosure closure)
             {
                 var p = closure.Proto;
+                if ((uint)frame.CallerInstructionIndex >= (uint)p.LineInfo.Length)
+                    return;
                 var len = LuaDebug.WriteShortSource(p.ChunkName, shortSourceBuffer);
                 list.AddRange(shortSourceBuffer[..len]);
                 list.AddRange(":");
-                if (p.LineInfo.Length <= frame.CallerInstructionIndex)
-                {
-                    list.AddRange("Trace back error");
-                }
-                else
-                {
-                    p.LineInfo[frame.CallerInstructionIndex]
-                        .TryFormat(
-                            intFormatBuffer,
-                            out var charsWritten,
-                            provider: CultureInfo.InvariantCulture
-                        );
-                    list.AddRange(intFormatBuffer[..charsWritten]);
-                }
+                p.LineInfo[frame.CallerInstructionIndex]
+                    .TryFormat(
+                        intFormatBuffer,
+                        out var charsWritten,
+                        provider: CultureInfo.InvariantCulture
+                    );
+                list.AddRange(intFormatBuffer[..charsWritten]);
 
                 list.AddRange(": ");
                 return;
@@ -80,7 +75,6 @@ public class Traceback(LuaState state, ReadOnlySpan<CallStackFrame> stackFrames)
                         || p.LineInfo.Length <= frame.CallerInstructionIndex
                     )
                     {
-                        Console.WriteLine($"Trace back error");
                         return default;
                     }
 
@@ -110,7 +104,6 @@ public class Traceback(LuaState state, ReadOnlySpan<CallStackFrame> stackFrames)
                         || p.LineInfo.Length <= frame.CallerInstructionIndex
                     )
                     {
-                        Console.WriteLine($"Trace back error");
                         return default;
                     }
 
@@ -201,19 +194,18 @@ public class Traceback(LuaState state, ReadOnlySpan<CallStackFrame> stackFrames)
                 list.AddRange("\t");
                 var len = LuaDebug.WriteShortSource(p.ChunkName, shortSourceBuffer);
                 list.AddRange(shortSourceBuffer[..len]);
-                list.AddRange(":");
-                if (p.LineInfo.Length <= frame.CallerInstructionIndex)
+                var line =
+                    (uint)frame.CallerInstructionIndex < (uint)p.LineInfo.Length
+                        ? p.LineInfo[frame.CallerInstructionIndex]
+                        : 0;
+                if (line > 0)
                 {
-                    list.AddRange("Trace back error");
-                }
-                else
-                {
-                    p.LineInfo[frame.CallerInstructionIndex]
-                        .TryFormat(
-                            intFormatBuffer,
-                            out var charsWritten,
-                            provider: CultureInfo.InvariantCulture
-                        );
+                    list.AddRange(":");
+                    line.TryFormat(
+                        intFormatBuffer,
+                        out var charsWritten,
+                        provider: CultureInfo.InvariantCulture
+                    );
                     list.AddRange(intFormatBuffer[..charsWritten]);
                 }
 

@@ -146,6 +146,8 @@ public class LuaState : IDisposable
         CancellationToken cancellationToken = default
     )
     {
+        if (NonYieldableCallCount != 0)
+            throw new LuaRuntimeException(this, "attempt to yield across a C-call boundary");
         if (coroutine is not null)
         {
             return coroutine.YieldAsyncCore(
@@ -162,6 +164,8 @@ public class LuaState : IDisposable
 
     public ValueTask<int> YieldAsync(LuaStack stack, CancellationToken cancellationToken = default)
     {
+        if (NonYieldableCallCount != 0)
+            throw new LuaRuntimeException(this, "attempt to yield across a C-call boundary");
         if (coroutine is not null)
         {
             return coroutine.YieldAsyncCore(stack, stack.Count, 0, null, cancellationToken);
@@ -218,6 +222,8 @@ public class LuaState : IDisposable
     internal int LastPc;
 
     internal ILuaTracebackBuildable? CurrentException;
+    internal int ErrorHandlerIndex;
+    internal int NonYieldableCallCount;
     internal readonly ReversedStack<CallStackFrame> ExceptionTrace = new();
     internal Prototype? LastCallerPrototype;
 
@@ -562,12 +568,50 @@ public class LuaState : IDisposable
         return RunAsync(function, argumentCount, Stack.Count - argumentCount, cancellationToken);
     }
 
-    [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder<>))]
-    public async ValueTask<int> RunAsync(
+    public ValueTask<int> RunAsync(
         LuaFunction function,
         int argumentCount,
         int returnBase,
         CancellationToken cancellationToken = default
+    )
+    {
+        if (ErrorHandlerIndex == 0)
+            return RunCoreAsync(function, argumentCount, returnBase, cancellationToken);
+        return RunProtectedAsync(this, function, argumentCount, returnBase, cancellationToken);
+
+        [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder<>))]
+        static async ValueTask<int> RunProtectedAsync(
+            LuaState state,
+            LuaFunction function,
+            int argumentCount,
+            int returnBase,
+            CancellationToken cancellationToken
+        )
+        {
+            var previousHandler = state.ErrorHandlerIndex;
+            state.ErrorHandlerIndex = 0;
+            try
+            {
+                return await state.RunCoreAsync(
+                    function,
+                    argumentCount,
+                    returnBase,
+                    cancellationToken
+                );
+            }
+            finally
+            {
+                state.ErrorHandlerIndex = previousHandler;
+            }
+        }
+    }
+
+    [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder<>))]
+    internal async ValueTask<int> RunCoreAsync(
+        LuaFunction function,
+        int argumentCount,
+        int returnBase,
+        CancellationToken cancellationToken
     )
     {
         if (function == null)
@@ -598,6 +642,13 @@ public class LuaState : IDisposable
 
             return await function.Func(context, cancellationToken);
         }
+        catch (Exception exception)
+            when (ErrorHandlerIndex != 0 && exception is not OperationCanceledException)
+        {
+            var handled = await HandleErrorAsync(exception, cancellationToken);
+            Stack.PopUntil(returnBase);
+            throw handled;
+        }
         catch
         {
             Stack.PopUntil(returnBase);
@@ -609,6 +660,64 @@ public class LuaState : IDisposable
             LastCallerPrototype = previousCallerPrototype;
             LastPc = previousPc;
         }
+    }
+
+    [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder<>))]
+    internal async ValueTask<Exception> HandleErrorAsync(
+        Exception exception,
+        CancellationToken cancellationToken
+    )
+    {
+        if (ErrorHandlerIndex == 0 || exception is OperationCanceledException)
+            return exception;
+
+        // Consume this protected call's handler before entering it. Nested protected
+        // calls can install their own handler without handling the same error twice.
+        var handlerIndex = ErrorHandlerIndex - 1;
+        var handler = Stack.Get(handlerIndex);
+        ErrorHandlerIndex = 0;
+        LuaValue error;
+        if (exception is LuaRuntimeException luaException)
+        {
+            error =
+                luaException.InnerException is { } inner ? Platform.GetErrorMessage(inner)
+                : luaException.ErrorObject.Type == LuaValueType.String
+                    ? luaException.MinimalMessage(Platform)
+                : luaException.ErrorObject;
+            luaException.Forget();
+        }
+        else
+            error = Platform.GetErrorMessage(exception);
+
+        if (handler.Type != LuaValueType.Function)
+        {
+            Stack.Get(handlerIndex) = "error in error handling";
+            return exception;
+        }
+
+        var top = Stack.Count;
+        NonYieldableCallCount++;
+        try
+        {
+            Stack.PushRange(handler, error);
+            var count = await LuaVirtualMachine.Call(this, top, top, cancellationToken);
+            error = count > 0 ? Stack.Get(top) : LuaValue.Nil;
+        }
+        catch (Exception handlerException)
+        {
+            if (handlerException is OperationCanceledException)
+                return handlerException;
+            if (handlerException is LuaRuntimeException luaHandlerException)
+                luaHandlerException.Forget();
+            error = "error in error handling";
+        }
+        finally
+        {
+            NonYieldableCallCount--;
+            Stack.PopUntil(top);
+        }
+        Stack.Get(handlerIndex) = error;
+        return exception;
     }
 
     /// <summary>
@@ -700,7 +809,7 @@ public class LuaState : IDisposable
                     throw new Exception("attempt to load a binary chunk (mode is 't')");
                 }
 
-                return new(this, Parser.Undump(chunk, chunkName), environment);
+                return new(this, Parser.Undump(chunk, chunkName, Platform.StringMode), environment);
             }
         }
 

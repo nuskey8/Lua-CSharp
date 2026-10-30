@@ -311,30 +311,34 @@ public static partial class LuaVirtualMachine
                 return State.Stack.Count - returnFrameBase;
             }
             catch (Exception e)
+                when (State.ErrorHandlerIndex != 0 && e is not OperationCanceledException)
             {
-                // FrameBase follows nested calls; all discarded frames need closing.
+                var exception = await State.HandleErrorAsync(e, CancellationToken);
                 State.CloseUpValues(InitialArgumentBase);
-                if (toCatchFlag)
+                PopOnTopCallStackFrames();
+                throw exception;
+            }
+            catch (Exception e)
+            {
+                Exception exception = e;
+                if (
+                    toCatchFlag
+                    && e is not (LuaRuntimeException or LuaCanceledException)
+                    && PostOperation != PostOperationType.Return
+                )
                 {
-                    if (
-                        e is not (LuaRuntimeException or LuaCanceledException)
-                        && PostOperation != PostOperationType.Return
-                    )
-                    {
-                        Exception newException = e is OperationCanceledException cancelled
-                            ? new LuaCanceledException(
-                                State,
-                                State.GetCancellationOrigin(cancelled.CancellationToken),
-                                e
-                            )
-                            : new LuaRuntimeException(State, e);
-                        PopOnTopCallStackFrames();
-                        throw newException;
-                    }
-
-                    PopOnTopCallStackFrames();
+                    exception = e is OperationCanceledException cancelled
+                        ? new LuaCanceledException(
+                            State,
+                            State.GetCancellationOrigin(cancelled.CancellationToken),
+                            e
+                        )
+                        : new LuaRuntimeException(State, e);
                 }
-
+                State.CloseUpValues(InitialArgumentBase);
+                PopOnTopCallStackFrames();
+                if (!ReferenceEquals(exception, e))
+                    throw exception;
                 throw;
             }
             finally
@@ -1123,7 +1127,6 @@ public static partial class LuaVirtualMachine
         }
         catch (Exception e)
         {
-            context.State.CloseUpValues(context.InitialArgumentBase);
             if (
                 e is not (LuaRuntimeException or LuaCanceledException)
                 && context.PostOperation != PostOperationType.Return
@@ -1136,11 +1139,9 @@ public static partial class LuaVirtualMachine
                         e
                     )
                     : new LuaRuntimeException(context.State, e);
-                context.PopOnTopCallStackFrames();
                 throw newException;
             }
 
-            context.PopOnTopCallStackFrames();
             throw;
         }
     }
@@ -1427,6 +1428,11 @@ public static partial class LuaVirtualMachine
                 context.ThrowIfCancellationRequested();
                 return;
             }
+            catch (Exception exception)
+                when (state.ErrorHandlerIndex != 0 && exception is not OperationCanceledException)
+            {
+                throw await state.HandleErrorAsync(exception, context.CancellationToken);
+            }
             finally
             {
                 state.PopCallStackFrame();
@@ -1616,6 +1622,11 @@ public static partial class LuaVirtualMachine
             }
 
             throw;
+        }
+        catch (Exception exception) when (state.ErrorHandlerIndex != 0)
+        {
+            var handled = await state.HandleErrorAsync(exception, cancellationToken);
+            throw handled;
         }
         finally
         {
@@ -2098,7 +2109,8 @@ public static partial class LuaVirtualMachine
         LuaState state,
         LuaValue table,
         LuaValue key,
-        CancellationToken ct
+        CancellationToken ct,
+        bool isHostCall = false
     )
     {
         const int MAX_LOOP = 100;
@@ -2139,7 +2151,7 @@ public static partial class LuaVirtualMachine
             Function:
             if (table.TryReadFunction(out var function))
             {
-                return CallGetTableFunc(state, function, targetTable, key, ct);
+                return CallGetTableFunc(state, function, targetTable, key, ct, isHostCall);
             }
         }
 
@@ -2153,12 +2165,16 @@ public static partial class LuaVirtualMachine
         LuaFunction indexTable,
         LuaValue table,
         LuaValue key,
-        CancellationToken ct
+        CancellationToken ct,
+        bool isHostCall
     )
     {
         var stack = state.Stack;
         var top = stack.Count;
         var framePushed = false;
+        var previousHandler = isHostCall ? state.ErrorHandlerIndex : 0;
+        if (previousHandler != 0)
+            state.ErrorHandlerIndex = 0;
         try
         {
             stack.Push(table);
@@ -2188,8 +2204,15 @@ public static partial class LuaVirtualMachine
             var results = stack.AsSpan()[top..];
             return results.Length == 0 ? default : results[0];
         }
+        catch (Exception exception)
+            when (state.ErrorHandlerIndex != 0 && exception is not OperationCanceledException)
+        {
+            throw await state.HandleErrorAsync(exception, ct);
+        }
         finally
         {
+            if (previousHandler != 0)
+                state.ErrorHandlerIndex = previousHandler;
             if (framePushed)
                 state.PopCallStackFrameWithStackPop(top);
             else
@@ -2355,7 +2378,8 @@ public static partial class LuaVirtualMachine
         LuaValue table,
         LuaValue key,
         LuaValue value,
-        CancellationToken ct
+        CancellationToken ct,
+        bool isHostCall = false
     )
     {
         const int MAX_LOOP = 100;
@@ -2401,7 +2425,7 @@ public static partial class LuaVirtualMachine
             Function:
             if (table.TryReadFunction(out var function))
             {
-                return CallSetTableFunc(state, function, targetTable, key, value, ct);
+                return CallSetTableFunc(state, function, targetTable, key, value, ct, isHostCall);
             }
         }
 
@@ -2416,12 +2440,16 @@ public static partial class LuaVirtualMachine
         LuaValue table,
         LuaValue key,
         LuaValue value,
-        CancellationToken ct
+        CancellationToken ct,
+        bool isHostCall
     )
     {
         var stack = state.Stack;
         var top = stack.Count;
         var framePushed = false;
+        var previousHandler = isHostCall ? state.ErrorHandlerIndex : 0;
+        if (previousHandler != 0)
+            state.ErrorHandlerIndex = 0;
         try
         {
             stack.Push(table);
@@ -2454,8 +2482,15 @@ public static partial class LuaVirtualMachine
                 await newIndexFunction.Func(functionContext, ct);
             }
         }
+        catch (Exception exception)
+            when (state.ErrorHandlerIndex != 0 && exception is not OperationCanceledException)
+        {
+            throw await state.HandleErrorAsync(exception, ct);
+        }
         finally
         {
+            if (previousHandler != 0)
+                state.ErrorHandlerIndex = previousHandler;
             if (framePushed)
                 state.PopCallStackFrameWithStackPop(top);
             else
@@ -2564,7 +2599,7 @@ public static partial class LuaVirtualMachine
                 || vc.TryGetMetamethod(state.GlobalState, name, out metamethod)
             )
             {
-                return InvokeOperationMetamethod(state, metamethod, vb, vc, ct);
+                return InvokeOperationMetamethod(state, metamethod, vb, vc, ct, isHostCall: true);
             }
 
             LuaRuntimeException.AttemptInvalidOperation(state, description, vb, vc);
@@ -2669,7 +2704,8 @@ public static partial class LuaVirtualMachine
         LuaState state,
         LuaValue vb,
         OpCode opCode,
-        CancellationToken cancellationToken
+        CancellationToken cancellationToken,
+        bool isHostCall
     )
     {
         try
@@ -2680,7 +2716,14 @@ public static partial class LuaVirtualMachine
 
             if (vb.TryGetMetamethod(state.GlobalState, name, out var metamethod))
             {
-                return InvokeOperationMetamethod(state, metamethod, vb, vb, cancellationToken);
+                return InvokeOperationMetamethod(
+                    state,
+                    metamethod,
+                    vb,
+                    vb,
+                    cancellationToken,
+                    isHostCall
+                );
             }
 
             if (opCode == OpCode.Len && vb.TryReadTable(out var table))
@@ -2731,12 +2774,13 @@ public static partial class LuaVirtualMachine
         LuaValue metamethod,
         LuaValue left,
         LuaValue right,
-        CancellationToken cancellationToken
+        CancellationToken cancellationToken,
+        bool isHostCall
     )
     {
         var top = state.Stack.Count;
         var function = PrepareOperationMetamethod(state, metamethod, left, right);
-        return InvokeOperationMetamethod(state, function, top, cancellationToken);
+        return InvokeOperationMetamethod(state, function, top, cancellationToken, isHostCall);
     }
 
     [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder<>))]
@@ -2744,11 +2788,15 @@ public static partial class LuaVirtualMachine
         LuaState state,
         LuaFunction function,
         int top,
-        CancellationToken cancellationToken
+        CancellationToken cancellationToken,
+        bool isHostCall
     )
     {
         var stack = state.Stack;
         var framePushed = false;
+        var previousHandler = isHostCall ? state.ErrorHandlerIndex : 0;
+        if (previousHandler != 0)
+            state.ErrorHandlerIndex = 0;
         try
         {
             state.ThrowIfCancellationRequested(cancellationToken);
@@ -2779,8 +2827,15 @@ public static partial class LuaVirtualMachine
             state.ThrowIfCancellationRequested(cancellationToken);
             return stack.Count > top ? stack.Get(top) : default;
         }
+        catch (Exception exception)
+            when (state.ErrorHandlerIndex != 0 && exception is not OperationCanceledException)
+        {
+            throw await state.HandleErrorAsync(exception, cancellationToken);
+        }
         finally
         {
+            if (previousHandler != 0)
+                state.ErrorHandlerIndex = previousHandler;
             if (framePushed)
                 state.PopCallStackFrameWithStackPop(top);
             else
@@ -2928,7 +2983,8 @@ public static partial class LuaVirtualMachine
         LuaValue vb,
         LuaValue vc,
         OpCode opCode,
-        CancellationToken cancellationToken
+        CancellationToken cancellationToken,
+        bool isHostCall
     )
     {
         state.ThrowIfCancellationRequested(cancellationToken);
@@ -2943,7 +2999,8 @@ public static partial class LuaVirtualMachine
                 metamethod,
                 vb,
                 vc,
-                cancellationToken
+                cancellationToken,
+                isHostCall
             );
             return reverseLe ? !result.ToBoolean() : result.ToBoolean();
         }

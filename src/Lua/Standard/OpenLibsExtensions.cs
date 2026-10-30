@@ -8,6 +8,7 @@ public static class OpenLibsExtensions
     {
         var globalState = state.GlobalState;
         globalState.Environment["_G"] = globalState.Environment;
+        globalState.LoadedModules["_G"] = globalState.Environment;
         globalState.Environment["_VERSION"] = "Lua 5.2";
         foreach (var func in BasicLibrary.Instance.Functions)
         {
@@ -39,6 +40,7 @@ public static class OpenLibsExtensions
         }
 
         globalState.Environment["coroutine"] = coroutine;
+        globalState.LoadedModules["coroutine"] = coroutine;
     }
 
     public static void OpenIOLibrary(this LuaState state)
@@ -95,13 +97,18 @@ public static class OpenLibsExtensions
         var moduleLibrary = ModuleLibrary.Instance;
         LuaTable searchers = new();
         searchers[1] = new LuaFunction("preload", moduleLibrary.SearcherPreload);
-        searchers[2] = new LuaFunction("searcher_Lua", moduleLibrary.SearcherLua);
+        searchers[2] = new CSharpClosure("searcher_Lua", [package], moduleLibrary.SearcherLua);
         package["searchers"] = searchers;
         package["path"] = "?.lua";
         package["searchpath"] = moduleLibrary.SearchPathFunction;
         package["config"] = $"{Path.DirectorySeparatorChar}\n;\n?\n!\n-";
         globalState.Environment["package"] = package;
-        globalState.Environment["require"] = moduleLibrary.RequireFunction;
+        globalState.LoadedModules["package"] = package;
+        globalState.Environment["require"] = new CSharpClosure(
+            "require",
+            [package],
+            moduleLibrary.Require
+        );
     }
 
     public static void OpenOperatingSystemLibrary(this LuaState state)

@@ -168,6 +168,46 @@ public class BytecodeValidationTests
         Assert.Throws<LuaUndumpException>(() => Prototype.FromBytecode(bytes, "constant"));
     }
 
+    [TestCase(LuaValueType.Nil, 0)]
+    [TestCase(LuaValueType.Boolean, 1)]
+    [TestCase(LuaValueType.Number, 3)]
+    [TestCase(LuaValueType.String, 4)]
+    public void ConstantTagsFollowLua52RatherThanTheInternalValueEnum(LuaValueType type, int tag)
+    {
+        LuaValue value = type switch
+        {
+            LuaValueType.Nil => LuaValue.Nil,
+            LuaValueType.Boolean => true,
+            LuaValueType.Number => 42,
+            _ => "hello",
+        };
+        var bytes = Create([Instruction.Return(0, 1)], constants: [value]).ToBytecode();
+        // Header, function fields, one instruction, and the constant count.
+        Assert.That(bytes[41], Is.EqualTo(tag));
+        Assert.That(Prototype.FromBytecode(bytes, "constant").Constants[0], Is.EqualTo(value));
+        bytes[41] = 2; // Lua's light userdata tag cannot occur in a serialized constant.
+        Assert.Throws<LuaUndumpException>(() => Prototype.FromBytecode(bytes, "constant"));
+    }
+
+    [TestCase("", 1)]
+    [TestCase("a", 2)]
+    [TestCase("\0", 2)]
+    public void StringConstantLengthsIncludeTheirTerminator(string value, int length)
+    {
+        var bytes = Create([Instruction.Return(0, 1)], constants: [value]).ToBytecode();
+        const int lengthOffset = 42; // Immediately after the first constant's tag.
+        var serializedLength =
+            IntPtr.Size == 8
+                ? BinaryPrimitives.ReadInt64LittleEndian(bytes.AsSpan(lengthOffset))
+                : BinaryPrimitives.ReadInt32LittleEndian(bytes.AsSpan(lengthOffset));
+        Assert.That(serializedLength, Is.EqualTo(length));
+        Assert.That(bytes[lengthOffset + IntPtr.Size + length - 1], Is.Zero);
+        Assert.That(
+            Prototype.FromBytecode(bytes, "constant").Constants[0],
+            Is.EqualTo(new LuaValue(value))
+        );
+    }
+
     [Test]
     public void RejectsExcessivelyNestedPrototypes()
     {

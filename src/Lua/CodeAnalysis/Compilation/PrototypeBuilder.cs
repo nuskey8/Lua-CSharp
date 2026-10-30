@@ -80,13 +80,13 @@ class PrototypeBuilder : IPoolNode<PrototypeBuilder>
         pool.TryPush(this);
     }
 
-    public Prototype CreatePrototypeAndRelease()
+    public Prototype CreatePrototypeAndRelease(LuaStringMode stringMode)
     {
         var protoTypes =
             Prototypes.Length == 0 ? Array.Empty<Prototype>() : new Prototype[Prototypes.Length];
         for (var i = 0; i < Prototypes.Length; i++)
         {
-            protoTypes[i] = Prototypes[i].CreatePrototypeAndRelease(); //ref
+            protoTypes[i] = Prototypes[i].CreatePrototypeAndRelease(stringMode);
         }
 
         Prototype p = new(
@@ -102,7 +102,10 @@ class PrototypeBuilder : IPoolNode<PrototypeBuilder>
             LineInfo.ToArray(),
             LocalVariables.ToArray(),
             UpValues.ToArray()
-        );
+        )
+        {
+            StringMode = stringMode,
+        };
         Release();
         return p;
     }

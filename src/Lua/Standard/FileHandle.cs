@@ -190,13 +190,17 @@ public sealed class FileHandle : ILuaUserData
         (context, cancellationToken) =>
         {
             var file = context.GetArgument<FileHandle>(0);
-            var format = context.HasArgument(1) ? context.Arguments[1] : "*l";
+            if (!file.IsOpen)
+                throw new LuaRuntimeException(context.State, "attempt to use a closed file");
+            var upValues = new LuaValue[context.ArgumentCount];
+            upValues[0] = new(file);
+            context.Arguments[1..].CopyTo(upValues.AsSpan(1));
 
             return new(
                 context.Return(
                     new CSharpClosure(
                         "iterator",
-                        [new(file), format],
+                        upValues,
                         static async (context, cancellationToken) =>
                         {
                             var upValues = context.GetCsClosure()!.UpValues.AsMemory();
@@ -278,7 +282,7 @@ public sealed class FileHandle : ILuaUserData
         {
             var file = context.GetArgument<FileHandle>(0);
             var mode = context.GetStringArgument(1);
-            var size = context.HasArgument(2) ? context.GetArgument<int>(2) : -1;
+            var size = context.HasArgument(2) ? context.GetIntegerArgument(2) : -1;
 
             file.SetVBuf(mode, size);
 

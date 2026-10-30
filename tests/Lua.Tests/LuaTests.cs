@@ -12,49 +12,16 @@ public class LuaTests(LuaStringMode stringMode)
 {
     static string PatchFilesLuaSource(string source, LuaStringMode stringMode)
     {
-        const char utf8Bom = '\uFEFF';
-        var lines = source.Replace("\r\n", "\n").Split('\n');
-        lines[246] =
-            "do local __f = assert(io.open(file)); local __src = assert(__f:read('*a')); __f:close(); assert(load(__src, nil, nil, t))() end -- Lua-CSharp test harness uses string load because load(reader) is unsupported.";
-        lines[292] =
-            "do local __f = assert(io.open(file)); local __src = assert(__f:read('*a')); __f:close(); assert(load(__src))() end -- Lua-CSharp test harness uses string load because load(reader) is unsupported.";
-        lines[294] =
-            "do local __f = assert(io.open(file)); local __src = assert(__f:read('*a')); __f:close(); assert(load(__src))() end -- Lua-CSharp test harness uses string load because load(reader) is unsupported.";
-        lines[296] =
-            "do local __f = assert(io.open(file)); local __src = assert(__f:read('*a')); __f:close(); assert(load(__src))() end -- Lua-CSharp test harness uses string load because load(reader) is unsupported.";
+        source = source.Replace("\r\n", "\n");
         if (stringMode != LuaStringMode.Bytes)
         {
-            lines[330] =
-                $"testloadfile(\"{utf8Bom}# some comment\\nreturn 234\", 234) -- Lua-CSharp test harness uses a real BOM code point because Lua strings are UTF-16 text, not raw bytes.";
-            lines[331] =
-                $"testloadfile(\"{utf8Bom}return 239\", 239) -- Lua-CSharp test harness uses a real BOM code point because Lua strings are UTF-16 text, not raw bytes.";
-            lines[332] =
-                $"testloadfile(\"{utf8Bom}\", nil) -- Lua-CSharp test harness uses a real BOM code point because Lua strings are UTF-16 text, not raw bytes.";
+            source = source.Replace("\\xEF\\xBB\\xBF", "\uFEFF");
+            // UTF-16 platforms use text I/O. Raw binary file coverage runs in byte mode.
+            var start = source.IndexOf("-- loading binary file\n", StringComparison.Ordinal);
+            var end = source.IndexOf("-- 'loadfile' with 'env'", start, StringComparison.Ordinal);
+            source = source.Remove(start, end - start);
         }
-        for (var i = 341; i <= 346; i++)
-        {
-            lines[i] =
-                "-- Lua-CSharp test harness skips binary string.dump/loadfile coverage because string.dump is unsupported.";
-        }
-
-        lines[348] =
-            "do -- Lua-CSharp test harness skips binary string.dump/loadfile coverage because string.dump is unsupported.";
-        for (var i = 349; i <= 355; i++)
-        {
-            lines[i] =
-                "  -- Lua-CSharp test harness skips binary string.dump/loadfile coverage because string.dump is unsupported.";
-        }
-
-        lines[356] = "end";
-        for (var i = 359; i <= 365; i++)
-        {
-            lines[i] =
-                "-- Lua-CSharp test harness skips binary string.dump/loadfile coverage because string.dump is unsupported.";
-        }
-
-        lines[503] =
-            "_noposix = true; if not _noposix then -- Lua-CSharp test harness skips io.popen/os.execute because process command execution is unsupported.";
-        return string.Join("\n", lines);
+        return source.Replace("if not _noposix then", "_noposix = true; if not _noposix then");
     }
 
     [Test]
@@ -66,7 +33,7 @@ public class LuaTests(LuaStringMode stringMode)
     [TestCase("tests-lua/literals.lua")]
     [TestCase("tests-lua/pm.lua")]
     [TestCase("tests-lua/sort.lua")]
-    //[TestCase("tests-lua/calls.lua")] //  string.dump and reader function for load chunk is not implemented
+    [TestCase("tests-lua/calls.lua")]
     [TestCase("tests-lua/files.lua")]
     [TestCase("tests-lua/closure.lua")]
     [TestCase("tests-lua/errors.lua")]

@@ -1,5 +1,6 @@
 using System.Buffers;
 using System.Runtime.CompilerServices;
+using Lua.CodeAnalysis.Compilation;
 using Lua.Internal;
 using Lua.Internal.CompilerServices;
 using Lua.IO;
@@ -42,7 +43,7 @@ public static class LuaStateExtensions
         if (stream is ILuaByteStream byteStream)
         {
             var firstByte = await byteStream.ReadByteAsync(cancellationToken);
-            if (firstByte != '\e' && !mode.Contains('t'))
+            if (firstByte is not ('\e' or '#' or 0xEF) && !mode.Contains('t'))
             {
                 throw new Exception("attempt to load a text chunk (mode is 'b')");
             }
@@ -57,7 +58,21 @@ public static class LuaStateExtensions
                 source.GetSpan(1)[0] = (byte)firstByte;
                 source.Advance(1);
                 await byteStream.ReadBytesAsync(source, cancellationToken);
-                closure = state.LoadCore(source.WrittenSpan, name, mode, environment);
+                var bytes = source.WrittenSpan;
+                var chunk = BomUtility.SkipUtf8Bom(bytes);
+                if (!chunk.IsEmpty && chunk[0] == '#')
+                {
+                    var newline = chunk.IndexOf((byte)'\n');
+                    chunk = newline < 0 ? default : chunk[(newline + 1)..];
+                }
+                // Text keeps its initial comment for line numbers. Binary chunks
+                // begin after the optional BOM and first-line comment.
+                closure = state.LoadCore(
+                    !chunk.IsEmpty && chunk[0] == '\e' ? chunk : bytes,
+                    name,
+                    mode,
+                    environment
+                );
             }
         }
         else if (!mode.Contains('t'))
@@ -344,7 +359,8 @@ public static class LuaStateExtensions
             state,
             value,
             OpCode.Unm,
-            cancellationToken
+            cancellationToken,
+            isHostCall: true
         );
     }
 
@@ -368,7 +384,8 @@ public static class LuaStateExtensions
             state,
             value,
             OpCode.Len,
-            cancellationToken
+            cancellationToken,
+            isHostCall: true
         );
     }
 
@@ -377,6 +394,14 @@ public static class LuaStateExtensions
         LuaValue x,
         LuaValue y,
         CancellationToken cancellationToken = default
+    ) => LessThanCoreAsync(state, x, y, cancellationToken, isHostCall: true);
+
+    internal static ValueTask<bool> LessThanCoreAsync(
+        this LuaState state,
+        LuaValue x,
+        LuaValue y,
+        CancellationToken cancellationToken,
+        bool isHostCall = false
     )
     {
         if (x.TryReadNumber(out var numX) && y.TryReadNumber(out var numY))
@@ -395,7 +420,8 @@ public static class LuaStateExtensions
             x,
             y,
             OpCode.Lt,
-            cancellationToken
+            cancellationToken,
+            isHostCall
         );
     }
 
@@ -422,7 +448,8 @@ public static class LuaStateExtensions
             x,
             y,
             OpCode.Le,
-            cancellationToken
+            cancellationToken,
+            isHostCall: true
         );
     }
 
@@ -443,7 +470,8 @@ public static class LuaStateExtensions
             x,
             y,
             OpCode.Eq,
-            cancellationToken
+            cancellationToken,
+            isHostCall: true
         );
     }
 
@@ -467,7 +495,8 @@ public static class LuaStateExtensions
             state,
             table,
             key,
-            cancellationToken
+            cancellationToken,
+            isHostCall: true
         );
     }
 
@@ -477,6 +506,15 @@ public static class LuaStateExtensions
         LuaValue key,
         LuaValue value,
         CancellationToken cancellationToken = default
+    ) => SetTableCoreAsync(state, table, key, value, cancellationToken, isHostCall: true);
+
+    internal static ValueTask SetTableCoreAsync(
+        this LuaState state,
+        LuaValue table,
+        LuaValue key,
+        LuaValue value,
+        CancellationToken cancellationToken,
+        bool isHostCall = false
     )
     {
         if (key.TryReadNumber(out var numB))
@@ -502,7 +540,8 @@ public static class LuaStateExtensions
             table,
             key,
             value,
-            cancellationToken
+            cancellationToken,
+            isHostCall
         );
     }
 
@@ -531,7 +570,7 @@ public static class LuaStateExtensions
         CancellationToken cancellationToken = default
     )
     {
-        return LuaVirtualMachine.Call(state, funcIndex, funcIndex, cancellationToken);
+        return state.CallAsync(funcIndex, funcIndex, cancellationToken);
     }
 
     public static ValueTask<int> CallAsync(
@@ -541,7 +580,35 @@ public static class LuaStateExtensions
         CancellationToken cancellationToken = default
     )
     {
-        return LuaVirtualMachine.Call(state, funcIndex, returnBase, cancellationToken);
+        if (state.ErrorHandlerIndex == 0)
+            return LuaVirtualMachine.Call(state, funcIndex, returnBase, cancellationToken);
+        return Impl(state, funcIndex, returnBase, cancellationToken);
+
+        [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder<>))]
+        static async ValueTask<int> Impl(
+            LuaState state,
+            int funcIndex,
+            int returnBase,
+            CancellationToken cancellationToken
+        )
+        {
+            // Host callers can catch the error before it propagates back into Lua.
+            var previousHandler = state.ErrorHandlerIndex;
+            state.ErrorHandlerIndex = 0;
+            try
+            {
+                return await LuaVirtualMachine.Call(
+                    state,
+                    funcIndex,
+                    returnBase,
+                    cancellationToken
+                );
+            }
+            finally
+            {
+                state.ErrorHandlerIndex = previousHandler;
+            }
+        }
     }
 
     public static ValueTask<LuaValue[]> CallAsync(
@@ -562,6 +629,8 @@ public static class LuaStateExtensions
             CancellationToken cancellationToken
         )
         {
+            var previousHandler = state.ErrorHandlerIndex;
+            state.ErrorHandlerIndex = 0;
             try
             {
                 await LuaVirtualMachine.Call(state, funcIndex, funcIndex, cancellationToken);
@@ -569,6 +638,7 @@ public static class LuaStateExtensions
             }
             finally
             {
+                state.ErrorHandlerIndex = previousHandler;
                 state.Stack.PopUntil(funcIndex);
             }
         }

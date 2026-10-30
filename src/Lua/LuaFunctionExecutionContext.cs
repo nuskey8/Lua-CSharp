@@ -85,6 +85,15 @@ public readonly record struct LuaFunctionExecutionContext
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal int GetIntegerArgument(int index)
+    {
+        var number = Math.Truncate(GetArgument<double>(index));
+        if (double.IsNaN(number) || number < int.MinValue || number > int.MaxValue)
+            LuaRuntimeException.BadArgumentNumberIsNotInteger(State, index + 1);
+        return (int)number;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal T GetArgumentOrDefault<T>(int index, T defaultValue = default!)
     {
         if (ArgumentCount <= index)

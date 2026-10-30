@@ -11,7 +11,7 @@ public class CoroutineEntryLifetimeTests(LuaStringMode mode)
 {
     [Test]
     [Combinatorial]
-    public async Task CompletedCoroutineReleasesEntryCaptures(
+    public void CompletedCoroutineReleasesEntryCaptures(
         [Values(false, true)] bool wrap,
         [Values(false, true)] bool asynchronous,
         [Values(false, true)] bool yieldFirst
@@ -21,47 +21,16 @@ public class CoroutineEntryLifetimeTests(LuaStringMode mode)
             mode == LuaStringMode.Bytes ? LuaPlatform.DefaultByteStrings : LuaPlatform.Default
         );
         state.OpenStandardLibraries();
-        var reference = InstallPayload(state);
-        state.Environment["wrap"] = wrap;
-        state.Environment["yieldFirst"] = yieldFirst;
-        state.Environment["pause"] = new LuaFunction(
-            async (context, _) =>
-            {
-                if (asynchronous)
-                    await Task.Yield();
-                return context.Return();
-            }
-        );
-        var result = await state.DoStringAsync(
-            """
-            local function make(value)
-                return function()
-                    thread=coroutine.running()
-                    pause()
-                    if yieldFirst then coroutine.yield(7) end
-                    return value and 42
-                end
-            end
-            local entry=make(payload)
-            payload=nil
-            if wrap then
-                run=coroutine.wrap(entry)
-            else
-                local co=coroutine.create(entry)
-                run=function() return coroutine.resume(co) end
-            end
-            entry=nil
-            if yieldFirst then run() end
-            return run()
-            """
-        );
-        await Task.Yield();
-        Assert.That(result, Is.EqualTo(wrap ? new LuaValue[] { 42 } : new LuaValue[] { true, 42 }));
+        var reference = RunToCompletion(state, wrap, asynchronous, yieldFirst);
+        Assert.That(IsAliveAfterCollection(reference), Is.False);
         var thread = state.Environment["thread"].Read<LuaState>();
         Assert.That(thread.GetStatus(), Is.EqualTo(LuaThreadStatus.Dead));
-        Assert.That(() => IsAliveAfterCollection(reference), Is.False.After(1000, 10));
 
-        var again = await state.DoStringAsync(wrap ? "return pcall(run)" : "return run()");
+        var again = state
+            .DoStringAsync(wrap ? "return pcall(run)" : "return run()")
+            .AsTask()
+            .GetAwaiter()
+            .GetResult();
         Assert.That(again[0], Is.EqualTo(new LuaValue(false)));
         Assert.That(again[1].Read<string>(), Does.Contain("cannot resume dead coroutine"));
         Assert.That(thread.GetStackValues().Length, Is.Zero);
@@ -72,19 +41,65 @@ public class CoroutineEntryLifetimeTests(LuaStringMode mode)
         GC.KeepAlive(state);
     }
 
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    static WeakReference RunToCompletion(
+        LuaState state,
+        bool wrap,
+        bool asynchronous,
+        bool yieldFirst
+    )
+    {
+        var payload = new object();
+        state.Environment["payload"] = LuaValue.FromObject(payload);
+        var reference = new WeakReference(payload);
+        var suspension = new ManualSuspension();
+        state.Environment["wrap"] = wrap;
+        state.Environment["yieldFirst"] = yieldFirst;
+        state.Environment["pause"] = new LuaFunction(
+            async (context, _) =>
+            {
+                if (asynchronous)
+                    await suspension;
+                return context.Return();
+            }
+        );
+        var operation = state
+            .DoStringAsync(
+                """
+                local function make(value)
+                    return function()
+                        thread=coroutine.running()
+                        pause()
+                        if yieldFirst then coroutine.yield(7) end
+                        return value and 42
+                    end
+                end
+                local entry=make(payload)
+                payload=nil
+                if wrap then
+                    run=coroutine.wrap(entry)
+                else
+                    local co=coroutine.create(entry)
+                    run=function() return coroutine.resume(co) end
+                end
+                entry=nil
+                if yieldFirst then run() end
+                return run()
+                """
+            )
+            .AsTask();
+        if (asynchronous)
+            suspension.Resume();
+        var result = operation.GetAwaiter().GetResult();
+        Assert.That(result, Is.EqualTo(wrap ? new LuaValue[] { 42 } : new LuaValue[] { true, 42 }));
+        return reference;
+    }
+
     static bool IsAliveAfterCollection(WeakReference reference)
     {
         GC.Collect();
         GC.WaitForPendingFinalizers();
         GC.Collect();
         return reference.IsAlive;
-    }
-
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    static WeakReference InstallPayload(LuaState state)
-    {
-        var payload = new object();
-        state.Environment["payload"] = LuaValue.FromObject(payload);
-        return new WeakReference(payload);
     }
 }

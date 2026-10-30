@@ -9,6 +9,7 @@ public sealed class DebugLibrary
 {
     public static readonly DebugLibrary Instance = new();
     static readonly ConditionalWeakTable<UpValue, object> upValueIds = new();
+    static readonly ConditionalWeakTable<LuaValue[], object[]> csUpValueIds = new();
 
     public DebugLibrary()
     {
@@ -160,13 +161,13 @@ public sealed class DebugLibrary
 
         var state = GetLuaThread(context, out var argOffset);
 
-        var index = context.GetArgument<int>(argOffset + 1);
+        var index = context.GetIntegerArgument(argOffset + 1);
         if (context.GetArgument(argOffset).TryReadFunction(out var f))
         {
             return new(context.Return(GetParam(f, index - 1)));
         }
 
-        var level = context.GetArgument<int>(argOffset);
+        var level = context.GetIntegerArgument(argOffset);
 
         if (level < 0 || level >= state.GetCallStackFrames().Length)
         {
@@ -190,8 +191,8 @@ public sealed class DebugLibrary
         var state = GetLuaThread(context, out var argOffset);
 
         var value = context.GetArgument(argOffset + 2);
-        var index = context.GetArgument<int>(argOffset + 1);
-        var level = context.GetArgument<int>(argOffset);
+        var index = context.GetIntegerArgument(argOffset + 1);
+        var level = context.GetIntegerArgument(argOffset);
 
         if (level < 0 || level >= state.GetCallStackFrames().Length)
         {
@@ -214,7 +215,7 @@ public sealed class DebugLibrary
     )
     {
         var func = context.GetArgument<LuaFunction>(0);
-        var index = context.GetArgument<int>(1) - 1;
+        var index = context.GetIntegerArgument(1) - 1;
         if (func is not LuaClosure closure)
         {
             if (func is CSharpClosure csClosure)
@@ -250,7 +251,7 @@ public sealed class DebugLibrary
     )
     {
         var func = context.GetArgument<LuaFunction>(0);
-        var index = context.GetArgument<int>(1) - 1;
+        var index = context.GetIntegerArgument(1) - 1;
         var value = context.GetArgument(2);
         if (func is not LuaClosure closure)
         {
@@ -371,7 +372,10 @@ public sealed class DebugLibrary
         var state = GetLuaThread(context, out var argOffset);
 
         var message = context.GetArgumentOrDefault(argOffset);
-        var level = context.GetArgumentOrDefault(argOffset + 1, argOffset == 0 ? 1 : 0);
+        var level =
+            context.HasArgument(argOffset + 1) ? context.GetIntegerArgument(argOffset + 1)
+            : argOffset == 0 ? 1
+            : 0;
 
         if (message.Type is not (LuaValueType.Nil or LuaValueType.String or LuaValueType.Number))
         {
@@ -385,16 +389,20 @@ public sealed class DebugLibrary
 
         if (state is { IsCoroutine: true, LuaTraceback: { } traceback })
         {
-            return new(context.Return(traceback.ToString(level)));
+            return new(
+                context.Return(
+                    Runtime.Traceback.CreateTracebackMessage(
+                        context.GlobalState,
+                        traceback.StackFrames,
+                        message,
+                        level
+                    )
+                )
+            );
         }
 
         var callStack = state.GetCallStackFrames();
-        if (callStack.Length == 0)
-        {
-            return new(context.Return("stack traceback:"));
-        }
-
-        var skipCount = Math.Min(Math.Max(level - 1, 0), callStack.Length - 1);
+        var skipCount = Math.Min(Math.Max(level - 1, 0), callStack.Length);
         var frames = callStack[..^skipCount];
         return new(
             context.Return(
@@ -416,27 +424,54 @@ public sealed class DebugLibrary
         return new(context.Return(context.GlobalState.Registry));
     }
 
+    static LuaFunction CheckUpValue(
+        in LuaFunctionExecutionContext context,
+        int functionIndex,
+        int upValueIndex,
+        out int index
+    )
+    {
+        index = context.GetIntegerArgument(upValueIndex);
+        var function = context.GetArgument<LuaFunction>(functionIndex);
+        var count = function switch
+        {
+            LuaClosure closure => closure.GetUpValuesSpan().Length,
+            CSharpClosure closure => closure.UpValues.Length,
+            _ => 0,
+        };
+        if (index <= 0 || index > count)
+            context.ThrowBadArgument(upValueIndex + 1, "invalid upvalue index");
+        return function;
+    }
+
     public ValueTask<int> UpValueId(
         LuaFunctionExecutionContext context,
         CancellationToken cancellationToken
     )
     {
-        var n1 = context.GetArgument<int>(1);
-        var f1 = context.GetArgument<LuaFunction>(0);
+        var function = CheckUpValue(context, 0, 1, out var index);
 
-        if (f1 is not LuaClosure closure)
+        if (function is LuaClosure closure)
         {
-            return new(context.Return(LuaValue.Nil));
+            var identity = upValueIds.GetValue(
+                closure.GetUpValuesSpan()[index - 1],
+                static _ => new object()
+            );
+            return new(context.Return(LuaValue.FromObject(identity)));
         }
 
-        var upValues = closure.GetUpValuesSpan();
-        if (n1 <= 0 || n1 > upValues.Length)
-        {
-            return new(context.Return(LuaValue.Nil));
-        }
-
-        var identity = upValueIds.GetValue(upValues[n1 - 1], static _ => new object());
-        return new(context.Return(LuaValue.FromObject(identity)));
+        var csClosure = (CSharpClosure)function;
+        var identities = csUpValueIds.GetValue(
+            csClosure.UpValues,
+            static values =>
+            {
+                var result = new object[values.Length];
+                for (var i = 0; i < result.Length; i++)
+                    result[i] = new object();
+                return result;
+            }
+        );
+        return new(context.Return(LuaValue.FromObject(identities[index - 1])));
     }
 
     public ValueTask<int> UpValueJoin(
@@ -444,28 +479,16 @@ public sealed class DebugLibrary
         CancellationToken cancellationToken
     )
     {
-        var n2 = context.GetArgument<int>(3);
-        var f2 = context.GetArgument<LuaFunction>(2);
-        var n1 = context.GetArgument<int>(1);
-        var f1 = context.GetArgument<LuaFunction>(0);
+        var f1 = CheckUpValue(context, 0, 1, out var n1);
+        var f2 = CheckUpValue(context, 2, 3, out var n2);
 
-        if (f1 is not LuaClosure closure1 || f2 is not LuaClosure closure2)
-        {
-            return new(context.Return(LuaValue.Nil));
-        }
+        if (f1 is not LuaClosure)
+            context.ThrowBadArgument(1, "Lua function expected");
+        if (f2 is not LuaClosure)
+            context.ThrowBadArgument(3, "Lua function expected");
 
-        var upValues1 = closure1.GetUpValuesSpan();
-        var upValues2 = closure2.GetUpValuesSpan();
-        if (n1 <= 0 || n1 > upValues1.Length)
-        {
-            context.ThrowBadArgument(2, "invalid upvalue index");
-        }
-
-        if (n2 <= 0 || n2 > upValues2.Length)
-        {
-            context.ThrowBadArgument(4, "invalid upvalue index");
-        }
-
+        var upValues1 = ((LuaClosure)f1).GetUpValuesSpan();
+        var upValues2 = ((LuaClosure)f2).GetUpValuesSpan();
         upValues1[n1 - 1] = upValues2[n2 - 1];
         return new(context.Return());
     }
@@ -478,13 +501,16 @@ public sealed class DebugLibrary
     {
         var state = GetLuaThread(context, out var argOffset);
         var hook = context.GetArgumentOrDefault<LuaFunction?>(argOffset);
-        var mask = context.GetArgumentOrDefault<string?>(argOffset + 1) ?? "";
-        var count = context.GetArgumentOrDefault<int>(argOffset + 2);
-        state.SetHookFromLua(hook, mask, count);
         if (hook is null)
         {
+            state.SetHookFromLua(null, "", 0);
             return context.Return();
         }
+        var mask = context.GetStringArgument(argOffset + 1);
+        var count = context.HasArgument(argOffset + 2)
+            ? context.GetIntegerArgument(argOffset + 2)
+            : 0;
+        state.SetHookFromLua(hook, mask, count);
 
         // Re-arming a hook must not dispatch another hook while its callback is running.
         if (state.IsReturnHookEnabled && context.State == state && !state.IsInHook)
@@ -494,6 +520,7 @@ public sealed class DebugLibrary
             stack.Push("return");
             stack.Push(LuaValue.Nil);
             context.State.IsInHook = true;
+            context.State.NonYieldableCallCount++;
             var framePushed = false;
             try
             {
@@ -510,6 +537,7 @@ public sealed class DebugLibrary
             }
             finally
             {
+                context.State.NonYieldableCallCount--;
                 context.State.IsInHook = false;
                 if (framePushed)
                 {
@@ -527,11 +555,6 @@ public sealed class DebugLibrary
     )
     {
         var state = GetLuaThread(context, out _);
-        if (state.Hook is null && !state.IsLuaDebugHook)
-        {
-            return new(context.Return(LuaValue.Nil, LuaValue.Nil, LuaValue.Nil));
-        }
-
         return new(
             context.Return(
                 state.Hook is null ? LuaValue.Nil : state.Hook,
@@ -562,7 +585,7 @@ public sealed class DebugLibrary
         }
         else if (arg1.TryReadNumber(out _))
         {
-            var level = context.GetArgument<int>(argOffset) + 1;
+            var level = context.GetIntegerArgument(argOffset) + 1;
 
             var callStack = state.GetCallStackFrames();
 
