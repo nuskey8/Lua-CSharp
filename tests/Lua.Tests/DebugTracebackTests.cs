@@ -1,4 +1,5 @@
 using Lua.Platforms;
+using Lua.Runtime;
 using Lua.Standard;
 
 namespace Lua.Tests;
@@ -7,6 +8,107 @@ namespace Lua.Tests;
 [TestFixture(LuaStringMode.Bytes)]
 public class DebugTracebackTests(LuaStringMode mode)
 {
+    [TestCase(20, 1, 22, 0)]
+    [TestCase(21, 1, 22, 11)]
+    [TestCase(100, 0, 23, 12)]
+    [TestCase(100, 1, 22, 11)]
+    [TestCase(100, 10, 13, 2)]
+    [TestCase(100, 11, 12, 1)]
+    [TestCase(100, 12, 91, 0)]
+    [TestCase(100, 100, 3, 0)]
+    [TestCase(100, 103, 0, 0)]
+    public async Task DeepTracebacksUseLua52AbbreviationAndSkipLevels(
+        int depth,
+        int level,
+        int expectedCount,
+        int expectedMarker
+    )
+    {
+        using var state = LuaState.Create(
+            mode == LuaStringMode.Bytes ? LuaPlatform.DefaultByteStrings : LuaPlatform.Default
+        );
+        state.OpenStandardLibraries();
+        state.Environment["depth"] = depth;
+        state.Environment["level"] = level;
+        var result = await state.DoStringAsync(
+            """
+            local function recurse(n)
+                if n==0 then local trace=debug.traceback('message',level);return trace end
+                local trace=recurse(n-1)
+                return trace
+            end
+            local trace=recurse(depth)
+            assert(trace:sub(1,25)=='message\nstack traceback:\n' or trace=='message\nstack traceback:')
+            local count,marker=0,0
+            for line in trace:gmatch('[^\n]+') do
+                if line:sub(1,1)=='\t' then
+                    count=count+1
+                    if line=='\t...' then marker=count end
+                end
+            end
+            if count>0 then assert(trace:sub(-10)=='main chunk') end
+            return count,marker
+            """,
+            "@deep-traceback.lua"
+        );
+        Assert.That(result, Is.EqualTo(new LuaValue[] { expectedCount, expectedMarker }));
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task DeepCoroutineTracebacksAbbreviateSuspendedAndFailedStacks(bool fail)
+    {
+        using var state = LuaState.Create(
+            mode == LuaStringMode.Bytes ? LuaPlatform.DefaultByteStrings : LuaPlatform.Default
+        );
+        state.OpenStandardLibraries();
+        state.Environment["fail"] = fail;
+        await state.DoStringAsync(
+            """
+            local function recurse(n)
+                if n==0 then
+                    if fail then error('failure',0) else coroutine.yield() end
+                end
+                local result=recurse(n-1)
+                return result
+            end
+            local co=coroutine.create(function() local result=recurse(100);return result end)
+            assert(coroutine.resume(co)==not fail)
+            local trace=debug.traceback(co,'message')
+            assert(trace:sub(1,25)=='message\nstack traceback:\n')
+            local count=0
+            for line in trace:gmatch('[^\n]+') do if line:sub(1,1)=='\t' then count=count+1 end end
+            assert(count==23 and trace:find('\n\t...\n',1,true))
+            """
+        );
+    }
+
+    [Test]
+    public async Task HostTracebacksRetainAllFrames()
+    {
+        using var state = LuaState.Create(
+            mode == LuaStringMode.Bytes ? LuaPlatform.DefaultByteStrings : LuaPlatform.Default
+        );
+        state.OpenStandardLibraries();
+        state.Environment["capture"] = new LuaFunction(
+            (context, _) =>
+                new(context.Return(Traceback.CreateTracebackMessage(context.State, LuaValue.Nil)))
+        );
+        await state.DoStringAsync(
+            """
+            local function recurse(n)
+                if n==0 then local trace=capture();return trace end
+                local trace=recurse(n-1)
+                return trace
+            end
+            local trace=recurse(100)
+            local count=0
+            for line in trace:gmatch('[^\n]+') do if line:sub(1,1)=='\t' then count=count+1 end end
+            assert(count>100 and not trace:find('\n\t...\n',1,true))
+            """
+        );
+    }
+
     [TestCase(LuaNumberFormat.DotNet)]
     [TestCase(LuaNumberFormat.Lua)]
     public async Task TracebackHandlesMessagesAndNegativeLevelsBeforeFormatting(

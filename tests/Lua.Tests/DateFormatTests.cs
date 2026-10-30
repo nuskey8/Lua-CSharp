@@ -73,31 +73,7 @@ public class DateFormatTests(LuaStringMode mode)
         int hour
     )
     {
-        var rule = TimeZoneInfo.AdjustmentRule.CreateAdjustmentRule(
-            new DateTime(2000, 1, 1),
-            new DateTime(2099, 12, 31),
-            TimeSpan.FromHours(1),
-            TimeZoneInfo.TransitionTime.CreateFloatingDateRule(
-                new DateTime(1, 1, 1, 2, 0, 0),
-                3,
-                2,
-                DayOfWeek.Sunday
-            ),
-            TimeZoneInfo.TransitionTime.CreateFloatingDateRule(
-                new DateTime(1, 1, 1, 2, 0, 0),
-                11,
-                1,
-                DayOfWeek.Sunday
-            )
-        );
-        var zone = TimeZoneInfo.CreateCustomTimeZone(
-            "Test/Pacific",
-            TimeSpan.FromHours(-8),
-            "Test Pacific",
-            "Test Standard",
-            "Test Daylight",
-            [rule]
-        );
+        var zone = CreatePacificZone(TimeSpan.FromHours(1));
         var provider = new FakeTimeProvider(
             new DateTimeOffset(2020, month, 15, 12, 0, 0, TimeSpan.Zero)
         );
@@ -133,6 +109,87 @@ public class DateFormatTests(LuaStringMode mode)
                 }
             )
         );
+    }
+
+    static TimeZoneInfo CreatePacificZone(TimeSpan daylightDelta)
+    {
+        var rule = TimeZoneInfo.AdjustmentRule.CreateAdjustmentRule(
+            new DateTime(2000, 1, 1),
+            new DateTime(2099, 12, 31),
+            daylightDelta,
+            TimeZoneInfo.TransitionTime.CreateFloatingDateRule(
+                new DateTime(1, 1, 1, 2, 0, 0),
+                3,
+                2,
+                DayOfWeek.Sunday
+            ),
+            TimeZoneInfo.TransitionTime.CreateFloatingDateRule(
+                new DateTime(1, 1, 1, 2, 0, 0),
+                11,
+                1,
+                DayOfWeek.Sunday
+            )
+        );
+        return TimeZoneInfo.CreateCustomTimeZone(
+            "Test/Pacific",
+            TimeSpan.FromHours(-8),
+            "Test Pacific",
+            "Test Standard",
+            "Test Daylight",
+            [rule]
+        );
+    }
+
+    [TestCase(1, 11, 1, 8)]
+    [TestCase(-1, 3, 8, 9)]
+    public async Task RepeatedLocalTimesRoundTripWithTheirDaylightFlag(
+        int delta,
+        int month,
+        int day,
+        int hour
+    )
+    {
+        var zone = CreatePacificZone(TimeSpan.FromHours(delta));
+        var first = new DateTimeOffset(2020, month, day, hour, 30, 0, TimeSpan.Zero);
+        var provider = new FakeTimeProvider(first);
+        provider.SetLocalTimeZone(zone);
+        using var state = CreateState(provider);
+        state.Environment["first"] = first.ToUnixTimeSeconds();
+        await state.DoStringAsync(
+            """
+            local a=os.date('*t',first)
+            local b=os.date('*t',first+3600)
+            local standard=b.isdst and first or first+3600
+            assert(a.hour==b.hour and a.min==b.min and a.isdst~=b.isdst)
+            assert(os.time(a)==first and os.time(b)==first+3600)
+            assert(os.time(os.date('*t'))==first)
+            a.isdst=b.isdst
+            assert(os.time(a)==first+3600)
+            a.isdst=a.isdst and 0 or false
+            assert(os.time(a)==first+3600)
+            a.isdst=nil
+            assert(os.time(a)==standard)
+            """
+        );
+    }
+
+    [TestCase(-1.9, "1969-12-31 23:59:59", 59)]
+    [TestCase(-0.5, "1970-01-01 00:00:00", 0)]
+    [TestCase(0.9999999, "1970-01-01 00:00:00", 0)]
+    [TestCase(1.9, "1970-01-01 00:00:01", 1)]
+    public async Task ExplicitTimestampsTruncateTowardZero(
+        double timestamp,
+        string expected,
+        int second
+    )
+    {
+        using var state = CreateState(new FakeTimeProvider());
+        state.Environment["timestamp"] = timestamp;
+        var result = await state.DoStringAsync(
+            "return os.date('!%Y-%m-%d %H:%M:%S',timestamp),os.date('!*t',timestamp).sec"
+        );
+        Assert.That(result[0], Is.EqualTo(new LuaValue(expected)));
+        Assert.That(result[1].Read<double>(), Is.EqualTo(second));
     }
 
     [Test]

@@ -35,4 +35,6 @@ Stripped bytecode has no line/local names to recover. Source/line fields and loc
 
 The default level is 1 for the current thread, including when that thread is supplied explicitly, and 0 for a different thread. Explicit levels skip that many frames. Negative levels and levels beyond the stack return only the message and traceback heading, as in C Lua 5.2.
 
+Deep Lua-facing tracebacks use Lua 5.2's head/tail abbreviation and insert `...` without formatting the omitted frames. The marker follows Lua 5.2's absolute stack-level rule; an explicit starting level past that marker can produce a longer trace. C# `Traceback` APIs retain complete traces.
+
 Numeric messages follow `NumberFormat`. Other non-string/non-number messages are returned unchanged; for example, `debug.traceback({}, 'bad')` returns the table without validating the level. A thread in the first argument position selects the target thread; to pass a thread as the message, supply the target thread first.

@@ -382,37 +382,18 @@ public sealed class DebugLibrary
             : state == context.State ? 1
             : 0;
 
-        if (level < 0)
-        {
-            return new(
-                context.Return(
-                    Runtime.Traceback.CreateTracebackMessage(context.GlobalState, [], message)
-                )
-            );
-        }
-
-        if (state is { IsCoroutine: true, LuaTraceback: { } traceback })
-        {
-            return new(
-                context.Return(
-                    Runtime.Traceback.CreateTracebackMessage(
-                        context.GlobalState,
-                        traceback.StackFrames,
-                        message,
-                        level
-                    )
-                )
-            );
-        }
-
-        var callStack = state.GetCallStackFrames();
+        ReadOnlySpan<CallStackFrame> frames =
+            level < 0 ? []
+            : state is { IsCoroutine: true, LuaTraceback: { } traceback } ? traceback.StackFrames
+            : state.GetCallStackFrames();
         return new(
             context.Return(
                 Runtime.Traceback.CreateTracebackMessage(
                     context.GlobalState,
-                    callStack,
+                    frames,
                     message,
-                    level
+                    level,
+                    abbreviate: true
                 )
             )
         );

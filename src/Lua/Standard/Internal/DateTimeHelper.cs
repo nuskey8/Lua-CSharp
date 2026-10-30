@@ -27,14 +27,22 @@ static class DateTimeHelper
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static DateTime FromUnixTime(double unixTime)
     {
-        var ts = TimeSpan.FromSeconds(unixTime);
+        var ts = TimeSpan.FromSeconds(Math.Truncate(unixTime));
         return DateTime.UnixEpoch + ts;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static double GetUnixTimeFromLocalTime(DateTime dateTime, TimeZoneInfo zone)
+    public static double GetUnixTimeFromLocalTime(DateTime dateTime, TimeZoneInfo zone, bool isDst)
     {
-        return new DateTimeOffset(dateTime, zone.GetUtcOffset(dateTime)).ToUnixTimeSeconds();
+        var offset = zone.GetUtcOffset(dateTime);
+        // GetUtcOffset already selects standard time for an ambiguous clock reading.
+        if (isDst && zone.IsAmbiguousTime(dateTime))
+        {
+            var offsets = zone.GetAmbiguousTimeOffsets(dateTime);
+            var first = new DateTimeOffset(dateTime, offsets[0]);
+            offset = zone.IsDaylightSavingTime(first) ? offsets[0] : offsets[1];
+        }
+        return new DateTimeOffset(dateTime, offset).ToUnixTimeSeconds();
     }
 
     public static DateTime ParseTimeTable(LuaState state, LuaTable table)
@@ -125,7 +133,7 @@ static class DateTimeHelper
             };
         }
 
-        ValueStringBuilder builder = new();
+        using ValueStringBuilder builder = new();
         Span<char> formatBuffer = stackalloc char[32];
 
         var isEscapeSequence = false;
@@ -273,6 +281,6 @@ static class DateTimeHelper
             ThrowInvalidConversionSpecifier(state, format);
         }
 
-        return builder.ToString();
+        return builder.AsSpan().ToString();
     }
 }

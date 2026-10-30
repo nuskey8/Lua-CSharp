@@ -219,11 +219,13 @@ public sealed class OperatingSystemLibrary
         {
             var table = context.GetArgument<LuaTable>(0);
             var date = DateTimeHelper.ParseTimeTable(context.State, table);
+            var zone = context.State.Platform.TimeProvider.LocalTimeZone;
             return new(
                 context.Return(
                     DateTimeHelper.GetUnixTimeFromLocalTime(
                         date,
-                        context.State.Platform.TimeProvider.LocalTimeZone
+                        zone,
+                        zone.SupportsDaylightSavingTime && table["isdst"].ToBoolean()
                     )
                 )
             );
