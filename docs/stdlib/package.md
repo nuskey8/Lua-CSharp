@@ -1,13 +1,13 @@
 # Packages and modules
 
-[Reference index](README.md) · [Official Lua 5.2 package library](https://www.lua.org/manual/5.2/manual.html#6.3) · [Implementation](../../src/Lua/Standard/ModuleLibrary.cs)
+[Reference index](README.md) · [Official Lua 5.2 package library](https://www.lua.org/manual/5.2/manual.html#6.3) · [C Lua 5.2.4 source](https://www.lua.org/source/5.2/loadlib.c.html) · [Implementation](../../src/Lua/Standard/ModuleLibrary.cs)
 
 Install with `state.OpenModuleLibrary()`. This installs global `require` and the `package` table. Each opened standard library is registered in the loaded-module table.
 
-| API / official reference | Inputs and result | Lua-CSharp differences and reasons |
+| API / official reference | Inputs and result | Lua-CSharp implementation notes and differences |
 | --- | --- | --- |
 | [`require(name)`](https://www.lua.org/manual/5.2/manual.html#pdf-require) | Returns a truthy cached module or searches for a loader. Calls the loader with `name` and searcher data; caches a non-nil result, or uses the loaded entry/default `true`. A false cache entry allows a later reload. | **Host-dependent:** a configured `ILuaModuleLoader` is consulted before package searchers when it reports the module exists. This lets C# supply resources/assets without native filesystem loading. The package object is captured when the library is opened, so replacing global `package` does not retarget an existing `require`. Loader/searcher callbacks cannot Lua-yield, but host loaders can await. |
-| [`package.config`](https://www.lua.org/manual/5.2/manual.html#pdf-package.config) | A newline-delimited string describing directory, path-list, substitution, executable-directory, and ignore markers. | The directory character is the host .NET separator; the remaining markers are `;`, `?`, `!`, and `-`. This is initialized from the host runtime, not a C Lua build configuration. |
+| [`package.config`](https://www.lua.org/manual/5.2/manual.html#pdf-package.config) | A newline-delimited string describing directory, path-list, substitution, executable-directory, and ignore markers. | The directory character is the host .NET separator; the remaining markers are `;`, `?`, `!`, and `-`. **Limitation:** the initializer omits C Lua's final newline, so a parser requiring a newline after every marker can miss the last one. |
 | [`package.cpath`](https://www.lua.org/manual/5.2/manual.html#pdf-package.cpath) | Officially configures native C module search paths. | **Unavailable:** no field or native C-module searcher is installed. Lua-CSharp uses managed bindings and host module loaders rather than Lua's C ABI. |
 | [`package.loaded`](https://www.lua.org/manual/5.2/manual.html#pdf-package.loaded) | The table used to cache module values. | Backed by the state's managed loaded-module table. As in Lua 5.2, replacing the `package.loaded` field does not replace the cache used by `require`; mutate its entries instead. |
 | [`package.loadlib(libname, funcname)`](https://www.lua.org/manual/5.2/manual.html#pdf-package.loadlib) | Officially loads a native library and its Lua C entry point. | **Unavailable:** not registered. A native Lua C function cannot run directly against Lua-CSharp's managed state/stack representation. Expose C# functions or an `ILuaModuleLoader` instead. |

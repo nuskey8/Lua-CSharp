@@ -1,12 +1,12 @@
 # Coroutines
 
-[Reference index](README.md) · [Official Lua 5.2 coroutine library](https://www.lua.org/manual/5.2/manual.html#6.2) · [Implementation](../../src/Lua/Standard/CoroutineLibrary.cs)
+[Reference index](README.md) · [Official Lua 5.2 coroutine library](https://www.lua.org/manual/5.2/manual.html#6.2) · [C Lua 5.2.4 source](https://www.lua.org/source/5.2/lcorolib.c.html) · [Implementation](../../src/Lua/Standard/CoroutineLibrary.cs)
 
 Install with `state.OpenCoroutineLibrary()`.
 
-| API / official reference | Inputs and result | Lua-CSharp differences and reasons |
+| API / official reference | Inputs and result | Lua-CSharp implementation notes and differences |
 | --- | --- | --- |
-| [`coroutine.create(f)`](https://www.lua.org/manual/5.2/manual.html#pdf-coroutine.create) | Creates a suspended coroutine whose body is `f`; returns a `thread`. | Also accepts a C# `LuaFunction` body, since host functions participate in the same managed call machinery. |
+| [`coroutine.create(f)`](https://www.lua.org/manual/5.2/manual.html#pdf-coroutine.create) | Creates a suspended coroutine whose body is `f`; returns a `thread`. | A C# `LuaFunction` can be the body, analogous to using a C function in C Lua. Host functions participate in the managed call machinery. |
 | [`coroutine.resume(co [, ...])`](https://www.lua.org/manual/5.2/manual.html#pdf-coroutine.resume) | Starts/resumes `co`; returns `true` followed by yielded or final results, or `false, error` for a script failure. Resume arguments become body arguments or yield results. | Can await asynchronous C# work. Host cancellation follows the managed execution cancellation protocol rather than becoming an ordinary script failure. |
 | [`coroutine.running()`](https://www.lua.org/manual/5.2/manual.html#pdf-coroutine.running) | Returns the current thread and a boolean identifying the main thread. | Threads are represented by `LuaState` objects. They are not dedicated OS threads. |
 | [`coroutine.status(co)`](https://www.lua.org/manual/5.2/manual.html#pdf-coroutine.status) | Reports `running`, `suspended`, `normal`, or `dead`. | Awaiting C# work does not itself create a Lua yield/resume exchange. |

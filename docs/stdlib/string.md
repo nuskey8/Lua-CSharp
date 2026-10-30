@@ -1,18 +1,18 @@
 # Strings
 
-[Reference index](README.md) · [Official Lua 5.2 string library](https://www.lua.org/manual/5.2/manual.html#6.4) · [Implementation](../../src/Lua/Standard/StringLibrary.cs)
+[Reference index](README.md) · [Official Lua 5.2 string library](https://www.lua.org/manual/5.2/manual.html#6.4) · [C Lua 5.2.4 source](https://www.lua.org/source/5.2/lstrlib.c.html) · [Implementation](../../src/Lua/Standard/StringLibrary.cs)
 
 Install with `state.OpenStringLibrary()`. String method calls such as `s:sub(2)` use this library through the string metatable.
 
 The central difference is representation: operations use UTF-16 code units by default and bytes in `LuaStringMode.Bytes`. This makes default-mode operations convenient for .NET strings; byte mode preserves Lua's binary-string model. See [String modes](../string-modes.md). Indices are 1-based; negative substring indices count from the end.
 
-| API / official reference | Inputs and result | Lua-CSharp differences and reasons |
+| API / official reference | Inputs and result | Lua-CSharp implementation notes and differences |
 | --- | --- | --- |
 | [`string.byte(s [, i [, j]])`](https://www.lua.org/manual/5.2/manual.html#pdf-string.byte) | Returns the numeric units in the inclusive range, defaulting to the first unit. | Default mode returns UTF-16 code-unit values, including surrogate values. Byte mode returns 0–255. The managed string representation determines the units. |
 | [`string.char(...)`](https://www.lua.org/manual/5.2/manual.html#pdf-string.char) | Constructs a string from numeric character values. | Byte mode requires 0–255, as Lua byte strings do. Default mode casts the integer values to UTF-16 `char`, rather than enforcing a byte range; use ordinary text or byte mode according to the intended data. |
 | [`string.dump(f)`](https://www.lua.org/manual/5.2/manual.html#pdf-string.dump) | Serializes a Lua function's prototype as a raw binary string. Captured values are not serialized. C# functions cannot be dumped. | Available in both string modes; the result always holds raw byte values. See [dumping and loading](#dumping-and-loading). |
 | [`string.find(s, pattern [, init [, plain]])`](https://www.lua.org/manual/5.2/manual.html#pdf-string.find) | Returns match start/end and captures, or nil. `plain` selects literal substring search. | Positions use the state's string units. Pattern character classes use the rules below; plain search uses ordinal string matching. |
-| [`string.format(format, ...)`](https://www.lua.org/manual/5.2/manual.html#pdf-string.format) | Formats values using Lua's printf-style conversions, including `%s`, `%q`, integer, floating-point, and hexadecimal floating-point conversions. | Width/precision count managed string units. `%c` constructs a UTF-16 unit in default mode and masks to one byte in byte mode. Numeric text and special values follow `NumberFormat` where applicable. Integer formatting uses 64-bit signed/unsigned ranges; these can differ from a C Lua build's configured integer formatting width. |
+| [`string.format(format, ...)`](https://www.lua.org/manual/5.2/manual.html#pdf-string.format) | Formats values using Lua's printf-style conversions, including `%s`, `%q`, integer, floating-point, and hexadecimal floating-point conversions. | Width/precision count managed string units. `%c` constructs a UTF-16 unit in default mode and masks to one byte in byte mode. Numeric text and special values follow `NumberFormat` where applicable. Integer formatting uses 64-bit signed/unsigned ranges; these can differ from a C Lua build's configured integer formatting width. See [format details](#format-details). |
 | [`string.gmatch(s, pattern)`](https://www.lua.org/manual/5.2/manual.html#pdf-string.gmatch) | Returns an iterator over captures, or whole matches when there are no captures. | Positions and classes follow the selected string mode. |
 | [`string.gsub(s, pattern, replacement [, n])`](https://www.lua.org/manual/5.2/manual.html#pdf-string.gsub) | Returns the replaced string and match count. Replacement may be text, a number, a table, or a function. False/nil replacement results retain the matched text. | Numeric replacements use `NumberFormat`. Table `__index` and replacement callbacks can await C# work but cannot Lua-yield through this library call. |
 | [`string.len(s)`](https://www.lua.org/manual/5.2/manual.html#pdf-string.len) | Returns the string length, including embedded zero units. | Counts UTF-16 units by default and bytes in byte mode; neither counts Unicode grapheme clusters. |
@@ -27,7 +27,11 @@ The central difference is representation: operations use UTF-16 code units by de
 
 [Official pattern syntax](https://www.lua.org/manual/5.2/manual.html#6.4.1) applies: Lua patterns are not .NET regular expressions. Captures, position captures `()`, balanced matches `%b`, frontier patterns `%f`, anchors, and Lua repetition operators are handled by the Lua pattern matcher.
 
-Default-mode character classes use .NET character classification. In byte mode, classes and case conversion use ASCII C-locale rules. Thus non-ASCII letters may match `%a` in default mode but not in byte mode. `os.setlocale` does not change these rules. Pattern recursion and capture counts are bounded by the managed matcher.
+Default-mode letter, digit, case, control, whitespace, and graphical classes use .NET character classification. `%p` uses ASCII punctuation ranges, `%x` uses ASCII hexadecimal digits, and `%z` matches NUL. In byte mode, all classes use ASCII C-locale rules. Thus non-ASCII letters may match `%a` in default mode but not in byte mode. `os.setlocale` does not change these rules. Pattern recursion and capture counts are bounded by the managed matcher.
+
+## Format details
+
+Managed `%s` formatting preserves embedded NUL units. For example, `string.format('%5s', string.char(97, 0, 98))` produces two spaces followed by `a`, NUL, and `b`. C Lua 5.2.4 passes this short string to C `sprintf`, which stops at the NUL and produces four spaces followed by `a`. C Lua has a separate path for long strings without precision, so its `%s` NUL behavior is not uniform across inputs.
 
 ## Dumping and loading
 

@@ -1,6 +1,6 @@
 # Lua standard library reference
 
-This reference describes the Lua-facing APIs installed by Lua-CSharp. Each API links to its entry in the [official Lua 5.2 manual](https://www.lua.org/manual/5.2/manual.html#6). The manual defines the Lua contract; these pages explain the managed implementation, available configuration, and known limitations.
+This reference describes the Lua-facing APIs installed by Lua-CSharp. Each API links to its entry in the [official Lua 5.2 manual](https://www.lua.org/manual/5.2/manual.html#6). The manual defines the Lua contract; these pages explain the managed implementation, available configuration, and known limitations. Comparisons with C Lua use the [official Lua 5.2.4 source](https://www.lua.org/source/5.2/), with platform/build differences called out where relevant.
 
 ## Open libraries
 
@@ -22,6 +22,8 @@ bytes.OpenStandardLibraries();
 
 Libraries are opt-in. `LuaState.Create()` alone does not install them. To install a subset, call the corresponding extension in the table below. Configure standard I/O before opening its library: changing the provider later does not replace existing handles. Existing module closures also retain their captured package table.
 
+Opening a library again republishes its globals/table; it is not an ensure-loaded operation. For example, reopening math replaces its random generator, and reopening I/O resets the default handles.
+
 | Reference | C# initialization | Official library/global |
 | --- | --- | --- |
 | [Basic functions and globals](basic.md) | `OpenBasicLibrary()` | [Basic library](https://www.lua.org/manual/5.2/manual.html#6.1) |
@@ -37,7 +39,7 @@ Libraries are opt-in. `LuaState.Create()` alone does not install them. To instal
 
 ## Reading the API tables
 
-Signatures use `[optional]` arguments and `...` for multiple values. A blank differences cell means no additional difference is documented for that API; the shared behavior below still applies. These are implementation notes, not a guarantee that every edge case matches every C Lua build.
+Signatures use `[optional]` arguments and `...` for multiple values. The last column includes both implementation details and compatibility differences; a managed backend alone does not imply different Lua behavior. A blank notes cell means no additional note is documented for that API; the shared behavior below still applies. These are implementation notes, not a guarantee that every edge case matches every C Lua build.
 
 Notes marked **Limitation** describe incomplete compatibility, not a recommended Lua idiom. Notes marked **Host-dependent** depend on a replaceable provider. Explanations identify the implementation mechanism; they do not imply that an existing limitation is intentional.
 
@@ -63,7 +65,7 @@ Host execution cancellation propagates to C# rather than becoming a normal `pcal
 
 ### Memory and host objects
 
-The .NET garbage collector owns object lifetimes. Lua GC tuning, weak-table `__mode` semantics, and Lua `__gc` finalizers are not implemented as a separate Lua collector. `collectgarbage` has significant limitations documented in [Basic functions](basic.md). Close files explicitly when their close timing matters.
+The .NET garbage collector owns object lifetimes. Lua weak-table `__mode` semantics and Lua `__gc` finalizers are not implemented; .NET collection does not supply these Lua protocols. Lua GC tuning is also unavailable, and `collectgarbage` has significant limitations documented in [Basic functions](basic.md). Close files explicitly when their close timing matters.
 
 C# objects can be exposed as userdata, and host functions are wrapped as `LuaFunction` values. Their identity strings and debug metadata describe managed objects rather than native pointers. Host-frozen tables, including generated C# metatables, reject mutation even through raw table operations; this keeps their published interop definitions immutable.
 

@@ -1,12 +1,12 @@
 # Files and standard I/O
 
-[Reference index](README.md) · [Official Lua 5.2 I/O library](https://www.lua.org/manual/5.2/manual.html#6.8) · [Library implementation](../../src/Lua/Standard/IOLibrary.cs) · [File methods](../../src/Lua/Standard/FileHandle.cs)
+[Reference index](README.md) · [Official Lua 5.2 I/O library](https://www.lua.org/manual/5.2/manual.html#6.8) · [C Lua 5.2.4 source](https://www.lua.org/source/5.2/liolib.c.html) · [Library implementation](../../src/Lua/Standard/IOLibrary.cs) · [File methods](../../src/Lua/Standard/FileHandle.cs)
 
 Install with `state.OpenIOLibrary()`. Operations use `LuaPlatform.FileSystem` and the standard-stream handles captured from `LuaPlatform.StandardIO` when the library opens. A custom provider can use memory, assets, or another storage system.
 
 ## Library APIs
 
-| API / official reference | Inputs and result | Lua-CSharp differences and reasons |
+| API / official reference | Inputs and result | Lua-CSharp implementation notes and differences |
 | --- | --- | --- |
 | [`io.close([file])`](https://www.lua.org/manual/5.2/manual.html#pdf-io.close) | Closes the supplied file, or the default output when no argument is supplied. Explicit nil is an error. | Default console standard handles reject closing. File failures use managed messages/error codes; see below. |
 | [`io.flush()`](https://www.lua.org/manual/5.2/manual.html#pdf-io.flush) | Flushes the current default output. | Calls the configured stream's flush operation; it is not necessarily an OS file stream. |
@@ -25,13 +25,13 @@ Install with `state.OpenIOLibrary()`. Operations use `LuaPlatform.FileSystem` an
 
 ## File methods
 
-| API / official reference | Inputs and result | Lua-CSharp differences and reasons |
+| API / official reference | Inputs and result | Lua-CSharp implementation notes and differences |
 | --- | --- | --- |
 | [`file:close()`](https://www.lua.org/manual/5.2/manual.html#pdf-file:close) | Closes the underlying stream; reports success or handled I/O failure. | Calls `ILuaStream.CloseAsync`; close behavior belongs to the provider. The default stream flushes and disposes the underlying .NET stream. Lua GC finalizers are not used to implement deterministic close. |
 | [`file:flush()`](https://www.lua.org/manual/5.2/manual.html#pdf-file:flush) | Flushes pending writes. | Calls the provider's flush operation. |
 | [`file:lines(...)`](https://www.lua.org/manual/5.2/manual.html#pdf-file:lines) | Returns an iterator over the file using the given formats; does not automatically close the handle. | Closed handles fail at iterator creation. **Limitation:** the EOF result count follows the same nil-versus-no-results difference as `io.lines`. |
 | [`file:read(...)`](https://www.lua.org/manual/5.2/manual.html#pdf-file:read) | Returns one value per successful format, stopping at the first failed conversion/EOF with nil. No formats means `*l`. | Default streams decode UTF-8 to UTF-16, while byte-mode streams preserve raw bytes. Counts use the selected representation. Numeric scanning remains byte-based, even in UTF-16 mode. |
-| [`file:seek([whence [, offset]])`](https://www.lua.org/manual/5.2/manual.html#pdf-file:seek) | Seeks using `set`, `cur`, or `end`; defaults are `cur, 0`. Returns the resulting position or handled I/O failure. | Offsets/positions are **bytes** in built-in streams, including UTF-16 mode. Buffered unread bytes are accounted for. If a counted read returned only the high surrogate of a supplementary character, its bytes have already been consumed; a position query retains the pending low surrogate. Underlying seek support is provider-dependent. |
+| [`file:seek([whence [, offset]])`](https://www.lua.org/manual/5.2/manual.html#pdf-file:seek) | Seeks using `set`, `cur`, or `end`; defaults are `cur, 0`. Requires an integral offset, as in C Lua 5.2.4. Returns the resulting position or handled I/O failure. | Offsets/positions are **bytes** in built-in streams, including UTF-16 mode. Buffered unread bytes are accounted for. If a counted read returned only the high surrogate of a supplementary character, its bytes have already been consumed; a position query retains the pending low surrogate. **Limitation:** the offset uses a strict managed `long` read, so numeric strings such as `'1'` are rejected instead of coerced as in C Lua. Underlying seek support is provider-dependent. |
 | [`file:setvbuf(mode [, size])`](https://www.lua.org/manual/5.2/manual.html#pdf-file:setvbuf) | Selects `no`, `line`, or `full` buffering policy; returns true when accepted. | **Limitation:** built-in `LuaStream` changes flush policy, not the underlying .NET buffer allocation. `no` flushes each write; `line` flushes writes containing LF; `full` uses a per-write size threshold rather than a cumulative C stdio buffer. `size` does not resize the stream's buffer. Custom providers may implement their own policy. |
 | [`file:write(...)`](https://www.lua.org/manual/5.2/manual.html#pdf-file:write) | Writes strings/numbers and returns the file on success. | Default streams encode UTF-16 text as UTF-8; byte-mode streams write raw byte values. Numbers use `NumberFormat`. |
 

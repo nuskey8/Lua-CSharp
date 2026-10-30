@@ -1,10 +1,10 @@
 # Tables
 
-[Reference index](README.md) · [Official Lua 5.2 table library](https://www.lua.org/manual/5.2/manual.html#6.5) · [Implementation](../../src/Lua/Standard/TableLibrary.cs)
+[Reference index](README.md) · [Official Lua 5.2 table library](https://www.lua.org/manual/5.2/manual.html#6.5) · [C Lua 5.2.4 source](https://www.lua.org/source/5.2/ltablib.c.html) · [Implementation](../../src/Lua/Standard/TableLibrary.cs)
 
 Install with `state.OpenTableLibrary()`. These functions require a Lua table. They access elements raw, following Lua 5.2 rather than later-version proxy-table behavior. Operations that need a default length honor `__len`; that callback cannot Lua-yield across the library call, although C# code can await.
 
-| API / official reference | Inputs and result | Lua-CSharp differences and reasons |
+| API / official reference | Inputs and result | Lua-CSharp implementation notes and differences |
 | --- | --- | --- |
 | [`table.concat(t [, sep [, i [, j]]])`](https://www.lua.org/manual/5.2/manual.html#pdf-table.concat) | Joins string/number elements in the inclusive range; defaults are empty separator, `i=1`, and `j=#t`. | Numbers use the platform's `NumberFormat`. Managed string capacity bounds the output size. |
 | [`table.insert(t, [pos,] value)`](https://www.lua.org/manual/5.2/manual.html#pdf-table.insert) | Inserts at `pos` and shifts following sequence elements; omitting `pos` appends. Returns no values. | Length and insertion positions are bounded by managed integer indices. A host-frozen table rejects mutation because its published contents are immutable. |

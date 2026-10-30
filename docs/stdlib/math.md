@@ -1,12 +1,12 @@
 # Mathematics
 
-[Reference index](README.md) · [Official Lua 5.2 math library](https://www.lua.org/manual/5.2/manual.html#6.6) · [Implementation](../../src/Lua/Standard/MathematicsLibrary.cs)
+[Reference index](README.md) · [Official Lua 5.2 math library](https://www.lua.org/manual/5.2/manual.html#6.6) · [C Lua 5.2.4 source](https://www.lua.org/source/5.2/lmathlib.c.html) · [Implementation](../../src/Lua/Standard/MathematicsLibrary.cs)
 
 Install with `state.OpenMathLibrary()`. Numbers are .NET doubles. Most operations call `System.Math`; decomposition/scaling use managed helpers. Transcendental rounding and exceptional-value details can vary with the .NET runtime/platform, just as C math libraries vary between Lua builds. No C math library or mutable C locale is used.
 
 Angles are radians unless an API explicitly converts degrees. The [numeric text policy](README.md#numbers-and-text) affects printing results, not the calculations.
 
-| API / official reference | Inputs and result | Lua-CSharp differences and reasons |
+| API / official reference | Inputs and result | Lua-CSharp implementation notes and differences |
 | --- | --- | --- |
 | [`math.abs(x)`](https://www.lua.org/manual/5.2/manual.html#pdf-math.abs) | Absolute value. | `Math.Abs`. |
 | [`math.acos(x)`](https://www.lua.org/manual/5.2/manual.html#pdf-math.acos) | Inverse cosine. | `Math.Acos`; managed floating-point behavior applies. |
