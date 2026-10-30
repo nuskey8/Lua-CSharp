@@ -1,4 +1,4 @@
-﻿using System.Buffers;
+using System.Buffers;
 using System.Text;
 using Lua.CodeAnalysis.Compilation;
 using Lua.IO;
@@ -198,10 +198,7 @@ sealed class Utf8Reader
     {
         var resultBuffer = ArrayPool<char>.Shared.Rent(64); // Numbers shouldn't be too long
         var len = 0;
-        var hasStarted = false;
-        var isHex = false;
-        var hasDecimal = false;
-        var lastWasE = false;
+        NumberReaderHelper.Scanner scanner = new();
 
         try
         {
@@ -223,114 +220,21 @@ sealed class Utf8Reader
                 ReadByte(stream); // Consume whitespace
             }
 
-            // Check for hex prefix at the start
-            if (PeekByte(stream) == '0')
-            {
-                var nextByte = PeekByte(stream, 1);
-                if (nextByte == 'x' || nextByte == 'X')
-                {
-                    isHex = true;
-                    resultBuffer[len++] = '0';
-                    ReadByte(stream);
-                    resultBuffer[len++] = (char)ReadByte(stream);
-                    hasStarted = true;
-                }
-            }
-
-            // Read number characters
             while (true)
             {
                 var b = PeekByte(stream);
-                if (b == -1)
+                if (b < 0 || !scanner.TryConsume((char)b))
+                    break;
+                if (len == resultBuffer.Length)
                 {
-                    break; // EOF
+                    var expanded = ArrayPool<char>.Shared.Rent(resultBuffer.Length * 2);
+                    resultBuffer.AsSpan(0, len).CopyTo(expanded);
+                    ArrayPool<char>.Shared.Return(resultBuffer);
+                    resultBuffer = expanded;
                 }
-
-                var c = (char)b;
-                var shouldConsume = false;
-
-                if (!hasStarted && (c == '+' || c == '-'))
-                {
-                    shouldConsume = true;
-                    hasStarted = true;
-                }
-                else if (isHex)
-                {
-                    // Hex digits
-                    if ((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F'))
-                    {
-                        shouldConsume = true;
-                        hasStarted = true;
-                    }
-                    // Hex decimal point
-                    else if (c == '.' && !hasDecimal)
-                    {
-                        shouldConsume = true;
-                        hasDecimal = true;
-                    }
-                    // Hex exponent (p or P)
-                    else if ((c == 'p' || c == 'P') && hasStarted)
-                    {
-                        shouldConsume = true;
-                        lastWasE = true;
-                    }
-                    // Sign after exponent
-                    else if (lastWasE && (c == '+' || c == '-'))
-                    {
-                        shouldConsume = true;
-                        lastWasE = false;
-                    }
-                }
-                else
-                {
-                    // Decimal digits
-                    if (c >= '0' && c <= '9')
-                    {
-                        shouldConsume = true;
-                        hasStarted = true;
-                        lastWasE = false;
-                    }
-                    // Decimal point
-                    else if (c == '.' && !hasDecimal)
-                    {
-                        shouldConsume = true;
-                        hasDecimal = true;
-                        lastWasE = false;
-                    }
-                    // Exponent (e or E)
-                    else if ((c == 'e' || c == 'E') && hasStarted)
-                    {
-                        shouldConsume = true;
-                        lastWasE = true;
-                    }
-                    // Sign after exponent
-                    else if (lastWasE && (c == '+' || c == '-'))
-                    {
-                        shouldConsume = true;
-                        lastWasE = false;
-                    }
-                }
-
-                if (shouldConsume)
-                {
-                    if (len >= resultBuffer.Length)
-                    {
-                        // Number too long, expand buffer
-                        var newBuffer = ArrayPool<char>.Shared.Rent(resultBuffer.Length * 2);
-                        resultBuffer.AsSpan(0, len).CopyTo(newBuffer);
-                        ArrayPool<char>.Shared.Return(resultBuffer);
-                        resultBuffer = newBuffer;
-                    }
-
-                    resultBuffer[len++] = c;
-                    ReadByte(stream); // Consume the byte
-                }
-                else
-                {
-                    break; // Not part of the number
-                }
+                resultBuffer[len++] = (char)b;
+                ReadByte(stream);
             }
-
             return len == 0 ? null : NumberReaderHelper.ParseNumber(resultBuffer.AsSpan(0, len));
         }
         finally
@@ -344,28 +248,16 @@ sealed class Utf8Reader
         return PeekByte(stream) < 0;
     }
 
-    int PeekByte(Stream stream, int offset = 0)
+    int PeekByte(Stream stream)
     {
-        // Ensure we have enough data in buffer
-        while (bufPos + offset >= bufLen)
+        if (bufPos >= bufLen)
         {
-            if (bufLen == 0 || bufPos == bufLen)
-            {
-                bufLen = stream.Read(buffer, 0, buffer.Length);
-                bufPos = 0;
-                if (bufLen == 0)
-                {
-                    return -1; // EOF
-                }
-            }
-            else
-            {
-                // We need more data but buffer has some - this shouldn't happen with small offsets
+            bufLen = stream.Read(buffer, 0, buffer.Length);
+            bufPos = 0;
+            if (bufLen == 0)
                 return -1;
-            }
         }
-
-        return buffer[bufPos + offset];
+        return buffer[bufPos];
     }
 
     public void Dispose()

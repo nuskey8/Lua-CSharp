@@ -176,8 +176,16 @@ static class IOHelper
                             break;
                     }
                 }
-                else if (format.TryRead<int>(out var count))
+                else if (format.Type == LuaValueType.Number)
                 {
+                    var length = Math.Truncate(format.UnsafeReadDouble());
+                    if (double.IsNaN(length) || length < 0 || length > int.MaxValue)
+                        LuaRuntimeException.BadArgument(
+                            state,
+                            startArgumentIndex + i + 1,
+                            "invalid count"
+                        );
+                    var count = (int)length;
                     var ret = await file.ReadStringAsync(count, cancellationToken);
                     if (ret == null)
                     {

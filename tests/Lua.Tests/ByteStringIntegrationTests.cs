@@ -48,7 +48,7 @@ public sealed class ByteStringIntegrationTests : IDisposable
 
     [TestCase(LuaStringMode.Utf16)]
     [TestCase(LuaStringMode.Bytes)]
-    public async Task XPCallHostErrorsPreserveDefaultBehaviorAndEncodeByteMode(
+    public async Task XPCallHostErrorsPreserveTheirMessageInBothStringModes(
         LuaStringMode stringMode
     )
     {
@@ -65,7 +65,9 @@ public sealed class ByteStringIntegrationTests : IDisposable
         Assert.That(
             result[1],
             Is.EqualTo(
-                stringMode == LuaStringMode.Bytes ? LuaByteString.EncodeUtf8(message) : LuaValue.Nil
+                new LuaValue(
+                    stringMode == LuaStringMode.Bytes ? LuaByteString.EncodeUtf8(message) : message
+                )
             )
         );
     }

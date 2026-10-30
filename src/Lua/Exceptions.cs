@@ -513,7 +513,9 @@ public class LuaRuntimeException : Exception, ILuaTracebackBuildable
         {
             if (State != null)
             {
-                var callStack = State.ExceptionTrace.AsSpan();
+                ReadOnlySpan<CallStackFrame> callStack = State.ExceptionTrace.AsSpan();
+                if (callStack.IsEmpty)
+                    callStack = State.GetCallStackFrames();
                 level = Math.Min(level, callStack.Length + 1);
                 callStack = callStack[..^(level - 1)];
                 if (callStack.IsEmpty)

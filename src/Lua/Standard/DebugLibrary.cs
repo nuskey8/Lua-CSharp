@@ -160,13 +160,13 @@ public sealed class DebugLibrary
 
         var state = GetLuaThread(context, out var argOffset);
 
-        var index = context.GetArgument<int>(argOffset + 1);
+        var index = context.GetIntegerArgument(argOffset + 1);
         if (context.GetArgument(argOffset).TryReadFunction(out var f))
         {
             return new(context.Return(GetParam(f, index - 1)));
         }
 
-        var level = context.GetArgument<int>(argOffset);
+        var level = context.GetIntegerArgument(argOffset);
 
         if (level < 0 || level >= state.GetCallStackFrames().Length)
         {
@@ -190,8 +190,8 @@ public sealed class DebugLibrary
         var state = GetLuaThread(context, out var argOffset);
 
         var value = context.GetArgument(argOffset + 2);
-        var index = context.GetArgument<int>(argOffset + 1);
-        var level = context.GetArgument<int>(argOffset);
+        var index = context.GetIntegerArgument(argOffset + 1);
+        var level = context.GetIntegerArgument(argOffset);
 
         if (level < 0 || level >= state.GetCallStackFrames().Length)
         {
@@ -214,7 +214,7 @@ public sealed class DebugLibrary
     )
     {
         var func = context.GetArgument<LuaFunction>(0);
-        var index = context.GetArgument<int>(1) - 1;
+        var index = context.GetIntegerArgument(1) - 1;
         if (func is not LuaClosure closure)
         {
             if (func is CSharpClosure csClosure)
@@ -250,7 +250,7 @@ public sealed class DebugLibrary
     )
     {
         var func = context.GetArgument<LuaFunction>(0);
-        var index = context.GetArgument<int>(1) - 1;
+        var index = context.GetIntegerArgument(1) - 1;
         var value = context.GetArgument(2);
         if (func is not LuaClosure closure)
         {
@@ -371,7 +371,10 @@ public sealed class DebugLibrary
         var state = GetLuaThread(context, out var argOffset);
 
         var message = context.GetArgumentOrDefault(argOffset);
-        var level = context.GetArgumentOrDefault(argOffset + 1, argOffset == 0 ? 1 : 0);
+        var level =
+            context.HasArgument(argOffset + 1) ? context.GetIntegerArgument(argOffset + 1)
+            : argOffset == 0 ? 1
+            : 0;
 
         if (message.Type is not (LuaValueType.Nil or LuaValueType.String or LuaValueType.Number))
         {
@@ -421,7 +424,7 @@ public sealed class DebugLibrary
         CancellationToken cancellationToken
     )
     {
-        var n1 = context.GetArgument<int>(1);
+        var n1 = context.GetIntegerArgument(1);
         var f1 = context.GetArgument<LuaFunction>(0);
 
         if (f1 is not LuaClosure closure)
@@ -444,9 +447,9 @@ public sealed class DebugLibrary
         CancellationToken cancellationToken
     )
     {
-        var n2 = context.GetArgument<int>(3);
+        var n2 = context.GetIntegerArgument(3);
         var f2 = context.GetArgument<LuaFunction>(2);
-        var n1 = context.GetArgument<int>(1);
+        var n1 = context.GetIntegerArgument(1);
         var f1 = context.GetArgument<LuaFunction>(0);
 
         if (f1 is not LuaClosure closure1 || f2 is not LuaClosure closure2)
@@ -478,8 +481,12 @@ public sealed class DebugLibrary
     {
         var state = GetLuaThread(context, out var argOffset);
         var hook = context.GetArgumentOrDefault<LuaFunction?>(argOffset);
-        var mask = context.GetArgumentOrDefault<string?>(argOffset + 1) ?? "";
-        var count = context.GetArgumentOrDefault<int>(argOffset + 2);
+        var mask = context.HasArgument(argOffset + 1)
+            ? context.GetStringArgument(argOffset + 1)
+            : "";
+        var count = context.HasArgument(argOffset + 2)
+            ? context.GetIntegerArgument(argOffset + 2)
+            : 0;
         state.SetHookFromLua(hook, mask, count);
         if (hook is null)
         {
@@ -562,7 +569,7 @@ public sealed class DebugLibrary
         }
         else if (arg1.TryReadNumber(out _))
         {
-            var level = context.GetArgument<int>(argOffset) + 1;
+            var level = context.GetIntegerArgument(argOffset) + 1;
 
             var callStack = state.GetCallStackFrames();
 

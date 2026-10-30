@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Runtime.CompilerServices;
 using Lua.Internal;
 
 namespace Lua.IO;
@@ -6,119 +7,97 @@ namespace Lua.IO;
 internal static class NumberReaderHelper
 {
     /// <summary>
-    /// Scans a span of characters to find the extent of a valid number.
-    /// Returns the length of the number portion, or 0 if no valid number is found.
+    /// Scans a numeric input item. Parsing validates incomplete signs,
+    /// hexadecimal prefixes and exponents.
     /// </summary>
     /// <param name="span">The span to scan</param>
-    /// <returns>The length of the valid number portion</returns>
+    /// <returns>The number of characters consumed before the first nonnumeric character</returns>
     public static int ScanNumberLength(ReadOnlySpan<char> span)
     {
+        Scanner scanner = new();
         var position = 0;
-
-        if (position >= span.Length)
-        {
-            return 0;
-        }
-
-        var hasStarted = false;
-        var isHex = false;
-        var hasDecimal = false;
-        var lastWasE = false;
-
-        // Check for sign
-        if (position < span.Length && (span[position] == '+' || span[position] == '-'))
-        {
+        while (position < span.Length && scanner.TryConsume(span[position]))
             position++;
-            hasStarted = true;
-        }
-
-        // Check for hex prefix right at the start (after optional sign)
-        if (
-            position < span.Length - 1
-            && span[position] == '0'
-            && (span[position + 1] == 'x' || span[position + 1] == 'X')
-        )
-        {
-            isHex = true;
-            position += 2; // Skip '0x' or '0X'
-            hasStarted = true;
-        }
-
-        // Scan for valid number characters
-        while (position < span.Length)
-        {
-            var c = span[position];
-
-            // Hex prefix is handled above before the loop
-
-            if (isHex)
-            {
-                // Hex digits
-                if (c is >= '0' and <= '9' or >= 'a' and <= 'f' or >= 'A' and <= 'F')
-                {
-                    position++;
-                    hasStarted = true;
-                }
-                // Hex decimal point
-                else if (c == '.' && !hasDecimal)
-                {
-                    position++;
-                    hasDecimal = true;
-                }
-                // Hex exponent (p or P)
-                else if (c is 'p' or 'P' && hasStarted)
-                {
-                    position++;
-                    lastWasE = true;
-                }
-                // Sign after exponent
-                else if (lastWasE && c is '+' or '-')
-                {
-                    position++;
-                    lastWasE = false;
-                }
-                else
-                {
-                    break;
-                }
-            }
-            else
-            {
-                // Decimal digits
-                if (c is >= '0' and <= '9')
-                {
-                    position++;
-                    hasStarted = true;
-                    lastWasE = false;
-                }
-                // Decimal point
-                else if (c == '.' && !hasDecimal)
-                {
-                    position++;
-                    hasDecimal = true;
-                    lastWasE = false;
-                }
-                // Exponent (e or E)
-                else if (c is 'e' or 'E' && hasStarted)
-                {
-                    position++;
-                    lastWasE = true;
-                }
-                // Sign after exponent
-                else if (lastWasE && c is '+' or '-')
-                {
-                    position++;
-                    lastWasE = false;
-                }
-                else
-                {
-                    break;
-                }
-            }
-        }
-
-        // Return the length of the number portion
         return position;
+    }
+
+    internal struct Scanner
+    {
+        enum Part : byte
+        {
+            Start,
+            Sign,
+            Zero,
+            Integer,
+            Fraction,
+            Exponent,
+            ExponentDigits,
+        }
+
+        Part part;
+        bool hex;
+        bool hasDigits;
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool TryConsume(char c)
+        {
+            if (c is >= '0' and <= '9')
+            {
+                if (part is Part.Start or Part.Sign)
+                    part = c == '0' ? Part.Zero : Part.Integer;
+                else if (part == Part.Zero)
+                    part = Part.Integer;
+                else if (part == Part.Exponent)
+                    part = Part.ExponentDigits;
+                hasDigits = true;
+                return true;
+            }
+            if (part == Part.Start)
+            {
+                part = Part.Sign;
+                if (c is '+' or '-')
+                    return true;
+            }
+            if (part == Part.Sign)
+            {
+                part = Part.Integer;
+            }
+            else if (part == Part.Zero)
+            {
+                part = Part.Integer;
+                if (c is 'x' or 'X')
+                {
+                    hex = true;
+                    hasDigits = false;
+                    return true;
+                }
+            }
+
+            if (part == Part.Exponent)
+            {
+                part = Part.ExponentDigits;
+                if (c is '+' or '-')
+                    return true;
+            }
+            if (part == Part.ExponentDigits)
+                return false;
+            if (hex && c is >= 'a' and <= 'f' or >= 'A' and <= 'F')
+            {
+                hasDigits = true;
+                return true;
+            }
+            if (part == Part.Integer && c == '.')
+            {
+                part = Part.Fraction;
+                return true;
+            }
+            if (hasDigits && (hex ? c is 'p' or 'P' : c is 'e' or 'E'))
+            {
+                part = Part.Exponent;
+                return true;
+            }
+            return false;
+        }
     }
 
     public static bool TryParseToDouble(ReadOnlySpan<char> span, out double result)

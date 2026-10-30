@@ -95,7 +95,12 @@ public sealed class StringLibrary
         CancellationToken cancellationToken
     )
     {
-        throw new NotSupportedException("stirng.dump is not supported");
+        var function = context.GetArgument<LuaFunction>(0);
+        if (function is not LuaClosure closure)
+            throw new LuaRuntimeException(context.State, "unable to dump given function");
+        using var writer = new ArrayPoolBufferWriter<byte>();
+        closure.Proto.WriteBytecode(writer);
+        return new(context.Return(LuaByteString.FromBytes(writer.WrittenSpan)));
     }
 
     public ValueTask<int> Find(

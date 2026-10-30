@@ -1,7 +1,9 @@
 using System.Globalization;
 using System.Runtime.CompilerServices;
+using Lua.CodeAnalysis.Compilation;
 using Lua.Internal;
 using Lua.Internal.CompilerServices;
+using Lua.IO;
 using Lua.Runtime;
 
 // ReSharper disable MethodHasAsyncOverloadWithCancellation
@@ -93,7 +95,7 @@ public sealed class BasicLibrary
             var message = "assertion failed!";
             if (context.HasArgument(1))
             {
-                message = context.GetArgument<string>(1);
+                message = context.GetStringArgument(1);
             }
 
             throw new LuaAssertionException(context.State, message);
@@ -146,7 +148,7 @@ public sealed class BasicLibrary
     )
     {
         var value = context.ArgumentCount == 0 ? LuaValue.Nil : context.Arguments[0];
-        var level = context.HasArgument(1) ? context.GetArgument<int>(1) : 1;
+        var level = context.HasArgument(1) ? context.GetIntegerArgument(1) : 1;
 
         throw new LuaRuntimeException(context.State, value, level);
     }
@@ -244,7 +246,8 @@ public sealed class BasicLibrary
         }
     }
 
-    public ValueTask<int> Load(
+    [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder<>))]
+    public async ValueTask<int> Load(
         LuaFunctionExecutionContext context,
         CancellationToken cancellationToken
     )
@@ -257,45 +260,90 @@ public sealed class BasicLibrary
 
         var hasEnvironment = context.ArgumentCount > 3;
         var environment = hasEnvironment ? context.GetArgument(3) : LuaValue.Nil;
+        if (arg0.Type is not (LuaValueType.String or LuaValueType.Number or LuaValueType.Function))
+            context.ThrowBadArgument(1, "function expected");
+        var previousHandler = context.State.ErrorHandlerIndex;
+        context.State.ErrorHandlerIndex = 0;
 
         // do not use LuaState.DoFileAsync as it uses the newExecutionContext
         try
         {
-            if (arg0.TryRead<string>(out var str))
+            LuaClosure closure;
+            if (arg0.Type is LuaValueType.String or LuaValueType.Number)
             {
-                if (!mode.Contains('t'))
-                {
-                    throw new Exception("attempt to load a text chunk (mode is 'b')");
-                }
-
-                var closure = context.State.LoadCore(str, name ?? str, null);
-                if (hasEnvironment)
-                {
-                    closure.SetEnvironment(environment);
-                }
-
-                return new(context.Return(closure));
-            }
-            else if (arg0.TryRead<LuaFunction>(out var function))
-            {
-                // TODO:
-                throw new NotImplementedException();
+                var source = context.GetStringArgument(0);
+                closure = LoadSource(context.State, source, name ?? source, mode);
             }
             else
             {
-                LuaRuntimeException.BadArgument(
-                    context.State,
-                    1,
-                    ["string", "function,binary data"],
-                    arg0.TypeToString()
-                );
-                return default; // dummy
+                var function = arg0.Read<LuaFunction>();
+                using var source = new PooledList<char>(256);
+                var stack = context.State.Stack;
+                var top = stack.Count;
+                while (true)
+                {
+                    var count = await context.State.RunAsync(function, 0, top, cancellationToken);
+                    var piece = count == 0 ? LuaValue.Nil : stack.Get(top);
+                    if (piece.Type == LuaValueType.Nil)
+                    {
+                        stack.PopUntil(top);
+                        break;
+                    }
+                    if (piece.Type is not (LuaValueType.String or LuaValueType.Number))
+                        throw new LuaRuntimeException(
+                            context.State,
+                            "reader function must return a string"
+                        );
+                    var text = piece.ToLuaString(context.State.Platform.NumberFormat);
+                    stack.PopUntil(top);
+                    if (text.Length == 0)
+                        break;
+                    source.AddRange(text);
+                }
+                closure = LoadSource(context.State, source.AsSpan(), name ?? "=(load)", mode);
             }
+            if (hasEnvironment)
+                closure.SetEnvironment(environment);
+            return context.Return(closure);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            return new(context.Return(LuaValue.Nil, context.State.Platform.GetErrorMessage(ex)));
+            if (ex is LuaRuntimeException luaException)
+            {
+                var error =
+                    luaException.InnerException == null
+                    && luaException.ErrorObject.Type != LuaValueType.String
+                        ? luaException.ErrorObject
+                        : luaException.MinimalMessage(context.State.Platform);
+                luaException.Forget();
+                return context.Return(LuaValue.Nil, error);
+            }
+            return context.Return(LuaValue.Nil, context.State.Platform.GetErrorMessage(ex));
         }
+        finally
+        {
+            context.State.ErrorHandlerIndex = previousHandler;
+        }
+    }
+
+    static LuaClosure LoadSource(
+        LuaState state,
+        ReadOnlySpan<char> source,
+        string name,
+        string mode
+    )
+    {
+        if (!source.IsEmpty && source[0] == '\e')
+        {
+            if (!mode.Contains('b'))
+                throw new Exception("attempt to load a binary chunk (mode is 't')");
+            using PooledArray<byte> bytes = new(source.Length);
+            LuaByteEncoding.Instance.GetBytes(source, bytes.AsSpan());
+            return new(state, Parser.Undump(bytes.AsSpan(), name, state.Platform.StringMode));
+        }
+        if (!mode.Contains('t'))
+            throw new Exception("attempt to load a text chunk (mode is 'b')");
+        return state.LoadCore(source, name);
     }
 
     public ValueTask<int> Next(
@@ -359,7 +407,10 @@ public sealed class BasicLibrary
         CancellationToken cancellationToken
     )
     {
+        context.GetArgument(0);
         var frameCount = context.State.CallStackFrameCount;
+        var previousHandler = context.State.ErrorHandlerIndex;
+        context.State.ErrorHandlerIndex = 0;
         try
         {
             var count = await LuaVirtualMachine.Call(
@@ -395,6 +446,10 @@ public sealed class BasicLibrary
                     return context.Return(false, context.State.Platform.GetErrorMessage(ex));
             }
         }
+        finally
+        {
+            context.State.ErrorHandlerIndex = previousHandler;
+        }
     }
 
     [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder<>))]
@@ -404,11 +459,24 @@ public sealed class BasicLibrary
     )
     {
         var stdout = context.GlobalState.Platform.StandardIO.Output;
+        var toString = context.State.Environment["tostring"];
+        var argumentBase = context.FrameBase;
 
         for (var i = 0; i < context.ArgumentCount; i++)
         {
-            await context.Arguments[i].CallToStringAsync(context, cancellationToken);
-            await stdout.WriteAsync(context.State.Stack.Pop().Read<string>(), cancellationToken);
+            var stack = context.State.Stack;
+            var top = stack.Count;
+            stack.PushRange(toString, stack.Get(argumentBase + i));
+            var count = await LuaVirtualMachine.Call(context.State, top, top, cancellationToken);
+            var value = count > 0 ? stack.Get(top) : LuaValue.Nil;
+            if (value.Type is not (LuaValueType.String or LuaValueType.Number))
+                throw new LuaRuntimeException(
+                    context.State,
+                    "'tostring' must return a string to 'print'"
+                );
+            var text = value.ToLuaString(context.State.Platform.NumberFormat);
+            stack.PopUntil(top);
+            await stdout.WriteAsync(text, cancellationToken);
             if (i < context.ArgumentCount - 1)
             {
                 await stdout.WriteAsync("\t", cancellationToken);
@@ -478,7 +546,7 @@ public sealed class BasicLibrary
         var arg2 = context.GetArgument(2);
 
         arg0[arg1] = arg2;
-        return new(context.Return());
+        return new(context.Return(arg0));
     }
 
     public ValueTask<int> Select(
@@ -648,54 +716,62 @@ public sealed class BasicLibrary
         CancellationToken cancellationToken
     )
     {
-        var frameCount = context.State.CallStackFrameCount;
+        var state = context.State;
+        var frameCount = state.CallStackFrameCount;
         var arg0 = context.GetArgument(0);
-        var arg1 = context.GetArgument<LuaFunction>(1);
+        var arg1 = context.GetArgument(1);
+        var previousHandler = state.ErrorHandlerIndex;
+        var functionBase = context.FrameBase + 1;
+        // Keep the handler below the forwarded arguments and the result range.
+        var handlerIndex = Math.Min(context.ReturnFrameBase, context.FrameBase);
+        state.Stack.Get(handlerIndex) = arg1;
+        state.ErrorHandlerIndex = handlerIndex + 1;
 
         try
         {
             var stack = context.State.Stack;
-            stack.Get(context.FrameBase + 1) = arg0;
+            stack.Get(functionBase) = arg0;
             var count = await LuaVirtualMachine.Call(
                 context.State,
-                context.FrameBase + 1,
+                functionBase,
                 context.ReturnFrameBase + 1,
                 cancellationToken
             );
 
-            context.State.Stack.Get(context.ReturnFrameBase) = true;
+            stack.Get(context.ReturnFrameBase) = true;
             return count + 1;
         }
         catch (Exception ex)
+            when (state.ErrorHandlerIndex != 0 && ex is not OperationCanceledException)
         {
-            var state = context.State;
-            state.PopCallStackFrameUntil(frameCount);
-            cancellationToken.ThrowIfCancellationRequested();
-
-            if (ex is LuaRuntimeException luaEx)
-            {
-                var error =
-                    state.Platform.StringMode == LuaStringMode.Bytes
-                    && luaEx.InnerException is { } inner
-                        ? state.Platform.GetErrorMessage(inner)
-                        : luaEx.ErrorObject;
-                luaEx.Forget();
-                state.Push(error);
-            }
-            else
-            {
-                state.Push(state.Platform.GetErrorMessage(ex));
-            }
-
-            // invoke error handler
-            var count = await state.RunAsync(
-                arg1,
-                1,
-                context.ReturnFrameBase + 1,
-                cancellationToken
-            );
-            context.State.Stack.Get(context.ReturnFrameBase) = false;
-            return count + 1;
+            ex = await state.HandleErrorAsync(ex, cancellationToken);
+            return FinishXPCall(context, ex, frameCount, handlerIndex, cancellationToken);
         }
+        catch (Exception ex)
+        {
+            return FinishXPCall(context, ex, frameCount, handlerIndex, cancellationToken);
+        }
+        finally
+        {
+            state.ErrorHandlerIndex = previousHandler;
+        }
+    }
+
+    static int FinishXPCall(
+        LuaFunctionExecutionContext context,
+        Exception exception,
+        int frameCount,
+        int handlerIndex,
+        CancellationToken cancellationToken
+    )
+    {
+        context.State.PopCallStackFrameUntil(frameCount);
+        if (exception is LuaCanceledException)
+            throw exception;
+        if (exception is OperationCanceledException)
+            throw new LuaCanceledException(context.State, cancellationToken, exception);
+        if (exception is LuaRuntimeException luaException)
+            luaException.Forget();
+        return context.Return(false, context.State.Stack.Get(handlerIndex));
     }
 }

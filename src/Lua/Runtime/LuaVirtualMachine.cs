@@ -311,30 +311,34 @@ public static partial class LuaVirtualMachine
                 return State.Stack.Count - returnFrameBase;
             }
             catch (Exception e)
+                when (State.ErrorHandlerIndex != 0 && e is not OperationCanceledException)
             {
-                // FrameBase follows nested calls; all discarded frames need closing.
+                var exception = await State.HandleErrorAsync(e, CancellationToken);
                 State.CloseUpValues(InitialArgumentBase);
-                if (toCatchFlag)
+                PopOnTopCallStackFrames();
+                throw exception;
+            }
+            catch (Exception e)
+            {
+                Exception exception = e;
+                if (
+                    toCatchFlag
+                    && e is not (LuaRuntimeException or LuaCanceledException)
+                    && PostOperation != PostOperationType.Return
+                )
                 {
-                    if (
-                        e is not (LuaRuntimeException or LuaCanceledException)
-                        && PostOperation != PostOperationType.Return
-                    )
-                    {
-                        Exception newException = e is OperationCanceledException cancelled
-                            ? new LuaCanceledException(
-                                State,
-                                State.GetCancellationOrigin(cancelled.CancellationToken),
-                                e
-                            )
-                            : new LuaRuntimeException(State, e);
-                        PopOnTopCallStackFrames();
-                        throw newException;
-                    }
-
-                    PopOnTopCallStackFrames();
+                    exception = e is OperationCanceledException cancelled
+                        ? new LuaCanceledException(
+                            State,
+                            State.GetCancellationOrigin(cancelled.CancellationToken),
+                            e
+                        )
+                        : new LuaRuntimeException(State, e);
                 }
-
+                State.CloseUpValues(InitialArgumentBase);
+                PopOnTopCallStackFrames();
+                if (!ReferenceEquals(exception, e))
+                    throw exception;
                 throw;
             }
             finally
@@ -1123,7 +1127,6 @@ public static partial class LuaVirtualMachine
         }
         catch (Exception e)
         {
-            context.State.CloseUpValues(context.InitialArgumentBase);
             if (
                 e is not (LuaRuntimeException or LuaCanceledException)
                 && context.PostOperation != PostOperationType.Return
@@ -1136,11 +1139,9 @@ public static partial class LuaVirtualMachine
                         e
                     )
                     : new LuaRuntimeException(context.State, e);
-                context.PopOnTopCallStackFrames();
                 throw newException;
             }
 
-            context.PopOnTopCallStackFrames();
             throw;
         }
     }
@@ -1616,6 +1617,11 @@ public static partial class LuaVirtualMachine
             }
 
             throw;
+        }
+        catch (Exception exception) when (state.ErrorHandlerIndex != 0)
+        {
+            var handled = await state.HandleErrorAsync(exception, cancellationToken);
+            throw handled;
         }
         finally
         {

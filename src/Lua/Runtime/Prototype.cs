@@ -19,6 +19,9 @@ public sealed class Prototype(
     UpValueDesc[] upValues
 )
 {
+    /// <summary>The representation of strings in this prototype and its bytecode.</summary>
+    public LuaStringMode StringMode { get; init; }
+
     public ReadOnlySpan<LuaValue> Constants => constants;
 
     public ReadOnlySpan<Instruction> Code => code;
@@ -53,6 +56,16 @@ public sealed class Prototype(
     public static Prototype FromBytecode(ReadOnlySpan<byte> span, ReadOnlySpan<char> name)
     {
         return Parser.Undump(span, name);
+    }
+
+    /// <summary>Loads bytecode using the selected representation for its strings.</summary>
+    public static Prototype FromBytecode(
+        ReadOnlySpan<byte> span,
+        ReadOnlySpan<char> name,
+        LuaStringMode stringMode
+    )
+    {
+        return Parser.Undump(span, name, stringMode);
     }
 
     /// <summary>

@@ -1,5 +1,6 @@
 using System.Buffers;
 using System.Runtime.CompilerServices;
+using Lua.CodeAnalysis.Compilation;
 using Lua.Internal;
 using Lua.Internal.CompilerServices;
 using Lua.IO;
@@ -42,7 +43,7 @@ public static class LuaStateExtensions
         if (stream is ILuaByteStream byteStream)
         {
             var firstByte = await byteStream.ReadByteAsync(cancellationToken);
-            if (firstByte != '\e' && !mode.Contains('t'))
+            if (firstByte is not ('\e' or '#' or 0xEF) && !mode.Contains('t'))
             {
                 throw new Exception("attempt to load a text chunk (mode is 'b')");
             }
@@ -57,7 +58,21 @@ public static class LuaStateExtensions
                 source.GetSpan(1)[0] = (byte)firstByte;
                 source.Advance(1);
                 await byteStream.ReadBytesAsync(source, cancellationToken);
-                closure = state.LoadCore(source.WrittenSpan, name, mode, environment);
+                var bytes = source.WrittenSpan;
+                var chunk = BomUtility.SkipUtf8Bom(bytes);
+                if (!chunk.IsEmpty && chunk[0] == '#')
+                {
+                    var newline = chunk.IndexOf((byte)'\n');
+                    chunk = newline < 0 ? default : chunk[(newline + 1)..];
+                }
+                // Text keeps its initial comment for line numbers. Binary chunks
+                // begin after the optional BOM and first-line comment.
+                closure = state.LoadCore(
+                    !chunk.IsEmpty && chunk[0] == '\e' ? chunk : bytes,
+                    name,
+                    mode,
+                    environment
+                );
             }
         }
         else if (!mode.Contains('t'))

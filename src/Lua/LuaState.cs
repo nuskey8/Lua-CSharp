@@ -146,6 +146,8 @@ public class LuaState : IDisposable
         CancellationToken cancellationToken = default
     )
     {
+        if (isInErrorHandler)
+            throw new LuaRuntimeException(this, "attempt to yield across a C-call boundary");
         if (coroutine is not null)
         {
             return coroutine.YieldAsyncCore(
@@ -162,6 +164,8 @@ public class LuaState : IDisposable
 
     public ValueTask<int> YieldAsync(LuaStack stack, CancellationToken cancellationToken = default)
     {
+        if (isInErrorHandler)
+            throw new LuaRuntimeException(this, "attempt to yield across a C-call boundary");
         if (coroutine is not null)
         {
             return coroutine.YieldAsyncCore(stack, stack.Count, 0, null, cancellationToken);
@@ -218,6 +222,8 @@ public class LuaState : IDisposable
     internal int LastPc;
 
     internal ILuaTracebackBuildable? CurrentException;
+    internal int ErrorHandlerIndex;
+    bool isInErrorHandler;
     internal readonly ReversedStack<CallStackFrame> ExceptionTrace = new();
     internal Prototype? LastCallerPrototype;
 
@@ -598,6 +604,13 @@ public class LuaState : IDisposable
 
             return await function.Func(context, cancellationToken);
         }
+        catch (Exception exception)
+            when (ErrorHandlerIndex != 0 && exception is not OperationCanceledException)
+        {
+            var handled = await HandleErrorAsync(exception, cancellationToken);
+            Stack.PopUntil(returnBase);
+            throw handled;
+        }
         catch
         {
             Stack.PopUntil(returnBase);
@@ -609,6 +622,59 @@ public class LuaState : IDisposable
             LastCallerPrototype = previousCallerPrototype;
             LastPc = previousPc;
         }
+    }
+
+    [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder<>))]
+    internal async ValueTask<Exception> HandleErrorAsync(
+        Exception exception,
+        CancellationToken cancellationToken
+    )
+    {
+        if (ErrorHandlerIndex == 0 || exception is OperationCanceledException)
+            return exception;
+
+        // Consume this protected call's handler before entering it. Nested protected
+        // calls can install their own handler without handling the same error twice.
+        var handlerIndex = ErrorHandlerIndex - 1;
+        var handler = Stack.Get(handlerIndex);
+        ErrorHandlerIndex = 0;
+        LuaValue error;
+        if (exception is LuaRuntimeException luaException)
+        {
+            error =
+                luaException.InnerException is { } inner ? Platform.GetErrorMessage(inner)
+                : luaException.ErrorObject.Type == LuaValueType.String
+                    ? luaException.MinimalMessage(Platform)
+                : luaException.ErrorObject;
+            luaException.Forget();
+        }
+        else
+            error = Platform.GetErrorMessage(exception);
+
+        var top = Stack.Count;
+        var previousInHandler = isInErrorHandler;
+        isInErrorHandler = true;
+        try
+        {
+            Stack.PushRange(handler, error);
+            var count = await LuaVirtualMachine.Call(this, top, top, cancellationToken);
+            error = count > 0 ? Stack.Get(top) : LuaValue.Nil;
+        }
+        catch (Exception handlerException)
+        {
+            if (handlerException is OperationCanceledException)
+                return handlerException;
+            if (handlerException is LuaRuntimeException luaHandlerException)
+                luaHandlerException.Forget();
+            error = "error in error handling";
+        }
+        finally
+        {
+            isInErrorHandler = previousInHandler;
+            Stack.PopUntil(top);
+        }
+        Stack.Get(handlerIndex) = error;
+        return exception;
     }
 
     /// <summary>
@@ -700,7 +766,7 @@ public class LuaState : IDisposable
                     throw new Exception("attempt to load a binary chunk (mode is 't')");
                 }
 
-                return new(this, Parser.Undump(chunk, chunkName), environment);
+                return new(this, Parser.Undump(chunk, chunkName, Platform.StringMode), environment);
             }
         }
 

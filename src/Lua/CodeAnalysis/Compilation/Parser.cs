@@ -979,7 +979,7 @@ class Parser : IPoolNode<Parser>, IDisposable
         f.Proto.IsVarArg = true;
         f.Proto.LineDefined = 0;
         p.MainFunction();
-        var prototype = f.Proto.CreatePrototypeAndRelease();
+        var prototype = f.Proto.CreatePrototypeAndRelease(l.Platform.StringMode);
         f.Release();
         return prototype;
     }
@@ -990,7 +990,11 @@ class Parser : IPoolNode<Parser>, IDisposable
         bool useLittleEndian = true
     )
     {
-        DumpState state = new(writer, useLittleEndian ^ BitConverter.IsLittleEndian);
+        DumpState state = new(
+            writer,
+            useLittleEndian ^ BitConverter.IsLittleEndian,
+            prototype.StringMode
+        );
         state.Dump(prototype);
     }
 
@@ -1001,7 +1005,11 @@ class Parser : IPoolNode<Parser>, IDisposable
         return writer.WrittenSpan.ToArray();
     }
 
-    public static Prototype Undump(ReadOnlySpan<byte> span, ReadOnlySpan<char> name)
+    public static Prototype Undump(
+        ReadOnlySpan<byte> span,
+        ReadOnlySpan<char> name,
+        LuaStringMode stringMode = LuaStringMode.Utf16
+    )
     {
         if (name.Length > 0)
         {
@@ -1014,7 +1022,7 @@ class Parser : IPoolNode<Parser>, IDisposable
         }
 
         using var internPool = new StringInternPool(4);
-        UndumpState state = new(span, name, internPool);
+        UndumpState state = new(span, name, internPool, stringMode);
         return state.Undump();
     }
 }

@@ -667,6 +667,10 @@ print(l)
 
 Stringライブラリの関数はすべて文字列をUTF-16として扱う実装に変更されていることに注意してください。
 
+`load`は文字列とreader関数に対応し、バイナリチャンクを分割して返すreaderも利用できます。`string.dump`はLua関数のプロトタイプを保存しますが、キャプチャしたupvalueの値は保存しません。戻り値はどちらの文字列モードでも生のバイト列です。Luaからファイルに書く場合はバイトモードのストリームを、C#から書く場合は`LuaByteString.ToBytes`を使用してください。UTF-16モードのストリームはUTF-8でテキストを書き込むため、任意のバイナリ文字列を保持できません。
+
+`Prototype.StringMode`は文字列表現を保持し、`ToBytecode`と`WriteBytecode`でもバイトモードの定数を保持します。stateを使わずに読み込む場合は`Prototype.FromBytecode(bytes, name, stringMode)`で表現を指定できます。`LuaState.Load`はstateのモードを使用します。バイトコードはLua 5.2の関数ヘッダー順に従います。異なる順序で生成された古いLua-CSharpのチャンクは再生成してください。
+
 ### ガベージコレクション
 
 Lua-CSharpはC#で実装されているため.NETのGCに依存しています。そのため、メモリ管理に関する動作が通常のLuaとは異なります。

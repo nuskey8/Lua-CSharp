@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using System.Text;
 using Lua.Internal.CompilerServices;
 
 namespace Lua.Standard;
@@ -27,9 +28,11 @@ public sealed class ModuleLibrary
         var arg0 = context.GetStringArgument(0);
         var loaded = context.GlobalState.LoadedModules;
 
-        if (!loaded.TryGetValue(arg0, out var loadedTable))
+        var loadedTable = loaded[arg0];
+        if (!loadedTable.ToBoolean())
         {
             LuaFunction loader;
+            LuaValue data = LuaValue.Nil;
             var moduleLoader = context.GlobalState.ModuleLoader;
             var hostName = moduleLoader is null ? arg0 : context.State.Platform.DecodeText(arg0);
             if (moduleLoader != null && moduleLoader.Exists(hostName))
@@ -39,19 +42,31 @@ public sealed class ModuleLibrary
             }
             else
             {
-                loader = await FindLoader(context.State, arg0, cancellationToken);
+                (loader, data) = await FindLoader(context.State, arg0, cancellationToken);
             }
 
-            await context.State.RunAsync(loader, 0, context.ReturnFrameBase, cancellationToken);
-            loadedTable = context.State.Stack.Get(context.ReturnFrameBase);
-            loaded[arg0] = loadedTable;
+            context.State.Stack.PushRange(arg0, data);
+            var count = await context.State.RunAsync(
+                loader,
+                2,
+                context.ReturnFrameBase,
+                cancellationToken
+            );
+            if (
+                count > 0
+                && context.State.Stack.Get(context.ReturnFrameBase).Type != LuaValueType.Nil
+            )
+                loaded[arg0] = context.State.Stack.Get(context.ReturnFrameBase);
+            loadedTable = loaded[arg0];
+            if (loadedTable.Type == LuaValueType.Nil)
+                loaded[arg0] = loadedTable = true;
         }
 
         return context.Return(loadedTable);
     }
 
     [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder<>))]
-    internal static async ValueTask<string?> FindFile(
+    internal static async ValueTask<(string? FileName, string? Error)> FindFile(
         LuaState state,
         string name,
         string pName,
@@ -61,12 +76,18 @@ public sealed class ModuleLibrary
         var globalState = state.GlobalState;
         var package = globalState.Environment["package"];
         var p = await state.GetTableAsync(package, pName);
-        if (!p.TryReadString(out var path))
+        if (p.Type is not (LuaValueType.String or LuaValueType.Number))
         {
             throw new LuaRuntimeException(state, $"package.{pName} must be a string");
         }
 
-        return SearchPath(state, name, path, ".", dirSeparator);
+        return SearchPath(
+            state,
+            name,
+            p.ToLuaString(state.Platform.NumberFormat),
+            ".",
+            dirSeparator
+        );
     }
 
     public ValueTask<int> SearchPath(
@@ -76,13 +97,17 @@ public sealed class ModuleLibrary
     {
         var name = context.GetStringArgument(0);
         var path = context.GetStringArgument(1);
-        var separator = context.GetStringArgument(2);
-        var dirSeparator = context.GetStringArgument(3);
-        var fileName = SearchPath(context.State, name, path, separator, dirSeparator);
-        return new(context.Return(fileName ?? LuaValue.Nil));
+        var separator = context.HasArgument(2) ? context.GetStringArgument(2) : ".";
+        var dirSeparator = context.HasArgument(3)
+            ? context.GetStringArgument(3)
+            : context.State.Platform.FileSystem.DirectorySeparator;
+        var (fileName, error) = SearchPath(context.State, name, path, separator, dirSeparator);
+        return new(
+            fileName != null ? context.Return(fileName) : context.Return(LuaValue.Nil, error!)
+        );
     }
 
-    internal static string? SearchPath(
+    internal static (string? FileName, string? Error) SearchPath(
         LuaState state,
         string name,
         string path,
@@ -96,39 +121,28 @@ public sealed class ModuleLibrary
         }
 
         var pathSpan = path.AsSpan();
-        var nextIndex = pathSpan.IndexOf(';');
-        if (nextIndex == -1)
+        StringBuilder? errors = null;
+        while (!pathSpan.IsEmpty)
         {
-            nextIndex = pathSpan.Length;
+            var nextIndex = pathSpan.IndexOf(';');
+            if (nextIndex < 0)
+                nextIndex = pathSpan.Length;
+            var template = pathSpan[..nextIndex];
+            if (!template.IsEmpty)
+            {
+                var fileName = template.ToString().Replace("?", name);
+                if (state.Platform.FileSystem.IsReadable(state.Platform.DecodeText(fileName)))
+                    return (fileName, null);
+                (errors ??= new()).Append("\n\tno file '").Append(fileName).Append('\'');
+            }
+            pathSpan = nextIndex == pathSpan.Length ? default : pathSpan[(nextIndex + 1)..];
         }
 
-        do
-        {
-            path = pathSpan[..nextIndex].ToString();
-            var fileName = path.Replace("?", name);
-            if (state.Platform.FileSystem.IsReadable(state.Platform.DecodeText(fileName)))
-            {
-                return fileName;
-            }
-
-            if (pathSpan.Length <= nextIndex)
-            {
-                break;
-            }
-
-            pathSpan = pathSpan[(nextIndex + 1)..];
-            nextIndex = pathSpan.IndexOf(';');
-            if (nextIndex == -1)
-            {
-                nextIndex = pathSpan.Length;
-            }
-        } while (nextIndex != -1);
-
-        return null;
+        return (null, errors?.ToString() ?? "");
     }
 
     [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder<>))]
-    internal static async ValueTask<LuaFunction> FindLoader(
+    internal static async ValueTask<(LuaFunction Function, LuaValue Data)> FindLoader(
         LuaState state,
         string name,
         CancellationToken cancellationToken
@@ -136,13 +150,12 @@ public sealed class ModuleLibrary
     {
         var package = state.GlobalState.Environment["package"].Read<LuaTable>();
         var searchers = package["searchers"].Read<LuaTable>();
-        for (var i = 0; i < searchers.GetArrayReadOnlySpan().Length; i++)
+        StringBuilder? errors = null;
+        for (var i = 1; ; i++)
         {
-            var searcher = searchers.GetArrayReadOnlySpan()[i];
+            var searcher = searchers[i];
             if (searcher.Type == LuaValueType.Nil)
-            {
-                continue;
-            }
+                break;
 
             var loader = searcher;
             var top = state.Stack.Count;
@@ -154,15 +167,18 @@ public sealed class ModuleLibrary
                 var result = state.Stack.Get(top);
                 if (result.Type == LuaValueType.Function)
                 {
+                    var data = resultCount > 1 ? state.Stack.Get(top + 1) : LuaValue.Nil;
                     state.Stack.SetTop(top);
-                    return result.Read<LuaFunction>();
+                    return (result.Read<LuaFunction>(), data);
                 }
+                if (result.Type is LuaValueType.String or LuaValueType.Number)
+                    (errors ??= new()).Append(result.ToLuaString(state.Platform.NumberFormat));
             }
 
             state.Stack.SetTop(top);
         }
 
-        throw new LuaRuntimeException(state, $"Module '{name}' not found");
+        throw new LuaRuntimeException(state, $"module '{name}' not found:{errors}");
     }
 
     public ValueTask<int> SearcherPreload(
@@ -174,7 +190,7 @@ public sealed class ModuleLibrary
         var preload = context.GlobalState.PreloadModules[name];
         if (preload == LuaValue.Nil)
         {
-            return new(context.Return());
+            return new(context.Return($"\n\tno field package.preload['{name}']"));
         }
 
         return new(context.Return(preload));
@@ -186,7 +202,7 @@ public sealed class ModuleLibrary
     )
     {
         var name = context.GetStringArgument(0);
-        var fileName = await FindFile(
+        var (fileName, error) = await FindFile(
             context.State,
             name,
             "path",
@@ -194,7 +210,7 @@ public sealed class ModuleLibrary
         );
         if (fileName == null)
         {
-            return context.Return(LuaValue.Nil);
+            return context.Return(error!);
         }
 
         return context.Return(
@@ -203,7 +219,8 @@ public sealed class ModuleLibrary
                 "bt",
                 null,
                 cancellationToken
-            )
+            ),
+            fileName
         );
     }
 }
