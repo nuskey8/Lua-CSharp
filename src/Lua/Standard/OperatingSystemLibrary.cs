@@ -86,9 +86,9 @@ public sealed class OperatingSystemLibrary
         CancellationToken cancellationToken
     )
     {
-        var t2 = context.GetArgument<double>(0);
-        var t1 = context.GetArgument<double>(1);
-        return new(context.Return(t2 - t1));
+        var t2 = (long)context.GetArgument<double>(0);
+        var t1 = context.HasArgument(1) ? (long)context.GetArgument<double>(1) : 0;
+        return new(context.Return((double)t2 - t1));
     }
 
     public ValueTask<int> Execute(
@@ -158,7 +158,7 @@ public sealed class OperatingSystemLibrary
             );
             return context.Return(true);
         }
-        catch (IOException ex)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             return context.Return(
                 LuaValue.Nil,
@@ -199,15 +199,12 @@ public sealed class OperatingSystemLibrary
         CancellationToken cancellationToken
     )
     {
-        // os.setlocale is not supported besides the standard "C" POSIX locale
-        // Any locale besides "C" will return nil
-        var locale = context.GetStringArgument(0);
-        if (locale == "C")
-        {
-            return new(context.Return(locale));
-        }
+        var locale = context.HasArgument(0) ? context.GetStringArgument(0) : null;
+        var category = context.HasArgument(1) ? context.GetStringArgument(1) : "all";
+        if (category is not ("all" or "collate" or "ctype" or "monetary" or "numeric" or "time"))
+            LuaRuntimeException.BadArgument(context.State, 2, $"invalid option '{category}'");
 
-        return new(context.Return(LuaValue.Nil));
+        return new(context.Return(locale is null or "C" ? "C" : LuaValue.Nil));
     }
 
     public ValueTask<int> Time(

@@ -313,15 +313,26 @@ public sealed class IOLibrary
         CancellationToken cancellationToken
     )
     {
-        return context.Return(
-            LuaValue.FromUserData(
-                new FileHandle(
-                    await context.GlobalState.Platform.FileSystem.OpenTempFileStream(
-                        cancellationToken
-                    ),
-                    context.GlobalState.FileHandleMetatable
+        try
+        {
+            return context.Return(
+                LuaValue.FromUserData(
+                    new FileHandle(
+                        await context.GlobalState.Platform.FileSystem.OpenTempFileStream(
+                            cancellationToken
+                        ),
+                        context.GlobalState.FileHandleMetatable
+                    )
                 )
-            )
-        );
+            );
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return context.Return(
+                LuaValue.Nil,
+                context.State.Platform.EncodeText(ex.Message),
+                ex.HResult
+            );
+        }
     }
 }

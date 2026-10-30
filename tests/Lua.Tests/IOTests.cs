@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using System.Text;
 using Lua.IO;
 using Lua.Standard;
@@ -441,6 +442,50 @@ public class IOTests : IDisposable
         await fileSystem.Remove(testFile, CancellationToken.None);
 
         Assert.That(File.Exists(testFile), Is.False);
+    }
+
+    [Test]
+    public async Task OsRemoveHandlesEmptyDirectoriesAccordingToTheHost()
+    {
+        var path = GetTestFilePath("empty");
+        Directory.CreateDirectory(path);
+        using var state = LuaState.Create();
+        state.OpenStandardLibraries();
+        state.Environment["path"] = path;
+        var result = await state.DoStringAsync("return os.remove(path)");
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            Assert.That(result, Has.Length.EqualTo(3));
+            Assert.That(result[0], Is.EqualTo(LuaValue.Nil));
+            Assert.That(Directory.Exists(path), Is.True);
+        }
+        else
+        {
+            Assert.That(result, Is.EqualTo(new LuaValue[] { true }));
+            Assert.That(Directory.Exists(path), Is.False);
+        }
+    }
+
+    [Test]
+    public async Task OsRemovePreservesNonemptyDirectoriesAndReportsMissingPaths()
+    {
+        var path = GetTestFilePath("nonempty");
+        Directory.CreateDirectory(path);
+        var child = Path.Combine(path, "child.txt");
+        File.WriteAllText(child, "keep");
+        using var state = LuaState.Create();
+        state.OpenStandardLibraries();
+        state.Environment["path"] = path;
+        state.Environment["missing"] = GetTestFilePath("missing");
+        await state.DoStringAsync(
+            """
+            for _,name in ipairs({path,missing}) do
+                local values=table.pack(os.remove(name))
+                assert(values.n==3 and values[1]==nil and type(values[2])=='string' and type(values[3])=='number')
+            end
+            """
+        );
+        Assert.That(File.ReadAllText(child), Is.EqualTo("keep"));
     }
 
     [Test]

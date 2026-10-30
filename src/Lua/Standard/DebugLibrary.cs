@@ -554,7 +554,6 @@ public sealed class DebugLibrary
         CancellationToken cancellationToken
     )
     {
-        // return new(0);
         var state = GetLuaThread(context, out var argOffset);
         var what = context.GetArgumentOrDefault(argOffset + 1, "flnStu");
         CallStackFrame? previousFrame = null;
@@ -562,12 +561,10 @@ public sealed class DebugLibrary
         var pc = 0;
         var arg1 = context.GetArgument(argOffset);
 
-        if (arg1.TryReadFunction(out var functionToInspect))
+        if (!arg1.TryReadFunction(out var functionToInspect))
         {
-            // what = ">" + what;
-        }
-        else if (arg1.TryReadNumber(out _))
-        {
+            if (!arg1.TryReadDouble(out _))
+                context.ThrowBadArgument(argOffset, "function or level expected");
             var level = context.GetIntegerArgument(argOffset) + 1;
 
             var callStack = state.GetCallStackFrames();
@@ -577,18 +574,14 @@ public sealed class DebugLibrary
                 return new(context.Return(LuaValue.Nil));
             }
 
-            currentFrame = state.GetCallStackFrames()[^level];
+            currentFrame = callStack[^level];
             previousFrame = level + 1 <= callStack.Length ? callStack[^(level + 1)] : null;
             if (level != 1)
             {
-                pc = state.GetCallStackFrames()[^(level - 1)].CallerInstructionIndex;
+                pc = callStack[^(level - 1)].CallerInstructionIndex;
             }
 
             functionToInspect = currentFrame.Value.Function;
-        }
-        else
-        {
-            context.ThrowBadArgument(argOffset, "function or level expected");
         }
 
         using var debug = LuaDebug.Create(

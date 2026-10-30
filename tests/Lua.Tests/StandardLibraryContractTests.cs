@@ -18,6 +18,75 @@ public class StandardLibraryContractTests(LuaStringMode stringMode)
         return state;
     }
 
+    [TestCase("2.8,1.2", 1)]
+    [TestCase("-2.8,-1.2", -1)]
+    [TestCase("-0.5,0.5", 0)]
+    [TestCase("'2.8','-1.9'", 3)]
+    [TestCase("2.8", 2)]
+    [TestCase("2.8,nil", 2)]
+    public async Task DiffTimeUsesWholeSecondsAndDefaultsItsBaseToZero(
+        string arguments,
+        double expected
+    )
+    {
+        using var state = CreateState();
+        var result = await state.DoStringAsync($"return os.difftime({arguments})");
+        Assert.That(result, Is.EqualTo(new LuaValue[] { expected }));
+        if (expected == 0)
+            Assert.That(1 / result[0].Read<double>(), Is.EqualTo(double.PositiveInfinity));
+    }
+
+    [Test]
+    public async Task SetLocaleQueriesAndValidatesTheFixedCLocale()
+    {
+        using var state = CreateState();
+        var culture = System.Globalization.CultureInfo.CurrentCulture;
+        await state.DoStringAsync(
+            """
+            assert(os.setlocale()=='C' and os.setlocale(nil)=='C')
+            assert(os.setlocale('C',nil)=='C')
+            for _,category in ipairs({'all','collate','ctype','monetary','numeric','time'}) do
+                assert(os.setlocale(nil,category)=='C')
+                assert(os.setlocale('C',category)=='C')
+                assert(os.setlocale('unsupported locale',category)==nil)
+                assert(os.setlocale(nil,category)=='C')
+            end
+            local ok,e=pcall(os.setlocale,nil,'invalid')
+            assert(not ok and e:find('invalid option',1,true))
+            assert(not pcall(os.setlocale,'unsupported locale','invalid'))
+            assert(not pcall(os.setlocale,false))
+            """
+        );
+        Assert.That(System.Globalization.CultureInfo.CurrentCulture, Is.SameAs(culture));
+    }
+
+    [Test]
+    public async Task RemovePermissionFailuresReturnTheIoErrorTuple()
+    {
+        var error = new UnauthorizedAccessException("denied ế");
+        using var state = CreateState();
+        state.Platform = state.Platform with { FileSystem = new DeniedRemoveFileSystem(error) };
+        var result = await state.DoStringAsync("return pcall(os.remove,'file')");
+        Assert.That(
+            result,
+            Is.EqualTo(
+                new LuaValue[]
+                {
+                    true,
+                    LuaValue.Nil,
+                    state.Platform.EncodeText(error.Message),
+                    error.HResult,
+                }
+            )
+        );
+    }
+
+    sealed class DeniedRemoveFileSystem(Exception error) : NotImplementedExceptionFileSystemBase
+    {
+        public override ValueTask Remove(string path, CancellationToken cancellationToken) =>
+            throw error;
+    }
+
     [Test]
     public async Task RawSetReturnsTheOriginalTable()
     {
