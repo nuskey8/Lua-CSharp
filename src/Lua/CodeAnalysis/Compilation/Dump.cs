@@ -223,11 +223,7 @@ unsafe ref struct DumpState(
     void WriteString(string v)
     {
         var bytes = encoding.GetBytes(v);
-        var len = bytes.Length;
-        if (bytes.Length != 0)
-        {
-            len++;
-        }
+        var len = bytes.Length + 1;
 
         if (sizeof(IntPtr) == 8)
         {
@@ -238,11 +234,8 @@ unsafe ref struct DumpState(
             WriteInt(len);
         }
 
-        if (len != 0)
-        {
-            Write(bytes);
-            WriteByte(0);
-        }
+        Write(bytes);
+        WriteByte(0);
     }
 
     void WriteConstants(ReadOnlySpan<LuaValue> constants)
@@ -250,20 +243,29 @@ unsafe ref struct DumpState(
         WriteInt(constants.Length);
         foreach (var c in constants)
         {
-            WriteByte((byte)c.Type);
+            // Lua bytecode tags differ from LuaValueType for strings.
             switch (c.Type)
             {
                 case LuaValueType.Nil:
+                    WriteByte(0);
                     break;
                 case LuaValueType.Boolean:
+                    WriteByte(1);
                     WriteBool(c.UnsafeReadDouble() != 0);
                     break;
                 case LuaValueType.Number:
+                    WriteByte(3);
                     WriteDouble(c.UnsafeReadDouble());
                     break;
                 case LuaValueType.String:
+                    WriteByte(4);
                     WriteString(c.UnsafeRead<string>());
                     break;
+                default:
+                    throw new ArgumentException(
+                        "Unsupported bytecode constant type",
+                        nameof(constants)
+                    );
             }
         }
     }
@@ -520,18 +522,18 @@ unsafe ref struct UndumpState(
         var constants = new LuaValue[count];
         for (var i = 0; i < count; i++)
         {
-            var type = (LuaValueType)ReadByte();
+            var type = ReadByte();
             switch (type)
             {
-                case LuaValueType.Nil:
+                case 0:
                     break;
-                case LuaValueType.Boolean:
+                case 1:
                     constants[i] = ReadBool();
                     break;
-                case LuaValueType.Number:
+                case 3:
                     constants[i] = ReadDouble();
                     break;
-                case LuaValueType.String:
+                case 4:
                     constants[i] = ReadString();
                     break;
                 default:
