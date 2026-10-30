@@ -481,17 +481,16 @@ public sealed class DebugLibrary
     {
         var state = GetLuaThread(context, out var argOffset);
         var hook = context.GetArgumentOrDefault<LuaFunction?>(argOffset);
-        var mask = context.HasArgument(argOffset + 1)
-            ? context.GetStringArgument(argOffset + 1)
-            : "";
+        if (hook is null)
+        {
+            state.SetHookFromLua(null, "", 0);
+            return context.Return();
+        }
+        var mask = context.GetStringArgument(argOffset + 1);
         var count = context.HasArgument(argOffset + 2)
             ? context.GetIntegerArgument(argOffset + 2)
             : 0;
         state.SetHookFromLua(hook, mask, count);
-        if (hook is null)
-        {
-            return context.Return();
-        }
 
         // Re-arming a hook must not dispatch another hook while its callback is running.
         if (state.IsReturnHookEnabled && context.State == state && !state.IsInHook)

@@ -139,7 +139,12 @@ public sealed class BasicLibrary
             null,
             cancellationToken
         );
-        return await context.State.RunAsync(closure, cancellationToken);
+        return await context.State.RunCoreAsync(
+            closure,
+            0,
+            context.State.Stack.Count,
+            cancellationToken
+        );
     }
 
     public ValueTask<int> Error(
@@ -285,7 +290,7 @@ public sealed class BasicLibrary
                 {
                     while (true)
                     {
-                        var count = await context.State.RunAsync(
+                        var count = await context.State.RunCoreAsync(
                             function,
                             0,
                             top,
@@ -478,38 +483,51 @@ public sealed class BasicLibrary
         var stdout = context.GlobalState.Platform.StandardIO.Output;
         var argumentBase = context.FrameBase;
         var environment = context.State.Environment;
-        if (!environment.TryGetValue("tostring", out var toString))
-            toString = await LuaVirtualMachine.ExecuteGetTableSlowPath(
-                context.State,
-                environment,
-                "tostring",
-                cancellationToken
-            );
-
-        for (var i = 0; i < context.ArgumentCount; i++)
+        context.State.NonYieldableCallCount++;
+        try
         {
-            var stack = context.State.Stack;
-            var top = stack.Count;
-            stack.PushRange(toString, stack.Get(argumentBase + i));
-            var count = await LuaVirtualMachine.Call(context.State, top, top, cancellationToken);
-            var value = count > 0 ? stack.Get(top) : LuaValue.Nil;
-            if (value.Type is not (LuaValueType.String or LuaValueType.Number))
-                throw new LuaRuntimeException(
+            if (!environment.TryGetValue("tostring", out var toString))
+                toString = await LuaVirtualMachine.ExecuteGetTableSlowPath(
                     context.State,
-                    "'tostring' must return a string to 'print'"
+                    environment,
+                    "tostring",
+                    cancellationToken
                 );
-            var text = value.ToLuaString(context.State.Platform.NumberFormat);
-            stack.PopUntil(top);
-            await stdout.WriteAsync(text, cancellationToken);
-            if (i < context.ArgumentCount - 1)
-            {
-                await stdout.WriteAsync("\t", cancellationToken);
-            }
-        }
 
-        await stdout.WriteAsync("\n", cancellationToken);
-        await stdout.FlushAsync(cancellationToken);
-        return context.Return();
+            for (var i = 0; i < context.ArgumentCount; i++)
+            {
+                var stack = context.State.Stack;
+                var top = stack.Count;
+                stack.PushRange(toString, stack.Get(argumentBase + i));
+                var count = await LuaVirtualMachine.Call(
+                    context.State,
+                    top,
+                    top,
+                    cancellationToken
+                );
+                var value = count > 0 ? stack.Get(top) : LuaValue.Nil;
+                if (value.Type is not (LuaValueType.String or LuaValueType.Number))
+                    throw new LuaRuntimeException(
+                        context.State,
+                        "'tostring' must return a string to 'print'"
+                    );
+                var text = value.ToLuaString(context.State.Platform.NumberFormat);
+                stack.PopUntil(top);
+                await stdout.WriteAsync(text, cancellationToken);
+                if (i < context.ArgumentCount - 1)
+                {
+                    await stdout.WriteAsync("\t", cancellationToken);
+                }
+            }
+
+            await stdout.WriteAsync("\n", cancellationToken);
+            await stdout.FlushAsync(cancellationToken);
+            return context.Return();
+        }
+        finally
+        {
+            context.State.NonYieldableCallCount--;
+        }
     }
 
     public ValueTask<int> RawEqual(

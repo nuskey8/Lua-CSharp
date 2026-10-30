@@ -127,6 +127,65 @@ public class StandardLibraryContractTests(LuaStringMode stringMode)
         Assert.That(output, Is.EqualTo(new[] { "2\t4\n" }));
     }
 
+    [TestCase("lookup")]
+    [TestCase("function")]
+    [TestCase("metamethod")]
+    public async Task PrintCannotYieldAndRestoresYieldability(string callback)
+    {
+        using var state = CreateState();
+        state.Environment["callback"] = callback;
+        await state.DoStringAsync(
+            """
+            local value=42
+            if callback=='lookup' then
+                tostring=nil
+                setmetatable(_G,{__index=function(t,key)
+                    assert(key=='tostring')
+                    coroutine.yield('lookup')
+                end})
+            elseif callback=='function' then
+                tostring=function() coroutine.yield('tostring') end
+            else
+                value=setmetatable({},{__tostring=function() coroutine.yield('metamethod') end})
+            end
+            local co=coroutine.create(function()
+                local ok,e=pcall(print,value)
+                assert(not ok and e:find('attempt to yield across a C-call boundary',1,true))
+                coroutine.yield('after print')
+                return 42
+            end)
+            local ok,value=coroutine.resume(co)
+            assert(ok and value=='after print')
+            ok,value=coroutine.resume(co)
+            assert(ok and value==42 and coroutine.status(co)=='dead')
+            """
+        );
+        Assert.That(state.Stack.Count, Is.Zero);
+        Assert.That(state.CallStackFrameCount, Is.Zero);
+    }
+
+    [TestCase("tostring=function() cancel() end;print(42)")]
+    [TestCase("setmetatable(package.loaded,{__index=function() cancel() end});require('test')")]
+    public async Task NonYieldableLibraryCallsRestoreStateAfterCancellation(string script)
+    {
+        using var state = CreateState();
+        using var source = new CancellationTokenSource();
+        state.Environment["cancel"] = new LuaFunction(
+            (context, token) =>
+            {
+                source.Cancel();
+                token.ThrowIfCancellationRequested();
+                return new(context.Return());
+            }
+        );
+        Assert.ThrowsAsync<LuaCanceledException>(async () =>
+            await state.DoStringAsync(script, cancellationToken: source.Token)
+        );
+        Assert.That(state.NonYieldableCallCount, Is.Zero);
+        Assert.That(state.Stack.Count, Is.Zero);
+        Assert.That(state.CallStackFrameCount, Is.Zero);
+    }
+
     [Test]
     public async Task FileLinesRetainsEveryReadFormat()
     {

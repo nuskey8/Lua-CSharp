@@ -83,15 +83,21 @@ public class ProtectedCallTests(LuaStringMode stringMode)
         );
     }
 
-    [TestCase(false, false)]
-    [TestCase(true, false)]
-    [TestCase(false, true)]
-    [TestCase(true, true)]
-    public async Task HandlerCanInspectFailingFramesAndLocals(bool asynchronous, bool searcher)
+    [TestCase(false, "direct")]
+    [TestCase(true, "direct")]
+    [TestCase(false, "searcher")]
+    [TestCase(true, "searcher")]
+    [TestCase(false, "loader")]
+    [TestCase(true, "loader")]
+    [TestCase(false, "sort")]
+    [TestCase(true, "sort")]
+    [TestCase(false, "gsub")]
+    [TestCase(true, "gsub")]
+    public async Task HandlerCanInspectFailingFramesAndLocals(bool asynchronous, string call)
     {
         using var state = CreateState();
         var suspension = new ManualSuspension();
-        state.Environment["searcher"] = searcher;
+        state.Environment["call"] = call;
         state.Environment["pause"] = new LuaFunction(
             async (context, _) =>
             {
@@ -110,12 +116,16 @@ public class ProtectedCallTests(LuaStringMode stringMode)
                     pause()
                     error('fail')
                 end
-                if searcher then package.searchers={namedFailure} end
+                if call=='searcher' then package.searchers={namedFailure} end
+                if call=='loader' then package.preload.test=namedFailure end
                 local ok,message=xpcall(function()
-                    if searcher then require('missing') else namedFailure() end
+                    if call=='searcher' or call=='loader' then require('test')
+                    elseif call=='sort' then table.sort({2,1},namedFailure)
+                    elseif call=='gsub' then string.gsub('a','.',namedFailure)
+                    else namedFailure() end
                 end,function(e)
                     local trace=debug.traceback(e)
-                    if not searcher then assert(trace:find('namedFailure',1,true)) end
+                    if call=='direct' then assert(trace:find('namedFailure',1,true)) end
                     for level=1,10 do
                         local info=debug.getinfo(level,'f')
                         if info and info.func==namedFailure then
@@ -236,6 +246,79 @@ public class ProtectedCallTests(LuaStringMode stringMode)
             Is.EqualTo(new LuaValue[] { false, "real failure", 1, "real failure" })
         );
         Assert.That(state.ErrorHandlerIndex, Is.Zero);
+    }
+
+    [TestCase(false, "RunAsync")]
+    [TestCase(true, "RunAsync")]
+    [TestCase(false, "ExecuteAsync")]
+    [TestCase(true, "ExecuteAsync")]
+    [TestCase(false, "ExecuteBufferedAsync")]
+    [TestCase(true, "ExecuteBufferedAsync")]
+    [TestCase(false, "DoStringAsync")]
+    [TestCase(true, "DoStringAsync")]
+    public async Task CaughtLuaExceptionsDoNotConsumeTheOuterHandler(bool asynchronous, string api)
+    {
+        using var state = CreateState();
+        var suspension = new ManualSuspension();
+        state.Environment["pause"] = new LuaFunction(
+            async (context, _) =>
+            {
+                if (asynchronous)
+                    await suspension;
+                return context.Return();
+            }
+        );
+        const string source = "pause();error('caught Lua failure',0)";
+        var fail = state.Load(source, "@inner");
+        state.Environment["recover"] = new LuaFunction(
+            async (context, token) =>
+            {
+                try
+                {
+                    switch (api)
+                    {
+                        case "RunAsync":
+                            await context.State.RunAsync(fail, token);
+                            break;
+                        case "ExecuteAsync":
+                            await context.State.ExecuteAsync(fail, token);
+                            break;
+                        case "ExecuteBufferedAsync":
+                            await context.State.ExecuteAsync(fail, Memory<LuaValue>.Empty, token);
+                            break;
+                        case "DoStringAsync":
+                            await context.State.DoStringAsync(source, cancellationToken: token);
+                            break;
+                    }
+                }
+                catch (LuaRuntimeException) { }
+                return context.Return();
+            }
+        );
+        var operation = state
+            .DoStringAsync(
+                """
+                local seen={}
+                local handler=function(e) seen[#seen+1]=e;return e end
+                local ok,value=xpcall(function() recover();return 42 end,handler)
+                assert(ok and value==42 and #seen==0)
+                ok,value=xpcall(function() recover();error('real failure',0) end,handler)
+                return ok,value,#seen,seen[1]
+                """
+            )
+            .AsTask();
+        if (asynchronous)
+        {
+            suspension.Resume();
+            suspension.Resume();
+        }
+        Assert.That(
+            await operation,
+            Is.EqualTo(new LuaValue[] { false, "real failure", 1, "real failure" })
+        );
+        Assert.That(state.ErrorHandlerIndex, Is.Zero);
+        Assert.That(state.Stack.Count, Is.Zero);
+        Assert.That(state.CallStackFrameCount, Is.Zero);
     }
 
     [Test]

@@ -430,7 +430,7 @@ public sealed class TableLibrary
         stack.Push(left);
         stack.Push(right);
 
-        var runTask = state.RunAsync(comparer, 2, cancellationToken);
+        var runTask = state.RunCoreAsync(comparer, 2, top, cancellationToken);
         if (runTask.IsCompletedSuccessfully)
         {
             var returnCount = runTask.GetAwaiter().GetResult();

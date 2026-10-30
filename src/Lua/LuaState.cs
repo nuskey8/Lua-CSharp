@@ -568,12 +568,50 @@ public class LuaState : IDisposable
         return RunAsync(function, argumentCount, Stack.Count - argumentCount, cancellationToken);
     }
 
-    [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder<>))]
-    public async ValueTask<int> RunAsync(
+    public ValueTask<int> RunAsync(
         LuaFunction function,
         int argumentCount,
         int returnBase,
         CancellationToken cancellationToken = default
+    )
+    {
+        if (ErrorHandlerIndex == 0)
+            return RunCoreAsync(function, argumentCount, returnBase, cancellationToken);
+        return RunProtectedAsync(this, function, argumentCount, returnBase, cancellationToken);
+
+        [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder<>))]
+        static async ValueTask<int> RunProtectedAsync(
+            LuaState state,
+            LuaFunction function,
+            int argumentCount,
+            int returnBase,
+            CancellationToken cancellationToken
+        )
+        {
+            var previousHandler = state.ErrorHandlerIndex;
+            state.ErrorHandlerIndex = 0;
+            try
+            {
+                return await state.RunCoreAsync(
+                    function,
+                    argumentCount,
+                    returnBase,
+                    cancellationToken
+                );
+            }
+            finally
+            {
+                state.ErrorHandlerIndex = previousHandler;
+            }
+        }
+    }
+
+    [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder<>))]
+    internal async ValueTask<int> RunCoreAsync(
+        LuaFunction function,
+        int argumentCount,
+        int returnBase,
+        CancellationToken cancellationToken
     )
     {
         if (function == null)
@@ -603,6 +641,13 @@ public class LuaState : IDisposable
             }
 
             return await function.Func(context, cancellationToken);
+        }
+        catch (Exception exception)
+            when (ErrorHandlerIndex != 0 && exception is not OperationCanceledException)
+        {
+            var handled = await HandleErrorAsync(exception, cancellationToken);
+            Stack.PopUntil(returnBase);
+            throw handled;
         }
         catch
         {

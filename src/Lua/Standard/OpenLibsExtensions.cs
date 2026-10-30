@@ -95,13 +95,17 @@ public static class OpenLibsExtensions
         var moduleLibrary = ModuleLibrary.Instance;
         LuaTable searchers = new();
         searchers[1] = new LuaFunction("preload", moduleLibrary.SearcherPreload);
-        searchers[2] = new LuaFunction("searcher_Lua", moduleLibrary.SearcherLua);
+        searchers[2] = new CSharpClosure("searcher_Lua", [package], moduleLibrary.SearcherLua);
         package["searchers"] = searchers;
         package["path"] = "?.lua";
         package["searchpath"] = moduleLibrary.SearchPathFunction;
         package["config"] = $"{Path.DirectorySeparatorChar}\n;\n?\n!\n-";
         globalState.Environment["package"] = package;
-        globalState.Environment["require"] = moduleLibrary.RequireFunction;
+        globalState.Environment["require"] = new CSharpClosure(
+            "require",
+            [package],
+            moduleLibrary.Require
+        );
     }
 
     public static void OpenOperatingSystemLibrary(this LuaState state)

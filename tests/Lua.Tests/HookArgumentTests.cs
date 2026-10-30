@@ -18,6 +18,50 @@ public class HookArgumentTests(LuaStringMode mode)
         return state;
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task DisablingHooksIgnoresUnusedArguments(bool thread)
+    {
+        using var state = CreateState();
+        state.Environment["thread"] = thread;
+        await state.DoStringAsync(
+            """
+            local co=coroutine.create(function() end)
+            local function hook() end
+            if thread then
+                debug.sethook(co,hook,'c')
+                assert(debug.gethook(co)==hook)
+                debug.sethook(co,nil,{}, {})
+                assert(debug.gethook(co)==nil)
+            else
+                debug.sethook(hook,'c')
+                assert(debug.gethook()==hook)
+                debug.sethook(nil,{}, {})
+                assert(debug.gethook()==nil)
+            end
+            """
+        );
+        Assert.That(state.Stack.Count, Is.EqualTo(4));
+        Assert.That(state.CallStackFrameCount, Is.Zero);
+    }
+
+    [TestCase("")]
+    [TestCase(",nil")]
+    public async Task InstallingHooksRequiresAMask(string mask)
+    {
+        using var state = CreateState();
+        await state.DoStringAsync(
+            $$"""
+            local original=function() end
+            debug.sethook(original,'c')
+            local ok,e=pcall(function() debug.sethook(function() end{{mask}}) end)
+            assert(not ok and type(e)=='string')
+            assert(debug.gethook()==original)
+            debug.sethook()
+            """
+        );
+    }
+
     [TestCase(0, "c")]
     [TestCase(1, "c")]
     [TestCase(2, "c")]

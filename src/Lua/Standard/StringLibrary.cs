@@ -706,9 +706,10 @@ public sealed class StringLibrary
                     {
                         stack.Push(matchState.GetCapture(k));
                     }
-                    var retCount = await context.State.RunAsync(
+                    var retCount = await context.State.RunCoreAsync(
                         func,
                         matchState.Level,
+                        stack.Count - matchState.Level,
                         cancellationToken
                     );
                     using var results = context.State.ReadStack(retCount);
