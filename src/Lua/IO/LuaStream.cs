@@ -25,15 +25,17 @@ public sealed class LuaStream(LuaFileOpenMode mode, Stream innerStream, LuaStrin
     public ValueTask<string?> ReadLineAsync(bool keepEol, CancellationToken cancellationToken)
     {
         mode.ThrowIfNotReadable();
+        cancellationToken.ThrowIfCancellationRequested();
         reader ??= new(stringMode);
-        return new(reader.ReadLine(innerStream, keepEol));
+        return new(reader.ReadLine(innerStream, keepEol, cancellationToken));
     }
 
     public ValueTask<string> ReadAllAsync(CancellationToken cancellationToken)
     {
         mode.ThrowIfNotReadable();
+        cancellationToken.ThrowIfCancellationRequested();
         reader ??= new(stringMode);
-        var text = reader.ReadToEnd(innerStream);
+        var text = reader.ReadToEnd(innerStream, cancellationToken);
         return new(text);
     }
 
@@ -63,29 +65,32 @@ public sealed class LuaStream(LuaFileOpenMode mode, Stream innerStream, LuaStrin
     public ValueTask<int> ReadByteAsync(CancellationToken cancellationToken)
     {
         mode.ThrowIfNotReadable();
+        cancellationToken.ThrowIfCancellationRequested();
         if (reader == null)
             return new(innerStream.ReadByte());
-        return new(reader.ReadByte(innerStream));
+        return new(reader.ReadByte(innerStream, cancellationToken));
     }
 
     public ValueTask<string?> ReadAsync(int count, CancellationToken cancellationToken)
     {
         mode.ThrowIfNotReadable();
+        cancellationToken.ThrowIfCancellationRequested();
         reader ??= new(stringMode);
         if (count == 0)
         {
-            return new(reader.IsEndOfStream(innerStream) ? null : string.Empty);
+            return new(reader.IsEndOfStream(innerStream, cancellationToken) ? null : string.Empty);
         }
 
-        return new(reader.Read(innerStream, count));
+        return new(reader.Read(innerStream, count, cancellationToken));
     }
 
     public ValueTask<double?> ReadNumberAsync(CancellationToken cancellationToken)
     {
         mode.ThrowIfNotReadable();
+        cancellationToken.ThrowIfCancellationRequested();
         reader ??= new(stringMode);
 
-        return new(reader.ReadNumber(innerStream));
+        return new(reader.ReadNumber(innerStream, cancellationToken));
     }
 
     public ValueTask WriteAsync(ReadOnlyMemory<char> buffer, CancellationToken cancellationToken)

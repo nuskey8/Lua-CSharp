@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Text;
 using Lua.IO;
 using Lua.Platforms;
@@ -201,6 +202,60 @@ public class Utf8StreamReadTests(LuaStringMode mode)
         var first = await stream.ReadAsync(1, default);
         Assert.Throws<IOException>(() => stream.Seek(SeekOrigin.Begin, -1));
         Assert.That(first + await stream.ReadAllAsync(default), Is.EqualTo(Expected(bytes)));
+    }
+
+    [Test, Combinatorial]
+    public async Task CountedReadsKeepUnreadUtf8PrefixesInTheByteBuffer(
+        [Values(3, 1024)] int chunkSize,
+        [Values("all", "line", "number", "bytes")] string format
+    )
+    {
+        var prefix = new string('a', chunkSize - 1);
+        var tail = Encoding.UTF8.GetBytes("ế7\nrest");
+        using var stream = Create(Encoding.UTF8.GetBytes(prefix).Concat(tail).ToArray(), chunkSize);
+        Assert.That(await stream.ReadAsync(prefix.Length, default), Is.EqualTo(prefix));
+        if (format == "bytes")
+        {
+            var writer = new ArrayBufferWriter<byte>();
+            await stream.ReadBytesAsync(writer, default);
+            Assert.That(writer.WrittenSpan.ToArray(), Is.EqualTo(tail));
+        }
+        else if (format == "line")
+        {
+            Assert.That(
+                await stream.ReadLineAsync(false, default),
+                Is.EqualTo(Expected(tail[..^5]))
+            );
+            Assert.That(await stream.ReadAllAsync(default), Is.EqualTo("rest"));
+        }
+        else
+        {
+            if (format == "number")
+                Assert.That(await stream.ReadNumberAsync(default), Is.Null);
+            Assert.That(await stream.ReadAllAsync(default), Is.EqualTo(Expected(tail)));
+        }
+    }
+
+    [Test]
+    public async Task PositionQueriesDoNotSkipAnUnreadUtf8Prefix()
+    {
+        var prefix = new string('a', 1023);
+        var tail = Encoding.UTF8.GetBytes("ế7");
+        using var stream = Create(Encoding.UTF8.GetBytes(prefix).Concat(tail).ToArray());
+        Assert.That(await stream.ReadAsync(prefix.Length, default), Is.EqualTo(prefix));
+        Assert.That(stream.Seek(SeekOrigin.Current, 0), Is.EqualTo(prefix.Length));
+        Assert.That(await stream.ReadAllAsync(default), Is.EqualTo(Expected(tail)));
+    }
+
+    [Test]
+    public async Task AnUnreadTruncatedUtf8PrefixIsNotEof()
+    {
+        byte[] bytes = [(byte)'a', (byte)'b', 0xe2];
+        using var stream = Create(bytes);
+        Assert.That(await stream.ReadAsync(2, default), Is.EqualTo("ab"));
+        Assert.That(await stream.ReadAsync(0, default), Is.EqualTo(""));
+        Assert.That(await stream.ReadAllAsync(default), Is.EqualTo(Expected(bytes[2..])));
+        Assert.That(await stream.ReadAsync(0, default), Is.Null);
     }
 
     sealed class ShortReadStream(byte[] bytes, int chunkSize) : MemoryStream(bytes)

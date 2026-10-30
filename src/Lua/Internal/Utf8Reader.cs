@@ -1,4 +1,5 @@
 using System.Buffers;
+using System.Runtime.CompilerServices;
 using System.Text;
 using Lua.CodeAnalysis.Compilation;
 using Lua.IO;
@@ -29,19 +30,23 @@ sealed class Utf8Reader
 
     public long Remain => bufLen - bufPos;
 
-    bool ReadBuffer(Stream stream)
+    bool ReadBuffer(Stream stream, CancellationToken cancellationToken, int keep = 0)
     {
-        bufLen = stream.Read(buffer, 0, buffer.Length);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (keep > 0)
+            buffer.AsSpan(bufPos, keep).CopyTo(buffer);
+        var read = stream.Read(buffer, keep, buffer.Length - keep);
+        bufLen = keep + read;
         bufPos = 0;
-        return bufLen != 0;
+        return read != 0;
     }
 
-    void PrepareText(Stream stream)
+    void PrepareText(Stream stream, CancellationToken cancellationToken)
     {
         checkBom = false;
         if (stream.CanSeek && stream.Position - Remain != 0)
             return;
-        if (PeekByte(stream) != 0xEF)
+        if (PeekByte(stream, cancellationToken) != 0xEF)
             return;
 
         var count = bufLen - bufPos;
@@ -52,6 +57,7 @@ sealed class Utf8Reader
             bufLen = count;
             while (bufLen < BomUtility.BomUtf8.Length)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 var read = stream.Read(buffer, bufLen, BomUtility.BomUtf8.Length - bufLen);
                 if (read == 0)
                     break;
@@ -83,15 +89,15 @@ sealed class Utf8Reader
         );
     }
 
-    public string? ReadLine(Stream stream, bool keepEol = false)
+    public string? ReadLine(Stream stream, bool keepEol, CancellationToken cancellationToken)
     {
         if (checkBom)
-            PrepareText(stream);
+            PrepareText(stream, cancellationToken);
         if (pendingCharacter is '\r' or '\n')
         {
             var first = (char)pendingCharacter;
             pendingCharacter = -1;
-            var crlf = first == '\r' && PeekByte(stream) == '\n';
+            var crlf = first == '\r' && PeekByte(stream, cancellationToken) == '\n';
             if (crlf)
                 bufPos++;
             return !keepEol ? ""
@@ -101,7 +107,7 @@ sealed class Utf8Reader
         using PooledList<byte> result = new();
         while (true)
         {
-            if (bufPos >= bufLen && !ReadBuffer(stream))
+            if (bufPos >= bufLen && !ReadBuffer(stream, cancellationToken))
                 break;
 
             var span = buffer.AsSpan(bufPos, bufLen - bufPos);
@@ -124,7 +130,7 @@ sealed class Utf8Reader
                 {
                     // Preserve the segment before looking for LF in the next buffer.
                     result.AddRange(span[..count]);
-                    if (PeekByte(stream) == '\n')
+                    if (PeekByte(stream, cancellationToken) == '\n')
                     {
                         bufPos++;
                         if (keepEol)
@@ -147,14 +153,14 @@ sealed class Utf8Reader
         return result.Count == 0 && pendingCharacter < 0 ? null : DecodeText(result.AsSpan());
     }
 
-    public string ReadToEnd(Stream stream)
+    public string ReadToEnd(Stream stream, CancellationToken cancellationToken)
     {
         if (checkBom)
-            PrepareText(stream);
+            PrepareText(stream, cancellationToken);
         using PooledList<byte> result = new();
         while (true)
         {
-            if (bufPos >= bufLen && !ReadBuffer(stream))
+            if (bufPos >= bufLen && !ReadBuffer(stream, cancellationToken))
                 break;
             result.AddRange(buffer.AsSpan(bufPos, bufLen - bufPos));
             bufPos = bufLen;
@@ -162,9 +168,9 @@ sealed class Utf8Reader
         return DecodeText(result.AsSpan());
     }
 
-    public int ReadByte(Stream stream)
+    public int ReadByte(Stream stream, CancellationToken cancellationToken)
     {
-        var value = PeekByte(stream);
+        var value = PeekByte(stream, cancellationToken);
         if (value >= 0)
         {
             checkBom = false;
@@ -184,7 +190,7 @@ sealed class Utf8Reader
         bufPos = bufLen;
     }
 
-    public string? Read(Stream stream, int charCount)
+    public string? Read(Stream stream, int charCount, CancellationToken cancellationToken)
     {
         if (charCount < 0)
         {
@@ -205,7 +211,7 @@ sealed class Utf8Reader
             {
                 while (len < charCount)
                 {
-                    if (bufPos >= bufLen && !ReadBuffer(stream))
+                    if (bufPos >= bufLen && !ReadBuffer(stream, cancellationToken))
                         break;
                     var count = Math.Min(bufLen - bufPos, charCount - len);
                     LuaByteEncoding.Instance.GetChars(
@@ -217,7 +223,7 @@ sealed class Utf8Reader
                 }
             }
             else
-                len = ReadText(stream, resultBuffer.AsSpan(0, charCount));
+                len = ReadText(stream, resultBuffer.AsSpan(0, charCount), cancellationToken);
 
             return len == 0 ? null : resultBuffer.AsSpan(0, len).ToString();
         }
@@ -227,10 +233,10 @@ sealed class Utf8Reader
         }
     }
 
-    int ReadText(Stream stream, Span<char> destination)
+    int ReadText(Stream stream, Span<char> destination, CancellationToken cancellationToken)
     {
         if (checkBom)
-            PrepareText(stream);
+            PrepareText(stream, cancellationToken);
         var len = 0;
         if (pendingCharacter >= 0)
         {
@@ -240,8 +246,7 @@ sealed class Utf8Reader
         Span<char> pair = stackalloc char[2];
         while (len < destination.Length)
         {
-            var eof = bufPos >= bufLen && !ReadBuffer(stream);
-            if (eof && decoder is null)
+            if (bufPos >= bufLen && !ReadBuffer(stream, cancellationToken))
                 break;
 
             ReadOnlySpan<byte> byteSpan = new(buffer, bufPos, bufLen - bufPos);
@@ -251,46 +256,71 @@ sealed class Utf8Reader
             var singleSlot = charSpan.Length == 1;
             if (singleSlot)
             {
-                if (!byteSpan.IsEmpty)
+                var first = byteSpan[0];
+                if (first < 0x80)
                 {
-                    var sequenceLength = byteSpan[0] switch
-                    {
-                        >= 0xF0 and <= 0xF4 => 4,
-                        >= 0xE0 and <= 0xEF => 3,
-                        >= 0xC2 and <= 0xDF => 2,
-                        _ => 1,
-                    };
-                    byteSpan = byteSpan[..Math.Min(byteSpan.Length, sequenceLength)];
+                    destination[len++] = (char)first;
+                    bufPos++;
+                    continue;
                 }
+                var sequenceLength = Utf8SequenceLength(first);
+                byteSpan = byteSpan[..Math.Min(byteSpan.Length, sequenceLength)];
                 charSpan = pair;
             }
+            // Keep incomplete sequences in the byte buffer, where other formats
+            // and seeks can account for them without depending on decoder state.
+            var completeLength = CompleteUtf8Length(byteSpan);
+            if (completeLength == 0)
+            {
+                if (ReadBuffer(stream, cancellationToken, bufLen - bufPos))
+                    continue;
+                byteSpan = buffer.AsSpan(bufPos, bufLen - bufPos);
+            }
+            else
+                byteSpan = byteSpan[..completeLength];
             decoder ??= encoding.GetDecoder();
             decoder.Convert(
                 byteSpan,
                 charSpan,
-                eof,
+                flush: true,
                 out var bytesUsed,
                 out var charsUsed,
-                out var completed
+                out _
             );
 
-            if (charsUsed > 0)
+            if (singleSlot)
             {
-                if (singleSlot)
-                {
-                    destination[len++] = pair[0];
-                    if (charsUsed == 2)
-                        pendingCharacter = pair[1];
-                }
-                else
-                    len += charsUsed;
+                destination[len++] = pair[0];
+                if (charsUsed == 2)
+                    pendingCharacter = pair[1];
             }
+            else
+                len += charsUsed;
 
             bufPos += bytesUsed;
-            if (eof && completed)
-                break;
         }
         return len;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    static int Utf8SequenceLength(byte first) =>
+        first switch
+        {
+            >= 0xF0 and <= 0xF4 => 4,
+            >= 0xE0 and <= 0xEF => 3,
+            >= 0xC2 and <= 0xDF => 2,
+            _ => 1,
+        };
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    static int CompleteUtf8Length(ReadOnlySpan<byte> bytes)
+    {
+        var start = bytes.Length - 1;
+        if (bytes[start] < 0x80)
+            return bytes.Length;
+        while (start > 0 && bytes.Length - start < 4 && (bytes[start] & 0xC0) == 0x80)
+            start--;
+        return Utf8SequenceLength(bytes[start]) > bytes.Length - start ? start : bytes.Length;
     }
 
     static bool IsAsciiSpace(char c) => c == ' ' || (c >= '\t' && c <= '\r');
@@ -299,13 +329,12 @@ sealed class Utf8Reader
     {
         bufPos = 0;
         bufLen = 0;
-        decoder?.Reset();
         if (!keepPendingCharacter)
             pendingCharacter = -1;
         checkBom = atStart && !byteStrings;
     }
 
-    public double? ReadNumber(Stream stream)
+    public double? ReadNumber(Stream stream, CancellationToken cancellationToken)
     {
         var resultBuffer = ArrayPool<char>.Shared.Rent(64); // Numbers shouldn't be too long
         var len = 0;
@@ -328,7 +357,7 @@ sealed class Utf8Reader
             // Skip leading whitespace
             while (len == 0)
             {
-                var b = PeekByte(stream);
+                var b = PeekByte(stream, cancellationToken);
                 if (b == -1)
                 {
                     return null; // EOF
@@ -345,7 +374,7 @@ sealed class Utf8Reader
 
             while (true)
             {
-                var b = PeekByte(stream);
+                var b = PeekByte(stream, cancellationToken);
                 if (b < 0 || !scanner.TryConsume((char)b))
                     break;
                 if (len == resultBuffer.Length)
@@ -366,14 +395,14 @@ sealed class Utf8Reader
         }
     }
 
-    public bool IsEndOfStream(Stream stream)
+    public bool IsEndOfStream(Stream stream, CancellationToken cancellationToken)
     {
-        return pendingCharacter < 0 && PeekByte(stream) < 0;
+        return pendingCharacter < 0 && PeekByte(stream, cancellationToken) < 0;
     }
 
-    int PeekByte(Stream stream)
+    int PeekByte(Stream stream, CancellationToken cancellationToken)
     {
-        if (bufPos >= bufLen && !ReadBuffer(stream))
+        if (bufPos >= bufLen && !ReadBuffer(stream, cancellationToken))
             return -1;
         return buffer[bufPos];
     }
