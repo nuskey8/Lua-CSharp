@@ -45,7 +45,7 @@ In byte mode, `string.char` accepts only 0–255. Non-ASCII letters remain uncha
 
 Neither mode normalizes Unicode. For example, C# `"é"` and `"e\u0301"` remain different strings and table keys.
 
-This describes string semantics. Existing Lua-CSharp limitations still apply; for example, `string.dump` is unsupported. C# values still use `string` and require the conversions below, with matching stream configuration.
+This describes string semantics. See the [standard library API reference](stdlib/README.md) for per-function differences and limitations. `string.dump` is supported and always returns raw bytes in either mode; see [dumping and loading](stdlib/string.md#dumping-and-loading) before writing its result to a stream. C# values still use `string` and require the conversions below, with matching stream configuration.
 
 ## Passing values between C# and Lua
 

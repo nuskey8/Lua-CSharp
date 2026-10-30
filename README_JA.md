@@ -161,10 +161,7 @@ var results = await state.DoStringAsync("return math.pi");
 Console.WriteLine(results[0]); // 3.141592653589793
 ```
 
-標準ライブラリについては[Lua公式のマニュアル](https://www.lua.org/manual/5.2/manual.html#6)を参照してください。
-
-> [!WARNING]
-> Lua-CSharpは標準ライブラリの全ての関数をサポートしているわけではありません。詳細は[互換性](#互換性)の項目を参照してください。
+各APIの引数・戻り値、Lua 5.2公式リファレンスへのリンク、実装上の違いと理由は[標準ライブラリAPIリファレンス（英語）](docs/stdlib/README.md)を参照してください。未対応APIと現在の制限も記載しています。言語・ライブラリの完全な仕様は[Lua公式のマニュアル](https://www.lua.org/manual/5.2/manual.html#6)を参照してください。
 
 ## 関数
 
