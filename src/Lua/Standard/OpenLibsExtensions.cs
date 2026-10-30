@@ -8,6 +8,7 @@ public static class OpenLibsExtensions
     {
         var globalState = state.GlobalState;
         globalState.Environment["_G"] = globalState.Environment;
+        globalState.LoadedModules["_G"] = globalState.Environment;
         globalState.Environment["_VERSION"] = "Lua 5.2";
         foreach (var func in BasicLibrary.Instance.Functions)
         {
@@ -39,6 +40,7 @@ public static class OpenLibsExtensions
         }
 
         globalState.Environment["coroutine"] = coroutine;
+        globalState.LoadedModules["coroutine"] = coroutine;
     }
 
     public static void OpenIOLibrary(this LuaState state)
@@ -101,6 +103,7 @@ public static class OpenLibsExtensions
         package["searchpath"] = moduleLibrary.SearchPathFunction;
         package["config"] = $"{Path.DirectorySeparatorChar}\n;\n?\n!\n-";
         globalState.Environment["package"] = package;
+        globalState.LoadedModules["package"] = package;
         globalState.Environment["require"] = new CSharpClosure(
             "require",
             [package],

@@ -9,6 +9,28 @@ namespace Lua.Tests;
 [TestFixture(LuaStringMode.Bytes)]
 public class ModuleContractTests(LuaStringMode stringMode)
 {
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task StandardLibrariesAreRegisteredForRequire(bool reopen)
+    {
+        using var state = CreateState();
+        if (reopen)
+        {
+            state.OpenBasicLibrary();
+            state.OpenCoroutineLibrary();
+            state.OpenModuleLibrary();
+        }
+        await state.DoStringAsync(
+            """
+            for _,name in ipairs({'_G','package','coroutine','table','io','os','string','bit32','math','debug'}) do
+                local library=_G[name]
+                assert(package.loaded[name]==library,name)
+                assert(require(name)==library,name)
+            end
+            """
+        );
+    }
+
     [TestCase("return", "true", 1)]
     [TestCase("return nil", "true", 1)]
     [TestCase("return false", "false", 2)]

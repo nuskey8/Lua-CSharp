@@ -39,6 +39,9 @@ public static partial class LuaVirtualMachine
                 var top = stack.Count;
                 stack.PushRange("count", LuaValue.Nil);
                 context.State.IsInHook = true;
+                var isLuaHook = context.State.IsLuaDebugHook;
+                if (isLuaHook)
+                    context.State.NonYieldableCallCount++;
                 try
                 {
                     var frame = context.State.CreateCallStackFrame(hook, 2, top, pc);
@@ -53,6 +56,8 @@ public static partial class LuaVirtualMachine
                 }
                 finally
                 {
+                    if (isLuaHook)
+                        context.State.NonYieldableCallCount--;
                     // An aborted hook must not suppress hooks when this state is reused.
                     // Frame creation can also fail before the callback is invoked.
                     context.State.IsInHook = false;
@@ -85,6 +90,9 @@ public static partial class LuaVirtualMachine
                     var top = stack.Count;
                     stack.PushRange("line", line);
                     context.State.IsInHook = true;
+                    var isLuaHook = context.State.IsLuaDebugHook;
+                    if (isLuaHook)
+                        context.State.NonYieldableCallCount++;
                     try
                     {
                         var frame = context.State.CreateCallStackFrame(hook, 2, top, pc);
@@ -99,6 +107,8 @@ public static partial class LuaVirtualMachine
                     }
                     finally
                     {
+                        if (isLuaHook)
+                            context.State.NonYieldableCallCount--;
                         context.State.IsInHook = false;
                     }
 
@@ -226,6 +236,9 @@ public static partial class LuaVirtualMachine
         var top = stack.Count;
         stack.PushRange(eventName, LuaValue.Nil);
         state.IsInHook = true;
+        var isLuaHook = state.IsLuaDebugHook;
+        if (isLuaHook)
+            state.NonYieldableCallCount++;
         var framePushed = false;
         try
         {
@@ -242,6 +255,8 @@ public static partial class LuaVirtualMachine
         }
         finally
         {
+            if (isLuaHook)
+                state.NonYieldableCallCount--;
             state.IsInHook = false;
             if (framePushed)
                 state.PopCallStackFrameWithStackPop();

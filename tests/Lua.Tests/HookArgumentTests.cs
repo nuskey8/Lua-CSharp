@@ -28,21 +28,138 @@ public class HookArgumentTests(LuaStringMode mode)
             """
             local co=coroutine.create(function() end)
             local function hook() end
+            local function checkDisabled(thread)
+                local callback,mask,count=debug.gethook(thread)
+                assert(callback==nil and mask=='' and count==0)
+            end
+            checkDisabled()
+            checkDisabled(co)
             if thread then
                 debug.sethook(co,hook,'c')
                 assert(debug.gethook(co)==hook)
                 debug.sethook(co,nil,{}, {})
-                assert(debug.gethook(co)==nil)
+                checkDisabled(co)
             else
                 debug.sethook(hook,'c')
                 assert(debug.gethook()==hook)
                 debug.sethook(nil,{}, {})
-                assert(debug.gethook()==nil)
+                checkDisabled()
             end
             """
         );
         Assert.That(state.Stack.Count, Is.EqualTo(4));
         Assert.That(state.CallStackFrameCount, Is.Zero);
+    }
+
+    const string HookWorkload = """
+        debug.sethook(function(event)
+            if event==hookEvent then
+                debug.sethook()
+                work()
+            end
+        end,hookMask,hookCount)
+        local function leaf() return 42 end
+        local value=leaf()
+        return leaf()
+        """;
+
+    static LuaClosure LoadHookWorkload(LuaState state, string hookEvent)
+    {
+        state.Environment["hookEvent"] = hookEvent;
+        state.Environment["hookMask"] = hookEvent switch
+        {
+            "call" or "tail call" => "c",
+            "return" => "r",
+            "line" => "l",
+            _ => "",
+        };
+        state.Environment["hookCount"] = hookEvent == "count" ? 1 : 0;
+        return state.Load(HookWorkload, "@hook-workload.lua");
+    }
+
+    [TestCase("call")]
+    [TestCase("tail call")]
+    [TestCase("return")]
+    [TestCase("line")]
+    [TestCase("count")]
+    public async Task LuaHooksCannotYieldAfterDisablingTheHook(string hookEvent)
+    {
+        using var state = CreateState();
+        state.Environment["work"] = state.Environment["coroutine"].Read<LuaTable>()["yield"];
+        state.Environment["operation"] = LoadHookWorkload(state, hookEvent);
+        await state.DoStringAsync(
+            """
+            thread=coroutine.create(operation)
+            local ok,e=coroutine.resume(thread)
+            assert(not ok and e:find('attempt to yield across a C-call boundary',1,true))
+            assert(coroutine.status(thread)=='dead')
+            """
+        );
+        var thread = state.Environment["thread"].Read<LuaState>();
+        Assert.That(thread.NonYieldableCallCount, Is.Zero);
+        Assert.That(thread.CallStackFrameCount, Is.Zero);
+        Assert.That(state.Stack.Count, Is.EqualTo(4));
+        Assert.That(state.CallStackFrameCount, Is.Zero);
+    }
+
+    [TestCase("call")]
+    [TestCase("tail call")]
+    [TestCase("return")]
+    [TestCase("line")]
+    [TestCase("count")]
+    public async Task LuaHooksCanAwaitHostCallbacks(string hookEvent)
+    {
+        using var state = CreateState();
+        var suspension = new ManualSuspension();
+        var calls = 0;
+        state.Environment["work"] = new LuaFunction(
+            async (context, _) =>
+            {
+                calls++;
+                await suspension;
+                return context.Return();
+            }
+        );
+        var task = state.ExecuteAsync(LoadHookWorkload(state, hookEvent)).AsTask();
+        Assert.That(task.IsCompleted, Is.False);
+        suspension.Resume();
+        Assert.That(await task, Is.EqualTo(new LuaValue[] { 42 }));
+        Assert.That(calls, Is.EqualTo(1));
+        Assert.That(state.NonYieldableCallCount, Is.Zero);
+        Assert.That(state.CallStackFrameCount, Is.Zero);
+        Assert.That(state.Stack.Count, Is.EqualTo(4));
+    }
+
+    [TestCase("line")]
+    [TestCase("count")]
+    public async Task HostHooksCanStillYield(string hookEvent)
+    {
+        using var state = CreateState();
+        using var thread = state.CreateCoroutine(
+            state.Load("local value=42;return value", "@host-hook.lua")
+        );
+        thread.SetHook(
+            new LuaFunction(
+                async (context, token) =>
+                {
+                    context.State.SetHook(null, "");
+                    await context.State.YieldAsync(context, token);
+                    return context.Return();
+                }
+            ),
+            hookEvent == "line" ? "l" : "",
+            hookEvent == "count" ? 1 : 0
+        );
+        var output = new LuaStack();
+        await thread.ResumeAsync(output);
+        Assert.That(output.Get(0), Is.EqualTo(new LuaValue(true)));
+        Assert.That(output.Get(1), Is.EqualTo(new LuaValue(hookEvent)));
+        Assert.That(thread.GetStatus(), Is.EqualTo(LuaThreadStatus.Suspended));
+        output.Clear();
+        await thread.ResumeAsync(output);
+        Assert.That(output.AsSpan().ToArray(), Is.EqualTo(new LuaValue[] { true, 42 }));
+        Assert.That(thread.NonYieldableCallCount, Is.Zero);
+        Assert.That(thread.CallStackFrameCount, Is.Zero);
     }
 
     [TestCase("")]

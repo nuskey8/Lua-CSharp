@@ -61,6 +61,7 @@ public class HookTests
         }
 
         Assert.That(state.CallStackFrameCount, Is.Zero);
+        Assert.That(state.NonYieldableCallCount, Is.Zero);
         var stackTop = state.Stack.Count;
 
         state.Environment["echo"] = new LuaFunction((c, ct) => new(c.Return(c.GetArgument(0))));

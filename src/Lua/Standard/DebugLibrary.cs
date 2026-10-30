@@ -389,16 +389,20 @@ public sealed class DebugLibrary
 
         if (state is { IsCoroutine: true, LuaTraceback: { } traceback })
         {
-            return new(context.Return(traceback.ToString(level)));
+            return new(
+                context.Return(
+                    Runtime.Traceback.CreateTracebackMessage(
+                        context.GlobalState,
+                        traceback.StackFrames,
+                        message,
+                        level
+                    )
+                )
+            );
         }
 
         var callStack = state.GetCallStackFrames();
-        if (callStack.Length == 0)
-        {
-            return new(context.Return("stack traceback:"));
-        }
-
-        var skipCount = Math.Min(Math.Max(level - 1, 0), callStack.Length - 1);
+        var skipCount = Math.Min(Math.Max(level - 1, 0), callStack.Length);
         var frames = callStack[..^skipCount];
         return new(
             context.Return(
@@ -516,6 +520,7 @@ public sealed class DebugLibrary
             stack.Push("return");
             stack.Push(LuaValue.Nil);
             context.State.IsInHook = true;
+            context.State.NonYieldableCallCount++;
             var framePushed = false;
             try
             {
@@ -532,6 +537,7 @@ public sealed class DebugLibrary
             }
             finally
             {
+                context.State.NonYieldableCallCount--;
                 context.State.IsInHook = false;
                 if (framePushed)
                 {
@@ -549,11 +555,6 @@ public sealed class DebugLibrary
     )
     {
         var state = GetLuaThread(context, out _);
-        if (state.Hook is null && !state.IsLuaDebugHook)
-        {
-            return new(context.Return(LuaValue.Nil, LuaValue.Nil, LuaValue.Nil));
-        }
-
         return new(
             context.Return(
                 state.Hook is null ? LuaValue.Nil : state.Hook,
