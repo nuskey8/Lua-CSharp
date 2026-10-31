@@ -1,4 +1,6 @@
-﻿namespace Lua.IO;
+﻿using System.Runtime.InteropServices;
+
+namespace Lua.IO;
 
 /// <param name="baseDirectory">Directory that relative paths are resolved against.</param>
 /// <param name="stringMode">
@@ -121,12 +123,19 @@ public sealed class FileSystem(string? baseDirectory, LuaStringMode stringMode) 
     public ValueTask Remove(string path, CancellationToken cancellationToken)
     {
         path = GetFullPath(path);
-        if (!File.Exists(path))
+        if (File.Exists(path))
+        {
+            File.Delete(path);
+        }
+        else if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows) && Directory.Exists(path))
+        {
+            Directory.Delete(path, recursive: false);
+        }
+        else
         {
             throw new FileNotFoundException("No such file or directory", path);
         }
 
-        File.Delete(path);
         return default;
     }
 

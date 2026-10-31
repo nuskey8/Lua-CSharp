@@ -161,10 +161,7 @@ var results = await state.DoStringAsync("return math.pi");
 Console.WriteLine(results[0]); // 3.141592653589793
 ```
 
-For more details on standard libraries, refer to the [Lua official manual](https://www.lua.org/manual/5.2/manual.html#6).
-
-> [!WARNING]
-> Lua-CSharp does not support all functions of the standard libraries. For details, refer to the [Compatibility](#compatibility) section.
+See the [standard library API reference](docs/stdlib/README.md) for each function's inputs/results, official Lua 5.2 links, and implementation differences with their reasons. It also lists unavailable APIs and current limitations. The [Lua official manual](https://www.lua.org/manual/5.2/manual.html#6) defines the full language/library contract.
 
 ## Functions
 

@@ -39,7 +39,7 @@ abstract class NotImplementedExceptionFileSystemBase : ILuaFileSystem
         throw new NotImplementedException();
     }
 
-    public ValueTask<ILuaStream> OpenTempFileStream(CancellationToken cancellationToken)
+    public virtual ValueTask<ILuaStream> OpenTempFileStream(CancellationToken cancellationToken)
     {
         throw new NotImplementedException();
     }

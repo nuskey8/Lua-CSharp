@@ -1,6 +1,8 @@
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Text;
+using Lua.Internal.CompilerServices;
+using Lua.Runtime;
 
 namespace Lua.Standard.Internal;
 
@@ -27,61 +29,168 @@ static class DateTimeHelper
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static DateTime FromUnixTime(double unixTime)
     {
-        var ts = TimeSpan.FromSeconds(unixTime);
+        var ts = TimeSpan.FromSeconds(Math.Truncate(unixTime));
         return DateTime.UnixEpoch + ts;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static double GetUnixTimeFromLocalTime(DateTime dateTime)
+    public static double GetUnixTimeFromLocalTime(DateTime dateTime, TimeZoneInfo zone, bool isDst)
     {
-        return new DateTimeOffset(
-            DateTime.SpecifyKind(dateTime, DateTimeKind.Local)
-        ).ToUnixTimeSeconds();
-    }
-
-    public static DateTime ParseTimeTable(LuaState state, LuaTable table)
-    {
-        static int GetTimeField(
-            LuaState state,
-            LuaTable table,
-            string key,
-            bool required = true,
-            int defaultValue = 0
-        )
+        var offset = zone.GetUtcOffset(dateTime);
+        // GetUtcOffset already selects standard time for an ambiguous clock reading.
+        if (isDst && zone.IsAmbiguousTime(dateTime))
         {
-            if (!table.TryGetValue(key, out var value))
-            {
-                if (required)
-                {
-                    throw new LuaRuntimeException(state, $"field '{key}' missing in date table");
-                }
-                else
-                {
-                    return defaultValue;
-                }
-            }
-
-            if (value.TryRead<double>(out var d) && MathEx.IsInteger(d))
-            {
-                return (int)d;
-            }
-
-            throw new LuaRuntimeException(state, $"field '{key}' is not an integer");
+            var offsets = zone.GetAmbiguousTimeOffsets(dateTime);
+            var first = new DateTimeOffset(dateTime, offsets[0]);
+            offset = zone.IsDaylightSavingTime(first) ? offsets[0] : offsets[1];
         }
-
-        var day = GetTimeField(state, table, "day");
-        var month = GetTimeField(state, table, "month");
-        var year = GetTimeField(state, table, "year");
-        var sec = GetTimeField(state, table, "sec", false, 0);
-        var min = GetTimeField(state, table, "min", false, 0);
-        var hour = GetTimeField(state, table, "hour", false, 12);
-
-        return new(year, month, day, hour, min, sec);
+        return new DateTimeOffset(dateTime, offset).ToUnixTimeSeconds();
     }
 
-    public static string StrFTime(LuaState state, ReadOnlySpan<char> format, DateTime d)
+    public static LuaValue GetTime(LuaState state, LuaTable table)
     {
-        // reference: http://www.cplusplus.com/reference/ctime/strftime/
+        var sec = GetTimeField(state, table["sec"], "sec", 0);
+        var min = GetTimeField(state, table["min"], "min", 0);
+        var hour = GetTimeField(state, table["hour"], "hour", 12);
+        var day = GetTimeField(state, table["day"], "day");
+        var month = GetTimeField(state, table["month"], "month");
+        var year = GetTimeField(state, table["year"], "year");
+        var zone = state.Platform.TimeProvider.LocalTimeZone;
+        return CreateTime(
+            zone,
+            sec,
+            min,
+            hour,
+            day,
+            month,
+            year,
+            zone.SupportsDaylightSavingTime && table["isdst"].ToBoolean()
+        );
+    }
+
+    [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder<>))]
+    public static async ValueTask<LuaValue> GetTimeAsync(
+        LuaState state,
+        LuaTable table,
+        CancellationToken cancellationToken
+    )
+    {
+        var sec = GetTimeField(
+            state,
+            await ReadFieldAsync(state, table, "sec", cancellationToken),
+            "sec",
+            0
+        );
+        var min = GetTimeField(
+            state,
+            await ReadFieldAsync(state, table, "min", cancellationToken),
+            "min",
+            0
+        );
+        var hour = GetTimeField(
+            state,
+            await ReadFieldAsync(state, table, "hour", cancellationToken),
+            "hour",
+            12
+        );
+        var day = GetTimeField(
+            state,
+            await ReadFieldAsync(state, table, "day", cancellationToken),
+            "day"
+        );
+        var month = GetTimeField(
+            state,
+            await ReadFieldAsync(state, table, "month", cancellationToken),
+            "month"
+        );
+        var year = GetTimeField(
+            state,
+            await ReadFieldAsync(state, table, "year", cancellationToken),
+            "year"
+        );
+        var isDst = (await ReadFieldAsync(state, table, "isdst", cancellationToken)).ToBoolean();
+        return CreateTime(
+            state.Platform.TimeProvider.LocalTimeZone,
+            sec,
+            min,
+            hour,
+            day,
+            month,
+            year,
+            isDst
+        );
+    }
+
+    static LuaValue CreateTime(
+        TimeZoneInfo zone,
+        int sec,
+        int min,
+        int hour,
+        int day,
+        int month,
+        int year,
+        bool isDst
+    )
+    {
+        try
+        {
+            var normalizedYear = Math.DivRem(
+                (long)year * 12 + month - 1,
+                12,
+                out var normalizedMonth
+            );
+            if (normalizedMonth < 0)
+            {
+                normalizedMonth += 12;
+                normalizedYear--;
+            }
+
+            var date = new DateTime(checked((int)normalizedYear), (int)normalizedMonth + 1, 1);
+            date = date.AddSeconds(((long)day - 1) * 86400 + hour * 3600L + min * 60L + sec);
+            var time = GetUnixTimeFromLocalTime(date, zone, isDst);
+            return time == -1 ? LuaValue.Nil : time;
+        }
+        catch (ArgumentOutOfRangeException)
+        {
+            return LuaValue.Nil;
+        }
+        catch (OverflowException)
+        {
+            return LuaValue.Nil;
+        }
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    static int GetTimeField(LuaState state, LuaValue value, string key, int defaultValue = -1)
+    {
+        if (value.Type != LuaValueType.Nil && value.TryReadDouble(out var number))
+            return (int)(long)number;
+        if (defaultValue >= 0)
+            return defaultValue;
+        throw new LuaRuntimeException(state, $"field '{key}' missing in date table");
+    }
+
+    static ValueTask<LuaValue> ReadFieldAsync(
+        LuaState state,
+        LuaTable table,
+        string key,
+        CancellationToken cancellationToken
+    )
+    {
+        var value = table[key];
+        if (value.Type != LuaValueType.Nil || table.Metatable is null)
+            return new(value);
+        return LuaVirtualMachine.ExecuteGetTableSlowPath(state, table, key, cancellationToken);
+    }
+
+    public static string StrFTime(
+        LuaState state,
+        ReadOnlySpan<char> format,
+        DateTimeOffset time,
+        TimeZoneInfo zone
+    )
+    {
+        var d = time.DateTime;
 
         [MethodImpl(MethodImplOptions.NoInlining)]
         static void ThrowInvalidConversionSpecifier(LuaState state, ReadOnlySpan<char> format)
@@ -101,33 +210,29 @@ static class DateTimeHelper
                 'A' => "dddd",
                 'b' => "MMM",
                 'B' => "MMMM",
-                'c' => "f",
                 'd' => "dd",
                 'D' => "MM/dd/yy",
                 'F' => "yyyy-MM-dd",
-                'g' => "yy",
-                'G' => "yyyy",
                 'h' => "MMM",
                 'H' => "HH",
                 'I' => "hh",
                 'm' => "MM",
                 'M' => "mm",
                 'p' => "tt",
-                'r' => "h:mm:ss tt",
+                'r' => "hh:mm:ss tt",
                 'R' => "HH:mm",
                 'S' => "ss",
                 'T' => "HH:mm:ss",
                 'y' => "yy",
                 'Y' => "yyyy",
-                'x' => "d",
-                'X' => "T",
-                'z' => "zzz",
-                'Z' => "zzz",
+                'x' => "MM/dd/yy",
+                'X' => "HH:mm:ss",
                 _ => null,
             };
         }
 
-        ValueStringBuilder builder = new();
+        using ValueStringBuilder builder = new();
+        Span<char> formatBuffer = stackalloc char[32];
 
         var isEscapeSequence = false;
 
@@ -158,7 +263,10 @@ static class DateTimeHelper
 
             if (c is 'O' or 'E')
             {
-                ThrowInvalidConversionSpecifier(state, format);
+                var conversions = c == 'E' ? "cCxXyY" : "deHImMSuUVwWy";
+                if (++i >= format.Length || conversions.IndexOf(format[i]) < 0)
+                    ThrowInvalidConversionSpecifier(state, format);
+                c = format[i];
             }
 
             isEscapeSequence = false;
@@ -166,11 +274,24 @@ static class DateTimeHelper
             var pattern = STANDARD_PATTERNS(c);
             if (pattern != null)
             {
-                builder.Append(d.ToString(pattern, CultureInfo.InvariantCulture));
+                d.TryFormat(formatBuffer, out var written, pattern, CultureInfo.InvariantCulture);
+                builder.Append(formatBuffer[..written]);
             }
             else
                 switch (c)
                 {
+                    case 'c':
+                        d.TryFormat(
+                            formatBuffer,
+                            out var written,
+                            "ddd MMM dd HH:mm:ss yyyy",
+                            CultureInfo.InvariantCulture
+                        );
+                        // C-locale %c space-pads a single-digit day.
+                        if (d.Day < 10)
+                            formatBuffer[8] = ' ';
+                        builder.Append(formatBuffer[..written]);
+                        break;
                     case 'e':
                     {
                         var s = d.ToString("%d", CultureInfo.InvariantCulture);
@@ -184,8 +305,7 @@ static class DateTimeHelper
                         builder.Append('\t');
                         break;
                     case 'C':
-                        // TODO: reduce allocation
-                        builder.Append((d.Year / 100).ToString(CultureInfo.InvariantCulture));
+                        builder.Append((d.Year / 100).ToString("00", CultureInfo.InvariantCulture));
                         break;
                     case 'j':
                         builder.Append(d.DayOfYear.ToString("000", CultureInfo.InvariantCulture));
@@ -208,12 +328,45 @@ static class DateTimeHelper
                         break;
                     }
                     case 'U':
-                    // ISO 8601 week number (00-53)
-                    case 'V':
-                    // Week number with the first Monday as the first day of week one (00-53)
                     case 'W':
-                        // Week number with the first Sunday as the first day of week one (00-53)
-                        builder.Append("??");
+                    {
+                        var firstDay = c == 'U' ? 0 : 1;
+                        var weekDay = ((int)d.DayOfWeek + 7 - firstDay) % 7;
+                        var week = (d.DayOfYear + 6 - weekDay) / 7;
+                        builder.Append(week.ToString("00", CultureInfo.InvariantCulture));
+                        break;
+                    }
+                    case 'V':
+                        builder.Append(
+                            ISOWeek.GetWeekOfYear(d).ToString("00", CultureInfo.InvariantCulture)
+                        );
+                        break;
+                    case 'g':
+                    case 'G':
+                    {
+                        var year = ISOWeek.GetYear(d);
+                        builder.Append(
+                            (c == 'g' ? year % 100 : year).ToString(
+                                c == 'g' ? "00" : "0000",
+                                CultureInfo.InvariantCulture
+                            )
+                        );
+                        break;
+                    }
+                    case 'z':
+                        builder.Append(time.Offset < TimeSpan.Zero ? '-' : '+');
+                        var offset = time.Offset.Duration();
+                        builder.Append(offset.Hours.ToString("00", CultureInfo.InvariantCulture));
+                        builder.Append(offset.Minutes.ToString("00", CultureInfo.InvariantCulture));
+                        break;
+                    case 'Z':
+                        builder.Append(
+                            state.Platform.EncodeText(
+                                zone == TimeZoneInfo.Utc ? "UTC"
+                                : zone.IsDaylightSavingTime(time) ? zone.DaylightName
+                                : zone.StandardName
+                            )
+                        );
                         break;
                     default:
                         ThrowInvalidConversionSpecifier(state, format);
@@ -226,6 +379,6 @@ static class DateTimeHelper
             ThrowInvalidConversionSpecifier(state, format);
         }
 
-        return builder.ToString();
+        return builder.AsSpan().ToString();
     }
 }

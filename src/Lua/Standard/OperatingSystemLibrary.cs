@@ -1,3 +1,5 @@
+using System.Runtime.CompilerServices;
+using Lua.Internal.CompilerServices;
 using Lua.Standard.Internal;
 
 namespace Lua.Standard;
@@ -51,23 +53,12 @@ public sealed class OperatingSystemLibrary
             format = format[1..];
         }
 
-        DateTime now;
-        if (context.HasArgument(1))
-        {
-            var time = context.GetArgument<double>(1);
-            now = DateTimeHelper.FromUnixTime(time);
-            if (!useUtc)
-            {
-                now = now.ToLocalTime();
-            }
-        }
-        else
-        {
-            var provider = context.GlobalState.Platform.TimeProvider;
-            now = useUtc ? provider.GetUtcNow().DateTime : provider.GetLocalNow().DateTime;
-        }
-
-        var isDst = !useUtc && now.IsDaylightSavingTime();
+        var provider = context.GlobalState.Platform.TimeProvider;
+        var zone = useUtc ? TimeZoneInfo.Utc : provider.LocalTimeZone;
+        var now = context.HasArgument(1)
+            ? new DateTimeOffset(DateTimeHelper.FromUnixTime(context.GetArgument<double>(1)))
+            : provider.GetUtcNow();
+        now = TimeZoneInfo.ConvertTime(now, zone);
 
         if (format is "*t")
         {
@@ -81,14 +72,14 @@ public sealed class OperatingSystemLibrary
                 ["sec"] = now.Second,
                 ["wday"] = (int)now.DayOfWeek + 1,
                 ["yday"] = now.DayOfYear,
-                ["isdst"] = isDst,
+                ["isdst"] = zone.IsDaylightSavingTime(now),
             };
 
             return new(context.Return(table));
         }
         else
         {
-            return new(context.Return(DateTimeHelper.StrFTime(context.State, format, now)));
+            return new(context.Return(DateTimeHelper.StrFTime(context.State, format, now, zone)));
         }
     }
 
@@ -97,9 +88,9 @@ public sealed class OperatingSystemLibrary
         CancellationToken cancellationToken
     )
     {
-        var t2 = context.GetArgument<double>(0);
-        var t1 = context.GetArgument<double>(1);
-        return new(context.Return(t2 - t1));
+        var t2 = (long)context.GetArgument<double>(0);
+        var t1 = context.HasArgument(1) ? (long)context.GetArgument<double>(1) : 0;
+        return new(context.Return((double)t2 - t1));
     }
 
     public ValueTask<int> Execute(
@@ -134,13 +125,9 @@ public sealed class OperatingSystemLibrary
             {
                 exitCode = b ? 0 : 1;
             }
-            else if (code.TryRead<int>(out var d))
-            {
-                exitCode = d;
-            }
             else
             {
-                LuaRuntimeException.BadArgument(context.State, 1, LuaValueType.Nil, code.Type);
+                exitCode = context.GetIntegerArgument(0);
             }
         }
 
@@ -173,7 +160,7 @@ public sealed class OperatingSystemLibrary
             );
             return context.Return(true);
         }
-        catch (IOException ex)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             return context.Return(
                 LuaValue.Nil,
@@ -214,15 +201,12 @@ public sealed class OperatingSystemLibrary
         CancellationToken cancellationToken
     )
     {
-        // os.setlocale is not supported besides the standard "C" POSIX locale
-        // Any locale besides "C" will return nil
-        var locale = context.GetStringArgument(0);
-        if (locale == "C")
-        {
-            return new(context.Return(locale));
-        }
+        var locale = context.HasArgument(0) ? context.GetStringArgument(0) : null;
+        var category = context.HasArgument(1) ? context.GetStringArgument(1) : "all";
+        if (category is not ("all" or "collate" or "ctype" or "monetary" or "numeric" or "time"))
+            LuaRuntimeException.BadArgument(context.State, 2, $"invalid option '{category}'");
 
-        return new(context.Return(LuaValue.Nil));
+        return new(context.Return(locale is null or "C" ? "C" : LuaValue.Nil));
     }
 
     public ValueTask<int> Time(
@@ -233,8 +217,9 @@ public sealed class OperatingSystemLibrary
         if (context.HasArgument(0))
         {
             var table = context.GetArgument<LuaTable>(0);
-            var date = DateTimeHelper.ParseTimeTable(context.State, table);
-            return new(context.Return(DateTimeHelper.GetUnixTimeFromLocalTime(date)));
+            if (table.Metatable is not null)
+                return TimeWithMetatableAsync(context, table, cancellationToken);
+            return new(context.Return(DateTimeHelper.GetTime(context.State, table)));
         }
         else
         {
@@ -244,6 +229,26 @@ public sealed class OperatingSystemLibrary
                         context.GlobalState.Platform.TimeProvider.GetUtcNow().ToUnixTimeSeconds()
                 )
             );
+        }
+    }
+
+    [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder<>))]
+    static async ValueTask<int> TimeWithMetatableAsync(
+        LuaFunctionExecutionContext context,
+        LuaTable table,
+        CancellationToken cancellationToken
+    )
+    {
+        context.State.NonYieldableCallCount++;
+        try
+        {
+            return context.Return(
+                await DateTimeHelper.GetTimeAsync(context.State, table, cancellationToken)
+            );
+        }
+        finally
+        {
+            context.State.NonYieldableCallCount--;
         }
     }
 

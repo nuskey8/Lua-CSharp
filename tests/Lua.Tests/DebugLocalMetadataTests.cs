@@ -8,6 +8,31 @@ namespace Lua.Tests;
 [TestFixture(LuaStringMode.Bytes)]
 public class DebugLocalMetadataTests(LuaStringMode mode)
 {
+    [TestCase("1", false)]
+    [TestCase(" 1.9 ", false)]
+    [TestCase("0x1", false)]
+    [TestCase("-1", false)]
+    [TestCase("1", true)]
+    public async Task GetInfoCoercesNumericStringLevels(string index, bool explicitThread)
+    {
+        using var state = LuaState.Create(
+            mode == LuaStringMode.Bytes ? LuaPlatform.DefaultByteStrings : LuaPlatform.Default
+        );
+        state.OpenStandardLibraries();
+        state.Environment["index"] = index;
+        state.Environment["thread"] = state;
+        var prefix = explicitThread ? "thread," : "";
+        await state.DoStringAsync(
+            $$"""
+            local a,b=debug.getinfo({{prefix}}index,'flS'),debug.getinfo({{prefix}}tonumber(index),'flS')
+            if a==nil then assert(b==nil) else
+                assert(a.func==b.func and a.currentline==b.currentline and a.source==b.source)
+            end
+            assert(not pcall(debug.getinfo,'not a level'))
+            """
+        );
+    }
+
     [TestCase(false)]
     [TestCase(true)]
     public async Task WrappedCoroutineCanInspectItsParentsNativeFrame(bool asynchronous)

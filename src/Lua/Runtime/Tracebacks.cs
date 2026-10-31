@@ -148,13 +148,14 @@ public class Traceback(LuaState state, ReadOnlySpan<CallStackFrame> stackFrames)
         LuaGlobalState globalState,
         ReadOnlySpan<CallStackFrame> stackFrames,
         LuaValue message,
-        int skipCount = 0
+        int skipCount = 0,
+        bool abbreviate = false
     )
     {
         using var list = new PooledList<char>(64);
         if (message.Type is not LuaValueType.Nil)
         {
-            list.AddRange(message.ToString());
+            list.AddRange(message.ToLuaString(globalState.Platform.NumberFormat));
             list.AddRange("\n");
         }
 
@@ -162,8 +163,28 @@ public class Traceback(LuaState state, ReadOnlySpan<CallStackFrame> stackFrames)
         var intFormatBuffer = (stackalloc char[15]);
         var shortSourceBuffer = (stackalloc char[59]);
 
-        for (var index = stackFrames.Length - 1; index >= 0; index--)
+        const int firstPartSize = 12;
+        const int lastPartSize = 10;
+        var firstIndex = stackFrames.Length - 1;
+        var abbreviationIndex = -1;
+        if (abbreviate)
         {
+            if (firstIndex >= 0 && stackFrames[firstIndex].Function is LuaClosure)
+                firstIndex--;
+            // Lua 5.2's marker is at level 11, followed by the oldest 11 frames.
+            if (firstIndex > firstPartSize + lastPartSize)
+                abbreviationIndex = firstIndex - firstPartSize + 1;
+            firstIndex -= Math.Max(skipCount, 0);
+            skipCount = 0;
+        }
+
+        for (var index = firstIndex; index >= 0; index--)
+        {
+            if (index == abbreviationIndex)
+            {
+                list.AddRange("\t...\n");
+                index = lastPartSize;
+            }
             var lastFunc = stackFrames[index].Function;
             if (lastFunc is not null and not LuaClosure)
             {

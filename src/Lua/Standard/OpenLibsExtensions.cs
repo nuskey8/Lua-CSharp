@@ -101,7 +101,7 @@ public static class OpenLibsExtensions
         package["searchers"] = searchers;
         package["path"] = "?.lua";
         package["searchpath"] = moduleLibrary.SearchPathFunction;
-        package["config"] = $"{Path.DirectorySeparatorChar}\n;\n?\n!\n-";
+        package["config"] = $"{Path.DirectorySeparatorChar}\n;\n?\n!\n-\n";
         globalState.Environment["package"] = package;
         globalState.LoadedModules["package"] = package;
         globalState.Environment["require"] = new CSharpClosure(

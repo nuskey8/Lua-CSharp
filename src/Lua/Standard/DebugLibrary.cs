@@ -372,45 +372,28 @@ public sealed class DebugLibrary
         var state = GetLuaThread(context, out var argOffset);
 
         var message = context.GetArgumentOrDefault(argOffset);
-        var level =
-            context.HasArgument(argOffset + 1) ? context.GetIntegerArgument(argOffset + 1)
-            : argOffset == 0 ? 1
-            : 0;
-
         if (message.Type is not (LuaValueType.Nil or LuaValueType.String or LuaValueType.Number))
         {
             return new(context.Return(message));
         }
 
-        if (level < 0)
-        {
-            return new(context.Return(LuaValue.Nil));
-        }
+        var level =
+            context.HasArgument(argOffset + 1) ? context.GetIntegerArgument(argOffset + 1)
+            : state == context.State ? 1
+            : 0;
 
-        if (state is { IsCoroutine: true, LuaTraceback: { } traceback })
-        {
-            return new(
-                context.Return(
-                    Runtime.Traceback.CreateTracebackMessage(
-                        context.GlobalState,
-                        traceback.StackFrames,
-                        message,
-                        level
-                    )
-                )
-            );
-        }
-
-        var callStack = state.GetCallStackFrames();
-        var skipCount = Math.Min(Math.Max(level - 1, 0), callStack.Length);
-        var frames = callStack[..^skipCount];
+        ReadOnlySpan<CallStackFrame> frames =
+            level < 0 ? []
+            : state is { IsCoroutine: true, LuaTraceback: { } traceback } ? traceback.StackFrames
+            : state.GetCallStackFrames();
         return new(
             context.Return(
                 Runtime.Traceback.CreateTracebackMessage(
                     context.GlobalState,
                     frames,
                     message,
-                    level == 1 ? 1 : 0
+                    level,
+                    abbreviate: true
                 )
             )
         );
@@ -571,7 +554,6 @@ public sealed class DebugLibrary
         CancellationToken cancellationToken
     )
     {
-        // return new(0);
         var state = GetLuaThread(context, out var argOffset);
         var what = context.GetArgumentOrDefault(argOffset + 1, "flnStu");
         CallStackFrame? previousFrame = null;
@@ -579,12 +561,10 @@ public sealed class DebugLibrary
         var pc = 0;
         var arg1 = context.GetArgument(argOffset);
 
-        if (arg1.TryReadFunction(out var functionToInspect))
+        if (!arg1.TryReadFunction(out var functionToInspect))
         {
-            // what = ">" + what;
-        }
-        else if (arg1.TryReadNumber(out _))
-        {
+            if (!arg1.TryReadDouble(out _))
+                context.ThrowBadArgument(argOffset, "function or level expected");
             var level = context.GetIntegerArgument(argOffset) + 1;
 
             var callStack = state.GetCallStackFrames();
@@ -594,18 +574,14 @@ public sealed class DebugLibrary
                 return new(context.Return(LuaValue.Nil));
             }
 
-            currentFrame = state.GetCallStackFrames()[^level];
+            currentFrame = callStack[^level];
             previousFrame = level + 1 <= callStack.Length ? callStack[^(level + 1)] : null;
             if (level != 1)
             {
-                pc = state.GetCallStackFrames()[^(level - 1)].CallerInstructionIndex;
+                pc = callStack[^(level - 1)].CallerInstructionIndex;
             }
 
             functionToInspect = currentFrame.Value.Function;
-        }
-        else
-        {
-            context.ThrowBadArgument(argOffset, "function or level expected");
         }
 
         using var debug = LuaDebug.Create(

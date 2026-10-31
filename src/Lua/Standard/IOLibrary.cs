@@ -180,7 +180,6 @@ public sealed class IOLibrary
                         var upValues = context.GetCsClosure()!.UpValues;
                         var file = upValues[0].Read<FileHandle>();
                         var formats = upValues.AsMemory(1);
-                        var stack = context.State.Stack;
                         context.Return();
                         var resultCount = await IOHelper.ReadAsync(
                             context.State,
@@ -191,10 +190,7 @@ public sealed class IOLibrary
                             true,
                             cancellationToken
                         );
-                        if (
-                            resultCount > 0
-                            && stack.Get(context.ReturnFrameBase).Type is LuaValueType.Nil
-                        )
+                        if (resultCount == 0)
                         {
                             await file.Close(cancellationToken);
                         }
@@ -317,15 +313,26 @@ public sealed class IOLibrary
         CancellationToken cancellationToken
     )
     {
-        return context.Return(
-            LuaValue.FromUserData(
-                new FileHandle(
-                    await context.GlobalState.Platform.FileSystem.OpenTempFileStream(
-                        cancellationToken
-                    ),
-                    context.GlobalState.FileHandleMetatable
+        try
+        {
+            return context.Return(
+                LuaValue.FromUserData(
+                    new FileHandle(
+                        await context.GlobalState.Platform.FileSystem.OpenTempFileStream(
+                            cancellationToken
+                        ),
+                        context.GlobalState.FileHandleMetatable
+                    )
                 )
-            )
-        );
+            );
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return context.Return(
+                LuaValue.Nil,
+                context.State.Platform.EncodeText(ex.Message),
+                ex.HResult
+            );
+        }
     }
 }
