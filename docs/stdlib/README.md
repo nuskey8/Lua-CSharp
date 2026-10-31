@@ -69,7 +69,7 @@ The .NET garbage collector owns object lifetimes. Lua weak-table `__mode` semant
 
 C# objects can be exposed as userdata, and host functions are wrapped as `LuaFunction` values. Their identity strings and debug metadata describe managed objects rather than native pointers. Host-frozen tables, including generated C# metatables, reject mutation even through raw table operations; this keeps their published interop definitions immutable.
 
-Metatable-bearing host userdata implements `ILuaUserData`. Light-userdata object tokens have no metatable slot in the current managed metatable dispatch, so `debug.setmetatable` does not attach one to those tokens.
+Host userdata implementing `ILuaUserData` has a per-object metatable. Light-userdata object tokens, including `debug.upvalueid` results, instead share one type metatable within a global state and its coroutines, as in Lua 5.2. `debug.setmetatable` can replace or remove that shared metatable; independent states have separate metatables.
 
 ## Scope
 
