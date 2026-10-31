@@ -131,10 +131,10 @@ public sealed class BasicLibrary
         CancellationToken cancellationToken
     )
     {
-        var arg0 = context.GetStringArgument(0);
+        var arg0 = context.HasArgument(0) ? context.GetStringArgument(0) : null;
         context.State.Stack.PopUntil(context.ReturnFrameBase);
         var closure = await context.State.LoadFileAsync(
-            context.State.Platform.DecodeText(arg0),
+            arg0 is null ? null : context.State.Platform.DecodeText(arg0),
             "bt",
             null,
             cancellationToken
@@ -234,7 +234,7 @@ public sealed class BasicLibrary
         CancellationToken cancellationToken
     )
     {
-        var arg0 = context.GetStringArgument(0);
+        var arg0 = context.HasArgument(0) ? context.GetStringArgument(0) : null;
         var mode = context.HasArgument(1) ? context.GetStringArgument(1) : "bt";
         var hasEnvironment = context.ArgumentCount > 2;
         var environment = hasEnvironment ? context.GetArgument(2) : LuaValue.Nil;
@@ -243,7 +243,7 @@ public sealed class BasicLibrary
         try
         {
             var closure = await context.State.LoadFileAsync(
-                context.State.Platform.DecodeText(arg0),
+                arg0 is null ? null : context.State.Platform.DecodeText(arg0),
                 mode,
                 null,
                 cancellationToken

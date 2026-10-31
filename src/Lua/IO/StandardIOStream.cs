@@ -5,6 +5,8 @@
 /// </summary>
 sealed class StandardIOStream(ILuaStream innerStream) : ILuaStream
 {
+    internal ILuaStream InnerStream => innerStream;
+
     public LuaFileOpenMode Mode => innerStream.Mode;
 
     public bool IsOpen => innerStream.IsOpen;

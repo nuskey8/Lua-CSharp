@@ -1,3 +1,5 @@
+using System.Runtime.CompilerServices;
+using Lua.Internal.CompilerServices;
 using Lua.Standard.Internal;
 
 namespace Lua.Standard;
@@ -215,17 +217,9 @@ public sealed class OperatingSystemLibrary
         if (context.HasArgument(0))
         {
             var table = context.GetArgument<LuaTable>(0);
-            var date = DateTimeHelper.ParseTimeTable(context.State, table);
-            var zone = context.State.Platform.TimeProvider.LocalTimeZone;
-            return new(
-                context.Return(
-                    DateTimeHelper.GetUnixTimeFromLocalTime(
-                        date,
-                        zone,
-                        zone.SupportsDaylightSavingTime && table["isdst"].ToBoolean()
-                    )
-                )
-            );
+            if (table.Metatable is not null)
+                return TimeWithMetatableAsync(context, table, cancellationToken);
+            return new(context.Return(DateTimeHelper.GetTime(context.State, table)));
         }
         else
         {
@@ -235,6 +229,26 @@ public sealed class OperatingSystemLibrary
                         context.GlobalState.Platform.TimeProvider.GetUtcNow().ToUnixTimeSeconds()
                 )
             );
+        }
+    }
+
+    [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder<>))]
+    static async ValueTask<int> TimeWithMetatableAsync(
+        LuaFunctionExecutionContext context,
+        LuaTable table,
+        CancellationToken cancellationToken
+    )
+    {
+        context.State.NonYieldableCallCount++;
+        try
+        {
+            return context.Return(
+                await DateTimeHelper.GetTimeAsync(context.State, table, cancellationToken)
+            );
+        }
+        finally
+        {
+            context.State.NonYieldableCallCount--;
         }
     }
 

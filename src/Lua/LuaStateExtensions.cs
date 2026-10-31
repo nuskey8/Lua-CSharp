@@ -23,15 +23,30 @@ public static class LuaStateExtensions
             : state.Load(module.ReadText(), module.Name);
     }
 
-    /// <summary>Loads a file whose name is .NET text, including in byte-string mode.</summary>
+    /// <summary>Loads a file whose name is .NET text, or standard input when null.</summary>
     public static async ValueTask<LuaClosure> LoadFileAsync(
         this LuaState state,
-        string fileName,
+        string? fileName,
         string mode,
         LuaTable? environment,
         CancellationToken cancellationToken
     )
     {
+        if (fileName is null)
+        {
+            var input = state.Platform.StandardIO.Input;
+            if (input is StandardIOStream standardInput)
+                input = standardInput.InnerStream;
+            return await LoadStreamAsync(
+                state,
+                input,
+                "=stdin",
+                mode,
+                environment,
+                cancellationToken
+            );
+        }
+
         var name = state.Platform.EncodeText("@" + fileName);
         using var stream = await state.GlobalState.Platform.FileSystem.Open(
             fileName,
@@ -39,6 +54,18 @@ public static class LuaStateExtensions
             cancellationToken
         );
 
+        return await LoadStreamAsync(state, stream, name, mode, environment, cancellationToken);
+    }
+
+    static async ValueTask<LuaClosure> LoadStreamAsync(
+        LuaState state,
+        ILuaStream stream,
+        string name,
+        string mode,
+        LuaTable? environment,
+        CancellationToken cancellationToken
+    )
+    {
         LuaClosure closure;
         if (stream is ILuaByteStream byteStream)
         {
@@ -60,15 +87,16 @@ public static class LuaStateExtensions
                 await byteStream.ReadBytesAsync(source, cancellationToken);
                 var bytes = source.WrittenSpan;
                 var chunk = BomUtility.SkipUtf8Bom(bytes);
+                var text = bytes;
                 if (!chunk.IsEmpty && chunk[0] == '#')
                 {
                     var newline = chunk.IndexOf((byte)'\n');
+                    text = newline < 0 ? default : chunk[newline..];
                     chunk = newline < 0 ? default : chunk[(newline + 1)..];
                 }
-                // Text keeps its initial comment for line numbers. Binary chunks
-                // begin after the optional BOM and first-line comment.
+                // Keep the comment's newline for text source line numbers.
                 closure = state.LoadCore(
-                    !chunk.IsEmpty && chunk[0] == '\e' ? chunk : bytes,
+                    !chunk.IsEmpty && chunk[0] == '\e' ? chunk : text,
                     name,
                     mode,
                     environment
@@ -82,7 +110,15 @@ public static class LuaStateExtensions
         else
         {
             var source = await stream.ReadAllAsync(cancellationToken);
-            closure = state.LoadCore(source, name, environment);
+            var text = source.AsSpan();
+            if (!text.IsEmpty && text[0] == '\uFEFF')
+                text = text[1..];
+            if (!text.IsEmpty && text[0] == '#')
+            {
+                var newline = text.IndexOf('\n');
+                text = newline < 0 ? default : text[newline..];
+            }
+            closure = state.LoadCore(text, name, environment);
         }
 
         return closure;

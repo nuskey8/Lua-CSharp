@@ -1,6 +1,8 @@
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Text;
+using Lua.Internal.CompilerServices;
+using Lua.Runtime;
 
 namespace Lua.Standard.Internal;
 
@@ -45,44 +47,140 @@ static class DateTimeHelper
         return new DateTimeOffset(dateTime, offset).ToUnixTimeSeconds();
     }
 
-    public static DateTime ParseTimeTable(LuaState state, LuaTable table)
+    public static LuaValue GetTime(LuaState state, LuaTable table)
     {
-        static int GetTimeField(
-            LuaState state,
-            LuaTable table,
-            string key,
-            bool required = true,
-            int defaultValue = 0
-        )
+        var sec = GetTimeField(state, table["sec"], "sec", 0);
+        var min = GetTimeField(state, table["min"], "min", 0);
+        var hour = GetTimeField(state, table["hour"], "hour", 12);
+        var day = GetTimeField(state, table["day"], "day");
+        var month = GetTimeField(state, table["month"], "month");
+        var year = GetTimeField(state, table["year"], "year");
+        var zone = state.Platform.TimeProvider.LocalTimeZone;
+        return CreateTime(
+            zone,
+            sec,
+            min,
+            hour,
+            day,
+            month,
+            year,
+            zone.SupportsDaylightSavingTime && table["isdst"].ToBoolean()
+        );
+    }
+
+    [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder<>))]
+    public static async ValueTask<LuaValue> GetTimeAsync(
+        LuaState state,
+        LuaTable table,
+        CancellationToken cancellationToken
+    )
+    {
+        var sec = GetTimeField(
+            state,
+            await ReadFieldAsync(state, table, "sec", cancellationToken),
+            "sec",
+            0
+        );
+        var min = GetTimeField(
+            state,
+            await ReadFieldAsync(state, table, "min", cancellationToken),
+            "min",
+            0
+        );
+        var hour = GetTimeField(
+            state,
+            await ReadFieldAsync(state, table, "hour", cancellationToken),
+            "hour",
+            12
+        );
+        var day = GetTimeField(
+            state,
+            await ReadFieldAsync(state, table, "day", cancellationToken),
+            "day"
+        );
+        var month = GetTimeField(
+            state,
+            await ReadFieldAsync(state, table, "month", cancellationToken),
+            "month"
+        );
+        var year = GetTimeField(
+            state,
+            await ReadFieldAsync(state, table, "year", cancellationToken),
+            "year"
+        );
+        var isDst = (await ReadFieldAsync(state, table, "isdst", cancellationToken)).ToBoolean();
+        return CreateTime(
+            state.Platform.TimeProvider.LocalTimeZone,
+            sec,
+            min,
+            hour,
+            day,
+            month,
+            year,
+            isDst
+        );
+    }
+
+    static LuaValue CreateTime(
+        TimeZoneInfo zone,
+        int sec,
+        int min,
+        int hour,
+        int day,
+        int month,
+        int year,
+        bool isDst
+    )
+    {
+        try
         {
-            if (!table.TryGetValue(key, out var value))
+            var normalizedYear = Math.DivRem(
+                (long)year * 12 + month - 1,
+                12,
+                out var normalizedMonth
+            );
+            if (normalizedMonth < 0)
             {
-                if (required)
-                {
-                    throw new LuaRuntimeException(state, $"field '{key}' missing in date table");
-                }
-                else
-                {
-                    return defaultValue;
-                }
+                normalizedMonth += 12;
+                normalizedYear--;
             }
 
-            if (value.TryRead<double>(out var d) && MathEx.IsInteger(d))
-            {
-                return (int)d;
-            }
-
-            throw new LuaRuntimeException(state, $"field '{key}' is not an integer");
+            var date = new DateTime(checked((int)normalizedYear), (int)normalizedMonth + 1, 1);
+            date = date.AddSeconds(((long)day - 1) * 86400 + hour * 3600L + min * 60L + sec);
+            var time = GetUnixTimeFromLocalTime(date, zone, isDst);
+            return time == -1 ? LuaValue.Nil : time;
         }
+        catch (ArgumentOutOfRangeException)
+        {
+            return LuaValue.Nil;
+        }
+        catch (OverflowException)
+        {
+            return LuaValue.Nil;
+        }
+    }
 
-        var day = GetTimeField(state, table, "day");
-        var month = GetTimeField(state, table, "month");
-        var year = GetTimeField(state, table, "year");
-        var sec = GetTimeField(state, table, "sec", false, 0);
-        var min = GetTimeField(state, table, "min", false, 0);
-        var hour = GetTimeField(state, table, "hour", false, 12);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    static int GetTimeField(LuaState state, LuaValue value, string key, int defaultValue = -1)
+    {
+        if (value.Type != LuaValueType.Nil && value.TryReadDouble(out var number))
+            return (int)(long)number;
+        if (defaultValue >= 0)
+            return defaultValue;
+        throw new LuaRuntimeException(state, $"field '{key}' missing in date table");
+    }
 
-        return new(year, month, day, hour, min, sec);
+    static ValueTask<LuaValue> ReadFieldAsync(
+        LuaState state,
+        LuaTable table,
+        string key,
+        CancellationToken cancellationToken
+    )
+    {
+        var value = table[key];
+        if (value.Type != LuaValueType.Nil || table.Metatable is null)
+            return new(value);
+        return LuaVirtualMachine.ExecuteGetTableSlowPath(state, table, key, cancellationToken);
     }
 
     public static string StrFTime(

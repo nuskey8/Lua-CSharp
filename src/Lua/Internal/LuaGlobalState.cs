@@ -39,6 +39,7 @@ sealed class LuaGlobalState
     LuaTable? booleanMetatable;
     LuaTable? functionMetatable;
     LuaTable? stateMetatable;
+    LuaTable? lightUserDataMetatable;
     LuaTable? fileHandleMetatable;
 
     internal LuaTable FileHandleMetatable => fileHandleMetatable ??= FileHandle.CreateMetatable();
@@ -69,6 +70,7 @@ sealed class LuaGlobalState
             LuaValueType.Number => numberMetatable,
             LuaValueType.Function => functionMetatable,
             LuaValueType.Thread => stateMetatable,
+            LuaValueType.LightUserData => lightUserDataMetatable,
             LuaValueType.UserData => value.UnsafeRead<ILuaUserData>().Metatable,
             LuaValueType.Table => value.UnsafeRead<LuaTable>().Metatable,
             _ => null,
@@ -99,6 +101,9 @@ sealed class LuaGlobalState
                 break;
             case LuaValueType.Thread:
                 stateMetatable = metatable;
+                break;
+            case LuaValueType.LightUserData:
+                lightUserDataMetatable = metatable;
                 break;
             case LuaValueType.UserData:
                 value.UnsafeRead<ILuaUserData>().Metatable = metatable;
