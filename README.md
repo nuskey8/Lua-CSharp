@@ -27,6 +27,7 @@ Performance and allocation costs depend on the workload and embedding API. The i
 * Support for exception handling with try-catch
 * High-performance implementation utilizing modern C#
 * Unity support (works with both Mono and IL2CPP)
+* Optional [C# debugger and DAP attach server](docs/debugger.md)
 
 ## Installation
 

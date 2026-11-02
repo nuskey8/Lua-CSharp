@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>net10.0;net8.0;net6.0;netstandard2.1</TargetFrameworks>
+    <LangVersion>13</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <PackageId>LuaCSharp.Debugger</PackageId>
+    <Description>Protocol-independent debugging for application-owned Lua-CSharp states.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Lua/Lua.csproj" />
+    <PackageReference Include="PolySharp" Version="1.14.1" PrivateAssets="all" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="../../README.md" Pack="true" PackagePath="README.md" />
+    <None Include="../../Icon.png" Pack="true" PackagePath="/" />
+  </ItemGroup>
+</Project>

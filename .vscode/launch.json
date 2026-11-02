@@ -1,0 +1,41 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Run Lua debugger extension",
+      "type": "extensionHost",
+      "request": "launch",
+      "runtimeExecutable": "${execPath}",
+      "args": [
+        "--extensionDevelopmentPath=${workspaceFolder}/editor-extensions/vscode",
+        "${workspaceFolder}/.vscode/lua-debugger.code-workspace"
+      ]
+    },
+    {
+      "name": "Debug Lua sample",
+      "type": "lua-csharp",
+      "request": "attach",
+      "host": "127.0.0.1",
+      "port": 4711,
+      "stopOnEntry": true,
+      "preLaunchTask": "Run Lua debugger sample"
+    },
+    {
+      "name": "Debug user-script host",
+      "type": "lua-csharp",
+      "request": "attach",
+      "host": "127.0.0.1",
+      "port": 4711,
+      "stopOnEntry": true,
+      "preLaunchTask": "Run user-script host"
+    },
+    {
+      "name": "Attach to Lua application",
+      "type": "lua-csharp",
+      "request": "attach",
+      "host": "127.0.0.1",
+      "port": 4711,
+      "stopOnEntry": false
+    }
+  ]
+}

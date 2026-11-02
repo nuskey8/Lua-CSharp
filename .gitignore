@@ -1,6 +1,8 @@
 .DS_Store
 .claude/settings.local.json
 artifacts/
+[Bb]in/
+[Oo]bj/
 
 /.idea/
 *.sln.DotSettings.user

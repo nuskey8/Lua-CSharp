@@ -297,6 +297,14 @@ public class LuaState : IDisposable
         return ref CoreData!.CallStack.PeekRef();
     }
 
+    internal int GetDebugFrameId(int id)
+    {
+        ref var frame = ref CoreData!.CallStack.PeekRef();
+        if (frame.Version == 0)
+            frame.Version = id;
+        return frame.Version;
+    }
+
     public ReadOnlySpan<LuaValue> GetStackValues()
     {
         return CoreData == null ? default : CoreData!.Stack.AsSpan();
@@ -623,6 +631,7 @@ public class LuaState : IDisposable
         var callStackTop = state.CallStackFrameCount;
         var previousCallerPrototype = state.LastCallerPrototype;
         var previousPc = state.LastPc;
+        var entered = EnterExecution();
         try
         {
             state.ThrowIfCancellationRequested(cancellationToken);
@@ -659,7 +668,24 @@ public class LuaState : IDisposable
             PopCallStackFrameUntil(callStackTop);
             LastCallerPrototype = previousCallerPrototype;
             LastPc = previousPc;
+            ExitExecution(entered);
         }
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal bool EnterExecution()
+    {
+        if (GlobalState.ActiveExecutions != 0)
+            return false;
+        GlobalState.ActiveExecutions++;
+        return true;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal void ExitExecution(bool entered)
+    {
+        if (entered && --GlobalState.ActiveExecutions == 0)
+            Volatile.Read(ref GlobalState.Debugger)?.ExecutionEnded();
     }
 
     [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder<>))]
@@ -918,5 +944,7 @@ public class LuaState : IDisposable
 
         CoreData.Release();
         CoreData = null!;
+        if (GlobalState.ActiveExecutions == 0)
+            Volatile.Read(ref GlobalState.Debugger)?.ExecutionEnded();
     }
 }

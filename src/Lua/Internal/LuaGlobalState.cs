@@ -10,7 +10,6 @@ sealed class LuaGlobalState
 {
     // states
     readonly LuaState mainState;
-    FastStackCore<LuaState> stateStack;
     readonly LuaTable environment;
     readonly LuaTable registry = new();
 
@@ -18,11 +17,14 @@ sealed class LuaGlobalState
 
     public LuaPlatform Platform { get; set; }
     public ILuaModuleLoader? ModuleLoader { get; set; }
+    internal Runtime.ILuaDebugSession? Debugger;
+
+    // Active host entries and coroutine resumes; yielded frames do not count.
+    internal int ActiveExecutions;
 
     // Coroutines share this policy so Lua code cannot reset the limit by creating a new thread.
     internal int MaxCallDepth = 100_000;
 
-    internal ref FastStackCore<LuaState> ThreadStack => ref stateStack;
     internal ref FastStackCore<LuaDebug.LuaDebugBuffer> DebugBufferPool => ref debugBufferPool;
 
     public LuaTable Environment => environment;

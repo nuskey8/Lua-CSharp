@@ -41,6 +41,7 @@ public static partial class LuaVirtualMachine
             PostOperation = PostOperationType.None;
             BaseCallStackCount = state.CallStackFrameCount;
             LastHookPc = -1;
+            LastDebugPc = -1;
             Task = default;
         }
 
@@ -61,6 +62,8 @@ public static partial class LuaVirtualMachine
         public int CurrentReturnFrameBase;
         public ValueTask<int> Task;
         public int LastHookPc;
+        public int LastDebugPc = -1;
+        public LuaDebugCode? DebugCode;
 
         public bool IsTopLevel => BaseCallStackCount == State.CallStackFrameCount;
 
@@ -111,6 +114,7 @@ public static partial class LuaVirtualMachine
             State.LastPc = Pc;
             ref readonly var lastFrame = ref frames[^2];
             LuaClosure = Unsafe.As<LuaClosure>(lastFrame.Function);
+            LastDebugPc = Pc;
             CurrentReturnFrameBase = frame.ReturnBase;
             var callInstruction = Prototype.Code[Pc];
             if (callInstruction.OpCode == OpCode.TailCall)
@@ -195,6 +199,7 @@ public static partial class LuaVirtualMachine
         public void Push(in CallStackFrame frame)
         {
             Pc = -1;
+            LastDebugPc = -1;
             LuaClosure = (LuaClosure)frame.Function;
             FrameBase = frame.Base;
             CurrentReturnFrameBase = frame.ReturnBase;
@@ -282,6 +287,21 @@ public static partial class LuaVirtualMachine
                     toCatchFlag = true;
                     await Task;
                     Task = default;
+                    if (PostOperation == PostOperationType.Debugger)
+                    {
+                        PostOperation = PostOperationType.None;
+                        // Re-fetch the stopped instruction without counting or firing its Lua hook twice.
+                        if (State.HookCount != 0)
+                            State.HookCount++;
+                        LastHookPc = Pc + 1;
+                        toCatchFlag = false;
+                        ThrowIfCancellationRequested();
+                        if (
+                            DebugCode!.Identity == Volatile.Read(ref GlobalState.Debugger)?.Identity
+                        )
+                            DebugCode.ResumeAt(Pc + 1);
+                        continue;
+                    }
                     ref readonly var frame = ref State.GetCurrentFrame();
                     CurrentReturnFrameBase = frame.ReturnBase;
                     var variableArgumentCount = frame.VariableArgumentCount;
@@ -346,6 +366,7 @@ public static partial class LuaVirtualMachine
                 Stack = null!;
                 State = null!;
                 LuaClosure = null!;
+                DebugCode = null;
                 Task = default;
                 CancellationToken = default;
                 pool.TryPush(this);
@@ -382,6 +403,7 @@ public static partial class LuaVirtualMachine
         Self,
         Compare,
         DontPop,
+        Debugger,
     }
 
     internal static ValueTask<int> ExecuteClosureAsync(
@@ -410,7 +432,16 @@ public static partial class LuaVirtualMachine
         {
             // This is a label to restart the execution when new function is called or restarted
             Restart:
-            ref var instructionsHead = ref Unsafe.AsRef(in context.Prototype.Code[0]);
+            var debugger = Volatile.Read(ref context.GlobalState.Debugger);
+            if (
+                context.DebugCode == null
+                || context.DebugCode.Prototype != context.Prototype
+                || context.DebugCode.Identity != debugger?.Identity
+            )
+                context.DebugCode = debugger?.GetExecutionCode(context.LuaClosure);
+            ref var instructionsHead = ref context.DebugCode != null
+                ? ref context.DebugCode.Code[0]
+                : ref Unsafe.AsRef(in context.Prototype.Code[0]);
             var frameBase = context.FrameBase;
             var stack = context.Stack;
             stack.EnsureCapacity(frameBase + context.Prototype.MaxStackSize);
@@ -448,6 +479,7 @@ public static partial class LuaVirtualMachine
                 }
 
                 context.LastHookPc = -1;
+                Dispatch:
                 var iA = instruction.A;
                 var opCode = instruction.OpCode;
                 switch (opCode)
@@ -1037,6 +1069,13 @@ public static partial class LuaVirtualMachine
                         indexRef = init - step;
                         stack.NotifyTop(iA + frameBase + 1);
                         context.Pc += instruction.SBx;
+                        // Track an untrapped initial header so its first backward jump is a line event.
+                        if (
+                            context.DebugCode != null
+                            && Unsafe.Add(ref instructionsHead, context.Pc + 1).OpCode
+                                == OpCode.ForLoop
+                        )
+                            context.LastDebugPc = context.Pc + 1;
                         continue;
                     case OpCode.TForCall:
                         Markers.TForCall();
@@ -1114,8 +1153,35 @@ public static partial class LuaVirtualMachine
                         }
 
                         continue;
-                    case OpCode.ExtraArg:
                     default:
+                        if (opCode is DebuggerResumeOpCode or DebuggerBreakOpCode)
+                        {
+                            if (context.DebugCode == null)
+                            {
+                                ThrowLuaNotImplementedException(context, opCode);
+                                return true;
+                            }
+                            instruction =
+                                opCode == DebuggerResumeOpCode
+                                    ? context.DebugCode.RestoreAt(context.Pc)
+                                    : context.Prototype.Code[context.Pc];
+                            if (instruction.OpCode is DebuggerBreakOpCode or DebuggerResumeOpCode)
+                            {
+                                ThrowLuaNotImplementedException(context, instruction.OpCode);
+                                return true;
+                            }
+                            context.Instruction = instruction;
+                            if (
+                                opCode == DebuggerBreakOpCode
+                                && context.DebugCode.Enabled
+                                && ExecuteDebuggerCheckpoint(
+                                    context,
+                                    Volatile.Read(ref context.GlobalState.Debugger)
+                                )
+                            )
+                                return true;
+                            goto Dispatch;
+                        }
                         ThrowLuaNotImplementedException(context, context.Instruction.OpCode);
                         return true;
                 }
@@ -1594,6 +1660,7 @@ public static partial class LuaVirtualMachine
         };
 
         state.PushCallStackFrame(newFrame);
+        var entered = state.EnterExecution();
         try
         {
             var functionContext = new LuaFunctionExecutionContext
@@ -1631,6 +1698,7 @@ public static partial class LuaVirtualMachine
         finally
         {
             state.PopCallStackFrame();
+            state.ExitExecution(entered);
         }
     }
 
@@ -1708,7 +1776,6 @@ public static partial class LuaVirtualMachine
         );
 
         newFrame.CallerInstructionIndex = lastFrame.CallerInstructionIndex;
-        newFrame.Version = lastFrame.Version;
         newFrame.Flags |= lastFrame.Flags & CallStackFrameFlags.ReversedLe;
         state.ReplaceCallStackFrame(newFrame);
         // Release the replaced closure before a hook or native tail callee can suspend.
@@ -2172,6 +2239,7 @@ public static partial class LuaVirtualMachine
         var stack = state.Stack;
         var top = stack.Count;
         var framePushed = false;
+        var entered = state.EnterExecution();
         var previousHandler = isHostCall ? state.ErrorHandlerIndex : 0;
         if (previousHandler != 0)
             state.ErrorHandlerIndex = 0;
@@ -2217,6 +2285,7 @@ public static partial class LuaVirtualMachine
                 state.PopCallStackFrameWithStackPop(top);
             else
                 stack.PopUntil(top);
+            state.ExitExecution(entered);
         }
     }
 
@@ -2447,6 +2516,7 @@ public static partial class LuaVirtualMachine
         var stack = state.Stack;
         var top = stack.Count;
         var framePushed = false;
+        var entered = state.EnterExecution();
         var previousHandler = isHostCall ? state.ErrorHandlerIndex : 0;
         if (previousHandler != 0)
             state.ErrorHandlerIndex = 0;
@@ -2495,6 +2565,7 @@ public static partial class LuaVirtualMachine
                 state.PopCallStackFrameWithStackPop(top);
             else
                 stack.PopUntil(top);
+            state.ExitExecution(entered);
         }
     }
 
@@ -2794,6 +2865,7 @@ public static partial class LuaVirtualMachine
     {
         var stack = state.Stack;
         var framePushed = false;
+        var entered = state.EnterExecution();
         var previousHandler = isHostCall ? state.ErrorHandlerIndex : 0;
         if (previousHandler != 0)
             state.ErrorHandlerIndex = 0;
@@ -2840,6 +2912,7 @@ public static partial class LuaVirtualMachine
                 state.PopCallStackFrameWithStackPop(top);
             else
                 stack.PopUntil(top);
+            state.ExitExecution(entered);
         }
     }
 

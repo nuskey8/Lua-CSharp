@@ -1,0 +1,99 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Run Lua debugger sample",
+      "type": "process",
+      "command": "dotnet",
+      "args": [
+        "run",
+        "--project",
+        "sandbox/Debugger/Debugger.csproj",
+        "--configuration",
+        "Release",
+        "--",
+        "sandbox/Debugger/example.lua"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "isBackground": true,
+      "problemMatcher": {
+        "base": "$msCompile",
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "^\\s*Determining projects to restore\\.\\.\\.$",
+          "endsPattern": "^Lua debugger listening on "
+        }
+      }
+    },
+    {
+      "label": "Run user-script host",
+      "type": "process",
+      "command": "dotnet",
+      "args": [
+        "run",
+        "--project",
+        "sandbox/DebuggerHost/DebuggerHost.csproj",
+        "--configuration",
+        "Release",
+        "--",
+        "--host",
+        "${input:luaHostType}",
+        "--pause",
+        "${input:luaPauseMode}",
+        "--scripts",
+        "${input:luaUserScripts}",
+        "--entry",
+        "${input:luaUserEntry}",
+        "--wait-for-debugger"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "isBackground": true,
+      "problemMatcher": {
+        "base": "$msCompile",
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "^\\s*Determining projects to restore\\.\\.\\.$",
+          "endsPattern": "^Lua debugger listening on "
+        }
+      }
+    }
+  ],
+  "inputs": [
+    {
+      "id": "luaUserScripts",
+      "type": "promptString",
+      "description": "Application-owned script directory (absolute or relative to the repository)",
+      "default": "sandbox/DebuggerHost/UserScripts"
+    },
+    {
+      "id": "luaUserEntry",
+      "type": "promptString",
+      "description": "Entry file relative to script directory (blank: main.lua for game; worker.lua for service)",
+      "default": ""
+    },
+    {
+      "id": "luaHostType",
+      "type": "pickString",
+      "description": "Application hosting model",
+      "options": [
+        "game",
+        "service"
+      ],
+      "default": "game"
+    },
+    {
+      "id": "luaPauseMode",
+      "type": "pickString",
+      "description": "Debugger pause policy: async releases the host thread; sync blocks it",
+      "options": [
+        "async",
+        "sync"
+      ],
+      "default": "async"
+    }
+  ]
+}

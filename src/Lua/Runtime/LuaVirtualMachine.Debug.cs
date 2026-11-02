@@ -5,6 +5,46 @@ namespace Lua.Runtime;
 
 public static partial class LuaVirtualMachine
 {
+    internal const OpCode DebuggerBreakOpCode = (OpCode)63;
+    internal const OpCode DebuggerResumeOpCode = (OpCode)62;
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    static bool ExecuteDebuggerCheckpoint(
+        VirtualMachineExecutionContext context,
+        ILuaDebugSession? debugger
+    )
+    {
+        if (debugger == null)
+            return false;
+        var prototype = context.Prototype;
+        var pc = context.Pc;
+        var lines = prototype.LineInfo;
+        var line = lines.IsEmpty ? 0 : lines[pc];
+        var lineEntry =
+            pc == 0
+            || context.LastDebugPc < 0
+            || pc <= context.LastDebugPc
+            || (!lines.IsEmpty && lines[context.LastDebugPc] != line);
+        context.LastDebugPc = pc;
+        var task = debugger.CheckpointAsync(
+            context.State,
+            context.LuaClosure,
+            pc,
+            line,
+            lineEntry,
+            context.CancellationToken
+        );
+        if (task.IsCompleted)
+        {
+            task.GetAwaiter().GetResult();
+            return false;
+        }
+        context.Task = task;
+        context.PostOperation = PostOperationType.Debugger;
+        context.Pc--;
+        return true;
+    }
+
     [MethodImpl(MethodImplOptions.NoInlining)]
     static bool ExecutePerInstructionHook(VirtualMachineExecutionContext context)
     {

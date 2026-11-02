@@ -32,6 +32,10 @@ else
             typeof(StartupComparison),
             typeof(GeneratedUserDataBenchmark),
             typeof(CoroutineTransferBenchmark),
+            typeof(DebuggerBenchmark),
+            typeof(DebuggerBreakpointBenchmark),
+            typeof(DebuggerFirstUseBenchmark),
+            typeof(DebuggerControlBenchmark),
         ])
         .Run(args);
 

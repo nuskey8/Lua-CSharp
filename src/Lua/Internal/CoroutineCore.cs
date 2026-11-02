@@ -104,10 +104,8 @@ class CoroutineCore(LuaState state, LuaFunction function, bool isProtectedMode)
     )
     {
         if (baseThread != null)
-        {
             baseThread.UnsafeSetStatus(LuaThreadStatus.Normal);
-            baseThread.GlobalState.ThreadStack.Push(Thread);
-        }
+        var entered = false;
         try
         {
             var phase = Interlocked.CompareExchange(ref handoff, Preparing, Suspended);
@@ -123,6 +121,8 @@ class CoroutineCore(LuaState state, LuaFunction function, bool isProtectedMode)
                 );
             try
             {
+                Thread.GlobalState.ActiveExecutions++;
+                entered = true;
                 if (isFirstCall)
                     Thread.Stack.EnsureCapacity(Thread.Stack.Count + argCount);
                 else
@@ -258,11 +258,9 @@ class CoroutineCore(LuaState state, LuaFunction function, bool isProtectedMode)
         }
         finally
         {
+            Thread.ExitExecution(entered);
             if (baseThread != null)
-            {
-                baseThread.GlobalState.ThreadStack.Pop();
                 baseThread.UnsafeSetStatus(LuaThreadStatus.Running);
-            }
         }
     }
 
