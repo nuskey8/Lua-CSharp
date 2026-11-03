@@ -10,6 +10,6 @@
     <Reference Include="Lua" Condition="'$(LuaAssemblyPath)' != ''">
       <HintPath>$(LuaAssemblyPath)</HintPath>
     </Reference>
-    <PackageReference Include="NuLua.Lua52" Version="0.1.0" />
+    <PackageReference Include="NuLua.Lua52" Version="0.2.0" />
   </ItemGroup>
 </Project>

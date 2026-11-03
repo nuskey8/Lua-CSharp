@@ -13,6 +13,6 @@
     <PackageReference Include="BenchmarkDotNet" Version="0.15.8" />
   </ItemGroup>
   <ItemGroup>
-    <EmbeddedResource Include="../../sandbox/Benchmark/n-body.lua" LogicalName="n-body.lua" />
+    <EmbeddedResource Include="Scripts/n-body.lua" LogicalName="n-body.lua" />
   </ItemGroup>
 </Project>

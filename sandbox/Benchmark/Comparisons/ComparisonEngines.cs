@@ -27,10 +27,6 @@ public sealed class NuLua52Comparison : IDisposable
     {
         state = Lua52State.Create();
         state.OpenLibraries();
-        state.GetGlobal("_VERSION");
-        if (state.ToString(-1) != "Lua 5.2")
-            throw new InvalidOperationException("Expected native Lua 5.2");
-        state.SetTop(0);
         state.RegisterFunction(
             "host_add",
             (vm, args) =>

@@ -7,24 +7,18 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="BenchmarkDotNet" Version="0.15.8" />
+    <PackageReference Include="BenchmarkDotNet" Version="0.16.0-preview.2" />
     <PackageReference Include="MoonSharp" Version="2.0.0" />
-    <PackageReference Include="NuLua.Lua52" Version="0.1.0" />
-    <PackageReference Include="NLua" Version="1.7.3" />
+    <PackageReference Include="NuLua.Lua52" Version="0.2.0" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Lua\Lua.csproj" />
-    <ProjectReference Include="../../src/Lua.Debugger/Lua.Debugger.csproj" />
-    <ProjectReference Include="..\..\src\Lua.Annotations\Lua.Annotations.csproj" />
-    <ProjectReference
-      Include="..\..\src\Lua.SourceGenerator\Lua.SourceGenerator.csproj"
-      OutputItemType="Analyzer"
-      ReferenceOutputAssembly="false"
-    />
   </ItemGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="n-body.lua" LogicalName="Comparison.n-body.lua" />
+    <EmbeddedResource Include="Scripts/**/*.lua">
+      <LogicalName>Benchmark.Scripts.$([System.String]::Copy('%(RecursiveDir)').Replace('\', '.').Replace('/', '.'))%(Filename)%(Extension)</LogicalName>
+    </EmbeddedResource>
   </ItemGroup>
 </Project>

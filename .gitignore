@@ -1,6 +1,8 @@
 .DS_Store
 .claude/settings.local.json
 artifacts/
+BenchmarkDotNet.Artifacts/
+.bdn/
 [Bb]in/
 [Oo]bj/
 

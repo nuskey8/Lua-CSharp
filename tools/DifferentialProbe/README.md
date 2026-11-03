@@ -1,7 +1,7 @@
 # Lua 5.2 differential checks
 
 Compare deterministic edge cases in fresh Lua-CSharp and native Lua 5.2 states
-through NuLua.Lua52 0.1.0. Run from this directory to select the .NET 10 SDK:
+through NuLua.Lua52 0.2.0. Run from this directory to select the .NET 10 SDK:
 
 ```powershell
 dotnet restore
