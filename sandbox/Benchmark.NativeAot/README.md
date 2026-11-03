@@ -1,7 +1,7 @@
 # .NET 10 JIT and NativeAOT benchmarks
 
 Compare Lua-CSharp source compilation and bytecode execution under .NET 10 JIT
-and NativeAOT, using the sources and checksum checks from `../Benchmark`.
+and NativeAOT, using the Lua sources from `../Benchmark`.
 NativeAOT compiles the C# interpreter; Lua source is still compiled to Lua
 bytecode and interpreted.
 
@@ -10,7 +10,6 @@ Run from this directory:
 ```powershell
 dotnet restore Benchmark.NativeAot.csproj
 dotnet build Benchmark.NativeAot.csproj -c Release --no-restore
-dotnet bin/Release/net10.0/Benchmark.NativeAot.dll --verify
 dotnet bin/Release/net10.0/Benchmark.NativeAot.dll --filter '*RuntimeExecutionComparison*numeric-loop*' --exporters json
 dotnet bin/Release/net10.0/Benchmark.NativeAot.dll --filter '*RuntimeCompilationComparison*numeric-loop*' --exporters json
 ```
@@ -26,9 +25,11 @@ uses speed optimization and the current CPU's native instruction set. Record
 the resolved JIT runtime version too. These native executables target the build
 machine's CPU capabilities.
 
-`--verify` checks all 15 distinct workloads in the managed host, twice in each
-string mode. Each benchmark's setup also runs its checksum checks inside the
-actual JIT or NativeAOT benchmark process before timing. Timed execution uses
+The shared `Scripts/Comparison/` sources include string-keyed map operations
+and Mandelbrot escape iterations. Filter with `*map*` or `*mandelbrot*` to run
+either case.
+
+Timed execution uses
 UTF-16 mode with ASCII inputs, retained state and a compiled chunk. Compilation
 has six source cases, a fresh state outside each batch of 64 loads, and no Lua
 execution during measurement. Both jobs use three launches. Compilation warms

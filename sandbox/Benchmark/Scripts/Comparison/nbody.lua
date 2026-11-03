@@ -1,5 +1,3 @@
-debug.sethook(function ()
-end,"",1000000)
 sun = {}
 jupiter = {}
 saturn = {}
@@ -108,12 +106,12 @@ local function offsetMomentum(b, nbody)
     b[1].vz = -pz / SOLAR_MASS
 end
 
-local N = tonumber(arg and arg[1]) or 10000
+local N = tonumber(arg and arg[1]) or 100
 local nbody = #bodies
 
 offsetMomentum(bodies, nbody)
 energy(bodies, nbody)
 for i = 1, N do advance(bodies, nbody, 0.01) end
 energy(bodies, nbody)
-debug.sethook(function ()
-end,"",1000000)
+
+return energy(bodies, nbody)

@@ -8,8 +8,14 @@
   <ItemGroup>
     <PackageReference Include="BenchmarkDotNet" Version="0.15.8" />
     <ProjectReference Include="../../src/Lua/Lua.csproj" />
-    <Compile Include="../Benchmark/ComparisonWorkloads.cs" Link="ComparisonWorkloads.cs" />
-    <Compile Include="../Benchmark/LuaCSharpComparison.cs" Link="LuaCSharpComparison.cs" />
-    <EmbeddedResource Include="../Benchmark/n-body.lua" LogicalName="Comparison.n-body.lua" />
+    <Compile Include="../Benchmark/Workloads/ComparisonWorkloads.cs" Link="ComparisonWorkloads.cs" />
+    <Compile Include="../Benchmark/Workloads/BenchmarkScripts.cs" Link="BenchmarkScripts.cs" />
+    <Compile Include="../Benchmark/Comparisons/LuaCSharpComparison.cs" Link="LuaCSharpComparison.cs" />
+    <EmbeddedResource Include="../Benchmark/Scripts/Comparison/*.lua">
+      <LogicalName>Benchmark.Scripts.Comparison.%(Filename)%(Extension)</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="../Benchmark/Scripts/Compilation/*.lua">
+      <LogicalName>Benchmark.Scripts.Compilation.%(Filename)%(Extension)</LogicalName>
+    </EmbeddedResource>
   </ItemGroup>
 </Project>

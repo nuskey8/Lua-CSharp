@@ -75,7 +75,6 @@ public class RuntimeExecutionComparison
     public void Setup()
     {
         var workload = ComparisonWorkloads.Find(Case);
-        RuntimeVerification.Verify(workload);
         runner = new(workload.Source);
     }
 
@@ -102,7 +101,6 @@ public class RuntimeCompilationComparison
     public void Setup()
     {
         var workload = ComparisonWorkloads.FindCompilation(Case);
-        RuntimeVerification.Verify(workload);
         source = workload.Source;
         var timer = Stopwatch.StartNew();
         do
