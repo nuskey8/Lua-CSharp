@@ -21,4 +21,13 @@ public class DebuggerTrapTests
         );
         Assert.That(Instruction.SizeOp, Is.EqualTo(6));
     }
+
+    [Test]
+    public void TrapEncodingDoesNotOverflowTheInstructionNameTable()
+    {
+        // Diagnostics must not throw while a debugger checkpoint is on the stack.
+        var trap = new Instruction(63);
+        Assert.That(trap.ToString(), Is.EqualTo("TRAP 63"));
+        Assert.That(trap.OpCode, Is.EqualTo((OpCode)63));
+    }
 }

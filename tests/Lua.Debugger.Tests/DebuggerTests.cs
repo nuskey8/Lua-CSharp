@@ -41,6 +41,20 @@ public class DebuggerTests
         "local function f(x) return x+1 end;local function g(x) return f(x) end;local n=0;for i=1,3 do n=g(n) end;return n"
     )]
     [TestCase("local n=0;for k,v in ipairs({1,2,3}) do n=n+v end;return n")]
+    // Scoping and control flow that commonly diverges from a line hook.
+    [TestCase("local n = 0\nrepeat\n  local done = n >= 2\n  n = n + 1\nuntil done\nreturn n")]
+    [TestCase("local n = 0\n::again::\nn = n + 1\nif n < 3 then goto again end\nreturn n")]
+    [TestCase(
+        "local t = {value = 1}\nfunction t:bump(x)\n  self.value = self.value + x\n  return self.value\nend\nreturn t:bump(2)"
+    )]
+    [TestCase("local x = 1\nlocal y =\n  x\n  + 2\nreturn y")]
+    [TestCase("--[[ a\nb ]]\nlocal s = [[line1\nline2]]\nreturn #s")]
+    [TestCase(
+        "local function make(a)\n  return function(b)\n    return a + b\n  end\nend\nreturn make(1)(2)"
+    )]
+    [TestCase(
+        "local s = 0\nfor i = 1, 10 do\n  if i == 3 then break end\n  s = s + i\nend\nreturn s"
+    )]
     public async Task BreakpointLineEventsMatchLuaLineHooks(string source)
     {
         async Task<int[]> Run(bool debug)
