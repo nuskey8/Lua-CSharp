@@ -430,7 +430,7 @@ sealed class MatchState(LuaState state, string source, string pattern)
             case LEsc:
                 if (pIdx >= pattern.Length)
                 {
-                    throw new LuaRuntimeException(State, "malformed pattern (ends with %)");
+                    throw new LuaRuntimeException(State, "malformed pattern (ends with '%')");
                 }
 
                 return pIdx + 1;

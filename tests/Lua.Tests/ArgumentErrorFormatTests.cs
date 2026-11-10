@@ -58,4 +58,69 @@ public class ArgumentErrorFormatTests
         Assert.That(exception!.Message, Does.Contain(expected));
         Assert.That(exception.Message, Does.Not.Contain("attempt to lt"));
     }
+
+    [Test]
+    public async Task PatternErrorsQuoteTheOffendingCharacter()
+    {
+        using var state = LuaState.Create();
+        state.OpenStandardLibraries();
+        var exception = Assert.ThrowsAsync<LuaRuntimeException>(async () =>
+            await state.DoStringAsync("return ('x'):find('%')", "=pattern")
+        );
+        Assert.That(exception!.Message, Does.Contain("malformed pattern (ends with '%')"));
+    }
+
+    /// <summary>
+    /// A trailing '%' makes Lua look for the value of the missing conversion, so the error names
+    /// the absent argument rather than the (invisible) option character.
+    /// </summary>
+    [TestCase(
+        "return pcall(string.format, 'abc%')",
+        "bad argument #2 to 'string.format' (no value)"
+    )]
+    [TestCase(
+        "return pcall(function() return string.format('abc%') end)",
+        "bad argument #2 to 'format' (no value)"
+    )]
+    public async Task TrailingFormatConversionReportsTheMissingValue(string source, string expected)
+    {
+        using var state = LuaState.Create();
+        state.OpenStandardLibraries();
+        var results = await state.DoStringAsync(source, "=format");
+        Assert.That(results[0].Read<bool>(), Is.False);
+        Assert.That(results[1].ToString(), Does.Contain(expected));
+    }
+
+    /// <summary>
+    /// Lua's luaL_argerror falls back to the function's global path when the call site cannot name
+    /// it (an indirect call through pcall), while a field call keeps the short name.
+    /// </summary>
+    [TestCase(
+        "return pcall(string.byte, false)",
+        "bad argument #1 to 'string.byte' (string expected, got boolean)"
+    )]
+    [TestCase(
+        "return pcall(os.date, '!%Q')",
+        "bad argument #1 to 'os.date' (invalid conversion specifier '%Q')"
+    )]
+    public async Task IndirectCallsUseTheGlobalFunctionName(string source, string expected)
+    {
+        using var state = LuaState.Create();
+        state.OpenStandardLibraries();
+        var results = await state.DoStringAsync(source, "=names");
+        Assert.That(results[0].Read<bool>(), Is.False);
+        Assert.That(results[1].ToString(), Does.Contain(expected));
+    }
+
+    [Test]
+    public async Task DirectCallsKeepTheShortFunctionName()
+    {
+        using var state = LuaState.Create();
+        state.OpenStandardLibraries();
+        var exception = Assert.ThrowsAsync<LuaRuntimeException>(async () =>
+            await state.DoStringAsync("return string.byte(false)", "=names")
+        );
+        Assert.That(exception!.Message, Does.Contain("bad argument #1 to 'byte'"));
+        Assert.That(exception.Message, Does.Not.Contain("string.byte"));
+    }
 }

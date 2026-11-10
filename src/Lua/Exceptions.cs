@@ -373,20 +373,65 @@ public class LuaRuntimeException : Exception, ILuaTracebackBuildable
         {
             var frames = state.GetCallStackFrames();
             if (frames.Length < 2)
-                return ("function", current.Function.Name);
+                return GlobalOrFunctionName(state, current.Function);
             var caller = frames[^2];
             callerPrototype = (caller.Function as LuaClosure)?.Proto;
         }
 
         if (callerPrototype is null)
         {
-            return ("function", current.Function.Name);
+            // The caller is a host function (pcall, a C# callback), so the call site cannot name
+            // this function; Lua then searches the globals for it.
+            return GlobalOrFunctionName(state, current.Function);
         }
 
-        return (
-            LuaDebug.GetFuncName(callerPrototype, pc, out var name) ?? "",
-            name ?? current.Function.Name
-        );
+        var nameWhat = LuaDebug.GetFuncName(callerPrototype, pc, out var name) ?? "";
+        if (
+            string.IsNullOrEmpty(name)
+            && FindGlobalFunctionName(state, current.Function) is { } global
+        )
+            return (nameWhat, global);
+
+        return (nameWhat, name ?? current.Function.Name);
+    }
+
+    static (string NameWhat, string Name) GlobalOrFunctionName(
+        LuaState state,
+        LuaFunction function
+    ) =>
+        FindGlobalFunctionName(state, function) is { } global
+            ? ("global", global)
+            : ("function", function.Name);
+
+    /// <summary>
+    /// Mirrors Lua's pushglobalfuncname: when a library function is called without a usable call
+    /// site name, its registered path (for example <c>string.format</c>) is reported instead.
+    /// </summary>
+    static string? FindGlobalFunctionName(LuaState state, LuaFunction function)
+    {
+        foreach (var pair in state.GlobalState.Environment)
+        {
+            if (pair.Key.Type is not LuaValueType.String)
+                continue;
+            var key = pair.Key.Read<string>();
+            if (key.Length == 0 || key[0] == '_')
+                continue;
+            if (pair.Value.TryReadFunction(out var value) && ReferenceEquals(value, function))
+                return key;
+            if (!pair.Value.TryRead<LuaTable>(out var table))
+                continue;
+            foreach (var inner in table)
+            {
+                if (inner.Key.Type is not LuaValueType.String)
+                    continue;
+                if (
+                    inner.Value.TryReadFunction(out var nested) && ReferenceEquals(nested, function)
+                )
+                    return key + "." + inner.Key.Read<string>();
+            }
+        }
+
+        return null;
     }
 
     public static void BadArgument(LuaState state, int argumentId)
