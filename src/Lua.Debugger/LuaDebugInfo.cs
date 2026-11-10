@@ -29,6 +29,8 @@ public sealed record LuaDebugStop(
 
 public sealed record LuaDebugStackFrame(int Id, string Name, LuaDebugSource? Source, int Line);
 
+internal readonly record struct LuaDebugStackTrace(LuaDebugStackFrame[] Frames, int TotalFrames);
+
 public sealed record LuaDebugVariable(string Name, LuaValue Value, string DisplayValue)
 {
     public bool IsReadOnly { get; init; }

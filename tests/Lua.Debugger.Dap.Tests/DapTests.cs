@@ -347,6 +347,77 @@ public class DapTests
     }
 
     [Test]
+    public async Task StackTracePagingReportsTheTotalAndStableFrameIds()
+    {
+        await using var host = await Host.CreateAsync();
+        var closure = host.State.Load(
+            "local function inner()\n  return 1\nend\n"
+                + "local function outer()\n  local value = inner()\n  return value\nend\n"
+                + "local result = outer()\nreturn result",
+            "@" + host.Path
+        );
+        host.Server.Debugger.RegisterSource(closure);
+        await host.InitializeAsync();
+        await host.RequestAsync(
+            "setBreakpoints",
+            new()
+            {
+                ["source"] = new JsonObject { ["path"] = host.Path },
+                ["breakpoints"] = new JsonArray(new JsonObject { ["line"] = 2 }),
+            }
+        );
+        await host.RequestAsync("configurationDone");
+        var execution = host.Execute(closure);
+        await host.EventAsync("stopped");
+
+        var all = await host.RequestAsync("stackTrace", new() { ["threadId"] = 1 });
+        var total = all["body"]!["totalFrames"]!.GetValue<int>();
+        Assert.That(total, Is.EqualTo(3));
+
+        var page = await host.RequestAsync(
+            "stackTrace",
+            new()
+            {
+                ["threadId"] = 1,
+                ["startFrame"] = 1,
+                ["levels"] = 2,
+            }
+        );
+        Assert.That(page["body"]!["totalFrames"]!.GetValue<int>(), Is.EqualTo(3));
+        var frames = page["body"]!["stackFrames"]!.AsArray();
+        Assert.That(
+            frames.Select(frame => frame!["id"]!.GetValue<int>()),
+            Is.EqualTo(new[] { 2, 1 })
+        );
+        Assert.That(frames[0]!["line"]!.GetValue<int>(), Is.EqualTo(5));
+
+        // The page must still resolve scopes for the frame it returned.
+        var scopes = await host.RequestAsync("scopes", new() { ["frameId"] = 2 });
+        Assert.That(scopes["body"]!["scopes"]!.AsArray().Count, Is.EqualTo(3));
+
+        var beyond = await host.RequestAsync(
+            "stackTrace",
+            new()
+            {
+                ["threadId"] = 1,
+                ["startFrame"] = 3,
+                ["levels"] = 5,
+            }
+        );
+        Assert.That(beyond["body"]!["totalFrames"]!.GetValue<int>(), Is.EqualTo(3));
+        Assert.That(beyond["body"]!["stackFrames"]!.AsArray().Count, Is.Zero);
+        var invalid = await host.RequestAsync(
+            "scopes",
+            new() { ["frameId"] = 9 },
+            expectSuccess: false
+        );
+        Assert.That(invalid["message"]!.GetValue<string>(), Is.EqualTo("Unknown frame."));
+
+        await host.RequestAsync("continue", new() { ["threadId"] = 1 });
+        await execution.WaitAsync(host.Token);
+    }
+
+    [Test]
     public async Task CoordinatesAndUriPathsRespectClientInitialization()
     {
         await using var host = await Host.CreateAsync();
