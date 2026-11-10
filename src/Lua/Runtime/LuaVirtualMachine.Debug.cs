@@ -5,8 +5,15 @@ namespace Lua.Runtime;
 
 public static partial class LuaVirtualMachine
 {
+    // The opcode field is six bits wide (Instruction.SizeOp) and the published set currently ends
+    // at ExtraArg, so these two encodings are the only ones that cannot collide with a real
+    // instruction. DebuggerTrapTests fails if the enum ever grows into them.
     internal const OpCode DebuggerBreakOpCode = (OpCode)63;
     internal const OpCode DebuggerResumeOpCode = (OpCode)62;
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static bool IsDebugTrap(OpCode opCode) =>
+        opCode is DebuggerBreakOpCode or DebuggerResumeOpCode;
 
     [MethodImpl(MethodImplOptions.NoInlining)]
     static bool ExecuteDebuggerCheckpoint(

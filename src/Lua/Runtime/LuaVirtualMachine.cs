@@ -1072,6 +1072,7 @@ public static partial class LuaVirtualMachine
                         // Track an untrapped initial header so its first backward jump is a line event.
                         if (
                             context.DebugCode != null
+                            && (uint)(context.Pc + 1) < (uint)context.DebugCode.Code.Length
                             && Unsafe.Add(ref instructionsHead, context.Pc + 1).OpCode
                                 == OpCode.ForLoop
                         )
@@ -1154,7 +1155,7 @@ public static partial class LuaVirtualMachine
 
                         continue;
                     default:
-                        if (opCode is DebuggerResumeOpCode or DebuggerBreakOpCode)
+                        if (IsDebugTrap(opCode))
                         {
                             if (context.DebugCode == null)
                             {
@@ -1165,7 +1166,7 @@ public static partial class LuaVirtualMachine
                                 opCode == DebuggerResumeOpCode
                                     ? context.DebugCode.RestoreAt(context.Pc)
                                     : context.Prototype.Code[context.Pc];
-                            if (instruction.OpCode is DebuggerBreakOpCode or DebuggerResumeOpCode)
+                            if (IsDebugTrap(instruction.OpCode))
                             {
                                 ThrowLuaNotImplementedException(context, instruction.OpCode);
                                 return true;
