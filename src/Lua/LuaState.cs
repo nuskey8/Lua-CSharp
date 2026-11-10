@@ -180,10 +180,18 @@ public class LuaState : IDisposable
         internal readonly LuaStack Stack = new();
         internal FastStackCore<CallStackFrame> CallStack;
 
+        // Debugger frame ids, indexed by call depth. Allocated on first use so ordinary execution
+        // pays nothing for them; a slot is cleared whenever a new frame occupies its depth.
+        internal int[]? FrameVersions;
+
         void Clear()
         {
             Stack.Clear();
             CallStack.Clear();
+            if (FrameVersions != null)
+            {
+                Array.Clear(FrameVersions);
+            }
         }
 
         static LinkedPool<ThreadCoreData> pool;
@@ -299,10 +307,40 @@ public class LuaState : IDisposable
 
     internal int GetDebugFrameId(int id)
     {
-        ref var frame = ref CoreData!.CallStack.PeekRef();
-        if (frame.Version == 0)
-            frame.Version = id;
-        return frame.Version;
+        var depth = CoreData!.CallStack.Count - 1;
+        var versions = GetOrCreateFrameVersions(depth);
+        if (versions[depth] == 0)
+            versions[depth] = id;
+        return versions[depth];
+    }
+
+    /// <summary>Debugger frame id of the innermost frame, or 0 when it has none yet.</summary>
+    internal int CurrentFrameVersion
+    {
+        get
+        {
+            var returned = CoreData;
+            if (returned?.FrameVersions is not { } versions)
+                return 0;
+            var depth = returned.CallStack.Count - 1;
+            return (uint)depth < (uint)versions.Length ? versions[depth] : 0;
+        }
+    }
+
+    int[] GetOrCreateFrameVersions(int depth)
+    {
+        var versions = CoreData!.FrameVersions;
+        if (versions == null)
+        {
+            versions = CoreData.FrameVersions = new int[Math.Max(depth + 8, 16)];
+        }
+        else if ((uint)depth >= (uint)versions.Length)
+        {
+            Array.Resize(ref versions, Math.Max(depth + 8, versions.Length * 2));
+            CoreData.FrameVersions = versions;
+        }
+
+        return versions;
     }
 
     public ReadOnlySpan<LuaValue> GetStackValues()
@@ -374,6 +412,10 @@ public class LuaState : IDisposable
         CurrentException?.BuildOrGet();
         CurrentException = null;
         callStack.Push(frame);
+        if (CoreData.FrameVersions is { } versions && callStack.Count <= versions.Length)
+        {
+            versions[callStack.Count - 1] = 0;
+        }
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -394,6 +436,11 @@ public class LuaState : IDisposable
             CurrentException = null;
         }
         callStack.PeekRef() = frame;
+        if (CoreData.FrameVersions is { } versions && callStack.Count <= versions.Length)
+        {
+            // A tail call is a new frame even though it keeps the depth.
+            versions[callStack.Count - 1] = 0;
+        }
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

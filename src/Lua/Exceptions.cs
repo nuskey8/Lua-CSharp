@@ -199,6 +199,8 @@ public class LuaRuntimeException : Exception, ILuaTracebackBuildable
             state.ExceptionTrace.Clear();
             state.CurrentException = this;
             State = state;
+            if (level <= 1)
+                CaptureTailCallSite(state);
         }
 
         ErrorObject = errorObject;
@@ -206,6 +208,36 @@ public class LuaRuntimeException : Exception, ILuaTracebackBuildable
     }
 
     int level = 1;
+
+    // Where the discarded caller of a native tail call made the call. Captured when the exception
+    // is created, while the tail call still sits on the stack; the frame itself is released so the
+    // caller's values stay collectable while the native callee is suspended.
+    Prototype? tailCallSitePrototype;
+    int tailCallSitePc;
+
+    void CaptureTailCallSite(LuaState state)
+    {
+        var frames = state.GetCallStackFrames();
+        if (frames.Length == 0)
+            return;
+        var top = frames[^1];
+        if (!top.IsTailCall || top.Function is LuaClosure)
+            return;
+        if (state.LastCallerPrototype is not { } prototype)
+            return;
+        if ((uint)state.LastPc >= (uint)prototype.LineInfo.Length)
+            return;
+        tailCallSitePrototype = prototype;
+        tailCallSitePc = state.LastPc;
+    }
+
+    bool TryWriteTailCallSite(ref PooledList<char> list)
+    {
+        if (tailCallSitePrototype is not { } prototype)
+            return false;
+        Traceback.WritePosition(ref list, prototype, tailCallSitePc);
+        return true;
+    }
 
     Traceback? luaTraceback;
 
@@ -515,14 +547,17 @@ public class LuaRuntimeException : Exception, ILuaTracebackBuildable
         }
     }
 
-    static string CreateMessage(Traceback traceback, LuaValue errorObject, int level)
+    string CreateMessage(Traceback traceback, LuaValue errorObject, int level)
     {
         var pooledList = new PooledList<char>(64);
         pooledList.Clear();
         try
         {
             pooledList.AddRange("Lua-CSharp: ");
+            var before = pooledList.Count;
             traceback.WriteLastLuaTrace(ref pooledList, level);
+            if (pooledList.Count == before)
+                TryWriteTailCallSite(ref pooledList);
             pooledList.AddRange($"{errorObject}");
             return pooledList.AsSpan().ToString();
         }
@@ -599,6 +634,8 @@ public class LuaRuntimeException : Exception, ILuaTracebackBuildable
                     try
                     {
                         Traceback.WriteLastLuaTrace(callStack, ref pooledList);
+                        if (pooledList.Count == 0)
+                            TryWriteTailCallSite(ref pooledList);
                         pooledList.AddRange(message);
                         return pooledList.AsSpan().ToString();
                     }
@@ -618,6 +655,8 @@ public class LuaRuntimeException : Exception, ILuaTracebackBuildable
             try
             {
                 luaTraceback.WriteLastLuaTrace(ref pooledList, level);
+                if (pooledList.Count == 0)
+                    TryWriteTailCallSite(ref pooledList);
                 pooledList.AddRange(message);
                 return pooledList.AsSpan().ToString();
             }

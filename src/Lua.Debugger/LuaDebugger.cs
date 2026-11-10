@@ -226,7 +226,7 @@ public sealed partial class LuaDebugger : IDisposable, ILuaDebugSession
         return depth < request.Depth
             || request.Mode == LuaDebugStep.Over
                 && depth == request.Depth
-                && state.GetCurrentFrame().Version == request.FrameId;
+                && state.CurrentFrameVersion == request.FrameId;
     }
 
     async ValueTask<int> SuspendAsync(PauseContext context, CancellationToken cancellationToken)

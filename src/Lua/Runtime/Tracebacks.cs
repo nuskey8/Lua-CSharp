@@ -24,14 +24,10 @@ public class Traceback(LuaState state, ReadOnlySpan<CallStackFrame> stackFrames)
             return;
         }
 
-        for (var index = stackFrames.Length - level; index >= 0; index--)
+        for (var index = stackFrames.Length - level; index >= 1; index--)
         {
             var frame = stackFrames[index];
-            if (
-                index >= 1
-                && !frame.IsTailCall
-                && stackFrames[index - 1].Function is LuaClosure closure
-            )
+            if (!frame.IsTailCall && stackFrames[index - 1].Function is LuaClosure closure)
             {
                 var p = closure.Proto;
                 if ((uint)frame.CallerInstructionIndex >= (uint)p.LineInfo.Length)
@@ -39,23 +35,10 @@ public class Traceback(LuaState state, ReadOnlySpan<CallStackFrame> stackFrames)
                 WritePosition(ref list, p, frame.CallerInstructionIndex);
                 return;
             }
-
-            // A tail call into a host function discards the caller's frame. Its call site is kept
-            // on the frame so the error still reports the line that made the call, even when the
-            // unwound trace holds only that frame.
-            if (
-                index == stackFrames.Length - 1
-                && frame.DiscardedCallerPrototype is { } callerPrototype
-                && (uint)frame.DiscardedCallerPc < (uint)callerPrototype.LineInfo.Length
-            )
-            {
-                WritePosition(ref list, callerPrototype, frame.DiscardedCallerPc);
-                return;
-            }
         }
     }
 
-    static void WritePosition(ref PooledList<char> list, Prototype prototype, int pc)
+    internal static void WritePosition(ref PooledList<char> list, Prototype prototype, int pc)
     {
         var intFormatBuffer = (stackalloc char[15]);
         var shortSourceBuffer = (stackalloc char[59]);
