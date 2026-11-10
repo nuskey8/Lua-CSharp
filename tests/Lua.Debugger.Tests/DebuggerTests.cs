@@ -702,4 +702,35 @@ public class DebuggerTests
         Assert.That(await execution, Is.EqualTo(new LuaValue[] { true, 42 }));
         Assert.That(state.Environment["hooks"].Read<double>(), Is.GreaterThan(0));
     }
+
+    [TestCase(LuaDebugPauseMode.Asynchronous)]
+    [TestCase(LuaDebugPauseMode.Synchronous)]
+    public async Task InspectingInsideTheStoppedHandlerFailsInsteadOfHanging(LuaDebugPauseMode mode)
+    {
+        using var state = LuaState.Create();
+        using var debugger = new LuaDebugger(state, new LuaDebuggerOptions { PauseMode = mode });
+        var closure = state.Load("local x = 1\nreturn x", "@stopped-handler.lua");
+        debugger.Attach();
+        debugger.RegisterSource(closure);
+        debugger.SetBreakpoints("stopped-handler.lua", [1]);
+        InvalidOperationException? failure = null;
+        var stops = 0;
+        debugger.Stopped += stop =>
+        {
+            stops++;
+            failure = Assert.Throws<InvalidOperationException>(() =>
+            {
+                _ = debugger.GetVariablesAsync(stop.Id, 1, LuaDebugScope.Locals);
+            });
+            debugger.Continue(stop.Id);
+        };
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        Assert.That(
+            await state.ExecuteAsync(closure, timeout.Token),
+            Is.EqualTo(new LuaValue[] { 1 })
+        );
+        Assert.That(stops, Is.EqualTo(1));
+        Assert.That(failure, Is.Not.Null);
+        Assert.That(failure!.Message, Does.Contain("after the Stopped handler returns"));
+    }
 }

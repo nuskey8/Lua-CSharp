@@ -21,6 +21,7 @@ public sealed partial class LuaDebugger : IDisposable, ILuaDebugSession
     bool resumeRequested;
     bool evaluating;
     bool disposed;
+    int stoppedThreadId = -1;
     int nextBreakpointId;
     int nextStopId;
     int nextFrameId;
@@ -36,6 +37,10 @@ public sealed partial class LuaDebugger : IDisposable, ILuaDebugSession
     }
 
     /// <summary>Raised on the execution thread once the stack is available for inspection.</summary>
+    /// <remarks>
+    /// Inspections are serviced by the paused execution after this callback returns. Do not block
+    /// on them here; <see cref="GetVariablesAsync"/> and friends throw instead of deadlocking.
+    /// </remarks>
     public event Action<LuaDebugStop>? Stopped;
 
     /// <summary>Raised after a stop and its inspections unwind, including when disposed during a stop.</summary>
@@ -59,7 +64,7 @@ public sealed partial class LuaDebugger : IDisposable, ILuaDebugSession
         {
             if (disposed)
                 throw new ObjectDisposedException(nameof(LuaDebugger));
-            if (!IsAttached && root.GlobalState.ActiveExecutions != 0)
+            if (!IsAttached && Volatile.Read(ref root.GlobalState.ActiveExecutions) != 0)
                 throw new InvalidOperationException(
                     "Install the debugger before starting Lua execution."
                 );
@@ -191,8 +196,6 @@ public sealed partial class LuaDebugger : IDisposable, ILuaDebugSession
 
     void ILuaDebugSession.ExecutionEnded()
     {
-        if (step == null)
-            return;
         lock (gate)
         {
             if (step is not { } request || request.State.CallStackFrameCount != 0)
@@ -220,7 +223,7 @@ public sealed partial class LuaDebugger : IDisposable, ILuaDebugSession
         using var cancellation = cancellationToken.Register(Wake);
         try
         {
-            Stopped?.Invoke(context.Stop);
+            RaiseStopped(context.Stop);
             while (true)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -263,6 +266,19 @@ public sealed partial class LuaDebugger : IDisposable, ILuaDebugSession
         }
     }
 
+    void RaiseStopped(LuaDebugStop stop)
+    {
+        Volatile.Write(ref stoppedThreadId, Environment.CurrentManagedThreadId);
+        try
+        {
+            Stopped?.Invoke(stop);
+        }
+        finally
+        {
+            Volatile.Write(ref stoppedThreadId, -1);
+        }
+    }
+
     void Wake()
     {
         lock (gate)
@@ -291,6 +307,13 @@ public sealed partial class LuaDebugger : IDisposable, ILuaDebugSession
     {
         lock (gate)
         {
+            // The paused execution is still inside the Stopped callback, so the command pump has
+            // not started yet. Queueing there would wait forever; fail with the reason instead.
+            if (Environment.CurrentManagedThreadId == Volatile.Read(ref stoppedThreadId))
+                throw new InvalidOperationException(
+                    "Inspect after the Stopped handler returns. Inspections are serviced by the "
+                        + "paused execution, which is still inside that callback."
+                );
             RequireStop(stopId);
             var command = new Command<T>(action, cancellationToken);
             commands.Enqueue(command);
