@@ -733,4 +733,50 @@ public class DebuggerTests
         Assert.That(failure, Is.Not.Null);
         Assert.That(failure!.Message, Does.Contain("after the Stopped handler returns"));
     }
+
+    [Test]
+    public async Task PauseRequestDoesNotOutliveItsExecution()
+    {
+        using var state = LuaState.Create();
+        using var debugger = new LuaDebugger(state);
+        var closure = state.Load("wait()\nreturn 1", "@pause-scope.lua");
+        debugger.Attach();
+        debugger.RegisterSource(closure);
+        var entered = new TaskCompletionSource<bool>(
+            TaskCreationOptions.RunContinuationsAsynchronously
+        );
+        state.Environment["wait"] = new LuaFunction(
+            async (context, token) =>
+            {
+                entered.TrySetResult(true);
+                await Task.Delay(Timeout.Infinite, token);
+                return context.Return();
+            }
+        );
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var execution = state.ExecuteAsync(closure, cancellation.Token).AsTask();
+        await entered.Task.WaitAsync(cancellation.Token);
+        // The pause arrives while the execution is alive but outside any Lua checkpoint.
+        debugger.Pause();
+        cancellation.Cancel();
+        try
+        {
+            await execution;
+            Assert.Fail("Execution should be cancelled.");
+        }
+        catch (LuaCanceledException) { }
+
+        var stops = 0;
+        debugger.Stopped += stop =>
+        {
+            stops++;
+            debugger.Continue(stop.Id);
+        };
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        Assert.That(
+            await state.ExecuteAsync(state.Load("return 2", "@pause-scope-2.lua"), timeout.Token),
+            Is.EqualTo(new LuaValue[] { 2 })
+        );
+        Assert.That(stops, Is.Zero);
+    }
 }

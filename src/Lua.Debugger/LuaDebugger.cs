@@ -54,7 +54,9 @@ public sealed partial class LuaDebugger : IDisposable, ILuaDebugSession
         get
         {
             lock (gate)
-                return paused?.Stop;
+                // A stop that is already resuming is no longer adoptable; RequireStop and
+                // TryContinue use the same predicate.
+                return resumeRequested ? null : paused?.Stop;
         }
     }
 
@@ -198,10 +200,19 @@ public sealed partial class LuaDebugger : IDisposable, ILuaDebugSession
     {
         lock (gate)
         {
-            if (step is not { } request || request.State.CallStackFrameCount != 0)
-                return;
-            step = null;
-            UpdateExecutionCodes();
+            // A pause belongs to the execution it was requested against. If that execution unwound
+            // (cancellation, host error) before a checkpoint consumed it, keeping the request would
+            // stop the next, unrelated execution. A step that owns a still-suspended coroutine is
+            // kept: its Lua frames are live even though no execution is running.
+            var changed = pauseRequested;
+            pauseRequested = false;
+            if (step is { } request && request.State.CallStackFrameCount == 0)
+            {
+                step = null;
+                changed = true;
+            }
+            if (changed)
+                UpdateExecutionCodes();
         }
     }
 
