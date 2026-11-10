@@ -377,10 +377,11 @@ public class LuaRuntimeException : Exception, ILuaTracebackBuildable
         LuaValueType actual
     )
     {
+        // The single-message overload owns the surrounding parentheses.
         BadArgument(
             state,
             argumentId,
-            $"{LuaValue.ToString(expected)} expected, got {LuaValue.ToString(actual)})"
+            $"{LuaValue.ToString(expected)} expected, got {LuaValue.ToString(actual)}"
         );
     }
 
@@ -394,13 +395,13 @@ public class LuaRuntimeException : Exception, ILuaTracebackBuildable
         BadArgument(
             state,
             argumentId,
-            $"({string.Join(" or ", expected.Select(LuaValue.ToString))} expected, got {LuaValue.ToString(actual)})"
+            $"{string.Join(" or ", expected.Select(LuaValue.ToString))} expected, got {LuaValue.ToString(actual)}"
         );
     }
 
     public static void BadArgument(LuaState state, int argumentId, string expected, string actual)
     {
-        BadArgument(state, argumentId, $"({expected} expected, got {actual})");
+        BadArgument(state, argumentId, $"{expected} expected, got {actual}");
     }
 
     public static void BadArgument(LuaState state, int argumentId, string[] expected, string actual)
@@ -410,7 +411,7 @@ public class LuaRuntimeException : Exception, ILuaTracebackBuildable
             throw new ArgumentException("Expected array must not be empty", nameof(expected));
         }
 
-        BadArgument(state, argumentId, $"({string.Join(" or ", expected)} expected, got {actual})");
+        BadArgument(state, argumentId, $"{string.Join(" or ", expected)} expected, got {actual}");
     }
 
     public static void BadArgument(LuaState state, int argumentId, string message)
