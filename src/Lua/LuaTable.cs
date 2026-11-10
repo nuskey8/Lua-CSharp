@@ -353,7 +353,14 @@ public sealed class LuaTable : IEnumerable<KeyValuePair<LuaValue, LuaValue>>
         return true;
     }
 
-    public bool TryGetNext(LuaValue key, out KeyValuePair<LuaValue, LuaValue> pair)
+    public bool TryGetNext(LuaValue key, out KeyValuePair<LuaValue, LuaValue> pair) =>
+        TryGetNextStatus(key, out pair) == LuaNextStatus.Found;
+
+    /// <summary>
+    /// Iterates the table like <c>next</c>. The status separates "iteration finished" from "the key
+    /// is not in this table", which <c>next</c> reports as an error.
+    /// </summary>
+    internal LuaNextStatus TryGetNextStatus(LuaValue key, out KeyValuePair<LuaValue, LuaValue> pair)
     {
         var index = -1;
         if (key.Type is LuaValueType.Nil)
@@ -373,7 +380,7 @@ public sealed class LuaTable : IEnumerable<KeyValuePair<LuaValue, LuaValue>>
                 if (span[i].Type is not LuaValueType.Nil)
                 {
                     pair = new(index + i + 1, span[i]);
-                    return true;
+                    return LuaNextStatus.Found;
                 }
             }
 
@@ -382,20 +389,15 @@ public sealed class LuaTable : IEnumerable<KeyValuePair<LuaValue, LuaValue>>
                 if (kv.Value.Type is not LuaValueType.Nil)
                 {
                     pair = kv;
-                    return true;
+                    return LuaNextStatus.Found;
                 }
             }
-        }
-        else
-        {
-            if (dictionary.TryGetNext(key, out pair))
-            {
-                return true;
-            }
+
+            pair = default;
+            return LuaNextStatus.End;
         }
 
-        pair = default;
-        return false;
+        return dictionary.TryGetNext(key, out pair);
     }
 
     public void Clear()

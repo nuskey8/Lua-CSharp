@@ -1,4 +1,4 @@
-﻿// Licensed to the .NET Foundation under one or more agreements.
+// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Diagnostics;
@@ -196,6 +196,13 @@ sealed class LuaValueDictionary
             return;
         }
 
+        if (_count != 0 && _nilCount == _count)
+        {
+            // Every entry is a dead key left by clearing during traversal. Lua drops those when a
+            // new key forces a rehash, so a cursor pointing at one stops being valid after this.
+            Clear();
+        }
+
         if (_buckets == null)
         {
             Initialize(0);
@@ -330,7 +337,17 @@ sealed class LuaValueDictionary
 
         if (_nilCount + 1 == Count)
         {
-            Clear();
+            // Keep the dead entry instead of dropping it: Lua allows clearing the key that `next`
+            // just returned, so that key must remain findable. The next insertion compacts or
+            // reuses this storage as usual.
+            ref var deleted = ref _entries![index];
+            if (deleted.keyObject is { } lastObject)
+            {
+                deleted.keyObject = CreateDeletedKey(lastObject);
+                deleted.keyType = LuaValueType.Nil;
+            }
+            deleted.value = default;
+            _nilCount++;
             return;
         }
 
@@ -428,25 +445,30 @@ sealed class LuaValueDictionary
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public bool TryGetNext(LuaValue key, out KeyValuePair<LuaValue, LuaValue> pair)
+    public LuaNextStatus TryGetNext(LuaValue key, out KeyValuePair<LuaValue, LuaValue> pair)
     {
         var index = FindIterationIndex(key);
-        if (index >= 0)
+        if (index < 0)
         {
-            var entries = _entries!;
-            while (++index < _count)
+            // The key is not in the table at all. A key that was cleared during traversal keeps a
+            // dead entry (see Delete), so it is still found above and iteration continues.
+            pair = default;
+            return LuaNextStatus.InvalidKey;
+        }
+
+        var entries = _entries!;
+        while (++index < _count)
+        {
+            ref var entry = ref entries[index];
+            if (entry is { next: >= -1, value.Type: not LuaValueType.Nil })
             {
-                ref var entry = ref entries[index];
-                if (entry is { next: >= -1, value.Type: not LuaValueType.Nil })
-                {
-                    pair = new(new(entry.keyType, entry.keyNumber, entry.keyObject), entry.value);
-                    return true;
-                }
+                pair = new(new(entry.keyType, entry.keyNumber, entry.keyObject), entry.value);
+                return LuaNextStatus.Found;
             }
         }
 
         pair = default;
-        return false;
+        return LuaNextStatus.End;
     }
 
     int FindIterationIndex(LuaValue key)
