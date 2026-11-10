@@ -24,32 +24,53 @@ public class Traceback(LuaState state, ReadOnlySpan<CallStackFrame> stackFrames)
             return;
         }
 
-        var intFormatBuffer = (stackalloc char[15]);
-        var shortSourceBuffer = (stackalloc char[59]);
-        for (var index = stackFrames.Length - level; index >= 1; index--)
+        for (var index = stackFrames.Length - level; index >= 0; index--)
         {
-            var lastFunc = stackFrames[index - 1].Function;
             var frame = stackFrames[index];
-            if (!frame.IsTailCall && lastFunc is LuaClosure closure)
+            if (
+                index >= 1
+                && !frame.IsTailCall
+                && stackFrames[index - 1].Function is LuaClosure closure
+            )
             {
                 var p = closure.Proto;
                 if ((uint)frame.CallerInstructionIndex >= (uint)p.LineInfo.Length)
                     return;
-                var len = LuaDebug.WriteShortSource(p.ChunkName, shortSourceBuffer);
-                list.AddRange(shortSourceBuffer[..len]);
-                list.AddRange(":");
-                p.LineInfo[frame.CallerInstructionIndex]
-                    .TryFormat(
-                        intFormatBuffer,
-                        out var charsWritten,
-                        provider: CultureInfo.InvariantCulture
-                    );
-                list.AddRange(intFormatBuffer[..charsWritten]);
+                WritePosition(ref list, p, frame.CallerInstructionIndex);
+                return;
+            }
 
-                list.AddRange(": ");
+            // A tail call into a host function discards the caller's frame. Its call site is kept
+            // on the frame so the error still reports the line that made the call, even when the
+            // unwound trace holds only that frame.
+            if (
+                index == stackFrames.Length - 1
+                && frame.DiscardedCallerPrototype is { } callerPrototype
+                && (uint)frame.DiscardedCallerPc < (uint)callerPrototype.LineInfo.Length
+            )
+            {
+                WritePosition(ref list, callerPrototype, frame.DiscardedCallerPc);
                 return;
             }
         }
+    }
+
+    static void WritePosition(ref PooledList<char> list, Prototype prototype, int pc)
+    {
+        var intFormatBuffer = (stackalloc char[15]);
+        var shortSourceBuffer = (stackalloc char[59]);
+        var len = LuaDebug.WriteShortSource(prototype.ChunkName, shortSourceBuffer);
+        list.AddRange(shortSourceBuffer[..len]);
+        list.AddRange(":");
+        prototype
+            .LineInfo[pc]
+            .TryFormat(
+                intFormatBuffer,
+                out var charsWritten,
+                provider: CultureInfo.InvariantCulture
+            );
+        list.AddRange(intFormatBuffer[..charsWritten]);
+        list.AddRange(": ");
     }
 
     internal void WriteLastLuaTrace(ref PooledList<char> list, int level = 1)

@@ -13,6 +13,16 @@ public record struct CallStackFrame
     internal CallStackFrameFlags Flags;
     public int Version;
 
+    /// <summary>
+    /// Prototype of the caller that was discarded by a tail call into a host function, and the
+    /// index of its call instruction. Lua keeps that caller for C functions; this engine releases
+    /// it, so the call site is recorded instead: a prototype does not keep the caller's values
+    /// alive, unlike the frame itself.
+    /// </summary>
+    internal Prototype? DiscardedCallerPrototype;
+
+    internal int DiscardedCallerPc;
+
     internal bool IsTailCall =>
         (Flags & CallStackFrameFlags.TailCall) == CallStackFrameFlags.TailCall;
 }

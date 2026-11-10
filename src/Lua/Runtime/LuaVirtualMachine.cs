@@ -1778,6 +1778,15 @@ public static partial class LuaVirtualMachine
 
         newFrame.CallerInstructionIndex = lastFrame.CallerInstructionIndex;
         newFrame.Flags |= lastFrame.Flags & CallStackFrameFlags.ReversedLe;
+        if (func is not LuaClosure)
+        {
+            // The caller frame is discarded below, so remember where it called from. Errors and
+            // tracebacks report that position; only the prototype is kept, not the caller, so its
+            // values stay collectable while a native callee is suspended.
+            newFrame.DiscardedCallerPrototype = context.Prototype;
+            newFrame.DiscardedCallerPc = context.Pc;
+        }
+
         state.ReplaceCallStackFrame(newFrame);
         // Release the replaced closure before a hook or native tail callee can suspend.
         context.LuaClosure = null!;
