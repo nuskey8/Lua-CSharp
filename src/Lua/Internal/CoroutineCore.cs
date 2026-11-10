@@ -121,7 +121,7 @@ class CoroutineCore(LuaState state, LuaFunction function, bool isProtectedMode)
                 );
             try
             {
-                Thread.GlobalState.ActiveExecutions++;
+                Interlocked.Increment(ref Thread.GlobalState.ActiveExecutions);
                 entered = true;
                 if (isFirstCall)
                     Thread.Stack.EnsureCapacity(Thread.Stack.Count + argCount);

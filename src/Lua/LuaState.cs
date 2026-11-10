@@ -675,16 +675,18 @@ public class LuaState : IDisposable
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal bool EnterExecution()
     {
-        if (GlobalState.ActiveExecutions != 0)
-            return false;
-        GlobalState.ActiveExecutions++;
-        return true;
+        // Nested host re-entry (Lua calling C# that calls Lua again) must not count: only the
+        // outermost entry owns the 0 -> 1 transition that later reports ExecutionEnded.
+        // A compare-exchange keeps that decision atomic across coroutine resumes and host calls.
+        return Interlocked.CompareExchange(ref GlobalState.ActiveExecutions, 1, 0) == 0;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal void ExitExecution(bool entered)
     {
-        if (entered && --GlobalState.ActiveExecutions == 0)
+        if (!entered)
+            return;
+        if (Interlocked.Decrement(ref GlobalState.ActiveExecutions) == 0)
             Volatile.Read(ref GlobalState.Debugger)?.ExecutionEnded();
     }
 
@@ -944,7 +946,7 @@ public class LuaState : IDisposable
 
         CoreData.Release();
         CoreData = null!;
-        if (GlobalState.ActiveExecutions == 0)
+        if (Volatile.Read(ref GlobalState.ActiveExecutions) == 0)
             Volatile.Read(ref GlobalState.Debugger)?.ExecutionEnded();
     }
 }

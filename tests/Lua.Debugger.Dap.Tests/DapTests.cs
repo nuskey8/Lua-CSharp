@@ -326,6 +326,27 @@ public class DapTests
     }
 
     [Test]
+    public async Task MalformedFrameDropsTheClientWithoutDetachingTheDebugger()
+    {
+        await using var host = await Host.CreateAsync();
+        var closure = host.State.Load("return 42", "@" + host.Path);
+        await host.InitializeAsync();
+        await host.RequestAsync("configurationDone");
+        await host
+            .Client.GetStream()
+            .WriteAsync("Content-Length: 8\r\n\r\nnot-json"u8.ToArray(), host.Token);
+        host.Client.Dispose();
+        await host.ReconnectAsync();
+        await host.InitializeAsync();
+        await host.RequestAsync("configurationDone");
+        Assert.That(host.Server.Debugger.IsAttached, Is.True);
+        Assert.That(
+            await host.Execute(closure).WaitAsync(host.Token),
+            Is.EqualTo(new LuaValue[] { 42 })
+        );
+    }
+
+    [Test]
     public async Task CoordinatesAndUriPathsRespectClientInitialization()
     {
         await using var host = await Host.CreateAsync();
