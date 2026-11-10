@@ -227,6 +227,12 @@ public class LuaRuntimeException : Exception, ILuaTracebackBuildable
 
     public static void AttemptInvalidOperation(LuaState? state, string op, LuaValue a, LuaValue b)
     {
+        // Ordering follows luaG_ordererror: "compare X with Y", not the operator's own name.
+        if (op is "lt" or "le" or "compare")
+        {
+            ThrowComparisonFailed(state, a, b);
+        }
+
         var typeA = a.TypeToString();
         var typeB = b.TypeToString();
         if (typeA == typeB)
@@ -238,6 +244,18 @@ public class LuaRuntimeException : Exception, ILuaTracebackBuildable
             state,
             $"attempt to {op} a {typeA} value with a {typeB} value"
         );
+    }
+
+    static void ThrowComparisonFailed(LuaState? state, LuaValue a, LuaValue b)
+    {
+        var typeA = LuaValue.ToString(a.Type);
+        var typeB = LuaValue.ToString(b.Type);
+        if (a.Type == b.Type)
+        {
+            throw new LuaRuntimeException(state, $"attempt to compare two {typeA} values");
+        }
+
+        throw new LuaRuntimeException(state, $"attempt to compare {typeA} with {typeB}");
     }
 
     public static void AttemptInvalidOperation(LuaState? state, string op, LuaValue a)
@@ -263,6 +281,12 @@ public class LuaRuntimeException : Exception, ILuaTracebackBuildable
                 ? state.Stack[caller.Base + regB]
                 : ((LuaClosure)caller.Function).Proto.Constants[regB - 256];
         var function = caller.Function;
+        if (op is "compare")
+        {
+            // luaG_ordererror describes the values; it never names the operator or the locals.
+            ThrowComparisonFailed(state, luaValueA, luaValueB);
+        }
+
         var tA = LuaDebug.GetName(((LuaClosure)function).Proto, lastPc, regA, out var nameA);
         var tB = LuaDebug.GetName(((LuaClosure)function).Proto, lastPc, regB, out var nameB);
 
