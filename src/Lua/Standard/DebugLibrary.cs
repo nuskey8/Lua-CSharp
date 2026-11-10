@@ -1,4 +1,4 @@
-﻿using System.Runtime.CompilerServices;
+using System.Runtime.CompilerServices;
 using Lua.Internal;
 using Lua.Internal.CompilerServices;
 using Lua.Runtime;
@@ -595,7 +595,7 @@ public sealed class DebugLibrary
         );
         if (!isValid)
         {
-            context.ThrowBadArgument(argOffset + 1, "invalid option");
+            context.ThrowBadArgument(argOffset + 2, "invalid option");
         }
 
         LuaTable table = new(0, 1);

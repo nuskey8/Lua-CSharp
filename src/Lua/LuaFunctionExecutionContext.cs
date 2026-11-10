@@ -230,12 +230,9 @@ public readonly record struct LuaFunctionExecutionContext
 
     internal void ThrowBadArgument(int index, string message)
     {
-        LuaRuntimeException.BadArgument(
-            State,
-            index,
-            State.GetCurrentFrame().Function.Name,
-            message
-        );
+        // Callers pass a complete Lua message ("index out of range", "base out of range"); wrapping
+        // it as an "expected, got" pair produced "(select expected, got index out of range)".
+        LuaRuntimeException.BadArgument(State, index, message);
     }
 
     void ThrowIfArgumentNotExists(int index)
