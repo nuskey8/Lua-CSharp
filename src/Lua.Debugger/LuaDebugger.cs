@@ -128,12 +128,16 @@ public sealed partial class LuaDebugger : IDisposable, ILuaDebugSession
         {
             if (paused is not { } context || context.Stop.Id != stopId || resumeRequested)
                 return false;
+            var stepping = pauseRequested || step != null;
             step =
                 mode == LuaDebugStep.Continue
                     ? null
                     : new StepRequest(mode, context.State, context.Depth, context.FrameId);
             resumeRequested = true;
-            UpdateExecutionCodes();
+            // Re-patching every prototype is only needed when stepping starts or stops; a plain
+            // continue between two stops of the same kind leaves the enabled state unchanged.
+            if (stepping != (pauseRequested || step != null))
+                UpdateExecutionCodes();
             signal.TrySetResult(true);
             inspections = context.Inspections;
         }
@@ -172,8 +176,11 @@ public sealed partial class LuaDebugger : IDisposable, ILuaDebugSession
                 pauseRequested ? "pause"
                 : breakpoint != null ? "breakpoint"
                 : "step";
+            var pauseConsumed = pauseRequested;
             pauseRequested = false;
-            step = null;
+            // `step` stays armed while the program is stopped. Clearing it here would un-patch and
+            // then re-patch every prototype's traps on each step, which costs O(prototypes) per
+            // step for no observable difference; Continue clears it when stepping really ends.
             var stop = new LuaDebugStop(++nextStopId, reason, entry.Source, line, breakpoint?.Id);
             paused = context = new PauseContext(
                 state,
@@ -184,7 +191,10 @@ public sealed partial class LuaDebugger : IDisposable, ILuaDebugSession
             );
             resumeRequested = false;
             signal = NewSignal();
-            UpdateExecutionCodes();
+            // Only a consumed pause request changes which checkpoints are needed; breakpoint and
+            // step stops keep the current traps armed.
+            if (pauseConsumed)
+                UpdateExecutionCodes();
         }
         return options.PauseMode == LuaDebugPauseMode.Synchronous
             ? SuspendSynchronously(context, cancellationToken)
@@ -267,7 +277,11 @@ public sealed partial class LuaDebugger : IDisposable, ILuaDebugSession
                     commands
                         .Dequeue()
                         .Fail(new InvalidOperationException("The debug stop has ended."));
-                UpdateExecutionCodes();
+                // TryContinue and Release already applied the control change they caused. Only a
+                // stop that ends without either (cancellation, state teardown) still needs the
+                // prototypes revisited, and that is the rare path.
+                if (!resumeRequested)
+                    UpdateExecutionCodes();
                 stopEnded = StopEnded;
                 if (disposed)
                     StopEnded = null;

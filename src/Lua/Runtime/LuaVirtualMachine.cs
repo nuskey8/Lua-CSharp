@@ -64,6 +64,7 @@ public static partial class LuaVirtualMachine
         public int LastHookPc;
         public int LastDebugPc = -1;
         public LuaDebugCode? DebugCode;
+        public LuaDebugCode? PreviousDebugCode;
 
         public bool IsTopLevel => BaseCallStackCount == State.CallStackFrameCount;
 
@@ -367,6 +368,7 @@ public static partial class LuaVirtualMachine
                 State = null!;
                 LuaClosure = null!;
                 DebugCode = null;
+                PreviousDebugCode = null;
                 Task = default;
                 CancellationToken = default;
                 pool.TryPush(this);
@@ -433,12 +435,35 @@ public static partial class LuaVirtualMachine
             // This is a label to restart the execution when new function is called or restarted
             Restart:
             var debugger = Volatile.Read(ref context.GlobalState.Debugger);
-            if (
-                context.DebugCode == null
-                || context.DebugCode.Prototype != context.Prototype
-                || context.DebugCode.Identity != debugger?.Identity
-            )
-                context.DebugCode = debugger?.GetExecutionCode(context.LuaClosure);
+            {
+                // Alternating between two prototypes (a caller and its callee) is the common case,
+                // so keep the previous execution copy and reuse it instead of asking the session
+                // on every entry and return.
+                var current = context.DebugCode;
+                var prototype = context.Prototype;
+                if (
+                    current == null
+                    || current.Prototype != prototype
+                    || current.Identity != debugger?.Identity
+                )
+                {
+                    var previous = context.PreviousDebugCode;
+                    if (
+                        previous != null
+                        && previous.Prototype == prototype
+                        && previous.Identity == debugger?.Identity
+                    )
+                    {
+                        context.DebugCode = previous;
+                        context.PreviousDebugCode = current;
+                    }
+                    else
+                    {
+                        context.PreviousDebugCode = current;
+                        context.DebugCode = debugger?.GetExecutionCode(context.LuaClosure);
+                    }
+                }
+            }
             ref var instructionsHead = ref context.DebugCode != null
                 ? ref context.DebugCode.Code[0]
                 : ref Unsafe.AsRef(in context.Prototype.Code[0]);
