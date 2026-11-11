@@ -226,6 +226,18 @@ public sealed partial class LuaDebugger : IDisposable, ILuaDebugSession
         }
     }
 
+    void ILuaDebugSession.ThreadDisposed(LuaState state)
+    {
+        lock (gate)
+        {
+            if (step?.State != state)
+                return;
+            step = null;
+            if (!pauseRequested)
+                UpdateExecutionCodes();
+        }
+    }
+
     static bool ShouldStep(LuaState state, StepRequest request)
     {
         if (request.Mode == LuaDebugStep.Into)

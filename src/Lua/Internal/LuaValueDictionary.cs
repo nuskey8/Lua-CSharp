@@ -40,7 +40,7 @@ sealed class LuaValueDictionary
 
     public int Count => _count - _freeCount;
 
-    public int NilCount => _nilCount;
+    public int LiveCount => Count - _nilCount;
 
     public LuaValue this[LuaValue key]
     {
@@ -335,22 +335,6 @@ sealed class LuaValueDictionary
         if (Unsafe.IsNullRef(ref value) || value.Type == LuaValueType.Nil)
             return;
 
-        if (_nilCount + 1 == Count)
-        {
-            // Keep the dead entry instead of dropping it: Lua allows clearing the key that `next`
-            // just returned, so that key must remain findable. The next insertion compacts or
-            // reuses this storage as usual.
-            ref var deleted = ref _entries![index];
-            if (deleted.keyObject is { } lastObject)
-            {
-                deleted.keyObject = CreateDeletedKey(lastObject);
-                deleted.keyType = LuaValueType.Nil;
-            }
-            deleted.value = default;
-            _nilCount++;
-            return;
-        }
-
         ref var entry = ref _entries![index];
         if (entry.keyObject is { } keyObject)
         {
@@ -456,15 +440,20 @@ sealed class LuaValueDictionary
             return LuaNextStatus.InvalidKey;
         }
 
-        var entries = _entries!;
-        while (++index < _count)
+        if (++index < _count)
         {
-            ref var entry = ref entries[index];
+            ref var entry = ref _entries![index];
             if (entry is { next: >= -1, value.Type: not LuaValueType.Nil })
             {
                 pair = new(new(entry.keyType, entry.keyNumber, entry.keyObject), entry.value);
                 return LuaNextStatus.Found;
             }
+
+            // Reuse the enumerator's scan when there are holes after the cursor.
+            index++;
+            return MoveNext(this, _version, ref index, out pair)
+                ? LuaNextStatus.Found
+                : LuaNextStatus.End;
         }
 
         pair = default;
@@ -561,20 +550,15 @@ sealed class LuaValueDictionary
             ThrowHelper.ThrowInvalidOperationException_InvalidOperation_EnumFailedVersion();
         }
 
-        SearchNext:
         // Use unsigned comparison since we set index to dictionary.count+1 when the enumeration ends.
         // dictionary.count+1 could be negative if dictionary.count is int.MaxValue
-        while ((uint)index < (uint)dictionary._count)
+        var end = dictionary.LiveCount == 0 ? 0 : dictionary._count;
+        while ((uint)index < (uint)end)
         {
             ref var entry = ref dictionary._entries![index++];
 
-            if (entry.next >= -1)
+            if (entry is { next: >= -1, value.Type: not LuaValueType.Nil })
             {
-                if (entry.value.Type is LuaValueType.Nil)
-                {
-                    goto SearchNext;
-                }
-
                 current = new(new(entry.keyType, entry.keyNumber, entry.keyObject), entry.value);
                 return true;
             }

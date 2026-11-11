@@ -108,7 +108,7 @@ public sealed class LuaTable : IEnumerable<KeyValuePair<LuaValue, LuaValue>>
         }
     }
 
-    public int HashMapCount => dictionary.Count - dictionary.NilCount;
+    public int HashMapCount => dictionary.LiveCount;
 
     public int ArrayLength
     {
@@ -384,13 +384,11 @@ public sealed class LuaTable : IEnumerable<KeyValuePair<LuaValue, LuaValue>>
                 }
             }
 
-            foreach (var kv in dictionary)
+            var hash = dictionary.GetEnumerator();
+            if (hash.MoveNext())
             {
-                if (kv.Value.Type is not LuaValueType.Nil)
-                {
-                    pair = kv;
-                    return LuaNextStatus.Found;
-                }
+                pair = hash.Current;
+                return LuaNextStatus.Found;
             }
 
             pair = default;
@@ -461,7 +459,7 @@ public sealed class LuaTable : IEnumerable<KeyValuePair<LuaValue, LuaValue>>
             hasWritableArrayReferences = false;
         }
 
-        using PooledList<(int, LuaValue)> indexList = new(dictionary.Count);
+        using PooledList<(int, LuaValue)> indexList = new(dictionary.LiveCount);
 
         // Move some of the elements of the hash part to a newly allocated array
         foreach (var kv in dictionary)

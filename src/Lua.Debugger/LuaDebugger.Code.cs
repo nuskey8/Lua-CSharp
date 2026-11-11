@@ -5,10 +5,10 @@ namespace Lua.Debugging;
 
 public sealed partial class LuaDebugger
 {
-    const int WeakReferenceCleanupInterval = 64;
+    const int MinimumCleanupInterval = 64;
     readonly ConditionalWeakTable<Prototype, ExecutionCode> executionCodes = new();
     readonly List<WeakReference<ExecutionCode>> codeReferences = new();
-    int additionsSinceCleanup;
+    int additionsUntilCleanup = MinimumCleanupInterval;
 
     LuaDebugCode ILuaDebugSession.GetExecutionCode(LuaClosure closure)
     {
@@ -44,10 +44,11 @@ public sealed partial class LuaDebugger
 
     void Track(ExecutionCode code)
     {
-        if (++additionsSinceCleanup >= WeakReferenceCleanupInterval)
+        if (--additionsUntilCleanup == 0)
         {
-            additionsSinceCleanup = 0;
             codeReferences.RemoveAll(static reference => !reference.TryGetTarget(out _));
+            // Amortize each full scan over the surviving entries.
+            additionsUntilCleanup = Math.Max(MinimumCleanupInterval, codeReferences.Count);
         }
         codeReferences.Add(new WeakReference<ExecutionCode>(code));
     }
@@ -67,6 +68,7 @@ public sealed partial class LuaDebugger
             else
                 codeReferences.RemoveAt(i);
         }
+        additionsUntilCleanup = Math.Max(MinimumCleanupInterval, codeReferences.Count);
     }
 
     void UpdateControls(ExecutionCode code, bool attached)

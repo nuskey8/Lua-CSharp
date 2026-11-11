@@ -66,6 +66,9 @@ public static partial class LuaVirtualMachine
         public LuaDebugCode? DebugCode;
         public LuaDebugCode? PreviousDebugCode;
 
+        (Prototype? Prototype, int Pc, bool IsTailCall) previousNativeTailCaller;
+        bool hasNativeTailCaller;
+
         public bool IsTopLevel => BaseCallStackCount == State.CallStackFrameCount;
 
         public int BaseCallStackCount;
@@ -219,6 +222,17 @@ public static partial class LuaVirtualMachine
             State.PopCallStackFrameUntil(BaseCallStackCount);
         }
 
+        public void RecordNativeTailCaller(bool callerWasTailCalled)
+        {
+            // A reentrant VM context must give the outer native callee its call site back.
+            if (!hasNativeTailCaller)
+            {
+                previousNativeTailCaller = State.LastNativeTailCaller;
+                hasNativeTailCaller = true;
+            }
+            State.LastNativeTailCaller = (State.LastCallerPrototype, Pc, callerWasTailCalled);
+        }
+
         bool ExecutePostOperation(
             int varArgs,
             PostOperationType postOperation,
@@ -364,6 +378,12 @@ public static partial class LuaVirtualMachine
             }
             finally
             {
+                if (hasNativeTailCaller)
+                {
+                    State.LastNativeTailCaller = previousNativeTailCaller;
+                    previousNativeTailCaller = default;
+                    hasNativeTailCaller = false;
+                }
                 Stack = null!;
                 State = null!;
                 LuaClosure = null!;
@@ -1809,11 +1829,7 @@ public static partial class LuaVirtualMachine
 
         var isLuaClosure = func is LuaClosure;
         if (!isLuaClosure)
-            state.LastNativeTailCaller = (
-                state.LastCallerPrototype,
-                context.Pc,
-                lastFrame.IsTailCall
-            );
+            context.RecordNativeTailCaller(lastFrame.IsTailCall);
 
         if (state.CallOrReturnHookMask.Value != 0 && !context.State.IsInHook)
         {

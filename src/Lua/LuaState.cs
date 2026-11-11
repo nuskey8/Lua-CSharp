@@ -689,7 +689,6 @@ public class LuaState : IDisposable
         var state = this;
         var callStackTop = state.CallStackFrameCount;
         var previousCallerPrototype = state.LastCallerPrototype;
-        var previousNativeTailCaller = state.LastNativeTailCaller;
         var previousPc = state.LastPc;
         var entered = EnterExecution();
         try
@@ -727,7 +726,6 @@ public class LuaState : IDisposable
         {
             PopCallStackFrameUntil(callStackTop);
             LastCallerPrototype = previousCallerPrototype;
-            LastNativeTailCaller = previousNativeTailCaller;
             LastPc = previousPc;
             ExitExecution(entered);
         }
@@ -1008,6 +1006,6 @@ public class LuaState : IDisposable
         CoreData.Release();
         CoreData = null!;
         if (Volatile.Read(ref GlobalState.ActiveExecutions) == 0)
-            Volatile.Read(ref GlobalState.Debugger)?.ExecutionEnded();
+            Volatile.Read(ref GlobalState.Debugger)?.ThreadDisposed(this);
     }
 }

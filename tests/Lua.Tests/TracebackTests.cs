@@ -60,27 +60,38 @@ public class TracebackTests
         Assert.That(trace.StackFrames.ToArray(), Is.EqualTo(frames));
     }
 
-    [Test]
-    public async Task NestedExecutionRestoresTailCallerForArgumentErrors()
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task NestedExecutionRestoresTailCallerForArgumentErrors(bool useCallAsync)
     {
         using var state = LuaState.Create();
-        state.Environment["inner"] = new LuaFunction((context, _) => new(context.Return()));
+        state.Environment["inner"] = new LuaFunction(
+            async (context, _) =>
+            {
+                if (useCallAsync)
+                    await Task.Yield();
+                return context.Return();
+            }
+        );
+        var inner = state.Load("return inner()", "=inner-call");
         state.Environment["outer"] = new LuaFunction(
             async (context, token) =>
             {
-                await context.State.DoStringAsync(
-                    "local function f() return inner() end; return f()",
-                    "inner-call",
-                    token
-                );
+                if (useCallAsync)
+                    await context.State.CallAsync(inner, [], token);
+                else
+                    await context.State.ExecuteAsync(inner, token);
                 LuaRuntimeException.BadArgument(context.State, 1, "bad value");
                 return context.Return();
             }
         );
         var exception = Assert.ThrowsAsync<LuaRuntimeException>(async () =>
-            await state.DoStringAsync("return outer()", "outer-call")
+            await state.DoStringAsync("local x = 1\nreturn outer()", "=outer-call")
         )!;
         Assert.That(exception.InnerException, Is.Null);
-        Assert.That(exception.ErrorObject.Read<string>(), Does.Contain("to 'outer'"));
+        Assert.That(
+            exception.Message,
+            Does.StartWith("Lua-CSharp: outer-call:2: bad argument #1 to 'outer'")
+        );
     }
 }

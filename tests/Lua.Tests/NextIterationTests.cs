@@ -42,15 +42,17 @@ public class NextIterationTests
     {
         using var state = CreateState();
         var results = await state.DoStringAsync(
-            "local t = {a = 1}\n"
-                + "local k = next(t)\n"
-                + "t[k] = nil\n"
-                + "local ok, v = pcall(next, t, k)\n"
-                + "return ok, v == nil",
+            """
+            local t = {1, a = 1}
+            t.a = nil
+            local ok, v = pcall(next, t, 'a')
+            local arrayEnd = next(t, 1) == nil
+            t[1] = nil
+            return ok, v == nil, arrayEnd, next(t) == nil, not pcall(next, t, 'missing')
+            """,
             "=next"
         );
-        Assert.That(results[0].Read<bool>(), Is.True);
-        Assert.That(results[1].Read<bool>(), Is.True);
+        Assert.That(results, Is.EqualTo(new LuaValue[] { true, true, true, true, true }));
     }
 
     [Test]

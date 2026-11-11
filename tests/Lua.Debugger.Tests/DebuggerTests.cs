@@ -749,6 +749,26 @@ public class DebuggerTests
     }
 
     [Test]
+    public async Task DisposingAnIdleSiblingPreservesTheNextPause()
+    {
+        using var state = LuaState.Create();
+        using var debugger = new LuaDebugger(state);
+        debugger.Attach();
+        var stops = new List<string>();
+        debugger.Stopped += stop =>
+        {
+            stops.Add(stop.Reason);
+            debugger.Continue(stop.Id);
+        };
+
+        using (var sibling = state.CreateThread())
+            debugger.Pause();
+        await state.DoStringAsync("return 42");
+
+        Assert.That(stops, Is.EqualTo(new[] { "pause" }));
+    }
+
+    [Test]
     public async Task PauseRequestDoesNotOutliveItsExecution()
     {
         using var state = LuaState.Create();

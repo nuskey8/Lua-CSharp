@@ -8,6 +8,8 @@ internal interface ILuaDebugSession
 
     void ExecutionEnded();
 
+    void ThreadDisposed(LuaState state);
+
     ValueTask<int> CheckpointAsync(
         LuaState state,
         LuaClosure closure,
