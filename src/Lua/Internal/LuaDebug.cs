@@ -128,8 +128,10 @@ readonly struct LuaDebug : IDisposable
         LuaGlobalState globalState,
         CallStackFrame? prevFrame,
         CallStackFrame? frame,
-        LuaFunction function,
+        LuaFunction? function,
+        Prototype? prototype,
         int pc,
+        int callerPc,
         ReadOnlySpan<char> what,
         out bool isValid
     )
@@ -139,7 +141,7 @@ readonly struct LuaDebug : IDisposable
             buffer = new(globalState);
         }
 
-        isValid = buffer.GetInfo(prevFrame, frame, function, pc, what);
+        isValid = buffer.GetInfo(prevFrame, frame, function, prototype, pc, callerPc, what);
 
         return new(buffer, buffer.version);
     }
@@ -214,12 +216,15 @@ readonly struct LuaDebug : IDisposable
         internal bool GetInfo(
             CallStackFrame? prevFrame,
             CallStackFrame? frame,
-            LuaFunction function,
+            LuaFunction? function,
+            Prototype? prototype,
             int pc,
+            int callerPc,
             ReadOnlySpan<char> what
         )
         {
             var closure = function as LuaClosure;
+            var proto = closure?.Proto ?? prototype;
             var status = 1;
             foreach (var c in what)
             {
@@ -227,36 +232,35 @@ readonly struct LuaDebug : IDisposable
                 {
                     case 'S':
                     {
-                        GetFuncInfo(function);
+                        if (function is not null)
+                            GetFuncInfo(function);
+                        else
+                            GetFuncInfo(proto!);
                         break;
                     }
                     case 'l':
                     {
                         CurrentLine =
-                            frame.HasValue && closure is not null
-                                ? (
-                                    (uint)pc < (uint)closure.Proto.LineInfo.Length
-                                        ? closure.Proto.LineInfo[pc]
-                                        : 0
-                                )
+                            proto is not null && (frame.HasValue || function is null)
+                                ? ((uint)pc < (uint)proto.LineInfo.Length ? proto.LineInfo[pc] : 0)
                                 : -1;
                         break;
                     }
                     case 'u':
                     {
                         UpValueCount =
-                            closure is not null ? closure.UpValues.Length
+                            proto is not null ? proto.UpValues.Length
                             : function is CSharpClosure csClosure ? csClosure.UpValues.Length
                             : 0;
-                        if (closure is null)
+                        if (proto is null)
                         {
                             IsVarArg = true;
                             ParameterCount = 0;
                         }
                         else
                         {
-                            IsVarArg = closure.Proto.HasVariableArguments;
-                            ParameterCount = closure.Proto.ParameterCount;
+                            IsVarArg = proto.HasVariableArguments;
+                            ParameterCount = proto.ParameterCount;
                         }
 
                         break;
@@ -276,7 +280,7 @@ readonly struct LuaDebug : IDisposable
                         {
                             NameWhat = GetFuncName(
                                 prevFrameClosure.Proto,
-                                frame?.CallerInstructionIndex ?? 0,
+                                frame?.CallerInstructionIndex ?? callerPc,
                                 out Name
                             );
                         }
@@ -292,7 +296,7 @@ readonly struct LuaDebug : IDisposable
                         }
                         else if (NameWhat != null && Name is "?")
                         {
-                            Name = function.Name;
+                            Name = function?.Name;
                         }
 
                         break;
@@ -317,16 +321,21 @@ readonly struct LuaDebug : IDisposable
                 LineDefined = -1;
                 LastLineDefined = -1;
                 What = "C#";
-            }
-            else
-            {
-                var p = cl.Proto;
-                Source = p.ChunkName;
-                LineDefined = p.LineDefined;
-                LastLineDefined = p.LastLineDefined;
-                What = LineDefined == 0 ? "main" : "Lua";
+                ShortSourceLength = WriteShortSource(Source, ShortSource);
+                return;
             }
 
+            GetFuncInfo(cl.Proto);
+        }
+
+        // Used for a caller frame that a tail call into a host function discarded: its prototype is
+        // still known, but its closure is gone.
+        void GetFuncInfo(Prototype p)
+        {
+            Source = p.ChunkName;
+            LineDefined = p.LineDefined;
+            LastLineDefined = p.LastLineDefined;
+            What = LineDefined == 0 ? "main" : "Lua";
             ShortSourceLength = WriteShortSource(Source, ShortSource);
         }
     }

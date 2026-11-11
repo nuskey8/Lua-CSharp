@@ -54,6 +54,30 @@ public sealed class DebugLibrary
         return context.State;
     }
 
+    /// <summary>
+    /// A tail call into a host function replaces the caller's frame, yet that caller is still part of
+    /// the stack Lua code can observe. The state keeps its prototype and call site, which is enough
+    /// to answer level queries for it while the host function runs.
+    /// </summary>
+    readonly record struct DiscardedCaller(Prototype Prototype, int LinePc, int CallerPc);
+
+    static bool TryGetDiscardedCaller(LuaState state, out DiscardedCaller caller)
+    {
+        caller = default;
+        var frames = state.GetCallStackFrames();
+        if (frames.Length == 0)
+            return false;
+        var top = frames[^1];
+        if (!top.IsTailCall || top.Function is LuaClosure)
+            return false;
+        if (state.LastCallerPrototype is not { } prototype)
+            return false;
+        if ((uint)state.LastPc >= (uint)prototype.LineInfo.Length)
+            return false;
+        caller = new(prototype, state.LastPc, top.CallerInstructionIndex);
+        return true;
+    }
+
     static ref LuaValue FindLocal(LuaState state, int level, int index, out string? name)
     {
         if (index == 0)
@@ -169,6 +193,16 @@ public sealed class DebugLibrary
 
         var level = context.GetIntegerArgument(argOffset);
 
+        var discarded = TryGetDiscardedCaller(state, out _);
+        if (discarded && level == 1)
+        {
+            // The discarded caller's registers are gone, so it has no readable locals.
+            return new(context.Return(LuaValue.Nil));
+        }
+
+        if (discarded && level > 1)
+            level--;
+
         if (level < 0 || level >= state.GetCallStackFrames().Length)
         {
             context.ThrowBadArgument(1, "level out of range");
@@ -193,6 +227,16 @@ public sealed class DebugLibrary
         var value = context.GetArgument(argOffset + 2);
         var index = context.GetIntegerArgument(argOffset + 1);
         var level = context.GetIntegerArgument(argOffset);
+
+        var discarded = TryGetDiscardedCaller(state, out _);
+        if (discarded && level == 1)
+        {
+            // The discarded caller's registers are gone, so it has no writable locals.
+            return new(context.Return(LuaValue.Nil));
+        }
+
+        if (discarded && level > 1)
+            level--;
 
         if (level < 0 || level >= state.GetCallStackFrames().Length)
         {
@@ -561,27 +605,50 @@ public sealed class DebugLibrary
         var pc = 0;
         var arg1 = context.GetArgument(argOffset);
 
-        if (!arg1.TryReadFunction(out var functionToInspect))
+        LuaFunction? functionToInspect = null;
+        Prototype? syntheticPrototype = null;
+        var callerPc = -1;
+
+        if (!arg1.TryReadFunction(out var inspected))
         {
             if (!arg1.TryReadDouble(out _))
                 context.ThrowBadArgument(argOffset, "function or level expected");
             var level = context.GetIntegerArgument(argOffset) + 1;
 
             var callStack = state.GetCallStackFrames();
+            var discarded = TryGetDiscardedCaller(state, out var caller);
+            var logicalLength = callStack.Length + (discarded ? 1 : 0);
 
-            if (level <= 0 || level > callStack.Length)
+            if (level <= 0 || level > logicalLength)
             {
                 return new(context.Return(LuaValue.Nil));
             }
 
-            currentFrame = callStack[^level];
-            previousFrame = level + 1 <= callStack.Length ? callStack[^(level + 1)] : null;
-            if (level != 1)
+            if (discarded && level == 2)
             {
-                pc = callStack[^(level - 1)].CallerInstructionIndex;
+                // Level 1 (here 2) is the caller the tail call discarded, reported from its
+                // recorded call site instead of skipping to the frame below it.
+                previousFrame = callStack.Length >= 2 ? callStack[^2] : null;
+                pc = caller.LinePc;
+                callerPc = caller.CallerPc;
+                syntheticPrototype = caller.Prototype;
             }
+            else
+            {
+                var index = discarded && level > 2 ? level - 1 : level;
+                currentFrame = callStack[^index];
+                previousFrame = index + 1 <= callStack.Length ? callStack[^(index + 1)] : null;
+                if (index != 1)
+                {
+                    pc = callStack[^(index - 1)].CallerInstructionIndex;
+                }
 
-            functionToInspect = currentFrame.Value.Function;
+                functionToInspect = currentFrame.Value.Function;
+            }
+        }
+        else
+        {
+            functionToInspect = inspected;
         }
 
         using var debug = LuaDebug.Create(
@@ -589,7 +656,9 @@ public sealed class DebugLibrary
             previousFrame,
             currentFrame,
             functionToInspect,
+            syntheticPrototype,
             pc,
+            callerPc,
             what,
             out var isValid
         );
@@ -634,7 +703,10 @@ public sealed class DebugLibrary
 
         if (what.Contains('f'))
         {
-            table["func"] = functionToInspect;
+            // A discarded caller's closure is released, so only its prototype-based fields remain.
+            table["func"] = functionToInspect is { } inspectedFunction
+                ? inspectedFunction
+                : LuaValue.Nil;
         }
 
         if (what.Contains('L'))
