@@ -617,7 +617,7 @@ public sealed class BasicLibrary
         CancellationToken cancellationToken
     )
     {
-        var selector = context.GetArgument(0);
+        var selector = context.ArgumentCount > 0 ? context.Arguments[0] : LuaValue.Nil;
         if (selector.Type == LuaValueType.String)
         {
             var text = selector.UnsafeReadString();

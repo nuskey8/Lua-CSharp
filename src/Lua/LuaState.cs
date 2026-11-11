@@ -190,7 +190,7 @@ public class LuaState : IDisposable
             CallStack.Clear();
             if (FrameVersions != null)
             {
-                Array.Clear(FrameVersions);
+                Array.Clear(FrameVersions, 0, FrameVersions.Length);
             }
         }
 
