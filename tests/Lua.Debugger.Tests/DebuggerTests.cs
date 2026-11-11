@@ -282,8 +282,9 @@ public class DebuggerTests
         Assert.That(await execution, Is.EqualTo(new LuaValue[] { LuaValue.Nil, 41 }));
     }
 
-    [Test]
-    public async Task RemovingALuaHookDuringAStopDoesNotReplayIt()
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task ResumingDoesNotReplayTheStoppedInstructionHook(bool armBreakpoint)
     {
         var (state, debugger, stops) = Create();
         using var ownedState = state;
@@ -302,9 +303,11 @@ public class DebuggerTests
             1
         );
         debugger.Pause();
-        var execution = state.DoStringAsync("return 42", cancellationToken: timeout.Token).AsTask();
+        var execution = state.DoStringAsync("return 42", "=resume-hook", timeout.Token).AsTask();
         var stop = await stops.Reader.ReadAsync(timeout.Token);
         state.SetHook(null, "");
+        if (armBreakpoint)
+            Assert.That(debugger.SetBreakpoints("=resume-hook", [1])[0].Verified, Is.True);
         var stoppedHooks = hooks;
         debugger.Continue(stop.Id);
         Assert.That(await execution, Is.EqualTo(new LuaValue[] { 42 }));
@@ -748,8 +751,9 @@ public class DebuggerTests
         Assert.That(failure!.Message, Does.Contain("after the Stopped handler returns"));
     }
 
-    [Test]
-    public async Task DisposingAnIdleSiblingPreservesTheNextPause()
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task IdlePauseSurvivesLifecycleNotifications(bool lateQuiescence)
     {
         using var state = LuaState.Create();
         using var debugger = new LuaDebugger(state);
@@ -763,6 +767,8 @@ public class DebuggerTests
 
         using (var sibling = state.CreateThread())
             debugger.Pause();
+        if (lateQuiescence)
+            ((ILuaDebugSession)debugger).ExecutionQuiesced();
         await state.DoStringAsync("return 42");
 
         Assert.That(stops, Is.EqualTo(new[] { "pause" }));

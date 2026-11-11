@@ -75,27 +75,27 @@ public sealed partial class LuaDebugger
     public LuaDebugSource RegisterSource(LuaClosure closure, string? content = null)
     {
         lock (gate)
+            return RegisterSourceCore(closure.Proto, content).Source;
+    }
+
+    SourceEntry RegisterSourceCore(Prototype rootPrototype, string? content = null)
+    {
+        var work = new Stack<Prototype>();
+        var controlsChanged = false;
+        work.Push(rootPrototype);
+        while (work.Count != 0)
         {
-            var work = new Stack<Prototype>();
-            var controlsChanged = false;
-            work.Push(closure.Proto);
-            while (work.Count != 0)
-            {
-                var prototype = work.Pop();
-                controlsChanged |= RegisterPrototype(prototype);
-                foreach (var child in prototype.ChildPrototypes)
-                    work.Push(child);
-            }
-            var entry = registered.GetValue(
-                closure.Proto,
-                _ => throw new InvalidOperationException()
-            );
-            if (content != null)
-                entry.Source = entry.Source with { Content = content };
-            if (controlsChanged)
-                UpdateExecutionCodes(breakpointsChanged: true);
-            return entry.Source;
+            var prototype = work.Pop();
+            controlsChanged |= RegisterPrototype(prototype);
+            foreach (var child in prototype.ChildPrototypes)
+                work.Push(child);
         }
+        var entry = registered.GetValue(rootPrototype, _ => throw new InvalidOperationException());
+        if (content != null)
+            entry.Source = entry.Source with { Content = content };
+        if (controlsChanged)
+            UpdateExecutionCodes(breakpointsChanged: true);
+        return entry;
     }
 
     public LuaDebugSource[] GetSources()

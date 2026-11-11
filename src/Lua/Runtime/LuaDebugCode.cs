@@ -4,18 +4,19 @@ internal interface ILuaDebugSession
 {
     object Identity { get; }
 
-    LuaDebugCode GetExecutionCode(LuaClosure closure);
+    LuaDebugCode GetExecutionCode(Prototype prototype);
 
-    void ExecutionEnded();
+    // The global state's active execution count just reached zero.
+    void ExecutionQuiesced();
 
     void ThreadDisposed(LuaState state);
 
     ValueTask<int> CheckpointAsync(
         LuaState state,
-        LuaClosure closure,
+        LuaDebugCode code,
         int pc,
         int line,
-        bool lineEntry,
+        bool isLineEntry,
         CancellationToken cancellationToken
     );
 }
@@ -57,18 +58,6 @@ internal class LuaDebugCode
         var source = Prototype.Code;
         foreach (var pc in traps)
             Code[pc] = source[pc];
-    }
-
-    internal void ResumeAt(int pc)
-    {
-        Code[pc] = (uint)LuaVirtualMachine.DebuggerResumeOpCode;
-    }
-
-    internal Instruction RestoreAt(int pc)
-    {
-        // Re-arm this checkpoint for later visits, unless controls were released while stopped.
-        Code[pc] = Enabled ? (uint)LuaVirtualMachine.DebuggerBreakOpCode : Prototype.Code[pc];
-        return Prototype.Code[pc];
     }
 
     static int[] FindTraps(Prototype prototype)

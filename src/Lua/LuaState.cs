@@ -735,7 +735,7 @@ public class LuaState : IDisposable
     internal bool EnterExecution()
     {
         // Nested host re-entry (Lua calling C# that calls Lua again) must not count: only the
-        // outermost entry owns the 0 -> 1 transition that later reports ExecutionEnded.
+        // outermost entry owns the 0 -> 1 transition that later reports global quiescence.
         // A compare-exchange keeps that decision atomic across coroutine resumes and host calls.
         return Interlocked.CompareExchange(ref GlobalState.ActiveExecutions, 1, 0) == 0;
     }
@@ -746,7 +746,7 @@ public class LuaState : IDisposable
         if (!entered)
             return;
         if (Interlocked.Decrement(ref GlobalState.ActiveExecutions) == 0)
-            Volatile.Read(ref GlobalState.Debugger)?.ExecutionEnded();
+            Volatile.Read(ref GlobalState.Debugger)?.ExecutionQuiesced();
     }
 
     [AsyncMethodBuilder(typeof(LightAsyncValueTaskMethodBuilder<>))]

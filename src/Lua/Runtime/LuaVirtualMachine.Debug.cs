@@ -5,29 +5,19 @@ namespace Lua.Runtime;
 
 public static partial class LuaVirtualMachine
 {
-    // The opcode field is six bits wide (Instruction.SizeOp) and the published set currently ends
-    // at ExtraArg, so these two encodings are the only ones that cannot collide with a real
-    // instruction. DebuggerTrapTests fails if the enum ever grows into them.
+    // Reserve the highest encoding in the six-bit opcode field for debugger checkpoints.
     internal const OpCode DebuggerBreakOpCode = (OpCode)63;
-    internal const OpCode DebuggerResumeOpCode = (OpCode)62;
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static bool IsDebugTrap(OpCode opCode) =>
-        opCode is DebuggerBreakOpCode or DebuggerResumeOpCode;
 
     [MethodImpl(MethodImplOptions.NoInlining)]
-    static bool ExecuteDebuggerCheckpoint(
-        VirtualMachineExecutionContext context,
-        ILuaDebugSession? debugger
-    )
+    static bool ExecuteDebuggerCheckpoint(VirtualMachineExecutionContext context, LuaDebugCode code)
     {
-        if (debugger == null)
+        var debugger = Volatile.Read(ref context.GlobalState.Debugger);
+        if (debugger == null || code.Identity != debugger.Identity)
             return false;
-        var prototype = context.Prototype;
         var pc = context.Pc;
-        var lines = prototype.LineInfo;
+        var lines = code.Prototype.LineInfo;
         var line = lines.IsEmpty ? 0 : lines[pc];
-        var lineEntry =
+        var isLineEntry =
             pc == 0
             || context.LastDebugPc < 0
             || pc <= context.LastDebugPc
@@ -35,10 +25,10 @@ public static partial class LuaVirtualMachine
         context.LastDebugPc = pc;
         var task = debugger.CheckpointAsync(
             context.State,
-            context.LuaClosure,
+            code,
             pc,
             line,
-            lineEntry,
+            isLineEntry,
             context.CancellationToken
         );
         if (task.IsCompleted)

@@ -10,36 +10,29 @@ public sealed partial class LuaDebugger
     readonly List<WeakReference<ExecutionCode>> codeReferences = new();
     int additionsUntilCleanup = MinimumCleanupInterval;
 
-    LuaDebugCode ILuaDebugSession.GetExecutionCode(LuaClosure closure)
+    LuaDebugCode ILuaDebugSession.GetExecutionCode(Prototype prototype)
     {
-        if (executionCodes.TryGetValue(closure.Proto, out var existing))
+        if (executionCodes.TryGetValue(prototype, out var existing))
             return existing;
         lock (gate)
         {
             // GetValue instead of TryGetValue/Add: the execution thread and the protocol thread
             // can both reach a prototype first, and Add would throw on the loser.
-            return executionCodes.GetValue(
-                closure.Proto,
-                prototype =>
-                {
-                    if (!registered.TryGetValue(prototype, out var source))
-                    {
-                        RegisterSource(closure);
-                        source = registered.GetValue(
-                            prototype,
-                            _ => throw new InvalidOperationException()
-                        );
-                    }
-                    var code = new ExecutionCode(identity, prototype, source)
-                    {
-                        HasBreakpointLine = HasBreakpointLine(prototype, source),
-                    };
-                    Track(code);
-                    UpdateControls(code, IsAttached);
-                    return code;
-                }
-            );
+            return executionCodes.GetValue(prototype, CreateExecutionCode);
         }
+    }
+
+    ExecutionCode CreateExecutionCode(Prototype prototype)
+    {
+        if (!registered.TryGetValue(prototype, out var source))
+            source = RegisterSourceCore(prototype);
+        var code = new ExecutionCode(identity, prototype, source)
+        {
+            HasBreakpointLine = HasBreakpointLine(prototype, source),
+        };
+        Track(code);
+        UpdateControls(code, IsAttached);
+        return code;
     }
 
     void Track(ExecutionCode code)
@@ -73,7 +66,7 @@ public sealed partial class LuaDebugger
 
     void UpdateControls(ExecutionCode code, bool attached)
     {
-        code.SetEnabled(attached && (pauseRequested || step != null || code.HasBreakpointLine));
+        code.SetEnabled(attached && (PauseRequested || step != null || code.HasBreakpointLine));
     }
 
     static bool HasBreakpointLine(Prototype prototype, SourceEntry source)

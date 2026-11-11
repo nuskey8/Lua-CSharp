@@ -304,17 +304,12 @@ public static partial class LuaVirtualMachine
                     Task = default;
                     if (PostOperation == PostOperationType.Debugger)
                     {
-                        PostOperation = PostOperationType.None;
-                        // Re-fetch the stopped instruction without counting or firing its Lua hook twice.
+                        // Dispatch the saved instruction without counting or firing its Lua hook twice.
                         if (State.HookCount != 0)
                             State.HookCount++;
                         LastHookPc = Pc + 1;
                         toCatchFlag = false;
                         ThrowIfCancellationRequested();
-                        if (
-                            DebugCode!.Identity == Volatile.Read(ref GlobalState.Debugger)?.Identity
-                        )
-                            DebugCode.ResumeAt(Pc + 1);
                         continue;
                     }
                     ref readonly var frame = ref State.GetCurrentFrame();
@@ -480,7 +475,7 @@ public static partial class LuaVirtualMachine
                     else
                     {
                         context.PreviousDebugCode = current;
-                        context.DebugCode = debugger?.GetExecutionCode(context.LuaClosure);
+                        context.DebugCode = debugger?.GetExecutionCode(prototype);
                     }
                 }
             }
@@ -514,9 +509,20 @@ public static partial class LuaVirtualMachine
             }
 
             Loop:
-            while (true)
+            Instruction instruction;
+            if (context.PostOperation == PostOperationType.Debugger)
             {
-                var instruction = Unsafe.Add(ref instructionsHead, ++context.Pc);
+                context.PostOperation = PostOperationType.None;
+                context.Pc++;
+                instruction = context.Instruction;
+            }
+            else
+            {
+                instruction = Unsafe.Add(ref instructionsHead, ++context.Pc);
+            }
+
+            for (; ; instruction = Unsafe.Add(ref instructionsHead, ++context.Pc))
+            {
                 context.Instruction = instruction;
                 if (--hookCount == 0 || (lineHookFlag && context.Pc != context.LastHookPc))
                 {
@@ -1200,31 +1206,16 @@ public static partial class LuaVirtualMachine
 
                         continue;
                     default:
-                        if (IsDebugTrap(opCode))
+                        if (opCode == DebuggerBreakOpCode && context.DebugCode is { } code)
                         {
-                            if (context.DebugCode == null)
-                            {
-                                ThrowLuaNotImplementedException(context, opCode);
-                                return true;
-                            }
-                            instruction =
-                                opCode == DebuggerResumeOpCode
-                                    ? context.DebugCode.RestoreAt(context.Pc)
-                                    : context.Prototype.Code[context.Pc];
-                            if (IsDebugTrap(instruction.OpCode))
+                            instruction = code.Prototype.Code[context.Pc];
+                            if (instruction.OpCode == DebuggerBreakOpCode)
                             {
                                 ThrowLuaNotImplementedException(context, instruction.OpCode);
                                 return true;
                             }
                             context.Instruction = instruction;
-                            if (
-                                opCode == DebuggerBreakOpCode
-                                && context.DebugCode.Enabled
-                                && ExecuteDebuggerCheckpoint(
-                                    context,
-                                    Volatile.Read(ref context.GlobalState.Debugger)
-                                )
-                            )
+                            if (code.Enabled && ExecuteDebuggerCheckpoint(context, code))
                                 return true;
                             goto Dispatch;
                         }
