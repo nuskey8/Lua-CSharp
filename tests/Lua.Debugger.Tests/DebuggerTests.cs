@@ -30,6 +30,44 @@ public class DebuggerTests
         Assert.That(stops, Is.EqualTo(new[] { 6, 4 }));
     }
 
+    [Test]
+    public async Task StackInspectionRefreshesTrapsWhenABreakpointMoves()
+    {
+        using var state = LuaState.Create();
+        state.OpenStandardLibraries();
+        var inner = state.Load("coroutine.yield()\n\n\n\n\nreturn 42", "=shared");
+        state.Environment["inner"] = inner;
+        using var thread = state.CreateCoroutine(
+            state.Load("local n = 1\nlocal value = inner()\nreturn value", "=shared")
+        );
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var output = new LuaStack();
+        await thread.ResumeAsync(output, timeout.Token);
+
+        using var debugger = new LuaDebugger(state);
+        debugger.Attach();
+        var code = ((ILuaDebugSession)debugger).GetExecutionCode(inner.Proto);
+        Assert.That(debugger.SetBreakpoints("=shared", [2])[0].Line, Is.EqualTo(6));
+        var changes = new List<int>();
+        debugger.BreakpointChanged += breakpoint => changes.Add(breakpoint.Line);
+        var stops = Channel.CreateUnbounded<LuaDebugStop>();
+        debugger.Stopped += stop => stops.Writer.TryWrite(stop);
+        var execution = thread.ResumeAsync(output, timeout.Token).AsTask();
+        var stop = await stops.Reader.ReadAsync(timeout.Token);
+        try
+        {
+            Assert.That(code.Enabled, Is.True);
+            await debugger.GetStackTraceAsync(stop.Id, timeout.Token);
+            Assert.That(changes, Is.EqualTo(new[] { 2 }));
+            Assert.That(code.Enabled, Is.False);
+        }
+        finally
+        {
+            debugger.Continue(stop.Id);
+            await execution.WaitAsync(timeout.Token);
+        }
+    }
+
     [TestCase("local n=0;for i=1,3 do n=n+i end;return n")]
     [TestCase("for i=1,3 do end; return 42")]
     [TestCase("for i=1,0 do error('unreachable') end; return 42")]

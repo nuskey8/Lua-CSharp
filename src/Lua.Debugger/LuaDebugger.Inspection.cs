@@ -18,8 +18,8 @@ public sealed partial class LuaDebugger
         );
 
     /// <summary>
-    /// Reads one page of the suspended stack. The cost is proportional to the page, not to the
-    /// stack depth, which keeps protocol paging usable for deeply recursive scripts.
+    /// Materializes the requested frames. Discovering executable source lines can also update
+    /// breakpoints.
     /// </summary>
     internal Task<LuaDebugStackTrace> GetStackTraceAsync(
         int stopId,
@@ -42,6 +42,7 @@ public sealed partial class LuaDebugger
             return new LuaDebugStackTrace(Array.Empty<LuaDebugStackFrame>(), total);
         var end = (int)Math.Min(total, (long)start + count);
         var result = new LuaDebugStackFrame[end - start];
+        var controlsChanged = false;
         for (var position = start; position < end; position++)
         {
             // Frames are reported top first, while the call stack stores the oldest frame first.
@@ -53,21 +54,22 @@ public sealed partial class LuaDebugger
             var name = frame.Function.Name;
             if (frame.Function is LuaClosure closure)
             {
+                var prototype = closure.Proto;
                 lock (gate)
-                {
-                    RegisterPrototype(closure.Proto);
-                    source = registered
-                        .GetValue(closure.Proto, _ => throw new InvalidOperationException())
-                        .Source;
-                }
-                if ((uint)pc < (uint)closure.Proto.LineInfo.Length)
-                    line = closure.Proto.LineInfo[pc];
+                    source = RegisterPrototype(prototype, ref controlsChanged).Source;
+                if ((uint)pc < (uint)prototype.LineInfo.Length)
+                    line = prototype.LineInfo[pc];
                 name =
-                    closure.Proto.LineDefined == 0
+                    prototype.LineDefined == 0
                         ? "main chunk"
-                        : $"function at {source.Name}:{closure.Proto.LineDefined}";
+                        : $"function at {source.Name}:{prototype.LineDefined}";
             }
             result[position - start] = new LuaDebugStackFrame(i + 1, name, source, line);
+        }
+        if (controlsChanged)
+        {
+            lock (gate)
+                UpdateExecutionCodes(breakpointsChanged: true);
         }
         return new LuaDebugStackTrace(result, total);
     }
