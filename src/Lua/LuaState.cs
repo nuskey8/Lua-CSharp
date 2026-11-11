@@ -233,7 +233,19 @@ public class LuaState : IDisposable
     internal int ErrorHandlerIndex;
     internal int NonYieldableCallCount;
     internal readonly ReversedStack<CallStackFrame> ExceptionTrace = new();
+
     internal Prototype? LastCallerPrototype;
+
+    // Only native tail calls need to reconstruct a discarded caller. Line hooks can change LastPc.
+    internal (Prototype? Prototype, int Pc, bool IsTailCall) LastNativeTailCaller;
+
+    internal (Prototype? Prototype, int Pc, bool IsTailCall) GetNativeTailCaller()
+    {
+        var frames = GetCallStackFrames();
+        return !frames.IsEmpty && frames[^1].IsTailCall && frames[^1].Function is not LuaClosure
+            ? LastNativeTailCaller
+            : default;
+    }
 
     internal ref FastListCore<UpValue> OpenUpValues => ref openUpValues;
     public bool IsRunning => CallStackFrameCount != 0;
@@ -677,6 +689,7 @@ public class LuaState : IDisposable
         var state = this;
         var callStackTop = state.CallStackFrameCount;
         var previousCallerPrototype = state.LastCallerPrototype;
+        var previousNativeTailCaller = state.LastNativeTailCaller;
         var previousPc = state.LastPc;
         var entered = EnterExecution();
         try
@@ -714,6 +727,7 @@ public class LuaState : IDisposable
         {
             PopCallStackFrameUntil(callStackTop);
             LastCallerPrototype = previousCallerPrototype;
+            LastNativeTailCaller = previousNativeTailCaller;
             LastPc = previousPc;
             ExitExecution(entered);
         }

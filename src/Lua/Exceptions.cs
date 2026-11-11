@@ -199,7 +199,7 @@ public class LuaRuntimeException : Exception, ILuaTracebackBuildable
             state.ExceptionTrace.Clear();
             state.CurrentException = this;
             State = state;
-            if (level <= 1)
+            if (level == 1)
                 CaptureTailCallSite(state);
         }
 
@@ -207,7 +207,7 @@ public class LuaRuntimeException : Exception, ILuaTracebackBuildable
         this.level = level;
     }
 
-    int level = 1;
+    readonly int level = 1;
 
     // Where the discarded caller of a native tail call made the call. Captured when the exception
     // is created, while the tail call still sits on the stack; the frame itself is released so the
@@ -217,26 +217,14 @@ public class LuaRuntimeException : Exception, ILuaTracebackBuildable
 
     void CaptureTailCallSite(LuaState state)
     {
-        var frames = state.GetCallStackFrames();
-        if (frames.Length == 0)
-            return;
-        var top = frames[^1];
-        if (!top.IsTailCall || top.Function is LuaClosure)
-            return;
-        if (state.LastCallerPrototype is not { } prototype)
-            return;
-        if ((uint)state.LastPc >= (uint)prototype.LineInfo.Length)
+        var caller = state.GetNativeTailCaller();
+        if (
+            caller.Prototype is not { } prototype
+            || (uint)caller.Pc >= (uint)prototype.LineInfo.Length
+        )
             return;
         tailCallSitePrototype = prototype;
-        tailCallSitePc = state.LastPc;
-    }
-
-    bool TryWriteTailCallSite(ref PooledList<char> list)
-    {
-        if (tailCallSitePrototype is not { } prototype)
-            return false;
-        Traceback.WritePosition(ref list, prototype, tailCallSitePc);
-        return true;
+        tailCallSitePc = caller.Pc;
     }
 
     Traceback? luaTraceback;
@@ -398,8 +386,10 @@ public class LuaRuntimeException : Exception, ILuaTracebackBuildable
         Prototype? callerPrototype;
         if (current.IsTailCall)
         {
-            pc = state.LastPc;
-            callerPrototype = state.LastCallerPrototype;
+            (callerPrototype, pc) =
+                current.Function is LuaClosure
+                    ? (state.LastCallerPrototype, state.LastPc)
+                    : (state.LastNativeTailCaller.Prototype, state.LastNativeTailCaller.Pc);
         }
         else
         {
@@ -547,18 +537,18 @@ public class LuaRuntimeException : Exception, ILuaTracebackBuildable
         }
     }
 
-    string CreateMessage(Traceback traceback, LuaValue errorObject, int level)
+    string FormatMessage(ReadOnlySpan<CallStackFrame> frames, string message, string prefix = "")
     {
         var pooledList = new PooledList<char>(64);
         pooledList.Clear();
         try
         {
-            pooledList.AddRange("Lua-CSharp: ");
-            var before = pooledList.Count;
-            traceback.WriteLastLuaTrace(ref pooledList, level);
-            if (pooledList.Count == before)
-                TryWriteTailCallSite(ref pooledList);
-            pooledList.AddRange($"{errorObject}");
+            pooledList.AddRange(prefix);
+            if (tailCallSitePrototype is { } prototype)
+                Traceback.WritePosition(ref pooledList, prototype, tailCallSitePc);
+            else
+                Traceback.WriteLastLuaTrace(frames, ref pooledList, level);
+            pooledList.AddRange(message);
             return pooledList.AsSpan().ToString();
         }
         finally
@@ -614,57 +604,20 @@ public class LuaRuntimeException : Exception, ILuaTracebackBuildable
             return message;
         }
 
-        if (luaTraceback == null)
+        ReadOnlySpan<CallStackFrame> frames = default;
+        if (luaTraceback is { } traceback)
         {
-            if (State != null)
-            {
-                ReadOnlySpan<CallStackFrame> callStack = State.ExceptionTrace.AsSpan();
-                if (callStack.IsEmpty)
-                    callStack = State.GetCallStackFrames();
-                level = Math.Min(level, callStack.Length + 1);
-                callStack = callStack[..^(level - 1)];
-                if (callStack.IsEmpty)
-                {
-                    return ErrorObject.ToString();
-                }
-
-                {
-                    var pooledList = new PooledList<char>(64);
-                    pooledList.Clear();
-                    try
-                    {
-                        Traceback.WriteLastLuaTrace(callStack, ref pooledList);
-                        if (pooledList.Count == 0)
-                            TryWriteTailCallSite(ref pooledList);
-                        pooledList.AddRange(message);
-                        return pooledList.AsSpan().ToString();
-                    }
-                    finally
-                    {
-                        pooledList.Dispose();
-                    }
-                }
-            }
-
-            return message;
+            frames = traceback.StackFrames;
         }
-
+        else if (State is { } state)
         {
-            var pooledList = new PooledList<char>(64);
-            pooledList.Clear();
-            try
-            {
-                luaTraceback.WriteLastLuaTrace(ref pooledList, level);
-                if (pooledList.Count == 0)
-                    TryWriteTailCallSite(ref pooledList);
-                pooledList.AddRange(message);
-                return pooledList.AsSpan().ToString();
-            }
-            finally
-            {
-                pooledList.Dispose();
-            }
+            frames = state.ExceptionTrace.AsSpan();
+            if (frames.IsEmpty)
+                frames = state.GetCallStackFrames();
         }
+        return frames.IsEmpty && tailCallSitePrototype == null
+            ? message
+            : FormatMessage(frames, message);
     }
 
     public override string Message
@@ -676,12 +629,10 @@ public class LuaRuntimeException : Exception, ILuaTracebackBuildable
                 return InnerException.Message;
             }
 
-            if (LuaTraceback == null)
-            {
-                return ErrorObject.ToString();
-            }
-
-            return CreateMessage(LuaTraceback, ErrorObject, level);
+            var traceback = LuaTraceback;
+            return traceback == null
+                ? ErrorObject.ToString()
+                : FormatMessage(traceback.StackFrames, ErrorObject.ToString(), "Lua-CSharp: ");
         }
     }
 

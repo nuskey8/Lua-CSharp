@@ -95,7 +95,7 @@ public sealed partial class LuaDebugger : IDisposable, ILuaDebugSession
             step = null;
             pauseRequested = false;
             resumeRequested = true;
-            UpdateExecutionCodes();
+            UpdateExecutionCodes(breakpointsChanged: true);
             signal.TrySetResult(true);
             inspections = paused?.Inspections;
         }
@@ -323,6 +323,12 @@ public sealed partial class LuaDebugger : IDisposable, ILuaDebugSession
         paused is { } context && context.Stop.Id == id && !resumeRequested
             ? context
             : throw new InvalidOperationException("The debug stop is no longer active.");
+
+    internal int GetFrameCount(int stopId)
+    {
+        lock (gate)
+            return RequireStop(stopId).Depth;
+    }
 
     Task<T> InspectAsync<T>(
         int stopId,

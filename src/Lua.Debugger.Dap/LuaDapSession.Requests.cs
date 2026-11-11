@@ -220,10 +220,8 @@ public sealed partial class LuaDapSession
                 return;
             case "scopes":
                 var frameId = Integer(args, "frameId");
-                var frame = await debugger
-                    .GetStackTraceAsync(CurrentStop(expectedStop), frameId - 1, 1, token)
-                    .ConfigureAwait(false);
-                if (frame.Frames.Length == 0 || frame.Frames[0].Id != frameId)
+                var frameCount = debugger.GetFrameCount(CurrentStop(expectedStop));
+                if (frameId < 1 || frameId > frameCount)
                     throw new ArgumentException("Unknown frame.");
                 var scopes = new JsonArray();
                 foreach (
@@ -297,23 +295,12 @@ public sealed partial class LuaDapSession
                     .ConfigureAwait(false);
                 return;
             case "evaluate":
+                var evaluationStop = CurrentStop(expectedStop);
                 var evaluationFrame = Integer(args, "frameId");
                 if (evaluationFrame == 0)
-                {
-                    var top = await debugger
-                        .GetStackTraceAsync(CurrentStop(expectedStop), 0, 1, token)
-                        .ConfigureAwait(false);
-                    if (top.Frames.Length == 0)
-                        throw new InvalidOperationException("Lua execution is not stopped.");
-                    evaluationFrame = top.Frames[0].Id;
-                }
+                    evaluationFrame = debugger.GetFrameCount(evaluationStop);
                 var evaluated = await debugger
-                    .EvaluateAsync(
-                        CurrentStop(expectedStop),
-                        evaluationFrame,
-                        Text(args, "expression"),
-                        token
-                    )
+                    .EvaluateAsync(evaluationStop, evaluationFrame, Text(args, "expression"), token)
                     .ConfigureAwait(false);
                 await RespondAsync(
                         request,

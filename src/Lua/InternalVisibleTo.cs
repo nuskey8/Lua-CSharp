@@ -2,3 +2,4 @@
 
 [assembly: InternalsVisibleTo("Lua.Tests")]
 [assembly: InternalsVisibleTo("Lua.Debugger")]
+[assembly: InternalsVisibleTo("Lua.Debugger.Tests")]

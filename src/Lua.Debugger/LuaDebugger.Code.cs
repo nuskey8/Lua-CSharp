@@ -52,14 +52,18 @@ public sealed partial class LuaDebugger
         codeReferences.Add(new WeakReference<ExecutionCode>(code));
     }
 
-    /// <summary>Applies the current controls to every execution copy. Cheap: no prototype is scanned.</summary>
-    void UpdateExecutionCodes()
+    // Only breakpoint and source changes need to scan prototype lines.
+    void UpdateExecutionCodes(bool breakpointsChanged = false)
     {
         var attached = IsAttached;
         for (var i = codeReferences.Count - 1; i >= 0; i--)
         {
             if (codeReferences[i].TryGetTarget(out var code))
+            {
+                if (breakpointsChanged)
+                    code.HasBreakpointLine = HasBreakpointLine(code.Prototype, code.Source);
                 UpdateControls(code, attached);
+            }
             else
                 codeReferences.RemoveAt(i);
         }
@@ -68,23 +72,6 @@ public sealed partial class LuaDebugger
     void UpdateControls(ExecutionCode code, bool attached)
     {
         code.SetEnabled(attached && (pauseRequested || step != null || code.HasBreakpointLine));
-    }
-
-    /// <summary>
-    /// Recomputes which execution copies can hit a breakpoint. Only breakpoint or source changes
-    /// need this; stops and steps reuse the cached answer instead of rescanning every prototype.
-    /// </summary>
-    void RefreshBreakpointLines()
-    {
-        for (var i = codeReferences.Count - 1; i >= 0; i--)
-        {
-            if (!codeReferences[i].TryGetTarget(out var code))
-            {
-                codeReferences.RemoveAt(i);
-                continue;
-            }
-            code.HasBreakpointLine = HasBreakpointLine(code.Prototype, code.Source);
-        }
     }
 
     static bool HasBreakpointLine(Prototype prototype, SourceEntry source)

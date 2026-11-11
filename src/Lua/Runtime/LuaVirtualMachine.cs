@@ -1807,6 +1807,14 @@ public static partial class LuaVirtualMachine
         // Release the replaced closure before a hook or native tail callee can suspend.
         context.LuaClosure = null!;
 
+        var isLuaClosure = func is LuaClosure;
+        if (!isLuaClosure)
+            state.LastNativeTailCaller = (
+                state.LastCallerPrototype,
+                context.Pc,
+                lastFrame.IsTailCall
+            );
+
         if (state.CallOrReturnHookMask.Value != 0 && !context.State.IsInHook)
         {
             context.PostOperation = PostOperationType.TailCall;
@@ -1815,7 +1823,7 @@ public static partial class LuaVirtualMachine
             return false;
         }
 
-        if (func is LuaClosure)
+        if (isLuaClosure)
         {
             context.Push(newFrame);
             doRestart = true;

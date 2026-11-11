@@ -17,23 +17,42 @@ public class DebugDiscardedCallerTests
         return state;
     }
 
-    [Test]
-    public async Task GetInfoReportsTheCallerDiscardedByANativeTailCall()
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task GetInfoReportsTheCallerDiscardedByANativeTailCall(bool tailCall)
     {
         using var state = CreateState();
+        var invoke = tailCall
+            ? "local function outer() return f(1) end\nlocal info = outer()"
+            : "local info = f(1)";
         var results = await state.DoStringAsync(
-            "local function f(a)\n"
-                + "  return debug.getinfo(1, 'Slu')\n"
-                + "end\n"
-                + "local info = f(1)\n"
-                + "return info.what, info.linedefined, info.currentline, info.nparams, info.isvararg",
+            $"""
+            local function f(a)
+              return debug.getinfo(1, 'SluLntf')
+            end
+            {invoke}
+            return info.what, info.linedefined, info.currentline, info.nparams, info.isvararg,
+                   info.istailcall, info.name, info.activelines[2], info.func
+            """,
             "=discarded"
         );
-        Assert.That(results[0].Read<string>(), Is.EqualTo("Lua"));
-        Assert.That(results[1].Read<double>(), Is.EqualTo(1));
-        Assert.That(results[2].Read<double>(), Is.EqualTo(2));
-        Assert.That(results[3].Read<double>(), Is.EqualTo(1));
-        Assert.That(results[4].Read<bool>(), Is.False);
+        Assert.That(
+            results,
+            Is.EqualTo(
+                new LuaValue[]
+                {
+                    "Lua",
+                    1,
+                    2,
+                    1,
+                    false,
+                    tailCall,
+                    tailCall ? LuaValue.Nil : "f",
+                    true,
+                    LuaValue.Nil,
+                }
+            )
+        );
     }
 
     [Test]

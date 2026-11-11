@@ -56,11 +56,6 @@ public class Traceback(LuaState state, ReadOnlySpan<CallStackFrame> stackFrames)
         list.AddRange(": ");
     }
 
-    internal void WriteLastLuaTrace(ref PooledList<char> list, int level = 1)
-    {
-        WriteLastLuaTrace(StackFrames, ref list, level);
-    }
-
     public int LastLine
     {
         get

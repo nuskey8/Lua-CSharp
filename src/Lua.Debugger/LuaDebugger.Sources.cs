@@ -50,8 +50,7 @@ public sealed partial class LuaDebugger
                     if (request.Resolved.Verified)
                         entry.Points[request.Resolved.Line] = request.Resolved;
             }
-            RefreshBreakpointLines();
-            UpdateExecutionCodes();
+            UpdateExecutionCodes(breakpointsChanged: true);
             return requests.Select(x => x.Resolved).ToArray();
         }
     }
@@ -61,8 +60,7 @@ public sealed partial class LuaDebugger
         lock (gate)
         {
             ClearBreakpointsCore();
-            RefreshBreakpointLines();
-            UpdateExecutionCodes();
+            UpdateExecutionCodes(breakpointsChanged: true);
         }
     }
 
@@ -95,10 +93,7 @@ public sealed partial class LuaDebugger
             if (content != null)
                 entry.Source = entry.Source with { Content = content };
             if (controlsChanged)
-            {
-                RefreshBreakpointLines();
-                UpdateExecutionCodes();
-            }
+                UpdateExecutionCodes(breakpointsChanged: true);
             return entry.Source;
         }
     }

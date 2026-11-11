@@ -126,12 +126,11 @@ readonly struct LuaDebug : IDisposable
 
     public static LuaDebug Create(
         LuaGlobalState globalState,
-        CallStackFrame? prevFrame,
-        CallStackFrame? frame,
         LuaFunction? function,
         Prototype? prototype,
-        int pc,
-        int callerPc,
+        int? pc,
+        bool isTailCall,
+        (Prototype? Prototype, int Pc) caller,
         ReadOnlySpan<char> what,
         out bool isValid
     )
@@ -141,7 +140,7 @@ readonly struct LuaDebug : IDisposable
             buffer = new(globalState);
         }
 
-        isValid = buffer.GetInfo(prevFrame, frame, function, prototype, pc, callerPc, what);
+        isValid = buffer.GetInfo(function, prototype, pc, isTailCall, caller, what);
 
         return new(buffer, buffer.version);
     }
@@ -214,17 +213,14 @@ readonly struct LuaDebug : IDisposable
         }
 
         internal bool GetInfo(
-            CallStackFrame? prevFrame,
-            CallStackFrame? frame,
             LuaFunction? function,
             Prototype? prototype,
-            int pc,
-            int callerPc,
+            int? pc,
+            bool isTailCall,
+            (Prototype? Prototype, int Pc) caller,
             ReadOnlySpan<char> what
         )
         {
-            var closure = function as LuaClosure;
-            var proto = closure?.Proto ?? prototype;
             var status = 1;
             foreach (var c in what)
             {
@@ -232,69 +228,57 @@ readonly struct LuaDebug : IDisposable
                 {
                     case 'S':
                     {
-                        if (function is not null)
-                            GetFuncInfo(function);
-                        else
-                            GetFuncInfo(proto!);
+                        GetFuncInfo(prototype);
                         break;
                     }
                     case 'l':
                     {
                         CurrentLine =
-                            proto is not null && (frame.HasValue || function is null)
-                                ? ((uint)pc < (uint)proto.LineInfo.Length ? proto.LineInfo[pc] : 0)
+                            prototype is not null && pc is { } instructionIndex
+                                ? (
+                                    (uint)instructionIndex < (uint)prototype.LineInfo.Length
+                                        ? prototype.LineInfo[instructionIndex]
+                                        : 0
+                                )
                                 : -1;
                         break;
                     }
                     case 'u':
                     {
                         UpValueCount =
-                            proto is not null ? proto.UpValues.Length
+                            prototype is not null ? prototype.UpValues.Length
                             : function is CSharpClosure csClosure ? csClosure.UpValues.Length
                             : 0;
-                        if (proto is null)
+                        if (prototype is null)
                         {
                             IsVarArg = true;
                             ParameterCount = 0;
                         }
                         else
                         {
-                            IsVarArg = proto.HasVariableArguments;
-                            ParameterCount = proto.ParameterCount;
+                            IsVarArg = prototype.HasVariableArguments;
+                            ParameterCount = prototype.ParameterCount;
                         }
 
                         break;
                     }
                     case 't':
                     {
-                        IsTailCall =
-                            frame.HasValue
-                            && (frame.Value.Flags | CallStackFrameFlags.TailCall)
-                                == frame.Value.Flags;
+                        IsTailCall = isTailCall;
                         break;
                     }
                     case 'n':
                     {
-                        /* calling function is a known Lua function? */
-                        if (prevFrame is { Function: LuaClosure prevFrameClosure })
-                        {
-                            NameWhat = GetFuncName(
-                                prevFrameClosure.Proto,
-                                frame?.CallerInstructionIndex ?? callerPc,
-                                out Name
-                            );
-                        }
-                        else
-                        {
-                            NameWhat = null;
-                        }
+                        NameWhat = caller.Prototype is { } callerPrototype
+                            ? GetFuncName(callerPrototype, caller.Pc, out Name)
+                            : null;
 
                         if (NameWhat is null)
                         {
                             NameWhat = ""; /* not found */
                             Name = null;
                         }
-                        else if (NameWhat != null && Name is "?")
+                        else if (Name is "?")
                         {
                             Name = function?.Name;
                         }
@@ -313,29 +297,22 @@ readonly struct LuaDebug : IDisposable
             return status == 1;
         }
 
-        void GetFuncInfo(LuaFunction f)
+        void GetFuncInfo(Prototype? prototype)
         {
-            if (f is not LuaClosure cl)
+            if (prototype is null)
             {
                 Source = "=[C#]";
                 LineDefined = -1;
                 LastLineDefined = -1;
                 What = "C#";
-                ShortSourceLength = WriteShortSource(Source, ShortSource);
-                return;
             }
-
-            GetFuncInfo(cl.Proto);
-        }
-
-        // Used for a caller frame that a tail call into a host function discarded: its prototype is
-        // still known, but its closure is gone.
-        void GetFuncInfo(Prototype p)
-        {
-            Source = p.ChunkName;
-            LineDefined = p.LineDefined;
-            LastLineDefined = p.LastLineDefined;
-            What = LineDefined == 0 ? "main" : "Lua";
+            else
+            {
+                Source = prototype.ChunkName;
+                LineDefined = prototype.LineDefined;
+                LastLineDefined = prototype.LastLineDefined;
+                What = LineDefined == 0 ? "main" : "Lua";
+            }
             ShortSourceLength = WriteShortSource(Source, ShortSource);
         }
     }

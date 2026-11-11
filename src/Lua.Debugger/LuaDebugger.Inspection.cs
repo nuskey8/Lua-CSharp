@@ -336,6 +336,7 @@ public sealed partial class LuaDebugger
         );
         var previousPc = context.State.LastPc;
         var previousPrototype = context.State.LastCallerPrototype;
+        var previousNativeTailCaller = context.State.LastNativeTailCaller;
         evaluating = true;
         context.State.NonYieldableCallCount++;
         try
@@ -348,6 +349,7 @@ public sealed partial class LuaDebugger
             context.State.NonYieldableCallCount--;
             context.State.LastPc = previousPc;
             context.State.LastCallerPrototype = previousPrototype;
+            context.State.LastNativeTailCaller = previousNativeTailCaller;
             evaluating = false;
         }
     }

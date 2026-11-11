@@ -238,10 +238,7 @@ public class DapTests
             children["body"]!["variables"]![0]!["value"]!.GetValue<string>(),
             Is.EqualTo("\"é🐇\"")
         );
-        var evaluated = await host.RequestAsync(
-            "evaluate",
-            new() { ["frameId"] = frameId, ["expression"] = "x+4" }
-        );
+        var evaluated = await host.RequestAsync("evaluate", new() { ["expression"] = "x+4" });
         Assert.That(evaluated["body"]!["result"]!.GetValue<string>(), Is.EqualTo("5"));
         await host.RequestAsync(
             "setVariable",
@@ -391,9 +388,14 @@ public class DapTests
         );
         Assert.That(frames[0]!["line"]!.GetValue<int>(), Is.EqualTo(5));
 
-        // The page must still resolve scopes for the frame it returned.
-        var scopes = await host.RequestAsync("scopes", new() { ["frameId"] = 2 });
-        Assert.That(scopes["body"]!["scopes"]!.AsArray().Count, Is.EqualTo(3));
+        foreach (var frame in all["body"]!["stackFrames"]!.AsArray())
+        {
+            var scopes = await host.RequestAsync(
+                "scopes",
+                new() { ["frameId"] = frame!["id"]!.GetValue<int>() }
+            );
+            Assert.That(scopes["body"]!["scopes"]!.AsArray().Count, Is.EqualTo(3));
+        }
 
         var beyond = await host.RequestAsync(
             "stackTrace",

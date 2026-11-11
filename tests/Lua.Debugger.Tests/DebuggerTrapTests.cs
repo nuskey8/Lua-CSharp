@@ -1,3 +1,4 @@
+using Lua.Debugging;
 using Lua.Runtime;
 using NUnit.Framework;
 
@@ -29,5 +30,23 @@ public class DebuggerTrapTests
         var trap = new Instruction(63);
         Assert.That(trap.ToString(), Is.EqualTo("TRAP 63"));
         Assert.That(trap.OpCode, Is.EqualTo((OpCode)63));
+    }
+
+    [Test]
+    public void ResetRestoresOriginalInstructionsWhileStillAttached()
+    {
+        using var state = LuaState.Create();
+        using var debugger = new LuaDebugger(state);
+        debugger.Attach();
+        var closure = state.Load("local value = 42\nreturn value", "=reset");
+        debugger.RegisterSource(closure);
+        debugger.SetBreakpoints("=reset", [2]);
+
+        var code = ((ILuaDebugSession)debugger).GetExecutionCode(closure);
+        Assert.That(code.Enabled, Is.True);
+
+        debugger.Reset();
+        Assert.That(debugger.IsAttached, Is.True);
+        Assert.That(code.Code, Is.EqualTo(closure.Proto.Code.ToArray()));
     }
 }
