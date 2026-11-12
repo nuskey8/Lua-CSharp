@@ -37,7 +37,7 @@ finally
 
 The server binds to loopback by default; another bind address is an explicit host choice. It serves one client at a time and supports reconnecting. It does not own the state, launch the host process, or terminate it on disconnect. `WaitForConfigurationAsync` waits for the first client's `configurationDone`, including installing an entry-stop request, before execution starts. Hosts that should run without an editor can omit that wait.
 
-Disconnect and EOF clear session controls and release a stop. The server keeps its debugger installed for later clients; server disposal detaches it. Host functions used by an evaluation must honor their cancellation token so disconnect can cancel that evaluation. Pass the application's lifetime token to execution and the server when needed. A pause cannot interrupt arbitrary C# code or an outstanding host await. Normal Lua-state ownership rules apply: do not dispose the state or execute it concurrently while it is running or stopped.
+Disconnect and EOF clear session controls and release a stop. A malformed frame drops only that client: the listener keeps accepting and the debugger stays attached, so the editor can reconnect. The server keeps its debugger installed for later clients; server disposal detaches it. Host functions used by an evaluation must honor their cancellation token so disconnect can cancel that evaluation. Pass the application's lifetime token to execution and the server when needed. A pause cannot interrupt arbitrary C# code or an outstanding host await. Normal Lua-state ownership rules apply: do not dispose the state or execute it concurrently while it is running or stopped.
 
 For another transport, use `LuaDapSession(debugger, inputStream, outputStream)` and await `RunAsync`. The caller owns the streams. Use one active DAP session per debugger.
 
@@ -112,6 +112,8 @@ A dedicated VM checkpoint runs before a selected instruction executes. It does n
 
 An asynchronous stop awaits a signal; a synchronous stop waits on its debugger command queue. Both process inspection commands on the suspended execution, and the protocol reader continues receiving requests without reading live stack storage itself. Frame/variable handles expire on resume, cancellation, or disconnect; table references are cleared when the stop ends.
 
+`Stopped` runs on the paused execution before its command pump starts, so it is the one place where inspections cannot be serviced yet: blocking on `GetVariablesAsync` (or any other inspection) there throws `InvalidOperationException` instead of waiting forever. Record the stop, return, and inspect afterwards; `Continue` may be called from the handler.
+
 DAP inspections are serialized separately from execution controls. Continue and stepping can cancel an awaiting evaluation; execution resumes after that inspection unwinds. Requests retain the stop ID observed when received, so queued inspections cannot operate on a later stop. An application resume racing an editor resume preserves the newer stop and produces one response to the editor request. Failures from inspection cancellation callbacks after an acknowledged resume are reported through DAP stderr output.
 
 An editor connecting to an existing stop receives it after configuration completes. Disconnect releases the stop and clears session controls after pending requests finish. Replacing the debugger while execution is idle also covers coroutines that yielded under its predecessor. If posted work throws during a synchronous stop, pending inspections are cancelled and drained before the failure unwinds Lua execution.
@@ -130,7 +132,7 @@ The synchronous pump drains accepted callbacks even when a stop is resumed immed
 | Step over | At the next line in the original frame, or after it returns. A tail-call replacement is distinct. |
 | Step out | After the original frame returns. A coroutine yielding/completing can transfer the stop to its caller. |
 
-Frame identity supplements depth to handle tail calls. A pending step ends when its owning Lua stack has unwound and execution returns to the host; breakpoints remain installed for later invocations. A yielded coroutine retains its step across direct C# resumes because its Lua frames are still live. Hooks already executed for a stopped instruction are not executed again on resume. Locals, upvalues, varargs, globals, and raw table/userdata contents are inspected lazily with paging. Value display does not call user `__tostring`.
+Frame identity supplements depth to handle tail calls. A pending step ends when its owning Lua stack has unwound and execution returns to the host; breakpoints remain installed for later invocations. A yielded coroutine retains its step across direct C# resumes because its Lua frames are still live. A pause requested during execution expires if that execution unwinds before reaching a checkpoint. A pause requested while idle waits for the next checkpoint. Hooks already executed for a stopped instruction are not executed again on resume. Locals, upvalues, varargs, globals, raw table/userdata contents and stack frames are inspected lazily. Stack paging materializes only the requested frames. The `Locals` scope keeps `debug.getlocal` numbering, so hidden loop control variables (such as `(for index)` or `(for control)`) appear alongside ordinary locals and varargs are listed as `...[n]`. Value display does not call user `__tostring`.
 
 Source paths use host path/case rules. Breakpoints resolve to the first executable line at or after the requested line. Unknown sources remain pending until registered/executed, with breakpoint-change events on resolution. There is no basename-only fallback. For an in-memory chunk, use an `=name` chunk name, register its text, and use the source reference supplied by the adapter.
 
@@ -150,36 +152,32 @@ An ordinary Lua hook can be replaced by the script and adds callback/frame overh
 
 Other embedders informed the hosting API as well. [MoonSharp's server](https://github.com/moonsharp-devs/moonsharp/blob/master/src/MoonSharp.VsCodeDebugger/MoonSharpVsCodeDebugServer.cs) attaches application-owned scripts and accepts a source finder; its [AsyncDebugger](https://github.com/moonsharp-devs/moonsharp/blob/master/src/MoonSharp.VsCodeDebugger/DebuggerLogic/AsyncDebugger.cs) nevertheless blocks the script thread while waiting for debugger actions. [Jint's debug callbacks](https://github.com/sebastienros/jint/blob/main/Jint/Runtime/Debugger/DebugHandler.cs) run inside engine execution and resume it by returning. [ClearScript's document pause flag](https://github.com/ClearFoundry/ClearScript/blob/master/ClearScript/DocumentFlags.cs) separates a selected script's initial debugger wait from general engine setup. Lua-CSharp keeps application ownership and source mapping explicit, and offers both blocking and asynchronous stops because its host calls can already await.
 
-The VM keeps one dispatch loop. Ordinary execution uses `Prototype.Code`; a debugger installs its own cached execution copy for each prototype. That copy contains fixed trap instructions at selected source-line and control-flow points. Breakpoint, pause, and step changes update control flags; the protocol thread never patches instructions. Inactive checkpoints immediately dispatch the original instruction. Loop targets provide a checkpoint even for a single-line infinite loop. Bytecode without source metadata still has control-flow checkpoints.
+The VM keeps one dispatch loop. Ordinary execution uses `Prototype.Code`; a debugger installs its own cached execution copy for each prototype. While controls need it, that copy carries trap instructions at selected source-line and control-flow points. Breakpoint, pause, and step changes update control flags and patch or unpatch those points; the protocol thread never touches `Prototype.Code`. A copy with no active controls is byte-for-byte identical to the original, so idle debugging costs nothing per instruction. Loop targets provide a checkpoint even for a single-line infinite loop. Bytecode without source metadata still has control-flow checkpoints.
 
 Trap handling lives in the dispatch switch's existing fallback path. There is no second interpreter loop or generic specialization. Keeping traps outside the ordinary opcode cases also avoids expanding the normal dispatch table.
 
 A forward numeric-loop setup jump needs no separate header trap when it stays on the same source line. The setup records that untrapped header once, preserving the first backward jump's line event. Loop-body targets and source-line boundaries remain checkpoints. Call/return checkpoints remain available for pause requests around host awaits; unreachable fallthrough points after returns and tail calls are omitted.
 
-An internal resume trap executes the stopped instruction once and restores its checkpoint. Only the VM owner writes that marker. It survives breakpoint edits during a stop and does not replay Lua hooks. Private execution copies keep shared prototypes, other Lua states, and bytecode dumps unchanged. Volatile control flags are checked only at traps, so ordinary instruction fetching needs no debugger flag or volatile read. Execution-copy metadata is weakly cached and released with its prototype. Attached execution pays for checkpoints, including when no breakpoint is hit; detached execution uses the ordinary instructions.
+The VM resumes with the original instruction it saved before stopping. Breakpoint edits can patch future fetches while the saved instruction executes once. Lua hooks already run for that instruction stay counted once. Private execution copies keep shared prototypes, other Lua states, and bytecode dumps unchanged. Volatile control flags are checked only at traps, so ordinary instruction fetching needs no debugger flag or volatile read. Execution-copy metadata is weakly cached and released with its prototype. Detached execution uses the ordinary instructions directly.
 
-Execution copies carry an opaque session identity and their source metadata, without a reference back to the debugger. A yielded coroutine therefore does not retain a detached debugger or its application callbacks. The weak tracking list removes dead entries when it fills, before growing, as well as during control changes. Compiling temporary chunks therefore does not grow that list indefinitely while controls stay unchanged. The VM checks ownership at frame restart; within the instruction loop it reads the active debugger only at enabled checkpoints. Ownership requires no weak-reference lookup on the execution path.
+Execution copies carry an opaque session identity and their source metadata, without a reference back to the debugger. A yielded coroutine therefore does not retain a detached debugger or its application callbacks. The weak tracking list prunes dead entries periodically, before it grows, and during control changes. Compiling temporary chunks therefore does not grow that list indefinitely while controls stay unchanged. The VM checks ownership at frame restart; within the instruction loop it reads the active debugger only at enabled checkpoints. Ownership requires no weak-reference lookup on the execution path.
 
 ## Performance
 
-Debugging is opt-in. Detached execution uses the original bytecode. Starting a server installs checkpoints before accepting clients, so an installed debugger has an execution cost even while no editor is connected. The cost depends on the workload's line boundaries, calls, loop targets and enabled breakpoints. A breakpoint in an uncalled function does not activate matching in other functions from the same source.
+Debugging is opt-in. Detached execution uses the original bytecode. Starting a server installs the debugger before accepting clients, but an installed debugger only pays for the checkpoints its controls need: with no breakpoints, no requested pause and no pending step, execution runs on an unpatched copy and matches detached speed within measurement noise (1.0–1.1x on loop-heavy workloads). Verified breakpoints patch only the prototypes whose lines they name, so a breakpoint in an uncalled function does not slow other functions from the same source.
 
-First execution builds private instruction copies and source metadata. Reusing compiled chunks avoids that setup on later calls. Pause, stepping and inspection allocate only as needed; execution ownership is tracked at host-call and coroutine-resume boundaries. Control updates use the weak tracking list and add no per-instruction work.
+Stops and resumes reuse existing traps while the controls still need the same checkpoints. Control changes can revisit tracked execution copies. Breakpoint membership is cached per prototype and refreshed when breakpoints or registered source lines change.
+
+First execution builds private instruction copies and source metadata. Reusing compiled chunks avoids that setup on later calls. Pause, stepping and inspection allocate only as needed; execution ownership is tracked at host-call and coroutine-resume boundaries.
 
 Run benchmarks in Release mode from this repository:
 
 ```sh
-# Warmed execution, detached versus installed, across six interpreter workloads.
-dotnet run -c Release --project sandbox/Benchmark -- --filter '*DebuggerBenchmark*'
+# Warmed execution, detached versus attached-but-idle, across three interpreter workloads.
+dotnet run -c Release --project sandbox/Benchmark -- --filter '*DebuggerIdleBenchmark*'
 
-# An unhit breakpoint in another function versus a cold branch of the active function.
-dotnet run -c Release --project sandbox/Benchmark -- --filter '*DebuggerBreakpointBenchmark*'
-
-# Pause/reset cost with 1 or 2,000 activated functions.
-dotnet run -c Release --project sandbox/Benchmark -- --filter '*DebuggerControlBenchmark*'
-
-# First-use metadata cost; compilation is excluded.
-dotnet run -c Release --project sandbox/Benchmark -- --filter '*DebuggerFirstUseBenchmark*'
+# One stop/continue per loop iteration, with 1 versus 2,001 executed prototypes.
+dotnet run -c Release --project sandbox/Benchmark -- --filter '*DebuggerStopBenchmark*'
 ```
 
-`DebuggerFirstUseBenchmark` varies function count, source preregistration and an unhit breakpoint. Keep first-use measurements separate from warmed execution and measure allocations as well as elapsed time. Small timing differences are sensitive to JIT profiles, code layout and system load; compare the same workloads and runtime settings when assessing a change.
+`DebuggerIdleBenchmark` reports the per-instruction cost of an attached debugger; it should stay within noise of the detached case. `DebuggerStopBenchmark` reports the per-stop bookkeeping cost and must not grow with the instruction count of the stopped program. Keep first-use measurements separate from warmed execution and measure allocations as well as elapsed time. Small timing differences are sensitive to JIT profiles, code layout and system load; compare the same workloads and runtime settings when assessing a change.

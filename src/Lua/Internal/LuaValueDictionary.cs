@@ -1,4 +1,4 @@
-﻿// Licensed to the .NET Foundation under one or more agreements.
+// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Diagnostics;
@@ -40,7 +40,7 @@ sealed class LuaValueDictionary
 
     public int Count => _count - _freeCount;
 
-    public int NilCount => _nilCount;
+    public int LiveCount => Count - _nilCount;
 
     public LuaValue this[LuaValue key]
     {
@@ -196,6 +196,13 @@ sealed class LuaValueDictionary
             return;
         }
 
+        if (_count != 0 && _nilCount == _count)
+        {
+            // Every entry is a dead key left by clearing during traversal. Lua drops those when a
+            // new key forces a rehash, so a cursor pointing at one stops being valid after this.
+            Clear();
+        }
+
         if (_buckets == null)
         {
             Initialize(0);
@@ -328,12 +335,6 @@ sealed class LuaValueDictionary
         if (Unsafe.IsNullRef(ref value) || value.Type == LuaValueType.Nil)
             return;
 
-        if (_nilCount + 1 == Count)
-        {
-            Clear();
-            return;
-        }
-
         ref var entry = ref _entries![index];
         if (entry.keyObject is { } keyObject)
         {
@@ -428,25 +429,35 @@ sealed class LuaValueDictionary
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public bool TryGetNext(LuaValue key, out KeyValuePair<LuaValue, LuaValue> pair)
+    public LuaNextStatus TryGetNext(LuaValue key, out KeyValuePair<LuaValue, LuaValue> pair)
     {
         var index = FindIterationIndex(key);
-        if (index >= 0)
+        if (index < 0)
         {
-            var entries = _entries!;
-            while (++index < _count)
+            // The key is not in the table at all. A key that was cleared during traversal keeps a
+            // dead entry (see Delete), so it is still found above and iteration continues.
+            pair = default;
+            return LuaNextStatus.InvalidKey;
+        }
+
+        if (++index < _count)
+        {
+            ref var entry = ref _entries![index];
+            if (entry is { next: >= -1, value.Type: not LuaValueType.Nil })
             {
-                ref var entry = ref entries[index];
-                if (entry is { next: >= -1, value.Type: not LuaValueType.Nil })
-                {
-                    pair = new(new(entry.keyType, entry.keyNumber, entry.keyObject), entry.value);
-                    return true;
-                }
+                pair = new(new(entry.keyType, entry.keyNumber, entry.keyObject), entry.value);
+                return LuaNextStatus.Found;
             }
+
+            // Reuse the enumerator's scan when there are holes after the cursor.
+            index++;
+            return MoveNext(this, _version, ref index, out pair)
+                ? LuaNextStatus.Found
+                : LuaNextStatus.End;
         }
 
         pair = default;
-        return false;
+        return LuaNextStatus.End;
     }
 
     int FindIterationIndex(LuaValue key)
@@ -539,20 +550,15 @@ sealed class LuaValueDictionary
             ThrowHelper.ThrowInvalidOperationException_InvalidOperation_EnumFailedVersion();
         }
 
-        SearchNext:
         // Use unsigned comparison since we set index to dictionary.count+1 when the enumeration ends.
         // dictionary.count+1 could be negative if dictionary.count is int.MaxValue
-        while ((uint)index < (uint)dictionary._count)
+        var end = dictionary.LiveCount == 0 ? 0 : dictionary._count;
+        while ((uint)index < (uint)end)
         {
             ref var entry = ref dictionary._entries![index++];
 
-            if (entry.next >= -1)
+            if (entry is { next: >= -1, value.Type: not LuaValueType.Nil })
             {
-                if (entry.value.Type is LuaValueType.Nil)
-                {
-                    goto SearchNext;
-                }
-
                 current = new(new(entry.keyType, entry.keyNumber, entry.keyObject), entry.value);
                 return true;
             }

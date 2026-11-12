@@ -195,9 +195,11 @@ static class DateTimeHelper
         [MethodImpl(MethodImplOptions.NoInlining)]
         static void ThrowInvalidConversionSpecifier(LuaState state, ReadOnlySpan<char> format)
         {
-            throw new LuaRuntimeException(
+            // Route through BadArgument so an indirect call reports "os.date" like Lua does.
+            LuaRuntimeException.BadArgument(
                 state,
-                $"bad argument #1 to 'date' (invalid conversion specifier '{format.ToString()}')"
+                1,
+                $"invalid conversion specifier '{format.ToString()}'"
             );
         }
 

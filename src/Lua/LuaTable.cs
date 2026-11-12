@@ -108,7 +108,7 @@ public sealed class LuaTable : IEnumerable<KeyValuePair<LuaValue, LuaValue>>
         }
     }
 
-    public int HashMapCount => dictionary.Count - dictionary.NilCount;
+    public int HashMapCount => dictionary.LiveCount;
 
     public int ArrayLength
     {
@@ -353,7 +353,14 @@ public sealed class LuaTable : IEnumerable<KeyValuePair<LuaValue, LuaValue>>
         return true;
     }
 
-    public bool TryGetNext(LuaValue key, out KeyValuePair<LuaValue, LuaValue> pair)
+    public bool TryGetNext(LuaValue key, out KeyValuePair<LuaValue, LuaValue> pair) =>
+        TryGetNextStatus(key, out pair) == LuaNextStatus.Found;
+
+    /// <summary>
+    /// Iterates the table like <c>next</c>. The status separates "iteration finished" from "the key
+    /// is not in this table", which <c>next</c> reports as an error.
+    /// </summary>
+    internal LuaNextStatus TryGetNextStatus(LuaValue key, out KeyValuePair<LuaValue, LuaValue> pair)
     {
         var index = -1;
         if (key.Type is LuaValueType.Nil)
@@ -373,29 +380,22 @@ public sealed class LuaTable : IEnumerable<KeyValuePair<LuaValue, LuaValue>>
                 if (span[i].Type is not LuaValueType.Nil)
                 {
                     pair = new(index + i + 1, span[i]);
-                    return true;
+                    return LuaNextStatus.Found;
                 }
             }
 
-            foreach (var kv in dictionary)
+            var hash = dictionary.GetEnumerator();
+            if (hash.MoveNext())
             {
-                if (kv.Value.Type is not LuaValueType.Nil)
-                {
-                    pair = kv;
-                    return true;
-                }
+                pair = hash.Current;
+                return LuaNextStatus.Found;
             }
-        }
-        else
-        {
-            if (dictionary.TryGetNext(key, out pair))
-            {
-                return true;
-            }
+
+            pair = default;
+            return LuaNextStatus.End;
         }
 
-        pair = default;
-        return false;
+        return dictionary.TryGetNext(key, out pair);
     }
 
     public void Clear()
@@ -459,7 +459,7 @@ public sealed class LuaTable : IEnumerable<KeyValuePair<LuaValue, LuaValue>>
             hasWritableArrayReferences = false;
         }
 
-        using PooledList<(int, LuaValue)> indexList = new(dictionary.Count);
+        using PooledList<(int, LuaValue)> indexList = new(dictionary.LiveCount);
 
         // Move some of the elements of the hash part to a newly allocated array
         foreach (var kv in dictionary)

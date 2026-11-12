@@ -386,13 +386,16 @@ public sealed class BasicLibrary
         var arg0 = context.GetArgument<LuaTable>(0);
         var arg1 = context.HasArgument(1) ? context.Arguments[1] : LuaValue.Nil;
 
-        if (arg0.TryGetNext(arg1, out var kv))
+        switch (arg0.TryGetNextStatus(arg1, out var kv))
         {
-            return new(context.Return(kv.Key, kv.Value));
-        }
-        else
-        {
-            return new(context.Return(LuaValue.Nil));
+            case LuaNextStatus.Found:
+                return new(context.Return(kv.Key, kv.Value));
+            case LuaNextStatus.InvalidKey:
+                // Lua 5.2 to 5.4 all reject a key that is not in the table, while a field cleared
+                // during the traversal remains a valid cursor.
+                throw new LuaRuntimeException(context.State, "invalid key to 'next'");
+            default:
+                return new(context.Return(LuaValue.Nil));
         }
     }
 
@@ -614,7 +617,7 @@ public sealed class BasicLibrary
         CancellationToken cancellationToken
     )
     {
-        var selector = context.GetArgument(0);
+        var selector = context.ArgumentCount > 0 ? context.Arguments[0] : LuaValue.Nil;
         if (selector.Type == LuaValueType.String)
         {
             var text = selector.UnsafeReadString();

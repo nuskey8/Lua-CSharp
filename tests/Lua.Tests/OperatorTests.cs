@@ -13,10 +13,7 @@ public class OperatorTests
             await state.DoStringAsync("local test = nil > 5").AsTask()
         );
 
-        Assert.That(
-            ex!.Message,
-            Does.Contain("attempt to compare a number value with a nil value")
-        );
+        Assert.That(ex!.Message, Does.Contain("attempt to compare number with nil"));
     }
 
     [Test]
@@ -28,10 +25,7 @@ public class OperatorTests
             await state.DoStringAsync("local test = nil >= 5").AsTask()
         );
 
-        Assert.That(
-            ex!.Message,
-            Does.Contain("attempt to compare a number value with a nil value")
-        );
+        Assert.That(ex!.Message, Does.Contain("attempt to compare number with nil"));
     }
 
     [Test]
@@ -43,10 +37,7 @@ public class OperatorTests
             await state.DoStringAsync("local test = 5 >= nil").AsTask()
         );
 
-        Assert.That(
-            ex!.Message,
-            Does.Contain("attempt to compare a nil value with a number value")
-        );
+        Assert.That(ex!.Message, Does.Contain("attempt to compare nil with number"));
     }
 
     [TestCase(1, 6)]

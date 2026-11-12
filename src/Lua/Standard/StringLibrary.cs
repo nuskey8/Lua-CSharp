@@ -129,7 +129,17 @@ public sealed class StringLibrary
             {
                 i++;
                 if (i == format.Length)
+                {
+                    // Lua reads the missing conversion as '\0' and, when no argument is left,
+                    // reports the missing value for that argument instead of an invalid option.
+                    if (parameterIndex >= context.ArgumentCount)
+                        LuaRuntimeException.BadArgument(
+                            context.State,
+                            parameterIndex + 1,
+                            "no value"
+                        );
                     throw new LuaRuntimeException(context.State, "invalid option '%' to 'format'");
+                }
 
                 // escape
                 if (format[i] == '%')
@@ -199,10 +209,7 @@ public sealed class StringLibrary
 
                 if (context.ArgumentCount <= parameterIndex)
                 {
-                    throw new LuaRuntimeException(
-                        context.State,
-                        $"bad argument #{parameterIndex + 1} to 'format' (no value)"
-                    );
+                    LuaRuntimeException.BadArgument(context.State, parameterIndex + 1, "no value");
                 }
 
                 var parameter = context.GetArgument(parameterIndex++);

@@ -64,6 +64,10 @@ public static partial class LuaVirtualMachine
         public int LastHookPc;
         public int LastDebugPc = -1;
         public LuaDebugCode? DebugCode;
+        public LuaDebugCode? PreviousDebugCode;
+
+        (Prototype? Prototype, int Pc, bool IsTailCall) previousNativeTailCaller;
+        bool hasNativeTailCaller;
 
         public bool IsTopLevel => BaseCallStackCount == State.CallStackFrameCount;
 
@@ -218,6 +222,17 @@ public static partial class LuaVirtualMachine
             State.PopCallStackFrameUntil(BaseCallStackCount);
         }
 
+        public void RecordNativeTailCaller(bool callerWasTailCalled)
+        {
+            // A reentrant VM context must give the outer native callee its call site back.
+            if (!hasNativeTailCaller)
+            {
+                previousNativeTailCaller = State.LastNativeTailCaller;
+                hasNativeTailCaller = true;
+            }
+            State.LastNativeTailCaller = (State.LastCallerPrototype, Pc, callerWasTailCalled);
+        }
+
         bool ExecutePostOperation(
             int varArgs,
             PostOperationType postOperation,
@@ -289,17 +304,12 @@ public static partial class LuaVirtualMachine
                     Task = default;
                     if (PostOperation == PostOperationType.Debugger)
                     {
-                        PostOperation = PostOperationType.None;
-                        // Re-fetch the stopped instruction without counting or firing its Lua hook twice.
+                        // Dispatch the saved instruction without counting or firing its Lua hook twice.
                         if (State.HookCount != 0)
                             State.HookCount++;
                         LastHookPc = Pc + 1;
                         toCatchFlag = false;
                         ThrowIfCancellationRequested();
-                        if (
-                            DebugCode!.Identity == Volatile.Read(ref GlobalState.Debugger)?.Identity
-                        )
-                            DebugCode.ResumeAt(Pc + 1);
                         continue;
                     }
                     ref readonly var frame = ref State.GetCurrentFrame();
@@ -363,10 +373,17 @@ public static partial class LuaVirtualMachine
             }
             finally
             {
+                if (hasNativeTailCaller)
+                {
+                    State.LastNativeTailCaller = previousNativeTailCaller;
+                    previousNativeTailCaller = default;
+                    hasNativeTailCaller = false;
+                }
                 Stack = null!;
                 State = null!;
                 LuaClosure = null!;
                 DebugCode = null;
+                PreviousDebugCode = null;
                 Task = default;
                 CancellationToken = default;
                 pool.TryPush(this);
@@ -433,12 +450,35 @@ public static partial class LuaVirtualMachine
             // This is a label to restart the execution when new function is called or restarted
             Restart:
             var debugger = Volatile.Read(ref context.GlobalState.Debugger);
-            if (
-                context.DebugCode == null
-                || context.DebugCode.Prototype != context.Prototype
-                || context.DebugCode.Identity != debugger?.Identity
-            )
-                context.DebugCode = debugger?.GetExecutionCode(context.LuaClosure);
+            {
+                // Alternating between two prototypes (a caller and its callee) is the common case,
+                // so keep the previous execution copy and reuse it instead of asking the session
+                // on every entry and return.
+                var current = context.DebugCode;
+                var prototype = context.Prototype;
+                if (
+                    current == null
+                    || current.Prototype != prototype
+                    || current.Identity != debugger?.Identity
+                )
+                {
+                    var previous = context.PreviousDebugCode;
+                    if (
+                        previous != null
+                        && previous.Prototype == prototype
+                        && previous.Identity == debugger?.Identity
+                    )
+                    {
+                        context.DebugCode = previous;
+                        context.PreviousDebugCode = current;
+                    }
+                    else
+                    {
+                        context.PreviousDebugCode = current;
+                        context.DebugCode = debugger?.GetExecutionCode(prototype);
+                    }
+                }
+            }
             ref var instructionsHead = ref context.DebugCode != null
                 ? ref context.DebugCode.Code[0]
                 : ref Unsafe.AsRef(in context.Prototype.Code[0]);
@@ -469,9 +509,20 @@ public static partial class LuaVirtualMachine
             }
 
             Loop:
-            while (true)
+            Instruction instruction;
+            if (context.PostOperation == PostOperationType.Debugger)
             {
-                var instruction = Unsafe.Add(ref instructionsHead, ++context.Pc);
+                context.PostOperation = PostOperationType.None;
+                context.Pc++;
+                instruction = context.Instruction;
+            }
+            else
+            {
+                instruction = Unsafe.Add(ref instructionsHead, ++context.Pc);
+            }
+
+            for (; ; instruction = Unsafe.Add(ref instructionsHead, ++context.Pc))
+            {
                 context.Instruction = instruction;
                 if (--hookCount == 0 || (lineHookFlag && context.Pc != context.LastHookPc))
                 {
@@ -1072,6 +1123,7 @@ public static partial class LuaVirtualMachine
                         // Track an untrapped initial header so its first backward jump is a line event.
                         if (
                             context.DebugCode != null
+                            && (uint)(context.Pc + 1) < (uint)context.DebugCode.Code.Length
                             && Unsafe.Add(ref instructionsHead, context.Pc + 1).OpCode
                                 == OpCode.ForLoop
                         )
@@ -1154,31 +1206,16 @@ public static partial class LuaVirtualMachine
 
                         continue;
                     default:
-                        if (opCode is DebuggerResumeOpCode or DebuggerBreakOpCode)
+                        if (opCode == DebuggerBreakOpCode && context.DebugCode is { } code)
                         {
-                            if (context.DebugCode == null)
-                            {
-                                ThrowLuaNotImplementedException(context, opCode);
-                                return true;
-                            }
-                            instruction =
-                                opCode == DebuggerResumeOpCode
-                                    ? context.DebugCode.RestoreAt(context.Pc)
-                                    : context.Prototype.Code[context.Pc];
-                            if (instruction.OpCode is DebuggerBreakOpCode or DebuggerResumeOpCode)
+                            instruction = code.Prototype.Code[context.Pc];
+                            if (instruction.OpCode == DebuggerBreakOpCode)
                             {
                                 ThrowLuaNotImplementedException(context, instruction.OpCode);
                                 return true;
                             }
                             context.Instruction = instruction;
-                            if (
-                                opCode == DebuggerBreakOpCode
-                                && context.DebugCode.Enabled
-                                && ExecuteDebuggerCheckpoint(
-                                    context,
-                                    Volatile.Read(ref context.GlobalState.Debugger)
-                                )
-                            )
+                            if (code.Enabled && ExecuteDebuggerCheckpoint(context, code))
                                 return true;
                             goto Dispatch;
                         }
@@ -1781,6 +1818,10 @@ public static partial class LuaVirtualMachine
         // Release the replaced closure before a hook or native tail callee can suspend.
         context.LuaClosure = null!;
 
+        var isLuaClosure = func is LuaClosure;
+        if (!isLuaClosure)
+            context.RecordNativeTailCaller(lastFrame.IsTailCall);
+
         if (state.CallOrReturnHookMask.Value != 0 && !context.State.IsInHook)
         {
             context.PostOperation = PostOperationType.TailCall;
@@ -1789,7 +1830,7 @@ public static partial class LuaVirtualMachine
             return false;
         }
 
-        if (func is LuaClosure)
+        if (isLuaClosure)
         {
             context.Push(newFrame);
             doRestart = true;

@@ -30,6 +30,44 @@ public class DebuggerTests
         Assert.That(stops, Is.EqualTo(new[] { 6, 4 }));
     }
 
+    [Test]
+    public async Task StackInspectionRefreshesTrapsWhenABreakpointMoves()
+    {
+        using var state = LuaState.Create();
+        state.OpenStandardLibraries();
+        var inner = state.Load("coroutine.yield()\n\n\n\n\nreturn 42", "=shared");
+        state.Environment["inner"] = inner;
+        using var thread = state.CreateCoroutine(
+            state.Load("local n = 1\nlocal value = inner()\nreturn value", "=shared")
+        );
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var output = new LuaStack();
+        await thread.ResumeAsync(output, timeout.Token);
+
+        using var debugger = new LuaDebugger(state);
+        debugger.Attach();
+        var code = ((ILuaDebugSession)debugger).GetExecutionCode(inner.Proto);
+        Assert.That(debugger.SetBreakpoints("=shared", [2])[0].Line, Is.EqualTo(6));
+        var changes = new List<int>();
+        debugger.BreakpointChanged += breakpoint => changes.Add(breakpoint.Line);
+        var stops = Channel.CreateUnbounded<LuaDebugStop>();
+        debugger.Stopped += stop => stops.Writer.TryWrite(stop);
+        var execution = thread.ResumeAsync(output, timeout.Token).AsTask();
+        var stop = await stops.Reader.ReadAsync(timeout.Token);
+        try
+        {
+            Assert.That(code.Enabled, Is.True);
+            await debugger.GetStackTraceAsync(stop.Id, timeout.Token);
+            Assert.That(changes, Is.EqualTo(new[] { 2 }));
+            Assert.That(code.Enabled, Is.False);
+        }
+        finally
+        {
+            debugger.Continue(stop.Id);
+            await execution.WaitAsync(timeout.Token);
+        }
+    }
+
     [TestCase("local n=0;for i=1,3 do n=n+i end;return n")]
     [TestCase("for i=1,3 do end; return 42")]
     [TestCase("for i=1,0 do error('unreachable') end; return 42")]
@@ -41,6 +79,20 @@ public class DebuggerTests
         "local function f(x) return x+1 end;local function g(x) return f(x) end;local n=0;for i=1,3 do n=g(n) end;return n"
     )]
     [TestCase("local n=0;for k,v in ipairs({1,2,3}) do n=n+v end;return n")]
+    // Scoping and control flow that commonly diverges from a line hook.
+    [TestCase("local n = 0\nrepeat\n  local done = n >= 2\n  n = n + 1\nuntil done\nreturn n")]
+    [TestCase("local n = 0\n::again::\nn = n + 1\nif n < 3 then goto again end\nreturn n")]
+    [TestCase(
+        "local t = {value = 1}\nfunction t:bump(x)\n  self.value = self.value + x\n  return self.value\nend\nreturn t:bump(2)"
+    )]
+    [TestCase("local x = 1\nlocal y =\n  x\n  + 2\nreturn y")]
+    [TestCase("--[[ a\nb ]]\nlocal s = [[line1\nline2]]\nreturn #s")]
+    [TestCase(
+        "local function make(a)\n  return function(b)\n    return a + b\n  end\nend\nreturn make(1)(2)"
+    )]
+    [TestCase(
+        "local s = 0\nfor i = 1, 10 do\n  if i == 3 then break end\n  s = s + i\nend\nreturn s"
+    )]
     public async Task BreakpointLineEventsMatchLuaLineHooks(string source)
     {
         async Task<int[]> Run(bool debug)
@@ -268,8 +320,9 @@ public class DebuggerTests
         Assert.That(await execution, Is.EqualTo(new LuaValue[] { LuaValue.Nil, 41 }));
     }
 
-    [Test]
-    public async Task RemovingALuaHookDuringAStopDoesNotReplayIt()
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task ResumingDoesNotReplayTheStoppedInstructionHook(bool armBreakpoint)
     {
         var (state, debugger, stops) = Create();
         using var ownedState = state;
@@ -288,9 +341,11 @@ public class DebuggerTests
             1
         );
         debugger.Pause();
-        var execution = state.DoStringAsync("return 42", cancellationToken: timeout.Token).AsTask();
+        var execution = state.DoStringAsync("return 42", "=resume-hook", timeout.Token).AsTask();
         var stop = await stops.Reader.ReadAsync(timeout.Token);
         state.SetHook(null, "");
+        if (armBreakpoint)
+            Assert.That(debugger.SetBreakpoints("=resume-hook", [1])[0].Verified, Is.True);
         var stoppedHooks = hooks;
         debugger.Continue(stop.Id);
         Assert.That(await execution, Is.EqualTo(new LuaValue[] { 42 }));
@@ -701,5 +756,105 @@ public class DebuggerTests
         debugger.Detach();
         Assert.That(await execution, Is.EqualTo(new LuaValue[] { true, 42 }));
         Assert.That(state.Environment["hooks"].Read<double>(), Is.GreaterThan(0));
+    }
+
+    [TestCase(LuaDebugPauseMode.Asynchronous)]
+    [TestCase(LuaDebugPauseMode.Synchronous)]
+    public async Task InspectingInsideTheStoppedHandlerFailsInsteadOfHanging(LuaDebugPauseMode mode)
+    {
+        using var state = LuaState.Create();
+        using var debugger = new LuaDebugger(state, new LuaDebuggerOptions { PauseMode = mode });
+        var closure = state.Load("local x = 1\nreturn x", "@stopped-handler.lua");
+        debugger.Attach();
+        debugger.RegisterSource(closure);
+        debugger.SetBreakpoints("stopped-handler.lua", [1]);
+        InvalidOperationException? failure = null;
+        var stops = 0;
+        debugger.Stopped += stop =>
+        {
+            stops++;
+            failure = Assert.Throws<InvalidOperationException>(() =>
+            {
+                _ = debugger.GetVariablesAsync(stop.Id, 1, LuaDebugScope.Locals);
+            });
+            debugger.Continue(stop.Id);
+        };
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        Assert.That(
+            await state.ExecuteAsync(closure, timeout.Token),
+            Is.EqualTo(new LuaValue[] { 1 })
+        );
+        Assert.That(stops, Is.EqualTo(1));
+        Assert.That(failure, Is.Not.Null);
+        Assert.That(failure!.Message, Does.Contain("after the Stopped handler returns"));
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task IdlePauseSurvivesLifecycleNotifications(bool lateQuiescence)
+    {
+        using var state = LuaState.Create();
+        using var debugger = new LuaDebugger(state);
+        debugger.Attach();
+        var stops = new List<string>();
+        debugger.Stopped += stop =>
+        {
+            stops.Add(stop.Reason);
+            debugger.Continue(stop.Id);
+        };
+
+        using (var sibling = state.CreateThread())
+            debugger.Pause();
+        if (lateQuiescence)
+            ((ILuaDebugSession)debugger).ExecutionQuiesced();
+        await state.DoStringAsync("return 42");
+
+        Assert.That(stops, Is.EqualTo(new[] { "pause" }));
+    }
+
+    [Test]
+    public async Task PauseRequestDoesNotOutliveItsExecution()
+    {
+        using var state = LuaState.Create();
+        using var debugger = new LuaDebugger(state);
+        var closure = state.Load("wait()\nreturn 1", "@pause-scope.lua");
+        debugger.Attach();
+        debugger.RegisterSource(closure);
+        var entered = new TaskCompletionSource<bool>(
+            TaskCreationOptions.RunContinuationsAsynchronously
+        );
+        state.Environment["wait"] = new LuaFunction(
+            async (context, token) =>
+            {
+                entered.TrySetResult(true);
+                await Task.Delay(Timeout.Infinite, token);
+                return context.Return();
+            }
+        );
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var execution = state.ExecuteAsync(closure, cancellation.Token).AsTask();
+        await entered.Task.WaitAsync(cancellation.Token);
+        // The pause arrives while the execution is alive but outside any Lua checkpoint.
+        debugger.Pause();
+        cancellation.Cancel();
+        try
+        {
+            await execution;
+            Assert.Fail("Execution should be cancelled.");
+        }
+        catch (LuaCanceledException) { }
+
+        var stops = 0;
+        debugger.Stopped += stop =>
+        {
+            stops++;
+            debugger.Continue(stop.Id);
+        };
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        Assert.That(
+            await state.ExecuteAsync(state.Load("return 2", "@pause-scope-2.lua"), timeout.Token),
+            Is.EqualTo(new LuaValue[] { 2 })
+        );
+        Assert.That(stops, Is.Zero);
     }
 }

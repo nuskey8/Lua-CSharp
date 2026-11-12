@@ -50,7 +50,7 @@ public sealed partial class LuaDebugger
                     if (request.Resolved.Verified)
                         entry.Points[request.Resolved.Line] = request.Resolved;
             }
-            UpdateExecutionCodes();
+            UpdateExecutionCodes(breakpointsChanged: true);
             return requests.Select(x => x.Resolved).ToArray();
         }
     }
@@ -60,7 +60,7 @@ public sealed partial class LuaDebugger
         lock (gate)
         {
             ClearBreakpointsCore();
-            UpdateExecutionCodes();
+            UpdateExecutionCodes(breakpointsChanged: true);
         }
     }
 
@@ -75,27 +75,31 @@ public sealed partial class LuaDebugger
     public LuaDebugSource RegisterSource(LuaClosure closure, string? content = null)
     {
         lock (gate)
+            return RegisterSourceCore(closure.Proto, content).Source;
+    }
+
+    SourceEntry RegisterSourceCore(Prototype rootPrototype, string? content = null)
+    {
+        var controlsChanged = false;
+        var entry = RegisterPrototype(rootPrototype, ref controlsChanged);
+        var children = rootPrototype.ChildPrototypes;
+        if (!children.IsEmpty)
         {
-            var work = new Stack<Prototype>();
-            var controlsChanged = false;
-            work.Push(closure.Proto);
-            while (work.Count != 0)
+            var work = new Stack<Prototype>(children.Length);
+            foreach (var child in children)
+                work.Push(child);
+            while (work.TryPop(out var prototype))
             {
-                var prototype = work.Pop();
-                controlsChanged |= RegisterPrototype(prototype);
+                RegisterPrototype(prototype, ref controlsChanged);
                 foreach (var child in prototype.ChildPrototypes)
                     work.Push(child);
             }
-            var entry = registered.GetValue(
-                closure.Proto,
-                _ => throw new InvalidOperationException()
-            );
-            if (content != null)
-                entry.Source = entry.Source with { Content = content };
-            if (controlsChanged)
-                UpdateExecutionCodes();
-            return entry.Source;
         }
+        if (content != null)
+            entry.Source = entry.Source with { Content = content };
+        if (controlsChanged)
+            UpdateExecutionCodes(breakpointsChanged: true);
+        return entry;
     }
 
     public LuaDebugSource[] GetSources()
@@ -136,16 +140,16 @@ public sealed partial class LuaDebugger
         return root.Platform.DecodeText(await input.ReadAllAsync(cancellationToken));
     }
 
-    bool RegisterPrototype(Prototype prototype)
+    SourceEntry RegisterPrototype(Prototype prototype, ref bool controlsChanged)
     {
-        if (registered.TryGetValue(prototype, out _))
-            return false;
+        if (registered.TryGetValue(prototype, out var entry))
+            return entry;
         var name = root.Platform.DecodeText(prototype.ChunkName);
         var path = options.SourcePathResolver?.Invoke(name);
         if (path == null && name.StartsWith('@'))
             path = name[1..];
         var key = path != null ? SourceKey(path) : "=" + name.TrimStart('=');
-        if (!sources.TryGetValue(key, out var entry))
+        if (!sources.TryGetValue(key, out entry))
         {
             path = path != null ? key : null;
             entry = new SourceEntry(
@@ -163,7 +167,6 @@ public sealed partial class LuaDebugger
             if (line > 0)
                 entry.Lines.Add(line);
         registered.Add(prototype, entry);
-        var controlsChanged = false;
         if (breakpoints.TryGetValue(key, out var requests))
         {
             entry.Points.Clear();
@@ -180,7 +183,7 @@ public sealed partial class LuaDebugger
                 }
             }
         }
-        return controlsChanged;
+        return entry;
     }
 
     static void Resolve(RequestedBreakpoint request, SourceEntry? entry)

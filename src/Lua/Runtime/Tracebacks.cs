@@ -24,37 +24,36 @@ public class Traceback(LuaState state, ReadOnlySpan<CallStackFrame> stackFrames)
             return;
         }
 
-        var intFormatBuffer = (stackalloc char[15]);
-        var shortSourceBuffer = (stackalloc char[59]);
         for (var index = stackFrames.Length - level; index >= 1; index--)
         {
-            var lastFunc = stackFrames[index - 1].Function;
             var frame = stackFrames[index];
-            if (!frame.IsTailCall && lastFunc is LuaClosure closure)
+            if (!frame.IsTailCall && stackFrames[index - 1].Function is LuaClosure closure)
             {
                 var p = closure.Proto;
                 if ((uint)frame.CallerInstructionIndex >= (uint)p.LineInfo.Length)
                     return;
-                var len = LuaDebug.WriteShortSource(p.ChunkName, shortSourceBuffer);
-                list.AddRange(shortSourceBuffer[..len]);
-                list.AddRange(":");
-                p.LineInfo[frame.CallerInstructionIndex]
-                    .TryFormat(
-                        intFormatBuffer,
-                        out var charsWritten,
-                        provider: CultureInfo.InvariantCulture
-                    );
-                list.AddRange(intFormatBuffer[..charsWritten]);
-
-                list.AddRange(": ");
+                WritePosition(ref list, p, frame.CallerInstructionIndex);
                 return;
             }
         }
     }
 
-    internal void WriteLastLuaTrace(ref PooledList<char> list, int level = 1)
+    internal static void WritePosition(ref PooledList<char> list, Prototype prototype, int pc)
     {
-        WriteLastLuaTrace(StackFrames, ref list, level);
+        var intFormatBuffer = (stackalloc char[15]);
+        var shortSourceBuffer = (stackalloc char[59]);
+        var len = LuaDebug.WriteShortSource(prototype.ChunkName, shortSourceBuffer);
+        list.AddRange(shortSourceBuffer[..len]);
+        list.AddRange(":");
+        prototype
+            .LineInfo[pc]
+            .TryFormat(
+                intFormatBuffer,
+                out var charsWritten,
+                provider: CultureInfo.InvariantCulture
+            );
+        list.AddRange(intFormatBuffer[..charsWritten]);
+        list.AddRange(": ");
     }
 
     public int LastLine

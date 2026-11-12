@@ -63,15 +63,30 @@ public readonly record struct LuaFunctionExecutionContext
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public T GetArgument<T>(int index)
     {
-        ThrowIfArgumentNotExists(index);
+        if (ArgumentCount <= index)
+            ThrowMissingArgument<T>(index);
         return ReadArgument<T>(index, in Arguments[index]);
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    void ThrowMissingArgument<T>(int index)
+    {
+        // Lua reports an absent argument as "got no value", unlike an explicit nil, which keeps the
+        // "expected, got nil" wording.
+        var type = typeof(T);
+        var name = LuaValue.TryGetLuaValueType(type, out var valueType)
+            ? LuaValue.ToString(valueType)
+            : type.Name;
+        LuaRuntimeException.BadArgument(State, index + 1, $"{name} expected, got no value");
     }
 
     // Lua library strings accept numbers; typed C# arguments remain strict.
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal string GetStringArgument(int index)
     {
-        var argument = GetArgument(index);
+        if (ArgumentCount <= index)
+            ThrowMissingArgument<string>(index);
+        var argument = Arguments[index];
         if (argument.TryReadString(out var text))
             return text;
         if (argument.Type == LuaValueType.Number)
@@ -230,12 +245,9 @@ public readonly record struct LuaFunctionExecutionContext
 
     internal void ThrowBadArgument(int index, string message)
     {
-        LuaRuntimeException.BadArgument(
-            State,
-            index,
-            State.GetCurrentFrame().Function.Name,
-            message
-        );
+        // Callers pass a complete Lua message ("index out of range", "base out of range"); wrapping
+        // it as an "expected, got" pair produced "(select expected, got index out of range)".
+        LuaRuntimeException.BadArgument(State, index, message);
     }
 
     void ThrowIfArgumentNotExists(int index)

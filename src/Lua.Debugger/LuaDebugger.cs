@@ -16,14 +16,17 @@ public sealed partial class LuaDebugger : IDisposable, ILuaDebugSession
     readonly Queue<Command> commands = new();
     TaskCompletionSource<bool> signal = NewSignal();
     PauseContext? paused;
-    StepRequest? step;
-    bool pauseRequested;
+    volatile StepRequest? step;
+    volatile PauseRequest pause;
     bool resumeRequested;
     bool evaluating;
     bool disposed;
+    int stoppedThreadId = -1;
     int nextBreakpointId;
     int nextStopId;
     int nextFrameId;
+
+    bool PauseRequested => pause != PauseRequest.None;
 
     public LuaDebugger(LuaState state)
         : this(state, null) { }
@@ -36,6 +39,10 @@ public sealed partial class LuaDebugger : IDisposable, ILuaDebugSession
     }
 
     /// <summary>Raised on the execution thread once the stack is available for inspection.</summary>
+    /// <remarks>
+    /// Inspections are serviced by the paused execution after this callback returns. Do not block
+    /// on them here; <see cref="GetVariablesAsync"/> and friends throw instead of deadlocking.
+    /// </remarks>
     public event Action<LuaDebugStop>? Stopped;
 
     /// <summary>Raised after a stop and its inspections unwind, including when disposed during a stop.</summary>
@@ -49,7 +56,9 @@ public sealed partial class LuaDebugger : IDisposable, ILuaDebugSession
         get
         {
             lock (gate)
-                return paused?.Stop;
+                // A stop that is already resuming is no longer adoptable; RequireStop and
+                // TryContinue use the same predicate.
+                return resumeRequested ? null : paused?.Stop;
         }
     }
 
@@ -59,7 +68,7 @@ public sealed partial class LuaDebugger : IDisposable, ILuaDebugSession
         {
             if (disposed)
                 throw new ObjectDisposedException(nameof(LuaDebugger));
-            if (!IsAttached && root.GlobalState.ActiveExecutions != 0)
+            if (!IsAttached && Volatile.Read(ref root.GlobalState.ActiveExecutions) != 0)
                 throw new InvalidOperationException(
                     "Install the debugger before starting Lua execution."
                 );
@@ -86,9 +95,9 @@ public sealed partial class LuaDebugger : IDisposable, ILuaDebugSession
                 Interlocked.CompareExchange(ref root.GlobalState.Debugger, null, this);
             ClearBreakpointsCore();
             step = null;
-            pauseRequested = false;
+            pause = PauseRequest.None;
             resumeRequested = true;
-            UpdateExecutionCodes();
+            UpdateExecutionCodes(breakpointsChanged: true);
             signal.TrySetResult(true);
             inspections = paused?.Inspections;
         }
@@ -102,7 +111,12 @@ public sealed partial class LuaDebugger : IDisposable, ILuaDebugSession
         {
             if (!IsAttached)
                 throw new InvalidOperationException("The debugger is not attached.");
-            pauseRequested = true;
+            // Publish before sampling the count. If we see an active execution, its quiescence
+            // callback must see the request and take the gate before deciding whether to clear it.
+            pause = PauseRequest.ActiveExecution;
+            Interlocked.MemoryBarrier();
+            if (Volatile.Read(ref root.GlobalState.ActiveExecutions) == 0)
+                pause = PauseRequest.NextCheckpoint;
             UpdateExecutionCodes();
         }
     }
@@ -121,12 +135,16 @@ public sealed partial class LuaDebugger : IDisposable, ILuaDebugSession
         {
             if (paused is not { } context || context.Stop.Id != stopId || resumeRequested)
                 return false;
+            var controlsEnabled = PauseRequested || step != null;
             step =
                 mode == LuaDebugStep.Continue
                     ? null
                     : new StepRequest(mode, context.State, context.Depth, context.FrameId);
             resumeRequested = true;
-            UpdateExecutionCodes();
+            // Re-patching every prototype is only needed when stepping starts or stops; a plain
+            // continue between two stops of the same kind leaves the enabled state unchanged.
+            if (controlsEnabled != (PauseRequested || step != null))
+                UpdateExecutionCodes();
             signal.TrySetResult(true);
             inspections = context.Inspections;
         }
@@ -137,10 +155,10 @@ public sealed partial class LuaDebugger : IDisposable, ILuaDebugSession
     [MethodImpl(MethodImplOptions.NoInlining)]
     ValueTask<int> ILuaDebugSession.CheckpointAsync(
         LuaState state,
-        LuaClosure closure,
+        LuaDebugCode code,
         int pc,
         int line,
-        bool lineEntry,
+        bool isLineEntry,
         CancellationToken cancellationToken
     )
     {
@@ -151,22 +169,22 @@ public sealed partial class LuaDebugger : IDisposable, ILuaDebugSession
         {
             if (paused != null || !IsAttached)
                 return new(0);
-            var entry = registered.GetValue(
-                closure.Proto,
-                _ => throw new InvalidOperationException()
-            );
+            var entry = ((ExecutionCode)code).Source;
             LuaBreakpoint? breakpoint = null;
-            if (lineEntry)
+            if (isLineEntry)
                 entry.Points.TryGetValue(line, out breakpoint);
-            var stopForStep = lineEntry && step is { } request && ShouldStep(state, request);
-            if (!pauseRequested && !stopForStep && breakpoint == null)
+            var stopForStep = isLineEntry && step is { } request && ShouldStep(state, request);
+            var pauseConsumed = PauseRequested;
+            if (!pauseConsumed && !stopForStep && breakpoint == null)
                 return new(0);
             var reason =
-                pauseRequested ? "pause"
+                pauseConsumed ? "pause"
                 : breakpoint != null ? "breakpoint"
                 : "step";
-            pauseRequested = false;
-            step = null;
+            pause = PauseRequest.None;
+            // `step` stays armed while the program is stopped. Clearing it here would un-patch and
+            // then re-patch every prototype's traps on each step, which costs O(prototypes) per
+            // step for no observable difference; Continue clears it when stepping really ends.
             var stop = new LuaDebugStop(++nextStopId, reason, entry.Source, line, breakpoint?.Id);
             paused = context = new PauseContext(
                 state,
@@ -177,7 +195,10 @@ public sealed partial class LuaDebugger : IDisposable, ILuaDebugSession
             );
             resumeRequested = false;
             signal = NewSignal();
-            UpdateExecutionCodes();
+            // Only a consumed pause request changes which checkpoints are needed; breakpoint and
+            // step stops keep the current traps armed.
+            if (pauseConsumed)
+                UpdateExecutionCodes();
         }
         return options.PauseMode == LuaDebugPauseMode.Synchronous
             ? SuspendSynchronously(context, cancellationToken)
@@ -189,16 +210,35 @@ public sealed partial class LuaDebugger : IDisposable, ILuaDebugSession
         CancellationToken cancellationToken
     ) => new(SynchronousDebugPause.Run(token => SuspendAsync(context, token), cancellationToken));
 
-    void ILuaDebugSession.ExecutionEnded()
+    void ILuaDebugSession.ExecutionQuiesced()
     {
-        if (step == null)
+        if (pause != PauseRequest.ActiveExecution && step == null)
             return;
         lock (gate)
         {
-            if (step is not { } request || request.State.CallStackFrameCount != 0)
+            var changed = pause == PauseRequest.ActiveExecution;
+            if (changed)
+                pause = PauseRequest.None;
+            // A yielded coroutine can still own a step when the global state becomes idle.
+            if (step is { } request && request.State.CallStackFrameCount == 0)
+            {
+                step = null;
+                changed = true;
+            }
+            if (changed)
+                UpdateExecutionCodes();
+        }
+    }
+
+    void ILuaDebugSession.ThreadDisposed(LuaState state)
+    {
+        lock (gate)
+        {
+            if (step?.State != state)
                 return;
             step = null;
-            UpdateExecutionCodes();
+            if (!PauseRequested)
+                UpdateExecutionCodes();
         }
     }
 
@@ -212,7 +252,7 @@ public sealed partial class LuaDebugger : IDisposable, ILuaDebugSession
         return depth < request.Depth
             || request.Mode == LuaDebugStep.Over
                 && depth == request.Depth
-                && state.GetCurrentFrame().Version == request.FrameId;
+                && state.CurrentFrameVersion == request.FrameId;
     }
 
     async ValueTask<int> SuspendAsync(PauseContext context, CancellationToken cancellationToken)
@@ -220,7 +260,7 @@ public sealed partial class LuaDebugger : IDisposable, ILuaDebugSession
         using var cancellation = cancellationToken.Register(Wake);
         try
         {
-            Stopped?.Invoke(context.Stop);
+            RaiseStopped(context.Stop);
             while (true)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -253,13 +293,30 @@ public sealed partial class LuaDebugger : IDisposable, ILuaDebugSession
                     commands
                         .Dequeue()
                         .Fail(new InvalidOperationException("The debug stop has ended."));
-                UpdateExecutionCodes();
+                // TryContinue and Release already applied the control change they caused. Only a
+                // stop that ends without either (cancellation, state teardown) still needs the
+                // prototypes revisited, and that is the rare path.
+                if (!resumeRequested)
+                    UpdateExecutionCodes();
                 stopEnded = StopEnded;
                 if (disposed)
                     StopEnded = null;
             }
             context.Inspections.Dispose();
             stopEnded?.Invoke(context.Stop.Id);
+        }
+    }
+
+    void RaiseStopped(LuaDebugStop stop)
+    {
+        Volatile.Write(ref stoppedThreadId, Environment.CurrentManagedThreadId);
+        try
+        {
+            Stopped?.Invoke(stop);
+        }
+        finally
+        {
+            Volatile.Write(ref stoppedThreadId, -1);
         }
     }
 
@@ -283,6 +340,12 @@ public sealed partial class LuaDebugger : IDisposable, ILuaDebugSession
             ? context
             : throw new InvalidOperationException("The debug stop is no longer active.");
 
+    internal int GetFrameCount(int stopId)
+    {
+        lock (gate)
+            return RequireStop(stopId).Depth;
+    }
+
     Task<T> InspectAsync<T>(
         int stopId,
         Func<PauseContext, CancellationToken, ValueTask<T>> action,
@@ -291,6 +354,13 @@ public sealed partial class LuaDebugger : IDisposable, ILuaDebugSession
     {
         lock (gate)
         {
+            // The paused execution is still inside the Stopped callback, so the command pump has
+            // not started yet. Queueing there would wait forever; fail with the reason instead.
+            if (Environment.CurrentManagedThreadId == Volatile.Read(ref stoppedThreadId))
+                throw new InvalidOperationException(
+                    "Inspect after the Stopped handler returns. Inspections are serviced by the "
+                        + "paused execution, which is still inside that callback."
+                );
             RequireStop(stopId);
             var command = new Command<T>(action, cancellationToken);
             commands.Enqueue(command);
@@ -327,6 +397,13 @@ public sealed partial class LuaDebugger : IDisposable, ILuaDebugSession
 
     static TaskCompletionSource<bool> NewSignal() =>
         new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    enum PauseRequest
+    {
+        None,
+        NextCheckpoint,
+        ActiveExecution,
+    }
 
     sealed record StepRequest(LuaDebugStep Mode, LuaState State, int Depth, int FrameId);
 

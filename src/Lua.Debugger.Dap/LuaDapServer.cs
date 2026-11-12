@@ -64,6 +64,11 @@ public sealed class LuaDapServer : IDisposable
                 }
                 catch (IOException) { }
                 catch (SocketException) { }
+                catch (InvalidDataException)
+                {
+                    // A malformed frame ends this client only; the listener stays available so the
+                    // editor can reconnect and the debugger is not detached from the host.
+                }
                 finally
                 {
                     Volatile.Write(ref session, null);

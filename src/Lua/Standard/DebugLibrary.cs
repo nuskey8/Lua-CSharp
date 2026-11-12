@@ -1,4 +1,4 @@
-﻿using System.Runtime.CompilerServices;
+using System.Runtime.CompilerServices;
 using Lua.Internal;
 using Lua.Internal.CompilerServices;
 using Lua.Runtime;
@@ -169,6 +169,16 @@ public sealed class DebugLibrary
 
         var level = context.GetIntegerArgument(argOffset);
 
+        var discarded = state.GetNativeTailCaller().Prototype != null;
+        if (discarded && level == 1)
+        {
+            // The discarded caller's registers are gone, so it has no readable locals.
+            return new(context.Return(LuaValue.Nil));
+        }
+
+        if (discarded && level > 1)
+            level--;
+
         if (level < 0 || level >= state.GetCallStackFrames().Length)
         {
             context.ThrowBadArgument(1, "level out of range");
@@ -193,6 +203,16 @@ public sealed class DebugLibrary
         var value = context.GetArgument(argOffset + 2);
         var index = context.GetIntegerArgument(argOffset + 1);
         var level = context.GetIntegerArgument(argOffset);
+
+        var discarded = state.GetNativeTailCaller().Prototype != null;
+        if (discarded && level == 1)
+        {
+            // The discarded caller's registers are gone, so it has no writable locals.
+            return new(context.Return(LuaValue.Nil));
+        }
+
+        if (discarded && level > 1)
+            level--;
 
         if (level < 0 || level >= state.GetCallStackFrames().Length)
         {
@@ -556,46 +576,75 @@ public sealed class DebugLibrary
     {
         var state = GetLuaThread(context, out var argOffset);
         var what = context.GetArgumentOrDefault(argOffset + 1, "flnStu");
-        CallStackFrame? previousFrame = null;
-        CallStackFrame? currentFrame = null;
-        var pc = 0;
         var arg1 = context.GetArgument(argOffset);
 
-        if (!arg1.TryReadFunction(out var functionToInspect))
+        arg1.TryReadFunction(out var functionToInspect);
+        Prototype? prototype = null;
+        int? pc = null;
+        var isTailCall = false;
+        (Prototype? Prototype, int Pc) caller = default;
+
+        if (functionToInspect == null)
         {
             if (!arg1.TryReadDouble(out _))
                 context.ThrowBadArgument(argOffset, "function or level expected");
-            var level = context.GetIntegerArgument(argOffset) + 1;
+            var level = context.GetIntegerArgument(argOffset);
 
             var callStack = state.GetCallStackFrames();
-
-            if (level <= 0 || level > callStack.Length)
+            var tailCaller = state.GetNativeTailCaller();
+            var discarded = tailCaller.Prototype != null;
+            if ((uint)level >= (uint)(callStack.Length + (discarded ? 1 : 0)))
             {
                 return new(context.Return(LuaValue.Nil));
             }
 
-            currentFrame = callStack[^level];
-            previousFrame = level + 1 <= callStack.Length ? callStack[^(level + 1)] : null;
-            if (level != 1)
+            // Level 1 uses the native frame's slot to describe the discarded Lua caller.
+            var synthetic = discarded && level == 1;
+            var index = callStack.Length - 1 - level;
+            if (discarded && level > 0)
+                index++;
+            ref readonly var frame = ref callStack[index];
+            if (synthetic)
             {
-                pc = callStack[^(level - 1)].CallerInstructionIndex;
+                prototype = tailCaller.Prototype;
+                pc = tailCaller.Pc;
+                isTailCall = tailCaller.IsTailCall;
+            }
+            else
+            {
+                functionToInspect = frame.Function;
+                pc = index + 1 < callStack.Length ? callStack[index + 1].CallerInstructionIndex : 0;
+                isTailCall = frame.IsTailCall;
             }
 
-            functionToInspect = currentFrame.Value.Function;
+            if (discarded && level == 0)
+            {
+                caller = (tailCaller.Prototype, tailCaller.Pc);
+                isTailCall = false;
+            }
+            else if (index > 0 && !(synthetic && isTailCall))
+            {
+                caller = (
+                    (callStack[index - 1].Function as LuaClosure)?.Proto,
+                    frame.CallerInstructionIndex
+                );
+            }
         }
 
+        prototype ??= (functionToInspect as LuaClosure)?.Proto;
         using var debug = LuaDebug.Create(
             context.GlobalState,
-            previousFrame,
-            currentFrame,
             functionToInspect,
+            prototype,
             pc,
+            isTailCall,
+            caller,
             what,
             out var isValid
         );
         if (!isValid)
         {
-            context.ThrowBadArgument(argOffset + 1, "invalid option");
+            context.ThrowBadArgument(argOffset + 2, "invalid option");
         }
 
         LuaTable table = new(0, 1);
@@ -634,21 +683,18 @@ public sealed class DebugLibrary
 
         if (what.Contains('f'))
         {
-            table["func"] = functionToInspect;
+            // A discarded caller's closure is released, so only its prototype-based fields remain.
+            table["func"] = functionToInspect is { } inspectedFunction
+                ? inspectedFunction
+                : LuaValue.Nil;
         }
 
-        if (what.Contains('L'))
+        if (what.Contains('L') && prototype is not null)
         {
-            if (functionToInspect is LuaClosure closure)
-            {
-                LuaTable activeLines = new(0, 8);
-                foreach (var line in closure.Proto.LineInfo)
-                {
-                    activeLines[line] = true;
-                }
-
-                table["activelines"] = activeLines;
-            }
+            LuaTable activeLines = new(0, 8);
+            foreach (var line in prototype.LineInfo)
+                activeLines[line] = true;
+            table["activelines"] = activeLines;
         }
 
         return new(context.Return(table));

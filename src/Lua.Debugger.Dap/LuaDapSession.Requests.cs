@@ -176,22 +176,26 @@ public sealed partial class LuaDapSession
                 return;
             case "stackTrace":
                 CheckThread(args);
-                var frames = await debugger
-                    .GetStackTraceAsync(CurrentStop(expectedStop), token)
-                    .ConfigureAwait(false);
                 var start = Integer(args, "startFrame");
                 var levels = Integer(args, "levels");
                 if (start < 0 || levels < 0)
                     throw new ArgumentOutOfRangeException(nameof(args));
-                var selected = frames.Skip(start).Take(levels == 0 ? int.MaxValue : levels);
+                var stack = await debugger
+                    .GetStackTraceAsync(
+                        CurrentStop(expectedStop),
+                        start,
+                        levels == 0 ? int.MaxValue : levels,
+                        token
+                    )
+                    .ConfigureAwait(false);
                 await RespondAsync(
                         request,
                         new JsonObject
                         {
-                            ["totalFrames"] = frames.Length,
+                            ["totalFrames"] = stack.TotalFrames,
                             ["stackFrames"] = new JsonArray(
-                                selected
-                                    .Select(frame =>
+                                stack
+                                    .Frames.Select(frame =>
                                         (JsonNode?)
                                             new JsonObject
                                             {
@@ -216,10 +220,8 @@ public sealed partial class LuaDapSession
                 return;
             case "scopes":
                 var frameId = Integer(args, "frameId");
-                var allFrames = await debugger
-                    .GetStackTraceAsync(CurrentStop(expectedStop), token)
-                    .ConfigureAwait(false);
-                if (!allFrames.Any(frame => frame.Id == frameId))
+                var frameCount = debugger.GetFrameCount(CurrentStop(expectedStop));
+                if (frameId < 1 || frameId > frameCount)
                     throw new ArgumentException("Unknown frame.");
                 var scopes = new JsonArray();
                 foreach (
@@ -293,20 +295,12 @@ public sealed partial class LuaDapSession
                     .ConfigureAwait(false);
                 return;
             case "evaluate":
+                var evaluationStop = CurrentStop(expectedStop);
                 var evaluationFrame = Integer(args, "frameId");
                 if (evaluationFrame == 0)
-                    evaluationFrame = (
-                        await debugger
-                            .GetStackTraceAsync(CurrentStop(expectedStop), token)
-                            .ConfigureAwait(false)
-                    )[0].Id;
+                    evaluationFrame = debugger.GetFrameCount(evaluationStop);
                 var evaluated = await debugger
-                    .EvaluateAsync(
-                        CurrentStop(expectedStop),
-                        evaluationFrame,
-                        Text(args, "expression"),
-                        token
-                    )
+                    .EvaluateAsync(evaluationStop, evaluationFrame, Text(args, "expression"), token)
                     .ConfigureAwait(false);
                 await RespondAsync(
                         request,

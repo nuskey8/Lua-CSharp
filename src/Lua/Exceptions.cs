@@ -199,13 +199,33 @@ public class LuaRuntimeException : Exception, ILuaTracebackBuildable
             state.ExceptionTrace.Clear();
             state.CurrentException = this;
             State = state;
+            if (level == 1)
+                CaptureTailCallSite(state);
         }
 
         ErrorObject = errorObject;
         this.level = level;
     }
 
-    int level = 1;
+    readonly int level = 1;
+
+    // Where the discarded caller of a native tail call made the call. Captured when the exception
+    // is created, while the tail call still sits on the stack; the frame itself is released so the
+    // caller's values stay collectable while the native callee is suspended.
+    Prototype? tailCallSitePrototype;
+    int tailCallSitePc;
+
+    void CaptureTailCallSite(LuaState state)
+    {
+        var caller = state.GetNativeTailCaller();
+        if (
+            caller.Prototype is not { } prototype
+            || (uint)caller.Pc >= (uint)prototype.LineInfo.Length
+        )
+            return;
+        tailCallSitePrototype = prototype;
+        tailCallSitePc = caller.Pc;
+    }
 
     Traceback? luaTraceback;
 
@@ -227,6 +247,12 @@ public class LuaRuntimeException : Exception, ILuaTracebackBuildable
 
     public static void AttemptInvalidOperation(LuaState? state, string op, LuaValue a, LuaValue b)
     {
+        // Ordering follows luaG_ordererror: "compare X with Y", not the operator's own name.
+        if (op is "lt" or "le" or "compare")
+        {
+            ThrowComparisonFailed(state, a, b);
+        }
+
         var typeA = a.TypeToString();
         var typeB = b.TypeToString();
         if (typeA == typeB)
@@ -238,6 +264,18 @@ public class LuaRuntimeException : Exception, ILuaTracebackBuildable
             state,
             $"attempt to {op} a {typeA} value with a {typeB} value"
         );
+    }
+
+    static void ThrowComparisonFailed(LuaState? state, LuaValue a, LuaValue b)
+    {
+        var typeA = LuaValue.ToString(a.Type);
+        var typeB = LuaValue.ToString(b.Type);
+        if (a.Type == b.Type)
+        {
+            throw new LuaRuntimeException(state, $"attempt to compare two {typeA} values");
+        }
+
+        throw new LuaRuntimeException(state, $"attempt to compare {typeA} with {typeB}");
     }
 
     public static void AttemptInvalidOperation(LuaState? state, string op, LuaValue a)
@@ -263,6 +301,12 @@ public class LuaRuntimeException : Exception, ILuaTracebackBuildable
                 ? state.Stack[caller.Base + regB]
                 : ((LuaClosure)caller.Function).Proto.Constants[regB - 256];
         var function = caller.Function;
+        if (op is "compare")
+        {
+            // luaG_ordererror describes the values; it never names the operator or the locals.
+            ThrowComparisonFailed(state, luaValueA, luaValueB);
+        }
+
         var tA = LuaDebug.GetName(((LuaClosure)function).Proto, lastPc, regA, out var nameA);
         var tB = LuaDebug.GetName(((LuaClosure)function).Proto, lastPc, regB, out var nameB);
 
@@ -342,27 +386,74 @@ public class LuaRuntimeException : Exception, ILuaTracebackBuildable
         Prototype? callerPrototype;
         if (current.IsTailCall)
         {
-            pc = state.LastPc;
-            callerPrototype = state.LastCallerPrototype;
+            (callerPrototype, pc) =
+                current.Function is LuaClosure
+                    ? (state.LastCallerPrototype, state.LastPc)
+                    : (state.LastNativeTailCaller.Prototype, state.LastNativeTailCaller.Pc);
         }
         else
         {
             var frames = state.GetCallStackFrames();
             if (frames.Length < 2)
-                return ("function", current.Function.Name);
+                return GlobalOrFunctionName(state, current.Function);
             var caller = frames[^2];
             callerPrototype = (caller.Function as LuaClosure)?.Proto;
         }
 
         if (callerPrototype is null)
         {
-            return ("function", current.Function.Name);
+            // The caller is a host function (pcall, a C# callback), so the call site cannot name
+            // this function; Lua then searches the globals for it.
+            return GlobalOrFunctionName(state, current.Function);
         }
 
-        return (
-            LuaDebug.GetFuncName(callerPrototype, pc, out var name) ?? "",
-            name ?? current.Function.Name
-        );
+        var nameWhat = LuaDebug.GetFuncName(callerPrototype, pc, out var name) ?? "";
+        if (
+            string.IsNullOrEmpty(name)
+            && FindGlobalFunctionName(state, current.Function) is { } global
+        )
+            return (nameWhat, global);
+
+        return (nameWhat, name ?? current.Function.Name);
+    }
+
+    static (string NameWhat, string Name) GlobalOrFunctionName(
+        LuaState state,
+        LuaFunction function
+    ) =>
+        FindGlobalFunctionName(state, function) is { } global
+            ? ("global", global)
+            : ("function", function.Name);
+
+    /// <summary>
+    /// Mirrors Lua's pushglobalfuncname: when a library function is called without a usable call
+    /// site name, its registered path (for example <c>string.format</c>) is reported instead.
+    /// </summary>
+    static string? FindGlobalFunctionName(LuaState state, LuaFunction function)
+    {
+        foreach (var pair in state.GlobalState.Environment)
+        {
+            if (pair.Key.Type is not LuaValueType.String)
+                continue;
+            var key = pair.Key.Read<string>();
+            if (key.Length == 0 || key[0] == '_')
+                continue;
+            if (pair.Value.TryReadFunction(out var value) && ReferenceEquals(value, function))
+                return key;
+            if (!pair.Value.TryRead<LuaTable>(out var table))
+                continue;
+            foreach (var inner in table)
+            {
+                if (inner.Key.Type is not LuaValueType.String)
+                    continue;
+                if (
+                    inner.Value.TryReadFunction(out var nested) && ReferenceEquals(nested, function)
+                )
+                    return key + "." + inner.Key.Read<string>();
+            }
+        }
+
+        return null;
     }
 
     public static void BadArgument(LuaState state, int argumentId)
@@ -377,10 +468,11 @@ public class LuaRuntimeException : Exception, ILuaTracebackBuildable
         LuaValueType actual
     )
     {
+        // The single-message overload owns the surrounding parentheses.
         BadArgument(
             state,
             argumentId,
-            $"{LuaValue.ToString(expected)} expected, got {LuaValue.ToString(actual)})"
+            $"{LuaValue.ToString(expected)} expected, got {LuaValue.ToString(actual)}"
         );
     }
 
@@ -394,13 +486,13 @@ public class LuaRuntimeException : Exception, ILuaTracebackBuildable
         BadArgument(
             state,
             argumentId,
-            $"({string.Join(" or ", expected.Select(LuaValue.ToString))} expected, got {LuaValue.ToString(actual)})"
+            $"{string.Join(" or ", expected.Select(LuaValue.ToString))} expected, got {LuaValue.ToString(actual)}"
         );
     }
 
     public static void BadArgument(LuaState state, int argumentId, string expected, string actual)
     {
-        BadArgument(state, argumentId, $"({expected} expected, got {actual})");
+        BadArgument(state, argumentId, $"{expected} expected, got {actual}");
     }
 
     public static void BadArgument(LuaState state, int argumentId, string[] expected, string actual)
@@ -410,7 +502,7 @@ public class LuaRuntimeException : Exception, ILuaTracebackBuildable
             throw new ArgumentException("Expected array must not be empty", nameof(expected));
         }
 
-        BadArgument(state, argumentId, $"({string.Join(" or ", expected)} expected, got {actual})");
+        BadArgument(state, argumentId, $"{string.Join(" or ", expected)} expected, got {actual}");
     }
 
     public static void BadArgument(LuaState state, int argumentId, string message)
@@ -445,15 +537,18 @@ public class LuaRuntimeException : Exception, ILuaTracebackBuildable
         }
     }
 
-    static string CreateMessage(Traceback traceback, LuaValue errorObject, int level)
+    string FormatMessage(ReadOnlySpan<CallStackFrame> frames, string message, string prefix = "")
     {
         var pooledList = new PooledList<char>(64);
         pooledList.Clear();
         try
         {
-            pooledList.AddRange("Lua-CSharp: ");
-            traceback.WriteLastLuaTrace(ref pooledList, level);
-            pooledList.AddRange($"{errorObject}");
+            pooledList.AddRange(prefix);
+            if (tailCallSitePrototype is { } prototype)
+                Traceback.WritePosition(ref pooledList, prototype, tailCallSitePc);
+            else
+                Traceback.WriteLastLuaTrace(frames, ref pooledList, level);
+            pooledList.AddRange(message);
             return pooledList.AsSpan().ToString();
         }
         finally
@@ -509,53 +604,20 @@ public class LuaRuntimeException : Exception, ILuaTracebackBuildable
             return message;
         }
 
-        if (luaTraceback == null)
+        ReadOnlySpan<CallStackFrame> frames = default;
+        if (luaTraceback is { } traceback)
         {
-            if (State != null)
-            {
-                ReadOnlySpan<CallStackFrame> callStack = State.ExceptionTrace.AsSpan();
-                if (callStack.IsEmpty)
-                    callStack = State.GetCallStackFrames();
-                level = Math.Min(level, callStack.Length + 1);
-                callStack = callStack[..^(level - 1)];
-                if (callStack.IsEmpty)
-                {
-                    return ErrorObject.ToString();
-                }
-
-                {
-                    var pooledList = new PooledList<char>(64);
-                    pooledList.Clear();
-                    try
-                    {
-                        Traceback.WriteLastLuaTrace(callStack, ref pooledList);
-                        pooledList.AddRange(message);
-                        return pooledList.AsSpan().ToString();
-                    }
-                    finally
-                    {
-                        pooledList.Dispose();
-                    }
-                }
-            }
-
-            return message;
+            frames = traceback.StackFrames;
         }
-
+        else if (State is { } state)
         {
-            var pooledList = new PooledList<char>(64);
-            pooledList.Clear();
-            try
-            {
-                luaTraceback.WriteLastLuaTrace(ref pooledList, level);
-                pooledList.AddRange(message);
-                return pooledList.AsSpan().ToString();
-            }
-            finally
-            {
-                pooledList.Dispose();
-            }
+            frames = state.ExceptionTrace.AsSpan();
+            if (frames.IsEmpty)
+                frames = state.GetCallStackFrames();
         }
+        return frames.IsEmpty && tailCallSitePrototype == null
+            ? message
+            : FormatMessage(frames, message);
     }
 
     public override string Message
@@ -567,12 +629,10 @@ public class LuaRuntimeException : Exception, ILuaTracebackBuildable
                 return InnerException.Message;
             }
 
-            if (LuaTraceback == null)
-            {
-                return ErrorObject.ToString();
-            }
-
-            return CreateMessage(LuaTraceback, ErrorObject, level);
+            var traceback = LuaTraceback;
+            return traceback == null
+                ? ErrorObject.ToString()
+                : FormatMessage(traceback.StackFrames, ErrorObject.ToString(), "Lua-CSharp: ");
         }
     }
 

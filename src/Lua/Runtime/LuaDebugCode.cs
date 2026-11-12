@@ -4,25 +4,35 @@ internal interface ILuaDebugSession
 {
     object Identity { get; }
 
-    LuaDebugCode GetExecutionCode(LuaClosure closure);
+    LuaDebugCode GetExecutionCode(Prototype prototype);
 
-    void ExecutionEnded();
+    // The global state's active execution count just reached zero.
+    void ExecutionQuiesced();
+
+    void ThreadDisposed(LuaState state);
 
     ValueTask<int> CheckpointAsync(
         LuaState state,
-        LuaClosure closure,
+        LuaDebugCode code,
         int pc,
         int line,
-        bool lineEntry,
+        bool isLineEntry,
         CancellationToken cancellationToken
     );
 }
 
+/// <summary>
+/// A private instruction copy for one prototype, used to place debugger checkpoints.
+/// Checkpoints are only patched into the copy while controls need them; a disabled copy is
+/// byte-for-byte identical to <see cref="Prototype"/>'s code, so an attached but idle debugger
+/// does not change the dispatch of ordinary instructions.
+/// </summary>
 internal class LuaDebugCode
 {
     internal readonly object Identity;
     internal readonly Prototype Prototype;
     internal readonly Instruction[] Code;
+    readonly int[] traps;
     internal volatile bool Enabled;
 
     internal LuaDebugCode(object identity, Prototype prototype)
@@ -30,21 +40,41 @@ internal class LuaDebugCode
         Identity = identity;
         Prototype = prototype;
         Code = prototype.Code.ToArray();
-        var points = new bool[Code.Length];
+        traps = FindTraps(prototype);
+    }
+
+    internal void SetEnabled(bool enabled)
+    {
+        if (Enabled == enabled)
+            return;
+        Enabled = enabled;
+        if (enabled)
+        {
+            foreach (var pc in traps)
+                Code[pc] = (uint)LuaVirtualMachine.DebuggerBreakOpCode;
+            return;
+        }
+
+        var source = Prototype.Code;
+        foreach (var pc in traps)
+            Code[pc] = source[pc];
+    }
+
+    static int[] FindTraps(Prototype prototype)
+    {
+        var code = prototype.Code;
+        var lines = prototype.LineInfo;
+        var points = new bool[code.Length];
         void Mark(int pc)
         {
             if ((uint)pc < (uint)points.Length)
                 points[pc] = true;
         }
         Mark(0);
-        for (var pc = 0; pc < Code.Length; pc++)
+        for (var pc = 0; pc < code.Length; pc++)
         {
-            var instruction = Code[pc];
-            if (
-                pc != 0
-                && !prototype.LineInfo.IsEmpty
-                && prototype.LineInfo[pc] != prototype.LineInfo[pc - 1]
-            )
+            var instruction = code[pc];
+            if (pc != 0 && !lines.IsEmpty && lines[pc] != lines[pc - 1])
                 Mark(pc);
             switch (instruction.OpCode)
             {
@@ -57,11 +87,9 @@ internal class LuaDebugCode
                     var target = pc + 1 + instruction.SBx;
                     if (
                         target <= pc
-                        || Code[target].OpCode != OpCode.ForLoop
-                        || (
-                            !prototype.LineInfo.IsEmpty
-                            && prototype.LineInfo[target] != prototype.LineInfo[pc]
-                        )
+                        || target >= code.Length
+                        || code[target].OpCode != OpCode.ForLoop
+                        || (!lines.IsEmpty && lines[target] != lines[pc])
                     )
                         Mark(target);
                     break;
@@ -85,19 +113,19 @@ internal class LuaDebugCode
                     break;
             }
         }
-        for (var pc = 0; pc < Code.Length; pc++)
-            if (points[pc] && Code[pc].OpCode != OpCode.ExtraArg)
-                Code[pc] = (uint)LuaVirtualMachine.DebuggerBreakOpCode;
+
+        var count = 0;
+        for (var pc = 0; pc < points.Length; pc++)
+            if (IsTrapPoint(points, code, pc))
+                count++;
+        var traps = new int[count];
+        var index = 0;
+        for (var pc = 0; pc < points.Length; pc++)
+            if (IsTrapPoint(points, code, pc))
+                traps[index++] = pc;
+        return traps;
     }
 
-    internal void ResumeAt(int pc)
-    {
-        Code[pc] = (uint)LuaVirtualMachine.DebuggerResumeOpCode;
-    }
-
-    internal Instruction RestoreAt(int pc)
-    {
-        Code[pc] = (uint)LuaVirtualMachine.DebuggerBreakOpCode;
-        return Prototype.Code[pc];
-    }
+    static bool IsTrapPoint(bool[] points, ReadOnlySpan<Instruction> code, int pc) =>
+        points[pc] && code[pc].OpCode != OpCode.ExtraArg;
 }

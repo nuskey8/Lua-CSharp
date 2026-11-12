@@ -281,7 +281,10 @@ func createAx(op opCode, a int) instruction { return instruction(op)<<posOp | in
     public override string ToString()
     {
         var op = OpCode;
-        var s = OpNames[(byte)op];
+        var index = (byte)op;
+        if ((uint)index >= (uint)OpNames.Length)
+            return $"TRAP {index}";
+        var s = OpNames[index];
         switch (OpMode(op))
         {
             case IABC:

@@ -126,10 +126,11 @@ readonly struct LuaDebug : IDisposable
 
     public static LuaDebug Create(
         LuaGlobalState globalState,
-        CallStackFrame? prevFrame,
-        CallStackFrame? frame,
-        LuaFunction function,
-        int pc,
+        LuaFunction? function,
+        Prototype? prototype,
+        int? pc,
+        bool isTailCall,
+        (Prototype? Prototype, int Pc) caller,
         ReadOnlySpan<char> what,
         out bool isValid
     )
@@ -139,7 +140,7 @@ readonly struct LuaDebug : IDisposable
             buffer = new(globalState);
         }
 
-        isValid = buffer.GetInfo(prevFrame, frame, function, pc, what);
+        isValid = buffer.GetInfo(function, prototype, pc, isTailCall, caller, what);
 
         return new(buffer, buffer.version);
     }
@@ -212,14 +213,14 @@ readonly struct LuaDebug : IDisposable
         }
 
         internal bool GetInfo(
-            CallStackFrame? prevFrame,
-            CallStackFrame? frame,
-            LuaFunction function,
-            int pc,
+            LuaFunction? function,
+            Prototype? prototype,
+            int? pc,
+            bool isTailCall,
+            (Prototype? Prototype, int Pc) caller,
             ReadOnlySpan<char> what
         )
         {
-            var closure = function as LuaClosure;
             var status = 1;
             foreach (var c in what)
             {
@@ -227,16 +228,16 @@ readonly struct LuaDebug : IDisposable
                 {
                     case 'S':
                     {
-                        GetFuncInfo(function);
+                        GetFuncInfo(prototype);
                         break;
                     }
                     case 'l':
                     {
                         CurrentLine =
-                            frame.HasValue && closure is not null
+                            prototype is not null && pc is { } instructionIndex
                                 ? (
-                                    (uint)pc < (uint)closure.Proto.LineInfo.Length
-                                        ? closure.Proto.LineInfo[pc]
+                                    (uint)instructionIndex < (uint)prototype.LineInfo.Length
+                                        ? prototype.LineInfo[instructionIndex]
                                         : 0
                                 )
                                 : -1;
@@ -245,54 +246,41 @@ readonly struct LuaDebug : IDisposable
                     case 'u':
                     {
                         UpValueCount =
-                            closure is not null ? closure.UpValues.Length
+                            prototype is not null ? prototype.UpValues.Length
                             : function is CSharpClosure csClosure ? csClosure.UpValues.Length
                             : 0;
-                        if (closure is null)
+                        if (prototype is null)
                         {
                             IsVarArg = true;
                             ParameterCount = 0;
                         }
                         else
                         {
-                            IsVarArg = closure.Proto.HasVariableArguments;
-                            ParameterCount = closure.Proto.ParameterCount;
+                            IsVarArg = prototype.HasVariableArguments;
+                            ParameterCount = prototype.ParameterCount;
                         }
 
                         break;
                     }
                     case 't':
                     {
-                        IsTailCall =
-                            frame.HasValue
-                            && (frame.Value.Flags | CallStackFrameFlags.TailCall)
-                                == frame.Value.Flags;
+                        IsTailCall = isTailCall;
                         break;
                     }
                     case 'n':
                     {
-                        /* calling function is a known Lua function? */
-                        if (prevFrame is { Function: LuaClosure prevFrameClosure })
-                        {
-                            NameWhat = GetFuncName(
-                                prevFrameClosure.Proto,
-                                frame?.CallerInstructionIndex ?? 0,
-                                out Name
-                            );
-                        }
-                        else
-                        {
-                            NameWhat = null;
-                        }
+                        NameWhat = caller.Prototype is { } callerPrototype
+                            ? GetFuncName(callerPrototype, caller.Pc, out Name)
+                            : null;
 
                         if (NameWhat is null)
                         {
                             NameWhat = ""; /* not found */
                             Name = null;
                         }
-                        else if (NameWhat != null && Name is "?")
+                        else if (Name is "?")
                         {
-                            Name = function.Name;
+                            Name = function?.Name;
                         }
 
                         break;
@@ -309,9 +297,9 @@ readonly struct LuaDebug : IDisposable
             return status == 1;
         }
 
-        void GetFuncInfo(LuaFunction f)
+        void GetFuncInfo(Prototype? prototype)
         {
-            if (f is not LuaClosure cl)
+            if (prototype is null)
             {
                 Source = "=[C#]";
                 LineDefined = -1;
@@ -320,13 +308,11 @@ readonly struct LuaDebug : IDisposable
             }
             else
             {
-                var p = cl.Proto;
-                Source = p.ChunkName;
-                LineDefined = p.LineDefined;
-                LastLineDefined = p.LastLineDefined;
+                Source = prototype.ChunkName;
+                LineDefined = prototype.LineDefined;
+                LastLineDefined = prototype.LastLineDefined;
                 What = LineDefined == 0 ? "main" : "Lua";
             }
-
             ShortSourceLength = WriteShortSource(Source, ShortSource);
         }
     }

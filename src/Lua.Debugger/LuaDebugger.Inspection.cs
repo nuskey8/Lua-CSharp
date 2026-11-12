@@ -11,44 +11,68 @@ public sealed partial class LuaDebugger
         InspectAsync(
             stopId,
             (context, _) =>
-            {
-                var frames = context.State.GetCallStackFrames();
-                var result = new LuaDebugStackFrame[frames.Length];
-                for (var i = frames.Length - 1; i >= 0; i--)
-                {
-                    var frame = frames[i];
-                    var pc =
-                        i == frames.Length - 1 ? context.Pc : frames[i + 1].CallerInstructionIndex;
-                    LuaDebugSource? source = null;
-                    var line = 0;
-                    var name = frame.Function.Name;
-                    if (frame.Function is LuaClosure closure)
-                    {
-                        lock (gate)
-                        {
-                            RegisterPrototype(closure.Proto);
-                            source = registered
-                                .GetValue(closure.Proto, _ => throw new InvalidOperationException())
-                                .Source;
-                        }
-                        if ((uint)pc < (uint)closure.Proto.LineInfo.Length)
-                            line = closure.Proto.LineInfo[pc];
-                        name =
-                            closure.Proto.LineDefined == 0
-                                ? "main chunk"
-                                : $"function at {source.Name}:{closure.Proto.LineDefined}";
-                    }
-                    result[frames.Length - 1 - i] = new LuaDebugStackFrame(
-                        i + 1,
-                        name,
-                        source,
-                        line
-                    );
-                }
-                return new ValueTask<LuaDebugStackFrame[]>(result);
-            },
+                new ValueTask<LuaDebugStackFrame[]>(
+                    ReadStackTrace(context, 0, int.MaxValue).Frames
+                ),
             cancellationToken
         );
+
+    /// <summary>
+    /// Materializes the requested frames. Discovering executable source lines can also update
+    /// breakpoints.
+    /// </summary>
+    internal Task<LuaDebugStackTrace> GetStackTraceAsync(
+        int stopId,
+        int start,
+        int count,
+        CancellationToken cancellationToken = default
+    ) =>
+        InspectAsync(
+            stopId,
+            (context, _) =>
+                new ValueTask<LuaDebugStackTrace>(ReadStackTrace(context, start, count)),
+            cancellationToken
+        );
+
+    LuaDebugStackTrace ReadStackTrace(PauseContext context, int start, int count)
+    {
+        var frames = context.State.GetCallStackFrames();
+        var total = frames.Length;
+        if (start < 0 || start >= total || count <= 0)
+            return new LuaDebugStackTrace(Array.Empty<LuaDebugStackFrame>(), total);
+        var end = (int)Math.Min(total, (long)start + count);
+        var result = new LuaDebugStackFrame[end - start];
+        var controlsChanged = false;
+        for (var position = start; position < end; position++)
+        {
+            // Frames are reported top first, while the call stack stores the oldest frame first.
+            var i = total - 1 - position;
+            var frame = frames[i];
+            var pc = position == 0 ? context.Pc : frames[i + 1].CallerInstructionIndex;
+            LuaDebugSource? source = null;
+            var line = 0;
+            var name = frame.Function.Name;
+            if (frame.Function is LuaClosure closure)
+            {
+                var prototype = closure.Proto;
+                lock (gate)
+                    source = RegisterPrototype(prototype, ref controlsChanged).Source;
+                if ((uint)pc < (uint)prototype.LineInfo.Length)
+                    line = prototype.LineInfo[pc];
+                name =
+                    prototype.LineDefined == 0
+                        ? "main chunk"
+                        : $"function at {source.Name}:{prototype.LineDefined}";
+            }
+            result[position - start] = new LuaDebugStackFrame(i + 1, name, source, line);
+        }
+        if (controlsChanged)
+        {
+            lock (gate)
+                UpdateExecutionCodes(breakpointsChanged: true);
+        }
+        return new LuaDebugStackTrace(result, total);
+    }
 
     public Task<LuaDebugVariable[]> GetVariablesAsync(
         int stopId,
